@@ -9,6 +9,7 @@ A multiplayer educational game based on the German school system. Players join a
 - **Real-time Drawing**: Players can draw their answers on a chalkboard that updates in real-time
 - **Lives System**: Players have three lives and lose one for each incorrect answer
 - **German Educational Content**: Questions based on the German school system
+- **Admin Panel**: Separate single-page application for managing the question database
 
 ## Technology Stack
 
@@ -16,6 +17,7 @@ A multiplayer educational game based on the German school system. Players join a
 - **Backend**: Node.js, Express
 - **Real-time Communication**: Socket.IO
 - **Styling**: Bootstrap and custom CSS
+- **Database**: Supabase
 
 ## Getting Started
 
@@ -57,6 +59,37 @@ Run the included PowerShell script to start both the server and client:
 ```
 powershell -ExecutionPolicy Bypass -File .\start-app.ps1
 ```
+
+## Admin Panel
+
+The admin panel is a separate single-page application that allows administrators to manage the question database.
+
+### Running the Admin Panel
+
+1. Use the included PowerShell script to start the admin panel:
+   ```
+   powershell -ExecutionPolicy Bypass -File .\run-admin.ps1
+   ```
+   This will:
+   - Install dependencies (if needed)
+   - Start the admin panel on a different port than the main application
+
+2. Access the admin panel at [http://localhost:3000](http://localhost:3000)
+
+### Building the Admin Panel for Deployment
+
+1. Use the included PowerShell script to build the admin panel:
+   ```
+   powershell -ExecutionPolicy Bypass -File .\build-admin.ps1
+   ```
+   
+2. Deploy the contents of the `admin-panel/build` directory to any static hosting service (Netlify, Vercel, GitHub Pages, etc.)
+
+### Admin Panel Features
+
+- Admin authentication
+- Bulk upload of questions in JSON format
+- Validation of question data
 
 ## How to Play
 
