@@ -1,0 +1,30 @@
+.App {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+.navbar {
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.card {
+  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+}
+
+.table-responsive {
+  margin-bottom: 1rem;
+}
+
+.table th {
+  background-color: #f8f9fa;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.alert {
+  margin-bottom: 1rem;
+} 
