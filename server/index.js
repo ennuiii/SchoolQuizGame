@@ -81,13 +81,23 @@ io.on('connection', (socket) => {
 
   // Create a new game room (Gamemaster)
   socket.on('create_room', ({ roomCode, createRoom } = {}) => {
+    console.log('Create room request:', { roomCode, createRoom });
+    
     // Only create room if explicitly requested
-    if (!createRoom) {
+    if (createRoom !== true) {
+      console.log('Room creation not requested, ignoring');
       return;
     }
 
     // If no roomCode provided, generate one
     const finalRoomCode = roomCode || generateRoomCode();
+    
+    // Check if room already exists
+    if (gameRooms[finalRoomCode]) {
+      console.log(`Room ${finalRoomCode} already exists`);
+      socket.emit('error', 'Room already exists');
+      return;
+    }
     
     gameRooms[finalRoomCode] = {
       gamemaster: socket.id,

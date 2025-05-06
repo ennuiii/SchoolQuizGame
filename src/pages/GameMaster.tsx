@@ -269,7 +269,7 @@ const GameMaster: React.FC = () => {
       socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
     }
 
-    // Clean up timers on component unmount
+    // Clean up timers and listeners on component unmount
     return () => {
       clearExistingTimer();
       // Clean up listeners
@@ -284,7 +284,7 @@ const GameMaster: React.FC = () => {
       socketService.off('game_restarted');
       socketService.off('time_up');
     };
-  }, [questions, timeLimit]); // Add dependencies
+  }, []); // Empty dependency array to run only once on mount
 
   // Fetch available subjects and languages from Supabase when component mounts
   useEffect(() => {
@@ -300,8 +300,14 @@ const GameMaster: React.FC = () => {
   }, []);
 
   const createRoom = () => {
-    console.log('Creating new room...');
+    if (isLoading) {
+      return; // Prevent multiple room creation attempts
+    }
+    
+    console.log('Creating room with code:', roomCode);
     setIsLoading(true);
+    
+    // Only create room when button is clicked
     socketService.createRoom(roomCode, true);
   };
 
