@@ -103,11 +103,60 @@ const GameMaster: React.FC = () => {
     socketService.on('game_started', (data) => {
       console.log('Game started event received:', data);
       if (data && data.question) {
-        setCurrentQuestion(data.question);
+        // Ensure the question object has the expected structure
+        const questionObj: Question = {
+          id: data.question.id || 0,
+          text: data.question.text || '',
+          answer: data.question.answer,
+          grade: data.question.grade || 0,
+          subject: data.question.subject || '',
+          language: data.question.language || 'de'
+        };
+        
+        console.log('Setting current question:', questionObj);
+        setCurrentQuestion(questionObj);
         setGameStarted(true);
         setCurrentQuestionIndex(0);
         
         // Initialize timer if timeLimit is set
+        if (data.timeLimit) {
+          setTimeLimit(data.timeLimit);
+          setTimeRemaining(data.timeLimit);
+          
+          const timer = setInterval(() => {
+            setTimeRemaining(prev => {
+              if (prev !== null && prev > 0) {
+                return prev - 1;
+              } else {
+                clearInterval(timer);
+                return 0;
+              }
+            });
+          }, 1000);
+        }
+      }
+    });
+    
+    // Add event handler for new_question event
+    socketService.on('new_question', (data) => {
+      console.log('New question event received:', data);
+      if (data && data.question) {
+        // Ensure the question object has the expected structure
+        const questionObj: Question = {
+          id: data.question.id || 0,
+          text: data.question.text || '',
+          answer: data.question.answer,
+          grade: data.question.grade || 0,
+          subject: data.question.subject || '',
+          language: data.question.language || 'de'
+        };
+        
+        console.log('Setting next question:', questionObj);
+        setCurrentQuestion(questionObj);
+        setCurrentQuestionIndex(prev => prev + 1);
+        setPendingAnswers([]);
+        
+        // Reset timer for new question if time limit is set
         if (data.timeLimit) {
           setTimeLimit(data.timeLimit);
           setTimeRemaining(data.timeLimit);
@@ -230,6 +279,7 @@ const GameMaster: React.FC = () => {
       // Clean up listeners
       socketService.off('room_created');
       socketService.off('game_started');
+      socketService.off('new_question');
       socketService.off('player_joined');
       socketService.off('players_update');
       socketService.off('player_board_update');

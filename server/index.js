@@ -178,7 +178,14 @@ io.on('connection', (socket) => {
     const currentQuestion = gameRooms[roomCode].questions[0];
     gameRooms[roomCode].currentQuestion = currentQuestion;
 
-    io.to(roomCode).emit('game_started', { question: currentQuestion, timeLimit });
+    console.log(`Starting game in room ${roomCode} with first question:`, JSON.stringify(currentQuestion));
+    
+    // Send the game_started event with the first question
+    io.to(roomCode).emit('game_started', { 
+      question: currentQuestion, 
+      timeLimit: timeLimit || null 
+    });
+    
     console.log(`Game started in room: ${roomCode}`);
     
     // Start the timer for this question if a time limit is set
@@ -447,7 +454,13 @@ io.on('connection', (socket) => {
     
     // If game already started, send current question
     if (gameRooms[roomCode].started && gameRooms[roomCode].currentQuestion) {
-      socket.emit('game_started', { question: gameRooms[roomCode].currentQuestion });
+      console.log('Game already started, sending current question to rejoining gamemaster:', 
+                 JSON.stringify(gameRooms[roomCode].currentQuestion));
+      
+      socket.emit('game_started', { 
+        question: gameRooms[roomCode].currentQuestion,
+        timeLimit: gameRooms[roomCode].timeLimit
+      });
       
       // Send all player boards
       Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
@@ -549,53 +562,4 @@ function startQuestionTimer(roomCode) {
         
         if (!hasSubmitted) {
           // IMPORTANT: DO NOT mark as submitted - let the client handle everything via submit_answer
-          console.log(`Sending time_up to player: ${player.name} (${player.id})`);
-          io.to(player.id).emit('time_up');
-          playersNotified++;
-        }
-      }
-    });
-    
-    console.log(`Notified ${playersNotified} players about time's up`);
-    
-    // Also notify everyone in the room that time is up (for UI updates)
-    io.to(roomCode).emit('time_up');
-    
-    // Clear the timer reference
-    room.timers.questionTimer = null;
-  }, room.timeLimit * 1000);
-}
-
-// Serve the React app for any other routes in production
-if (process.env.NODE_ENV === 'production') {
-  app.get('*', (req, res) => {
-    const indexPath = path.join(buildPath, 'index.html');
-    console.log(`Requested: ${req.url}, attempting to serve: ${indexPath}`);
-    
-    if (fs.existsSync(indexPath)) {
-      res.sendFile(indexPath);
-    } else {
-      console.error(`Error: index.html not found at ${indexPath}`);
-      res.status(404).send(`Build files not found. Checked: ${indexPath}<br>
-        Current directory: ${process.cwd()}<br>
-        Build path: ${buildPath}<br>
-        Please check deployment configuration.`);
-    }
-  });
-}
-
-function generateRoomCode() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-function getPlayerName(roomCode, playerId) {
-  if (!gameRooms[roomCode]) return 'Unknown Player';
-  const player = gameRooms[roomCode].players.find(p => p.id === playerId);
-  return player ? player.name : 'Unknown Player';
-}
-
-// Use PORT from environment variable for deployment platforms
-const PORT = process.env.PORT || 5000;
-server.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-}); 
+          console.log(`
