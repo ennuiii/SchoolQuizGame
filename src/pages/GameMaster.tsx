@@ -376,9 +376,9 @@ const GameMaster: React.FC = () => {
         language
       };
       
-      // Always create a temporary question (never save to database)
+      // Create a temporary question (not saved to database)
       const newQuestion = supabaseService.createTemporaryQuestion(questionData);
-      setErrorMsg('Question added to current game session only.');
+      setErrorMsg('Question added to current game session.');
       setTimeout(() => setErrorMsg(''), 3000);
       
       // Update subjects and languages lists if new values were added
@@ -390,8 +390,8 @@ const GameMaster: React.FC = () => {
         setLanguages(prev => [...prev, language].sort());
       }
       
-      // Add to questions array for current game
-      setQuestions(prev => [...prev, newQuestion]);
+      // Add directly to selected questions (bypassing available questions)
+      setSelectedQuestions(prev => [...prev, newQuestion]);
     }
   };
 
