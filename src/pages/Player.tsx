@@ -225,26 +225,35 @@ const Player: React.FC = () => {
         return;
       }
       
-      console.log('Answer not submitted yet, preparing auto-submission');
+      // Get room code from current state or session storage as a fallback
+      const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
+      
+      if (!currentRoomCode) {
+        console.error('No room code available for submission!');
+        showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
+        return;
+      }
+      
+      console.log('Answer not submitted yet, preparing auto-submission to room:', currentRoomCode);
       
       try {
         // Auto-submit the current answer if time is up
         if (answer && answer.trim()) {
           // If there's text in the input field, submit that
-          console.log(`Auto-submitting text answer: "${answer}" to room ${roomCode}`);
-          socketService.submitAnswer(roomCode, answer);
+          console.log(`Auto-submitting text answer: "${answer}" to room ${currentRoomCode}`);
+          socketService.submitAnswer(currentRoomCode, answer);
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
         } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
           // If canvas has content but no text answer, submit with drawing note
-          console.log('Auto-submitting drawing to room ' + roomCode);
-          socketService.submitAnswer(roomCode, "Drawing submitted (time's up)");
+          console.log('Auto-submitting drawing to room ' + currentRoomCode);
+          socketService.submitAnswer(currentRoomCode, "Drawing submitted (time's up)");
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
         } else {
           // If no input and no drawing, send empty answer
-          console.log('Auto-submitting empty answer to room ' + roomCode);
-          socketService.submitAnswer(roomCode, "No answer (time's up)");
+          console.log('Auto-submitting empty answer to room ' + currentRoomCode);
+          socketService.submitAnswer(currentRoomCode, "No answer (time's up)");
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! No answer was provided.', 'warning');
         }
@@ -295,7 +304,7 @@ const Player: React.FC = () => {
       // Disconnect
       socketService.disconnect();
     };
-  }, [navigate]);
+  }, [navigate, roomCode]);
 
   const resetCanvas = () => {
     setCanvasKey(prev => prev + 1);
@@ -324,18 +333,27 @@ const Player: React.FC = () => {
       return;
     }
 
+    // Get room code from current state or session storage as a fallback
+    const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
+    
+    if (!currentRoomCode) {
+      console.error('No room code available for submission!');
+      showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
+      return;
+    }
+
     try {
       // Check what to submit
       if (answer && answer.trim()) {
         // Submit text input
-        console.log(`Manually submitting text answer: "${answer}" to room ${roomCode}`);
-        socketService.submitAnswer(roomCode, answer);
+        console.log(`Manually submitting text answer: "${answer}" to room ${currentRoomCode}`);
+        socketService.submitAnswer(currentRoomCode, answer);
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
         // Submit drawing
-        console.log('Manually submitting drawing to room ' + roomCode);
-        socketService.submitAnswer(roomCode, "Drawing submitted");
+        console.log('Manually submitting drawing to room ' + currentRoomCode);
+        socketService.submitAnswer(currentRoomCode, "Drawing submitted");
         setSubmittedAnswer(true);
         showFlashMessage('Drawing submitted!', 'info');
       } else {
