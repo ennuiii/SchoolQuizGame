@@ -156,8 +156,8 @@ class SupabaseService {
       }
 
       // Extract unique subjects
-      const subjects = Array.from(new Set(data.map(item => item.subject)));
-      return subjects;
+      const subjects = Array.from(new Set(data.map((item: any) => item.subject)));
+      return subjects as string[];
     } catch (err) {
       console.error('Failed to fetch subjects:', err);
       return [];
@@ -180,8 +180,8 @@ class SupabaseService {
       }
 
       // Extract unique languages
-      const languages = Array.from(new Set(data.map(item => item.language)));
-      return languages;
+      const languages = Array.from(new Set(data.map((item: any) => item.language)));
+      return languages as string[];
     } catch (err) {
       console.error('Failed to fetch languages:', err);
       return [];

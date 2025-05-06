@@ -47,6 +47,11 @@ if (process.env.NODE_ENV === 'production') {
   }
   
   app.use(express.static(buildPath));
+  
+  // Serve index.html for any routes not handled to enable client-side routing
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
 }
 
 const server = http.createServer(app);
@@ -594,17 +599,6 @@ function getPlayerName(roomCode, playerId) {
   
   const player = gameRooms[roomCode].players.find(p => p.id === playerId);
   return player ? player.name : 'Unknown Player';
-}
-
-// Serve static assets in production
-if (process.env.NODE_ENV === 'production') {
-  // Serve any static files from the build folder
-  app.use(express.static(buildPath));
-  
-  // Handle React routing, return all requests to React app
-  app.get('*', function(req, res) {
-    res.sendFile(path.join(buildPath, 'index.html'));
-  });
 }
 
 // Start the server
