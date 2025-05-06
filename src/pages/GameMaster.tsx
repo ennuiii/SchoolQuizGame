@@ -99,6 +99,33 @@ const GameMaster: React.FC = () => {
       }
     });
     
+    // Add game_started event listener
+    socketService.on('game_started', (data) => {
+      console.log('Game started event received:', data);
+      if (data && data.question) {
+        setCurrentQuestion(data.question);
+        setGameStarted(true);
+        setCurrentQuestionIndex(0);
+        
+        // Initialize timer if timeLimit is set
+        if (data.timeLimit) {
+          setTimeLimit(data.timeLimit);
+          setTimeRemaining(data.timeLimit);
+          
+          const timer = setInterval(() => {
+            setTimeRemaining(prev => {
+              if (prev !== null && prev > 0) {
+                return prev - 1;
+              } else {
+                clearInterval(timer);
+                return 0;
+              }
+            });
+          }, 1000);
+        }
+      }
+    });
+    
     socketService.on('player_joined', (player: Player) => {
       console.log('Player joined:', player);
       // Update players list when a player joins
@@ -202,6 +229,7 @@ const GameMaster: React.FC = () => {
     return () => {
       // Clean up listeners
       socketService.off('room_created');
+      socketService.off('game_started');
       socketService.off('player_joined');
       socketService.off('players_update');
       socketService.off('player_board_update');
@@ -246,6 +274,10 @@ const GameMaster: React.FC = () => {
     const gradeSortedQuestions = [...selectedQuestions].sort((a, b) => a.grade - b.grade);
     setSelectedQuestions(gradeSortedQuestions);
     setQuestions(gradeSortedQuestions);
+    
+    // Set the first question as the current question
+    setCurrentQuestion(gradeSortedQuestions[0]);
+    setCurrentQuestionIndex(0);
     
     // Start the game with the existing room
     setIsLoading(true);
