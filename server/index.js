@@ -261,18 +261,42 @@ io.on('connection', (socket) => {
 
   // Player submits an answer
   socket.on('submit_answer', ({ roomCode, answer }) => {
-    if (!gameRooms[roomCode]) return;
+    console.log(`Player ${socket.id} submitting answer in room ${roomCode}: ${answer}`);
+    
+    if (!gameRooms[roomCode]) {
+      console.log(`Room ${roomCode} not found for answer submission`);
+      return;
+    }
     
     const playerId = socket.id;
+    const playerName = getPlayerName(roomCode, playerId);
+    
+    // Make sure player board exists
+    if (!gameRooms[roomCode].playerBoards[playerId]) {
+      console.log(`Creating player board for ${playerName} (${playerId})`);
+      gameRooms[roomCode].playerBoards[playerId] = {
+        boardData: '',
+        answers: [],
+        answerSubmitted: false
+      };
+    }
+    
     gameRooms[roomCode].playerBoards[playerId].answers.push(answer);
     gameRooms[roomCode].playerBoards[playerId].answerSubmitted = true;
     
+    console.log(`Answer submitted by ${playerName} (${playerId}): ${answer}`);
+    
     // Notify gamemaster
-    io.to(gameRooms[roomCode].gamemaster).emit('answer_submitted', {
-      playerId,
-      playerName: getPlayerName(roomCode, playerId),
-      answer
-    });
+    if (gameRooms[roomCode].gamemaster) {
+      console.log(`Sending answer to gamemaster ${gameRooms[roomCode].gamemaster}`);
+      io.to(gameRooms[roomCode].gamemaster).emit('answer_submitted', {
+        playerId,
+        playerName,
+        answer
+      });
+    } else {
+      console.log(`No gamemaster found for room ${roomCode}`);
+    }
   });
 
   // Gamemaster evaluates an answer
@@ -486,21 +510,16 @@ function startQuestionTimer(roomCode) {
         const hasSubmitted = playerBoard && playerBoard.answerSubmitted;
         
         if (!hasSubmitted) {
-          // Let client handle the auto-submit when they receive the time_up event
-          // Server no longer automatically generates "Auto-submitted drawing" messages
-          
-          // Notify everyone that time is up (client will handle auto-submission)
+          // Notify player that time is up (client will handle auto-submission)
           io.to(player.id).emit('time_up');
           
-          // Mark as submitted to prevent double submissions
-          if (playerBoard) {
-            playerBoard.answerSubmitted = true;
-          }
+          // DO NOT mark as submitted here - let the client submit via submit_answer event
+          // The client will send the actual answer when it receives time_up
         }
       }
     });
     
-    // Notify everyone that time is up
+    // Notify everyone in the room that time is up
     io.to(roomCode).emit('time_up');
     
     // Clear the timer reference

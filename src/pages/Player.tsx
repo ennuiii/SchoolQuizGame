@@ -216,25 +216,33 @@ const Player: React.FC = () => {
     });
     
     socketService.on('time_up', () => {
+      console.log('Time up event received, timeRemaining set to 0');
       setTimeRemaining(0);
       if (!submittedAnswer) {
+        console.log('Answer not submitted yet, auto-submitting');
+        
         // Auto-submit the current answer if time is up and not submitted yet
         if (answer.trim()) {
           // If there's text in the input field, submit that
+          console.log(`Auto-submitting text answer: "${answer}" to room ${roomCode}`);
           socketService.submitAnswer(roomCode, answer);
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
         } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
           // If canvas has content but no text answer, submit with drawing note
+          console.log('Auto-submitting drawing to room ' + roomCode);
           socketService.submitAnswer(roomCode, "Drawing submitted (time's up)");
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
         } else {
           // If no input and no drawing, send empty answer
+          console.log('Auto-submitting empty answer to room ' + roomCode);
           socketService.submitAnswer(roomCode, "No answer (time's up)");
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! No answer was provided.', 'warning');
         }
+      } else {
+        console.log('Answer already submitted, not auto-submitting');
       }
     });
     
@@ -296,17 +304,21 @@ const Player: React.FC = () => {
     // Still verify there's an answer when manually submitting
     if (!submittedAnswer) {
       if (answer.trim()) {
+        console.log(`Manually submitting text answer: "${answer}" to room ${roomCode}`);
         socketService.submitAnswer(roomCode, answer);
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
         // If canvas has content but no text answer, submit with an empty string
-        socketService.submitAnswer(roomCode, answer);
+        console.log('Manually submitting drawing to room ' + roomCode);
+        socketService.submitAnswer(roomCode, "Drawing submitted");
         setSubmittedAnswer(true);
         showFlashMessage('Drawing submitted!', 'info');
       } else {
         showFlashMessage('Please enter an answer or draw something', 'warning');
       }
+    } else {
+      console.log('Answer already submitted, ignoring submission attempt');
     }
   };
 
