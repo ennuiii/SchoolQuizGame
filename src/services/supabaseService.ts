@@ -34,6 +34,18 @@ interface Question {
   created_at?: string;
 }
 
+interface BulkInsertResult {
+  success: boolean;
+  count?: number;
+  error?: string;
+}
+
+interface AuthResult {
+  success: boolean;
+  token?: string;
+  error?: string;
+}
+
 class SupabaseService {
   /**
    * Get questions from the database with optional filters
@@ -173,6 +185,141 @@ class SupabaseService {
     } catch (err) {
       console.error('Failed to fetch languages:', err);
       return [];
+    }
+  }
+
+  /**
+   * Authenticate an admin user
+   * @param username Admin username
+   * @param password Admin password
+   * @returns Authentication result with token if successful
+   */
+  async authenticateAdmin(username: string, password: string): Promise<AuthResult> {
+    try {
+      // Query the admins table to check credentials
+      const { data, error } = await supabase
+        .from('admins')
+        .select('*')
+        .eq('username', username)
+        .single();
+      
+      if (error || !data) {
+        console.error('Error authenticating admin:', error);
+        return { 
+          success: false, 
+          error: 'Authentication failed' 
+        };
+      }
+      
+      // In a real app, you would use proper password hashing
+      // This is a simple implementation for demonstration
+      if (data.password === password) {
+        // Generate a simple token (in a real app, use JWT with proper signing)
+        const token = btoa(`${username}:${Date.now()}`);
+        
+        return {
+          success: true,
+          token
+        };
+      } else {
+        return {
+          success: false,
+          error: 'Invalid credentials'
+        };
+      }
+    } catch (err) {
+      console.error('Failed to authenticate:', err);
+      return {
+        success: false,
+        error: 'Authentication error'
+      };
+    }
+  }
+  
+  /**
+   * Verify an admin token
+   * @param token The authentication token to verify
+   * @returns Whether the token is valid
+   */
+  async verifyAdminToken(token: string): Promise<boolean> {
+    try {
+      // In a real app, you would verify JWT signature
+      // This is a simple implementation for demonstration
+      const tokenData = atob(token);
+      const [username, timestamp] = tokenData.split(':');
+      
+      // Check if token is expired (24 hour validity)
+      const tokenTime = parseInt(timestamp);
+      const now = Date.now();
+      const tokenAge = now - tokenTime;
+      const tokenMaxAge = 24 * 60 * 60 * 1000; // 24 hours
+      
+      if (tokenAge > tokenMaxAge) {
+        console.log('Token expired');
+        return false;
+      }
+      
+      // Check if username exists in admin table
+      const { data, error } = await supabase
+        .from('admins')
+        .select('username')
+        .eq('username', username)
+        .single();
+      
+      if (error || !data) {
+        console.error('Error verifying admin:', error);
+        return false;
+      }
+      
+      return true;
+    } catch (err) {
+      console.error('Failed to verify token:', err);
+      return false;
+    }
+  }
+  
+  /**
+   * Insert multiple questions into the database
+   * @param questions Array of question objects to insert
+   * @param token Admin authentication token
+   * @returns Result of the bulk insert operation
+   */
+  async bulkInsertQuestions(questions: Omit<Question, 'id' | 'created_at'>[], token: string): Promise<BulkInsertResult> {
+    try {
+      // Verify admin token first
+      const isAdmin = await this.verifyAdminToken(token);
+      
+      if (!isAdmin) {
+        return {
+          success: false,
+          error: 'Not authorized'
+        };
+      }
+      
+      // Insert questions
+      const { data, error } = await supabase
+        .from('questions')
+        .insert(questions)
+        .select();
+      
+      if (error) {
+        console.error('Error inserting questions:', error);
+        return {
+          success: false,
+          error: error.message
+        };
+      }
+      
+      return {
+        success: true,
+        count: data.length
+      };
+    } catch (err) {
+      console.error('Failed to insert questions:', err);
+      return {
+        success: false,
+        error: (err as Error).message
+      };
     }
   }
 }
