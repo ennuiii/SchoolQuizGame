@@ -1,3 +1,5 @@
+// Last updated: May 2025
+// School Quiz Game server file
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
