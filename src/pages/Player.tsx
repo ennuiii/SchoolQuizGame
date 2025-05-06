@@ -253,8 +253,14 @@ const Player: React.FC = () => {
           showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
         } else if (hasDrawing) {
           // If canvas has content but no text answer, submit with drawing note
+          // Also include any partial text the player might have been typing
+          const textContent = answer && answer.trim() ? answer : "";
+          const finalAnswer = textContent ? 
+            `${textContent} (drawing submitted, time's up)` : 
+            "Drawing submitted (time's up)";
+          
           console.log('Auto-submitting drawing to room ' + currentRoomCode);
-          socketService.submitAnswer(currentRoomCode, "Drawing submitted (time's up)");
+          socketService.submitAnswer(currentRoomCode, finalAnswer);
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
         } else {
@@ -362,8 +368,14 @@ const Player: React.FC = () => {
         showFlashMessage('Answer submitted!', 'info');
       } else if (hasDrawing) {
         // Submit drawing
+        // Also include any partial text the player might have been typing
+        const textContent = answer && answer.trim() ? answer : "";
+        const finalAnswer = textContent ? 
+          `${textContent} (drawing submitted)` : 
+          "Drawing submitted";
+          
         console.log('Manually submitting drawing to room ' + currentRoomCode);
-        socketService.submitAnswer(currentRoomCode, "Drawing submitted");
+        socketService.submitAnswer(currentRoomCode, finalAnswer);
         setSubmittedAnswer(true);
         showFlashMessage('Drawing submitted!', 'info');
       } else {
