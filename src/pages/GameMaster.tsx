@@ -57,6 +57,7 @@ const GameMaster: React.FC = () => {
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [sortByGrade, setSortByGrade] = useState<boolean>(true);
+  const [saveQuestionsToDatabase, setSaveQuestionsToDatabase] = useState<boolean>(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to clear any existing timer
@@ -368,8 +369,7 @@ const GameMaster: React.FC = () => {
       const grade = parseInt(prompt('Enter the grade level (1-13):') || '5', 10);
       const language = prompt('Enter the language (e.g., de, en):') || 'de';
       
-      const newQuestion: Question = {
-        id: questions.length + 1,
+      const questionData = {
         text,
         answer,
         subject,
@@ -377,33 +377,46 @@ const GameMaster: React.FC = () => {
         language
       };
       
-      setQuestions(prev => [...prev, newQuestion]);
+      let newQuestion: Question;
       
-      // Save the question to the database
-      try {
-        setErrorMsg('Saving question to database...');
-        const savedQuestion = await supabaseService.addQuestion(newQuestion);
-        
-        if (savedQuestion) {
-          setErrorMsg('Question saved to database successfully!');
+      // Only save to database if the flag is enabled
+      if (saveQuestionsToDatabase) {
+        try {
+          setErrorMsg('Saving question to database...');
+          const savedQuestion = await supabaseService.addQuestion(questionData);
           
-          // Update subjects and languages lists if new values were added
-          if (!subjects.includes(subject)) {
-            setSubjects(prev => [...prev, subject].sort());
+          if (savedQuestion) {
+            newQuestion = savedQuestion;
+            setErrorMsg('Question saved to database successfully!');
+            
+            // Update subjects and languages lists if new values were added
+            if (!subjects.includes(subject)) {
+              setSubjects(prev => [...prev, subject].sort());
+            }
+            
+            if (language && !languages.includes(language)) {
+              setLanguages(prev => [...prev, language].sort());
+            }
+            
+            setTimeout(() => setErrorMsg(''), 3000);
+          } else {
+            setErrorMsg('Failed to save question to database. Using temporary question instead.');
+            newQuestion = supabaseService.createTemporaryQuestion(questionData);
           }
-          
-          if (language && !languages.includes(language)) {
-            setLanguages(prev => [...prev, language].sort());
-          }
-          
-          setTimeout(() => setErrorMsg(''), 3000);
-        } else {
-          setErrorMsg('Failed to save question to database.');
+        } catch (error) {
+          console.error('Error saving question:', error);
+          setErrorMsg('Error saving question to database. Using temporary question instead.');
+          newQuestion = supabaseService.createTemporaryQuestion(questionData);
         }
-      } catch (error) {
-        console.error('Error saving question:', error);
-        setErrorMsg('Error saving question to database.');
+      } else {
+        // Create a temporary question (not saved to database)
+        newQuestion = supabaseService.createTemporaryQuestion(questionData);
+        setErrorMsg('Question added to current game session only.');
+        setTimeout(() => setErrorMsg(''), 3000);
       }
+      
+      // Add to questions array for current game
+      setQuestions(prev => [...prev, newQuestion]);
     }
   };
 
@@ -560,6 +573,23 @@ const GameMaster: React.FC = () => {
                         />
                         <small className="text-muted">Leave empty for no time limit</small>
                       </div>
+                      
+                      <div className="form-check mb-3">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          id="saveQuestionsCheckbox"
+                          checked={saveQuestionsToDatabase}
+                          onChange={(e) => setSaveQuestionsToDatabase(e.target.checked)}
+                        />
+                        <label className="form-check-label" htmlFor="saveQuestionsCheckbox">
+                          Save custom questions to database
+                        </label>
+                        <small className="form-text text-muted d-block">
+                          If unchecked, custom questions will only be available for this game session
+                        </small>
+                      </div>
+                      
                       <button 
                         className="btn btn-success btn-lg w-100"
                         onClick={startGame}

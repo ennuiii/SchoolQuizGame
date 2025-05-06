@@ -107,6 +107,25 @@ class SupabaseService {
   }
 
   /**
+   * Create a temporary question (not saved to database)
+   * This allows creating questions for the current game session only
+   */
+  createTemporaryQuestion(question: Omit<Question, 'id' | 'created_at'>): Question {
+    // Generate a temporary negative ID to avoid conflicts with database IDs
+    // Database IDs are typically positive integers
+    const tempId = -Math.floor(Math.random() * 10000) - 1;
+    
+    return {
+      id: tempId,
+      text: question.text,
+      answer: question.answer,
+      grade: question.grade,
+      subject: question.subject,
+      language: question.language
+    };
+  }
+
+  /**
    * Get subjects for filtering
    */
   async getSubjects(): Promise<string[]> {
