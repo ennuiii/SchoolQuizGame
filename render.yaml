@@ -6,7 +6,7 @@ services:
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
-        value: 18.19.0
+        value: 16.20.0
       - key: NODE_ENV
         value: production
 
@@ -21,7 +21,7 @@ services:
         destination: /index.html
     envVars:
       - key: NODE_VERSION
-        value: 18.19.0
+        value: 16.20.0
 
   - type: static-site
     name: school-quiz-admin
@@ -34,6 +34,10 @@ services:
         destination: /index.html
     envVars:
       - key: NODE_VERSION
-        value: 18.19.0
-      - key: NODE_ENV
-        value: production 
+        value: 16.20.0
+      - key: REACT_APP_SUPABASE_URL
+        sync: false
+      - key: REACT_APP_SUPABASE_ANON_KEY
+        sync: false
+      - key: REACT_APP_API_URL
+        value: https://schoolquizgame.onrender.com 
