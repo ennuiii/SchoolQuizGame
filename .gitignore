@@ -1,0 +1,47 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.js
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.production
+.env
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# deployment
+/deploy
+
+# large files
+git-installer.exe
+*.exe
+SchoolQuizGame.zip
+SchoolQuizGame_Upload.zip
+*.zip
+*.rar
+*.7z
+
+# PowerShell scripts with potential sensitive info
+push-to-github.ps1
+github-setup.ps1
+
+# Database files
+*.sql
+
+# Supabase related
+supabase-*.md
+SUPABASE_*.md
+*supabase*.js

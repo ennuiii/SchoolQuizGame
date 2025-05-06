@@ -1,0 +1,17 @@
+declare module 'fabric' {
+  export namespace fabric {
+    export class Canvas {
+      constructor(el: HTMLCanvasElement | string, options?: any);
+      isDrawingMode: boolean;
+      freeDrawingBrush: any;
+      backgroundColor: string;
+      width: number;
+      height: number;
+      renderAll(): void;
+      clear(): void;
+      dispose(): void;
+      toSVG(): string;
+      on(event: string, callback: (...args: any[]) => void): void;
+    }
+  }
+} 
