@@ -1,13 +1,24 @@
 services:
   - type: web
+    name: school-quiz-game-api
+    env: node
+    buildCommand: cd server && npm install
+    startCommand: node server/index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+
+  - type: static
     name: school-quiz-game
     env: static
-    buildCommand: npm run render-build
-    staticPublishPath: ./server/build
-    envVars:
-      - key: NODE_VERSION
-        value: 16.x
+    buildCommand: chmod +x public/render-build-static.sh && ./public/render-build-static.sh
+    staticPublishPath: ./build
     routes:
       - type: rewrite
         source: /*
-        destination: /index.html 
+        destination: /index.html
+    envVars:
+      - key: NODE_VERSION
+        value: 16.x 
