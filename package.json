@@ -10,7 +10,7 @@
     "dev:client": "react-scripts start",
     "dev:server": "cd server && node index.js",
     "dev:admin": "cd admin-panel && npm start",
-    "build": "cd admin-panel && npm run build",
+    "build": "react-scripts build",
     "install-all": "npm install && cd admin-panel && npm install",
     "dev": "concurrently \"npm run start\" \"cd admin-panel && npm start\"",
     "test": "react-scripts test",
