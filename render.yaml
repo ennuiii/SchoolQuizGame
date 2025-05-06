@@ -2,14 +2,11 @@ services:
   - type: web
     name: school-quiz-game
     env: node
-    buildCommand: |
-      npm install
-      cd admin-panel && npm install && npm run build
-      cd .. && npm run build
+    buildCommand: npm install && npm run build
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
-        value: 16.20.0
+        value: 18.19.0
       - key: NODE_ENV
         value: production
 
@@ -24,7 +21,7 @@ services:
         destination: /index.html
     envVars:
       - key: NODE_VERSION
-        value: 16.20.0
+        value: 18.19.0
 
   - type: static-site
     name: school-quiz-admin
@@ -37,4 +34,6 @@ services:
         destination: /index.html
     envVars:
       - key: NODE_VERSION
-        value: 16.20.0 
+        value: 18.19.0
+      - key: NODE_ENV
+        value: production 
