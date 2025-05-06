@@ -304,6 +304,12 @@ const GameMaster: React.FC = () => {
       return; // Prevent multiple room creation attempts
     }
     
+    // Validate room code format if provided
+    if (roomCode && !/^[A-Z0-9]{1,4}$/.test(roomCode)) {
+      setErrorMsg('Room code must be 1-4 characters (letters and numbers only)');
+      return;
+    }
+    
     console.log('Creating room with code:', roomCode);
     setIsLoading(true);
     
@@ -502,7 +508,9 @@ const GameMaster: React.FC = () => {
                   onChange={(e) => {
                     // Only update the state, don't create room
                     const newRoomCode = e.target.value.toUpperCase();
-                    setRoomCode(newRoomCode);
+                    if (newRoomCode === '' || /^[A-Z0-9]{0,4}$/.test(newRoomCode)) {
+                      setRoomCode(newRoomCode);
+                    }
                   }}
                   maxLength={4}
                 />
