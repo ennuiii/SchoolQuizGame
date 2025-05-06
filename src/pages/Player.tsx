@@ -241,14 +241,17 @@ const Player: React.FC = () => {
       console.log('Answer not submitted yet, preparing auto-submission to room:', currentRoomCode);
       
       try {
+        const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
+        
         // Auto-submit the current answer if time is up
         if (answer && answer.trim()) {
-          // If there's text in the input field, submit that
-          console.log(`Auto-submitting text answer: "${answer}" to room ${currentRoomCode}`);
-          socketService.submitAnswer(currentRoomCode, answer);
+          // If there's text in the input field, submit that (potentially adding drawing note)
+          const finalAnswer = hasDrawing ? `${answer} (with drawing)` : answer;
+          console.log(`Auto-submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
+          socketService.submitAnswer(currentRoomCode, finalAnswer);
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
-        } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
+        } else if (hasDrawing) {
           // If canvas has content but no text answer, submit with drawing note
           console.log('Auto-submitting drawing to room ' + currentRoomCode);
           socketService.submitAnswer(currentRoomCode, "Drawing submitted (time's up)");
@@ -347,14 +350,17 @@ const Player: React.FC = () => {
     }
 
     try {
+      const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
+      
       // Check what to submit
       if (answer && answer.trim()) {
         // Submit text input
-        console.log(`Manually submitting text answer: "${answer}" to room ${currentRoomCode}`);
-        socketService.submitAnswer(currentRoomCode, answer);
+        const finalAnswer = hasDrawing ? `${answer} (with drawing)` : answer;
+        console.log(`Manually submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
+        socketService.submitAnswer(currentRoomCode, finalAnswer);
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
-      } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
+      } else if (hasDrawing) {
         // Submit drawing
         console.log('Manually submitting drawing to room ' + currentRoomCode);
         socketService.submitAnswer(currentRoomCode, "Drawing submitted");

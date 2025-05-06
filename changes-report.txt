@@ -1,0 +1,35 @@
+CHANGES MADE TO SCHOOL QUIZ GAME
+=============================
+
+Date: May 6, 2025
+File modified: src/pages/Player.tsx
+
+ISSUE FIXED:
+- Fixed a bug where text answers were being overwritten by "Drawing submitted (time's up)" message when time runs out
+- Fixed a similar issue in the manual submission function
+
+CHANGES MADE:
+1. Modified the 'time_up' event handler to prioritize text answers over drawings
+2. Added logic to include "(with drawing)" note when both text answer and drawing exist
+3. Applied the same logic to the manual submitAnswer function for consistency
+
+HOW TO COMMIT:
+1. Install Git if not already installed: https://git-scm.com/download/win
+2. Open a command prompt or PowerShell window in the project folder
+3. Run the following commands:
+   git init (if not already initialized)
+   git add .
+   git commit -m "Fix answer submission overwrite issue in Player.tsx"
+   git remote add origin https://github.com/YOUR_USERNAME/SchoolQuizGame.git
+   git push -u origin master
+
+ALTERNATIVE:
+If Git is installed but not in PATH:
+1. Try to find Git installation (typically in "C:\Program Files\Git\cmd\git.exe")
+2. Use full path to run Git commands, e.g.:
+   "C:\Program Files\Git\cmd\git.exe" add .
+   "C:\Program Files\Git\cmd\git.exe" commit -m "Fix answer submission overwrite issue in Player.tsx"
+
+Or:
+1. Run the provided script with execution policy bypass:
+   PowerShell -ExecutionPolicy Bypass -File push-to-github.ps1 
