@@ -30,6 +30,7 @@ const Player: React.FC = () => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Create a throttled version of the update function
   const sendBoardUpdate = useCallback(
@@ -39,6 +40,31 @@ const Player: React.FC = () => {
     }, 100), // Throttle to max once per 100ms
     []
   );
+
+  // Helper function to clear any existing timer
+  const clearExistingTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  // Helper function to start a new timer
+  const startTimer = (duration: number) => {
+    clearExistingTimer();
+    setTimeRemaining(duration);
+    
+    timerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev !== null && prev > 0) {
+          return prev - 1;
+        } else {
+          clearExistingTimer();
+          return 0;
+        }
+      });
+    }, 1000);
+  };
 
   // Initialize canvas
   useEffect(() => {
@@ -129,22 +155,7 @@ const Player: React.FC = () => {
       // Set time limit if present
       if (data.timeLimit) {
         setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit);
-        
-        // Start countdown
-        const timer = setInterval(() => {
-          setTimeRemaining(prev => {
-            if (prev !== null && prev > 0) {
-              return prev - 1;
-            } else {
-              clearInterval(timer);
-              return 0;
-            }
-          });
-        }, 1000);
-        
-        // Clean up timer
-        return () => clearInterval(timer);
+        startTimer(data.timeLimit);
       }
     });
     
@@ -157,22 +168,7 @@ const Player: React.FC = () => {
       // Reset timer for new question if time limit is set
       if (data.timeLimit) {
         setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit);
-        
-        // Start countdown
-        const timer = setInterval(() => {
-          setTimeRemaining(prev => {
-            if (prev !== null && prev > 0) {
-              return prev - 1;
-            } else {
-              clearInterval(timer);
-              return 0;
-            }
-          });
-        }, 1000);
-        
-        // Clean up timer
-        return () => clearInterval(timer);
+        startTimer(data.timeLimit);
       } else {
         setTimeLimit(null);
         setTimeRemaining(null);
@@ -314,6 +310,7 @@ const Player: React.FC = () => {
     });
     
     return () => {
+      clearExistingTimer();
       // Cleanup listeners
       socketService.off('game_started');
       socketService.off('new_question');

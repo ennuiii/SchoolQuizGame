@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import supabaseService from '../services/supabaseService';
@@ -57,6 +57,32 @@ const GameMaster: React.FC = () => {
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [sortByGrade, setSortByGrade] = useState<boolean>(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Helper function to clear any existing timer
+  const clearExistingTimer = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
+  // Helper function to start a new timer
+  const startTimer = (duration: number) => {
+    clearExistingTimer();
+    setTimeRemaining(duration);
+    
+    timerRef.current = setInterval(() => {
+      setTimeRemaining(prev => {
+        if (prev !== null && prev > 0) {
+          return prev - 1;
+        } else {
+          clearExistingTimer();
+          return 0;
+        }
+      });
+    }, 1000);
+  };
 
   useEffect(() => {
     // Connect to socket server
@@ -84,17 +110,7 @@ const GameMaster: React.FC = () => {
         
         // Initialize timer if timeLimit is set
         if (timeLimit) {
-          setTimeRemaining(timeLimit);
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
+          startTimer(timeLimit);
         }
       }
     });
@@ -121,18 +137,7 @@ const GameMaster: React.FC = () => {
         // Initialize timer if timeLimit is set
         if (data.timeLimit) {
           setTimeLimit(data.timeLimit);
-          setTimeRemaining(data.timeLimit);
-          
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
+          startTimer(data.timeLimit);
         }
       }
     });
@@ -159,18 +164,7 @@ const GameMaster: React.FC = () => {
         // Reset timer for new question if time limit is set
         if (data.timeLimit) {
           setTimeLimit(data.timeLimit);
-          setTimeRemaining(data.timeLimit);
-          
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
+          startTimer(data.timeLimit);
         }
       }
     });
@@ -275,7 +269,9 @@ const GameMaster: React.FC = () => {
       socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
     }
 
+    // Clean up timers on component unmount
     return () => {
+      clearExistingTimer();
       // Clean up listeners
       socketService.off('room_created');
       socketService.off('game_started');
@@ -288,7 +284,7 @@ const GameMaster: React.FC = () => {
       socketService.off('game_restarted');
       socketService.off('time_up');
     };
-  }, []);
+  }, [questions, timeLimit]); // Add dependencies
 
   // Fetch available subjects and languages from Supabase when component mounts
   useEffect(() => {
@@ -336,17 +332,7 @@ const GameMaster: React.FC = () => {
     
     // Initialize timer if timeLimit is set
     if (timeLimit) {
-      setTimeRemaining(timeLimit);
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev !== null && prev > 0) {
-            return prev - 1;
-          } else {
-            clearInterval(timer);
-            return 0;
-          }
-        });
-      }, 1000);
+      startTimer(timeLimit);
     }
   };
 
@@ -360,17 +346,7 @@ const GameMaster: React.FC = () => {
       
       // Reset timer for new question if time limit is set
       if (timeLimit) {
-        setTimeRemaining(timeLimit);
-        const questionTimer = setInterval(() => {
-          setTimeRemaining(prev => {
-            if (prev !== null && prev > 0) {
-              return prev - 1;
-            } else {
-              clearInterval(questionTimer);
-              return 0;
-            }
-          });
-        }, 1000);
+        startTimer(timeLimit);
       }
     } else {
       // End game logic
