@@ -562,4 +562,55 @@ function startQuestionTimer(roomCode) {
         
         if (!hasSubmitted) {
           // IMPORTANT: DO NOT mark as submitted - let the client handle everything via submit_answer
-          console.log(`
+          console.log(`Sending time_up to player ${player.id} (${player.name})`);
+          io.to(player.id).emit('time_up');
+          playersNotified++;
+        }
+      }
+    });
+    
+    console.log(`Time's up notification sent to ${playersNotified} players in room ${roomCode}`);
+    
+    // Also notify the game master that time is up
+    if (room.gamemaster) {
+      io.to(room.gamemaster).emit('time_up_gamemaster');
+    }
+  }, room.timeLimit * 1000);
+}
+
+// Helper function to generate a random room code
+function generateRoomCode() {
+  const characters = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // Removed I, O, 1, 0 to avoid confusion
+  let result = '';
+  for (let i = 0; i < 4; i++) {
+    result += characters.charAt(Math.floor(Math.random() * characters.length));
+  }
+  return result;
+}
+
+// Helper function to get player name by ID
+function getPlayerName(roomCode, playerId) {
+  if (!gameRooms[roomCode]) return 'Unknown Player';
+  
+  const player = gameRooms[roomCode].players.find(p => p.id === playerId);
+  return player ? player.name : 'Unknown Player';
+}
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  // Serve any static files from the build folder
+  app.use(express.static(buildPath));
+  
+  // Handle React routing, return all requests to React app
+  app.get('*', function(req, res) {
+    res.sendFile(path.join(buildPath, 'index.html'));
+  });
+}
+
+// Start the server
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+  console.log(`NODE_ENV: ${process.env.NODE_ENV}`);
+  console.log(`Build path: ${buildPath}`);
+});

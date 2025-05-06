@@ -9,13 +9,13 @@ taskkill /f /im node.exe 2>$null
 $serverPort = 5000
 
 Write-Host "Starting server on port $serverPort..."
-Start-Process -FilePath "cmd.exe" -ArgumentList "/k set NODE_OPTIONS=--openssl-legacy-provider && cd C:\SchoolQuizGame && node server/index.js"
+Start-Process -FilePath "powershell.exe" -ArgumentList "-Command `"Set-Location '$PSScriptRoot'; `$env:NODE_OPTIONS='--openssl-legacy-provider'; node server/index.js`""
 
 Write-Host "Waiting 5 seconds for server to initialize..."
 Start-Sleep -Seconds 5
 
 Write-Host "Starting client using legacy OpenSSL provider..."
-Start-Process -FilePath "cmd.exe" -ArgumentList "/k set NODE_OPTIONS=--openssl-legacy-provider && cd C:\SchoolQuizGame && npm start"
+Start-Process -FilePath "powershell.exe" -ArgumentList "-Command `"Set-Location '$PSScriptRoot'; `$env:NODE_OPTIONS='--openssl-legacy-provider'; npm start`""
 
 Write-Host "Server and client started. Check the new command windows that opened."
 Write-Host "To test:"
