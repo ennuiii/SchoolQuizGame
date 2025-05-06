@@ -493,7 +493,10 @@ const GameMaster: React.FC = () => {
                   className="form-control"
                   placeholder="Leave blank for random code"
                   value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value)}
+                  onChange={(e) => {
+                    // Only update the state, don't create room
+                    setRoomCode(e.target.value);
+                  }}
                 />
                 <small className="text-muted">You can specify a custom room code or leave it blank for a random one.</small>
               </div>
