@@ -1,14 +1,17 @@
 services:
   - type: web
-    name: school-quiz-game-api
+    name: school-quiz-game
     env: node
-    buildCommand: cd server && npm install
-    startCommand: node server/index.js
+    buildCommand: |
+      npm install
+      cd admin-panel && npm install && npm run build
+      cd .. && npm run build
+    startCommand: npm start
     envVars:
+      - key: NODE_VERSION
+        value: 16.20.0
       - key: NODE_ENV
         value: production
-      - key: PORT
-        value: 10000
 
   - type: static-site
     name: school-quiz-game
@@ -21,12 +24,12 @@ services:
         destination: /index.html
     envVars:
       - key: NODE_VERSION
-        value: 16.x
+        value: 16.20.0
 
   - type: static-site
     name: school-quiz-admin
     env: static
-    buildCommand: cd admin-panel && npm install && npm run build
+    buildCommand: cd admin-panel && npm install && CI=false npm run build
     publishPath: ./admin-panel/build
     routes:
       - type: rewrite
@@ -34,4 +37,4 @@ services:
         destination: /index.html
     envVars:
       - key: NODE_VERSION
-        value: 16.x 
+        value: 16.20.0 

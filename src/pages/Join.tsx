@@ -50,9 +50,9 @@ const Join: React.FC = () => {
       return;
     }
 
-    // Only proceed if room code is valid (proper length)
-    if (roomCode.trim().length < 3) {
-      setErrorMsg('Room code should be at least 3 characters');
+    // Only proceed if room code is valid (4 characters)
+    if (roomCode.trim().length !== 4) {
+      setErrorMsg('Room code must be exactly 4 characters');
       return;
     }
 
@@ -96,9 +96,9 @@ const Join: React.FC = () => {
                     id="roomCode"
                     value={roomCode}
                     onChange={handleRoomCodeChange}
-                    placeholder="Enter 6-digit code"
+                    placeholder="Enter 4-character code"
                     disabled={isJoining}
-                    maxLength={6}
+                    maxLength={4}
                   />
                 </div>
                 

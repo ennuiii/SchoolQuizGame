@@ -80,33 +80,21 @@ io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Create a new game room (Gamemaster)
-  socket.on('create_room', ({ roomCode, createRoom } = {}) => {
-    console.log('Create room request:', { roomCode, createRoom });
+  socket.on('create_room', () => {
+    console.log('Create room request received');
     
-    // Only create room if explicitly requested
-    if (createRoom !== true) {
-      console.log('Room creation not requested, ignoring');
-      return;
-    }
-
-    // If no roomCode provided, generate one
-    const finalRoomCode = roomCode || generateRoomCode();
-    
-    // Validate room code format
-    if (roomCode && !/^[A-Z0-9]{1,4}$/.test(roomCode)) {
-      console.log(`Invalid room code format: ${roomCode}`);
-      socket.emit('error', 'Room code must be 1-4 characters (letters and numbers only)');
-      return;
-    }
+    // Generate a room code
+    const roomCode = generateRoomCode();
     
     // Check if room already exists
-    if (gameRooms[finalRoomCode]) {
-      console.log(`Room ${finalRoomCode} already exists`);
-      socket.emit('error', 'Room already exists');
+    if (gameRooms[roomCode]) {
+      console.log(`Room ${roomCode} already exists, generating new code`);
+      socket.emit('error', 'Room already exists, please try again');
       return;
     }
     
-    gameRooms[finalRoomCode] = {
+    // Create the room
+    gameRooms[roomCode] = {
       gamemaster: socket.id,
       players: [],
       started: false,
@@ -117,10 +105,10 @@ io.on('connection', (socket) => {
       timers: {}
     };
 
-    socket.join(finalRoomCode);
-    socket.roomCode = finalRoomCode; // Store room code in socket for reference
-    socket.emit('room_created', { roomCode: finalRoomCode });
-    console.log(`Room created: ${finalRoomCode} by ${socket.id}`);
+    socket.join(roomCode);
+    socket.roomCode = roomCode; // Store room code in socket for reference
+    socket.emit('room_created', { roomCode });
+    console.log(`Room created: ${roomCode} by ${socket.id}`);
     console.log('Available rooms now:', Object.keys(gameRooms));
   });
 

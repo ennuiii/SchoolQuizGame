@@ -64,13 +64,13 @@ class SocketService {
   }
 
   // GameMaster actions
-  createRoom(roomCode: string, createRoom: boolean = false) {
-    console.log('Creating room with params:', { roomCode, createRoom });
+  createRoom() {
+    console.log('Creating room');
     if (!this.socket) {
       console.error('Socket not connected');
       return;
     }
-    this.emit('create_room', { roomCode, createRoom });
+    this.emit('create_room');
   }
 
   startGame(roomCode: string, questions: any[], timeLimit?: number) {

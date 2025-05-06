@@ -34,29 +34,19 @@ interface AnswerSubmission {
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
-  const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [roomCode, setRoomCode] = useState('');
   const [gameStarted, setGameStarted] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
-  const [pendingAnswers, setPendingAnswers] = useState<AnswerSubmission[]>([]);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [players, setPlayers] = useState<Player[]>([]);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
   const [languages, setLanguages] = useState<string[]>([]);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('de'); // Default to German
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
-  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
-  const [sortByGrade, setSortByGrade] = useState<boolean>(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Helper function to clear any existing timer
@@ -304,17 +294,12 @@ const GameMaster: React.FC = () => {
       return; // Prevent multiple room creation attempts
     }
     
-    // Validate room code format if provided
-    if (roomCode && !/^[A-Z0-9]{1,4}$/.test(roomCode)) {
-      setErrorMsg('Room code must be 1-4 characters (letters and numbers only)');
-      return;
-    }
-    
-    console.log('Creating room with code:', roomCode);
+    console.log('Creating room');
     setIsLoading(true);
+    setErrorMsg(''); // Clear any previous error messages
     
-    // Only create room when button is clicked
-    socketService.createRoom(roomCode, true);
+    // Create room with generated code
+    socketService.createRoom();
   };
 
   const startGame = () => {
@@ -491,31 +476,12 @@ const GameMaster: React.FC = () => {
         </div>
       )}
       
-      {!roomCode ? (
+      {!gameStarted ? (
         <div className="row justify-content-center">
-          <div className="col-md-6">
+          <div className="col-md-8">
             <div className="card p-4 text-center">
               <h3>Create a New Game Room</h3>
               <p>As the Game Master, you'll manage questions and evaluate answers.</p>
-              <div className="form-group mb-3">
-                <label htmlFor="roomCodeInput" className="form-label">Room Code (optional):</label>
-                <input
-                  type="text"
-                  id="roomCodeInput"
-                  className="form-control"
-                  placeholder="Leave blank for random code"
-                  value={roomCode}
-                  onChange={(e) => {
-                    // Only update the state, don't create room
-                    const newRoomCode = e.target.value.toUpperCase();
-                    if (newRoomCode === '' || /^[A-Z0-9]{0,4}$/.test(newRoomCode)) {
-                      setRoomCode(newRoomCode);
-                    }
-                  }}
-                  maxLength={4}
-                />
-                <small className="text-muted">You can specify a custom room code (up to 4 characters) or leave it blank for a random one.</small>
-              </div>
               <button 
                 className="btn btn-primary btn-lg mt-3"
                 onClick={createRoom}
