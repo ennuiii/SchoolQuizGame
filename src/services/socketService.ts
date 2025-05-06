@@ -4,7 +4,7 @@ import { io, Socket } from 'socket.io-client';
 // In production, use the specific backend URL
 const SOCKET_URL = process.env.NODE_ENV === 'production' 
   ? 'https://schoolquizgame.onrender.com' // The deployed backend URL
-  : 'http://localhost:3001';
+  : 'http://localhost:5000'; // Use port 5000 to match server
 
 class SocketService {
   private socket: Socket | null = null;

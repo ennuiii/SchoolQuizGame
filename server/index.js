@@ -263,8 +263,24 @@ io.on('connection', (socket) => {
   socket.on('submit_answer', ({ roomCode, answer }) => {
     console.log(`Player ${socket.id} submitting answer in room ${roomCode}: "${answer}"`);
     
+    // Additional debug info to help diagnose issues
+    console.log('Available rooms:', Object.keys(gameRooms));
+    console.log('Player room code from socket:', socket.roomCode);
+    
+    // If roomCode is not provided but stored on socket, use that
+    if (!roomCode && socket.roomCode) {
+      console.log(`No roomCode provided, using socket.roomCode: ${socket.roomCode}`);
+      roomCode = socket.roomCode;
+    }
+    
+    if (!roomCode) {
+      console.log('No room code provided and none stored on socket.');
+      socket.emit('error', 'No room code provided');
+      return;
+    }
+    
     if (!gameRooms[roomCode]) {
-      console.log(`Room ${roomCode} not found for answer submission`);
+      console.log(`Room ${roomCode} not found for answer submission. Available rooms: ${Object.keys(gameRooms).join(', ')}`);
       socket.emit('error', 'Room not found');
       return;
     }

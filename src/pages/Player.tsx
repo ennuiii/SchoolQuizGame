@@ -109,6 +109,10 @@ const Player: React.FC = () => {
     const socket = socketService.connect();
     console.log('Player connected with socket ID:', socket.id);
     
+    // Add a custom property to store room code with the socket object
+    // This will be available on the server side
+    (socket as any).roomCode = savedRoomCode;
+    
     // Explicitly re-join the room when reconnecting
     socketService.joinRoom(savedRoomCode, savedPlayerName);
     
