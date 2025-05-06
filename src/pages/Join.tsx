@@ -50,11 +50,26 @@ const Join: React.FC = () => {
       return;
     }
 
+    // Only proceed if room code is valid (proper length)
+    if (roomCode.trim().length < 3) {
+      setErrorMsg('Room code should be at least 3 characters');
+      return;
+    }
+
     setErrorMsg('');
     setIsJoining(true);
     
     // Join room
     socketService.joinRoom(roomCode, playerName);
+  };
+
+  const handleRoomCodeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Just update the state, don't submit
+    setRoomCode(e.target.value);
+  };
+
+  const handlePlayerNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setPlayerName(e.target.value);
   };
 
   return (
@@ -80,7 +95,7 @@ const Join: React.FC = () => {
                     className="form-control form-control-lg" 
                     id="roomCode"
                     value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value)}
+                    onChange={handleRoomCodeChange}
                     placeholder="Enter 6-digit code"
                     disabled={isJoining}
                     maxLength={6}
@@ -94,7 +109,7 @@ const Join: React.FC = () => {
                     className="form-control form-control-lg" 
                     id="playerName"
                     value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
+                    onChange={handlePlayerNameChange}
                     placeholder="Enter your name"
                     disabled={isJoining}
                   />
@@ -104,7 +119,7 @@ const Join: React.FC = () => {
                   <button 
                     type="submit" 
                     className="btn btn-primary btn-lg"
-                    disabled={isJoining}
+                    disabled={isJoining || roomCode.trim().length < 3}
                   >
                     {isJoining ? 'Joining...' : 'Join Game'}
                   </button>
