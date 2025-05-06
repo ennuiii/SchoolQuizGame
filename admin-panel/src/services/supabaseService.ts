@@ -14,8 +14,7 @@ interface Question {
   answer?: string;
   grade: number;
   subject: string;
-  language?: string;
-  created_at?: string;
+  language: string;
 }
 
 interface BulkInsertResult {
@@ -151,6 +150,75 @@ class SupabaseService {
       return { success: false, error: (err as Error).message };
     }
   }
+
+  async getQuestions(options: {
+    subject?: string;
+    grade?: number;
+    language?: string;
+  } = {}) {
+    let query = supabase
+      .from('questions')
+      .select('*');
+
+    if (options.subject) {
+      query = query.eq('subject', options.subject);
+    }
+    if (options.grade) {
+      query = query.eq('grade', options.grade);
+    }
+    if (options.language) {
+      query = query.eq('language', options.language);
+    }
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return data as Question[];
+  }
+
+  async getSubjects() {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('subject')
+      .order('subject');
+
+    if (error) throw error;
+    return [...new Set(data.map(q => q.subject))];
+  }
+
+  async getLanguages() {
+    const { data, error } = await supabase
+      .from('questions')
+      .select('language')
+      .order('language');
+
+    if (error) throw error;
+    return [...new Set(data.map(q => q.language))];
+  }
+
+  async updateQuestion(question: Question) {
+    const { error } = await supabase
+      .from('questions')
+      .update({
+        text: question.text,
+        answer: question.answer,
+        grade: question.grade,
+        subject: question.subject,
+        language: question.language
+      })
+      .eq('id', question.id);
+
+    if (error) throw error;
+  }
+
+  async deleteQuestion(id: number) {
+    const { error } = await supabase
+      .from('questions')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+  }
 }
 
-export default new SupabaseService(); 
+const supabaseService = new SupabaseService();
+export default supabaseService; 

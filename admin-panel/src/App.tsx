@@ -1,12 +1,18 @@
 import React from 'react';
-import AdminPanel from './components/AdminPanel';
+import QuestionManager from './components/QuestionManager';
+import './App.css';
 
-const App: React.FC = () => {
+function App() {
   return (
-    <div className="app">
-      <AdminPanel />
+    <div className="App">
+      <nav className="navbar navbar-dark bg-dark">
+        <div className="container">
+          <span className="navbar-brand mb-0 h1">School Quiz Game Admin</span>
+        </div>
+      </nav>
+      <QuestionManager />
     </div>
   );
-};
+}
 
 export default App; 
