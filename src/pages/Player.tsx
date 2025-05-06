@@ -223,9 +223,18 @@ const Player: React.FC = () => {
       console.log('Time up event received, timeRemaining set to 0');
       setTimeRemaining(0);
       
-      // Check submission state again to be extra careful
+      // Multiple checks to avoid duplicate submissions
+      // 1. React state check
       if (submittedAnswer) {
-        console.log('Answer already submitted earlier, not auto-submitting');
+        console.log('Answer already submitted (state check), not auto-submitting');
+        return;
+      }
+
+      // 2. UI check - see if submission confirmation is visible
+      const submissionAlreadyProcessed = document.querySelector('.alert-info')?.textContent?.includes('Your answer has been submitted');
+      if (submissionAlreadyProcessed) {
+        console.log('Submission confirmation visible on screen, not auto-submitting');
+        setSubmittedAnswer(true);
         return;
       }
       
@@ -241,12 +250,15 @@ const Player: React.FC = () => {
       console.log('Answer not submitted yet, preparing auto-submission to room:', currentRoomCode);
       
       try {
+        // Get the latest answer text directly from the DOM in case state isn't updated
+        const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement;
+        const currentAnswer = inputElement?.value || answer;
         const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
         
         // Auto-submit the current answer if time is up
-        if (answer && answer.trim()) {
+        if (currentAnswer && currentAnswer.trim()) {
           // If there's text in the input field, submit that (potentially adding drawing note)
-          const finalAnswer = hasDrawing ? `${answer} (with drawing)` : answer;
+          const finalAnswer = hasDrawing ? `${currentAnswer} (with drawing)` : currentAnswer;
           console.log(`Auto-submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
           socketService.submitAnswer(currentRoomCode, finalAnswer);
           setSubmittedAnswer(true);
@@ -254,11 +266,11 @@ const Player: React.FC = () => {
         } else if (hasDrawing) {
           // If canvas has content but no text answer, submit with drawing note
           // Also include any partial text the player might have been typing
-          const textContent = answer && answer.trim() ? answer : "";
+          const textContent = currentAnswer && currentAnswer.trim() ? currentAnswer : "";
           const finalAnswer = textContent ? 
             `${textContent} (drawing submitted, time's up)` : 
             "Drawing submitted (time's up)";
-          
+            
           console.log('Auto-submitting drawing to room ' + currentRoomCode);
           socketService.submitAnswer(currentRoomCode, finalAnswer);
           setSubmittedAnswer(true);
@@ -343,6 +355,7 @@ const Player: React.FC = () => {
     // Don't allow submitting if already submitted
     if (submittedAnswer) {
       console.log('Answer already submitted, ignoring submission attempt');
+      showFlashMessage('Your answer has already been submitted', 'info');
       return;
     }
 
@@ -377,7 +390,7 @@ const Player: React.FC = () => {
         console.log('Manually submitting drawing to room ' + currentRoomCode);
         socketService.submitAnswer(currentRoomCode, finalAnswer);
         setSubmittedAnswer(true);
-        showFlashMessage('Drawing submitted!', 'info');
+        showFlashMessage('Answer submitted!', 'info');
       } else {
         // Nothing to submit
         showFlashMessage('Please enter an answer or draw something', 'warning');
