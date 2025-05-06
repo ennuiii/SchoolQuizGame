@@ -486,17 +486,13 @@ function startQuestionTimer(roomCode) {
         const hasSubmitted = playerBoard && playerBoard.answerSubmitted;
         
         if (!hasSubmitted) {
-          // Auto-submit with board data or default text message
-          const boardData = (playerBoard && playerBoard.boardData) ? playerBoard.boardData : '';
-          const hasDrawing = boardData.length > 100; // Basic check if there's actual drawing content
+          // Let client handle the auto-submit when they receive the time_up event
+          // Server no longer automatically generates "Auto-submitted drawing" messages
           
-          io.to(room.gamemaster).emit('answer_submitted', {
-            playerId: player.id,
-            playerName: player.name,
-            answer: hasDrawing ? "Auto-submitted drawing (time's up)" : "No answer (time's up)"
-          });
+          // Notify everyone that time is up (client will handle auto-submission)
+          io.to(player.id).emit('time_up');
           
-          // Mark as submitted
+          // Mark as submitted to prevent double submissions
           if (playerBoard) {
             playerBoard.answerSubmitted = true;
           }

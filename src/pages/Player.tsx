@@ -219,8 +219,21 @@ const Player: React.FC = () => {
       setTimeRemaining(0);
       if (!submittedAnswer) {
         // Auto-submit the current answer if time is up and not submitted yet
-        if (answer.trim() || (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100)) {
-          submitAnswer();
+        if (answer.trim()) {
+          // If there's text in the input field, submit that
+          socketService.submitAnswer(roomCode, answer);
+          setSubmittedAnswer(true);
+          showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
+        } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
+          // If canvas has content but no text answer, submit with drawing note
+          socketService.submitAnswer(roomCode, "Drawing submitted (time's up)");
+          setSubmittedAnswer(true);
+          showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
+        } else {
+          // If no input and no drawing, send empty answer
+          socketService.submitAnswer(roomCode, "No answer (time's up)");
+          setSubmittedAnswer(true);
+          showFlashMessage('Time\'s up! No answer was provided.', 'warning');
         }
       }
     });
