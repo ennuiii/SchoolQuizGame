@@ -10,12 +10,12 @@
     "dev:client": "react-scripts start",
     "dev:server": "cd server && node index.js",
     "dev:admin": "cd admin-panel && npm start",
-    "build": "react-scripts build",
+    "build": "npm run render-build",
     "install-all": "npm install && cd admin-panel && npm install",
     "dev": "concurrently \"npm run start\" \"cd admin-panel && npm start\"",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "render-build": "npm install --legacy-peer-deps && npm run build && mkdir -p server/build && cp -r build/* server/build/ && cd server && npm install --legacy-peer-deps"
+    "render-build": "npm install --legacy-peer-deps && react-scripts build && mkdir -p server/build && cp -r build/* server/build/ && cd server && npm install --legacy-peer-deps"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.4",
