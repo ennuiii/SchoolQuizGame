@@ -147,7 +147,25 @@ const GameMaster: React.FC = () => {
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
-      setPendingAnswers(prev => [...prev, submission]);
+      console.log(`Answer received from ${submission.playerName}:`, submission.answer);
+      
+      // Make sure we're not adding duplicate answers
+      setPendingAnswers(prev => {
+        // Check if we already have an answer from this player
+        const existingIndex = prev.findIndex(a => a.playerId === submission.playerId);
+        
+        if (existingIndex >= 0) {
+          // Replace the existing answer
+          console.log(`Replacing existing answer for ${submission.playerName}`);
+          const updatedAnswers = [...prev];
+          updatedAnswers[existingIndex] = submission;
+          return updatedAnswers;
+        } else {
+          // Add as new answer
+          console.log(`Adding new answer from ${submission.playerName}`);
+          return [...prev, submission];
+        }
+      });
     });
 
     socketService.on('error', (msg: string) => {

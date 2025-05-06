@@ -261,15 +261,25 @@ io.on('connection', (socket) => {
 
   // Player submits an answer
   socket.on('submit_answer', ({ roomCode, answer }) => {
-    console.log(`Player ${socket.id} submitting answer in room ${roomCode}: ${answer}`);
+    console.log(`Player ${socket.id} submitting answer in room ${roomCode}: "${answer}"`);
     
     if (!gameRooms[roomCode]) {
       console.log(`Room ${roomCode} not found for answer submission`);
+      socket.emit('error', 'Room not found');
       return;
     }
     
     const playerId = socket.id;
-    const playerName = getPlayerName(roomCode, playerId);
+    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === playerId);
+    
+    if (playerIndex === -1) {
+      console.log(`Player ${playerId} not found in room ${roomCode}`);
+      socket.emit('error', 'Player not found in room');
+      return;
+    }
+    
+    const playerName = gameRooms[roomCode].players[playerIndex].name;
+    console.log(`Identified player: ${playerName}`);
     
     // Make sure player board exists
     if (!gameRooms[roomCode].playerBoards[playerId]) {
@@ -284,18 +294,27 @@ io.on('connection', (socket) => {
     gameRooms[roomCode].playerBoards[playerId].answers.push(answer);
     gameRooms[roomCode].playerBoards[playerId].answerSubmitted = true;
     
-    console.log(`Answer submitted by ${playerName} (${playerId}): ${answer}`);
+    console.log(`Answer submitted by ${playerName} (${playerId}): "${answer}"`);
     
-    // Notify gamemaster
+    // Notify gamemaster - critical path for answer delivery
     if (gameRooms[roomCode].gamemaster) {
       console.log(`Sending answer to gamemaster ${gameRooms[roomCode].gamemaster}`);
-      io.to(gameRooms[roomCode].gamemaster).emit('answer_submitted', {
-        playerId,
-        playerName,
-        answer
-      });
+      try {
+        io.to(gameRooms[roomCode].gamemaster).emit('answer_submitted', {
+          playerId,
+          playerName,
+          answer
+        });
+        
+        // Also send confirmation to the player that their answer was received
+        socket.emit('answer_received', { status: 'success', message: 'Your answer has been sent to the Game Master' });
+      } catch (error) {
+        console.error(`Failed to send answer to gamemaster: ${error.message}`);
+        socket.emit('error', 'Failed to send answer to Game Master');
+      }
     } else {
       console.log(`No gamemaster found for room ${roomCode}`);
+      socket.emit('error', 'Game Master not found');
     }
   });
 
@@ -502,7 +521,8 @@ function startQuestionTimer(roomCode) {
   room.timers.questionTimer = setTimeout(() => {
     console.log(`Time's up for question in room ${roomCode}`);
     
-    // Auto-submit for all active players who haven't submitted yet
+    // For each active player who hasn't submitted, send individual time_up event
+    let playersNotified = 0;
     room.players.forEach(player => {
       if (player.isActive) {
         // Check if this player has already submitted an answer for this question
@@ -510,16 +530,17 @@ function startQuestionTimer(roomCode) {
         const hasSubmitted = playerBoard && playerBoard.answerSubmitted;
         
         if (!hasSubmitted) {
-          // Notify player that time is up (client will handle auto-submission)
+          // IMPORTANT: DO NOT mark as submitted - let the client handle everything via submit_answer
+          console.log(`Sending time_up to player: ${player.name} (${player.id})`);
           io.to(player.id).emit('time_up');
-          
-          // DO NOT mark as submitted here - let the client submit via submit_answer event
-          // The client will send the actual answer when it receives time_up
+          playersNotified++;
         }
       }
     });
     
-    // Notify everyone in the room that time is up
+    console.log(`Notified ${playersNotified} players about time's up`);
+    
+    // Also notify everyone in the room that time is up (for UI updates)
     io.to(roomCode).emit('time_up');
     
     // Clear the timer reference

@@ -218,11 +218,18 @@ const Player: React.FC = () => {
     socketService.on('time_up', () => {
       console.log('Time up event received, timeRemaining set to 0');
       setTimeRemaining(0);
-      if (!submittedAnswer) {
-        console.log('Answer not submitted yet, auto-submitting');
-        
-        // Auto-submit the current answer if time is up and not submitted yet
-        if (answer.trim()) {
+      
+      // Check submission state again to be extra careful
+      if (submittedAnswer) {
+        console.log('Answer already submitted earlier, not auto-submitting');
+        return;
+      }
+      
+      console.log('Answer not submitted yet, preparing auto-submission');
+      
+      try {
+        // Auto-submit the current answer if time is up
+        if (answer && answer.trim()) {
           // If there's text in the input field, submit that
           console.log(`Auto-submitting text answer: "${answer}" to room ${roomCode}`);
           socketService.submitAnswer(roomCode, answer);
@@ -241,8 +248,17 @@ const Player: React.FC = () => {
           setSubmittedAnswer(true);
           showFlashMessage('Time\'s up! No answer was provided.', 'warning');
         }
-      } else {
-        console.log('Answer already submitted, not auto-submitting');
+      } catch (error) {
+        console.error('Error during auto-submission:', error);
+        showFlashMessage('Error submitting your answer. Please try again.', 'danger');
+      }
+    });
+    
+    // Add listener for answer received confirmation
+    socketService.on('answer_received', (data: { status: string, message: string }) => {
+      console.log('Answer received confirmation:', data);
+      if (data.status === 'success') {
+        showFlashMessage(data.message, 'success');
       }
     });
     
@@ -274,6 +290,7 @@ const Player: React.FC = () => {
       socketService.off('error');
       socketService.off('time_up');
       socketService.off('game_restarted');
+      socketService.off('answer_received');
       
       // Disconnect
       socketService.disconnect();
@@ -301,24 +318,33 @@ const Player: React.FC = () => {
   };
 
   const submitAnswer = () => {
-    // Still verify there's an answer when manually submitting
-    if (!submittedAnswer) {
-      if (answer.trim()) {
+    // Don't allow submitting if already submitted
+    if (submittedAnswer) {
+      console.log('Answer already submitted, ignoring submission attempt');
+      return;
+    }
+
+    try {
+      // Check what to submit
+      if (answer && answer.trim()) {
+        // Submit text input
         console.log(`Manually submitting text answer: "${answer}" to room ${roomCode}`);
         socketService.submitAnswer(roomCode, answer);
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else if (fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100) {
-        // If canvas has content but no text answer, submit with an empty string
+        // Submit drawing
         console.log('Manually submitting drawing to room ' + roomCode);
         socketService.submitAnswer(roomCode, "Drawing submitted");
         setSubmittedAnswer(true);
         showFlashMessage('Drawing submitted!', 'info');
       } else {
+        // Nothing to submit
         showFlashMessage('Please enter an answer or draw something', 'warning');
       }
-    } else {
-      console.log('Answer already submitted, ignoring submission attempt');
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+      showFlashMessage('Error submitting your answer. Please try again.', 'danger');
     }
   };
 
