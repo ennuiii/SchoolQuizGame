@@ -495,10 +495,12 @@ const GameMaster: React.FC = () => {
                   value={roomCode}
                   onChange={(e) => {
                     // Only update the state, don't create room
-                    setRoomCode(e.target.value);
+                    const newRoomCode = e.target.value.toUpperCase();
+                    setRoomCode(newRoomCode);
                   }}
+                  maxLength={4}
                 />
-                <small className="text-muted">You can specify a custom room code or leave it blank for a random one.</small>
+                <small className="text-muted">You can specify a custom room code (up to 4 characters) or leave it blank for a random one.</small>
               </div>
               <button 
                 className="btn btn-primary btn-lg mt-3"
