@@ -37,6 +37,7 @@ SchoolQuizGame_Upload.zip
 # PowerShell scripts with potential sensitive info
 push-to-github.ps1
 github-setup.ps1
+git-push.ps1
 
 # Database files
 *.sql
