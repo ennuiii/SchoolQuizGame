@@ -64,8 +64,8 @@ class SocketService {
   }
 
   // GameMaster actions
-  createRoom(roomCode: string) {
-    this.emit('create_room', { roomCode });
+  createRoom(roomCode: string, createRoom: boolean = false) {
+    this.emit('create_room', { roomCode, createRoom });
   }
 
   startGame(roomCode: string, questions: any[], timeLimit?: number) {

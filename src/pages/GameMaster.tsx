@@ -302,7 +302,7 @@ const GameMaster: React.FC = () => {
   const createRoom = () => {
     console.log('Creating new room...');
     setIsLoading(true);
-    socketService.createRoom(roomCode);
+    socketService.createRoom(roomCode, true);
   };
 
   const startGame = () => {

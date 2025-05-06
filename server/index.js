@@ -80,7 +80,12 @@ io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
   // Create a new game room (Gamemaster)
-  socket.on('create_room', ({ roomCode } = {}) => {
+  socket.on('create_room', ({ roomCode, createRoom } = {}) => {
+    // Only create room if explicitly requested
+    if (!createRoom) {
+      return;
+    }
+
     // If no roomCode provided, generate one
     const finalRoomCode = roomCode || generateRoomCode();
     
