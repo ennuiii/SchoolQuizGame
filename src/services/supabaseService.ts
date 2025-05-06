@@ -85,9 +85,12 @@ class SupabaseService {
   }
 
   /**
-   * Add a new question to the database
+   * PRIVATE: Add a new question to the database - NOT AVAILABLE FOR CLIENT USE
+   * This method is kept for administrative purposes only and should not be used
+   * in the client application.
+   * @private
    */
-  async addQuestion(question: Omit<Question, 'id' | 'created_at'>): Promise<Question | null> {
+  private async _addQuestion(question: Omit<Question, 'id' | 'created_at'>): Promise<Question | null> {
     try {
       const { data, error } = await supabase
         .from('questions')
