@@ -92,6 +92,13 @@ io.on('connection', (socket) => {
     // If no roomCode provided, generate one
     const finalRoomCode = roomCode || generateRoomCode();
     
+    // Validate room code format
+    if (roomCode && !/^[A-Z0-9]{1,4}$/.test(roomCode)) {
+      console.log(`Invalid room code format: ${roomCode}`);
+      socket.emit('error', 'Room code must be 1-4 characters (letters and numbers only)');
+      return;
+    }
+    
     // Check if room already exists
     if (gameRooms[finalRoomCode]) {
       console.log(`Room ${finalRoomCode} already exists`);
