@@ -7,7 +7,8 @@ import Join from './pages/Join';
 import Admin from './pages/Admin';
 import './App.css';
 
-const App: React.FC = () => {
+// Use a simpler function component definition
+function App() {
   return (
     <div className="app">
       <Routes>
@@ -19,6 +20,6 @@ const App: React.FC = () => {
       </Routes>
     </div>
   );
-};
+}
 
 export default App; 
