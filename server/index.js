@@ -536,30 +536,63 @@ io.on('connection', (socket) => {
   });
 });
 
-// Helper function to start a timer for the current question
+// Helper function to generate a room code
+function generateRoomCode() {
+  return Math.random().toString(36).substring(2, 8).toUpperCase();
+}
+
+// Helper function to start question timer
 function startQuestionTimer(roomCode) {
-  const room = gameRooms[roomCode];
-  if (!room || !room.timeLimit) return;
-  
-  console.log(`Starting ${room.timeLimit} second timer for room ${roomCode}`);
+  if (!gameRooms[roomCode] || !gameRooms[roomCode].timeLimit) return;
   
   // Clear any existing timer
-  if (room.timers.questionTimer) {
-    clearTimeout(room.timers.questionTimer);
+  if (gameRooms[roomCode].timers.questionTimer) {
+    clearTimeout(gameRooms[roomCode].timers.questionTimer);
   }
   
-  // Set a new timer
-  room.timers.questionTimer = setTimeout(() => {
-    console.log(`Time's up for question in room ${roomCode}`);
+  // Set new timer
+  gameRooms[roomCode].timers.questionTimer = setTimeout(() => {
+    io.to(roomCode).emit('time_up');
+    console.log(`Time's up for room: ${roomCode}`);
+  }, gameRooms[roomCode].timeLimit * 1000);
+}
+
+// Handle disconnection
+io.on('disconnect', (socket) => {
+  console.log(`User disconnected: ${socket.id}`);
+  
+  // If user was in a room, handle cleanup
+  if (socket.roomCode) {
+    const roomCode = socket.roomCode;
+    const room = gameRooms[roomCode];
     
-    // For each active player who hasn't submitted, send individual time_up event
-    let playersNotified = 0;
-    room.players.forEach(player => {
-      if (player.isActive) {
-        // Check if this player has already submitted an answer for this question
-        const playerBoard = room.playerBoards[player.id];
-        const hasSubmitted = playerBoard && playerBoard.answerSubmitted;
+    if (room) {
+      // If user was gamemaster, end the game
+      if (room.gamemaster === socket.id) {
+        io.to(roomCode).emit('error', 'Game Master disconnected');
+        delete gameRooms[roomCode];
+        return;
+      }
+      
+      // If user was a player, remove them
+      const playerIndex = room.players.findIndex(p => p.id === socket.id);
+      if (playerIndex !== -1) {
+        room.players.splice(playerIndex, 1);
+        delete room.playerBoards[socket.id];
         
-        if (!hasSubmitted) {
-          // IMPORTANT: DO NOT mark as submitted - let the client handle everything via submit_answer
-          console.log(`
+        // Notify remaining players
+        io.to(roomCode).emit('players_update', room.players);
+      }
+    }
+  }
+});
+
+// Set up the port
+const PORT = process.env.PORT || 5000;
+
+// Start the server
+server.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+  console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`Build path: ${buildPath}`);
+});
