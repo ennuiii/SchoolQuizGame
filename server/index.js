@@ -71,6 +71,9 @@ app.get('/debug/rooms', (req, res) => {
   });
 });
 
+// Timer management
+const timers = new Map();
+
 io.on('connection', (socket) => {
   console.log(`User connected: ${socket.id}`);
 
@@ -202,10 +205,7 @@ io.on('connection', (socket) => {
     }
     
     // Clear any active timers
-    if (gameRooms[roomCode].timers.questionTimer) {
-      clearTimeout(gameRooms[roomCode].timers.questionTimer);
-      gameRooms[roomCode].timers.questionTimer = null;
-    }
+    clearRoomTimer(roomCode);
     
     // Reset the game state but keep the room
     gameRooms[roomCode].started = false;
@@ -342,10 +342,7 @@ io.on('connection', (socket) => {
     }
     
     // Clear any active timers
-    if (gameRooms[roomCode].timers.questionTimer) {
-      clearTimeout(gameRooms[roomCode].timers.questionTimer);
-      gameRooms[roomCode].timers.questionTimer = null;
-    }
+    clearRoomTimer(roomCode);
     
     gameRooms[roomCode].currentQuestionIndex++;
     const index = gameRooms[roomCode].currentQuestionIndex;
@@ -450,6 +447,7 @@ io.on('connection', (socket) => {
       // If gamemaster disconnects, end the game
       if (room.gamemaster === socket.id) {
         wasInRoom = roomCode;
+        clearRoomTimer(roomCode);
         io.to(roomCode).emit('gamemaster_left');
         delete gameRooms[roomCode];
         console.log(`Room ${roomCode} deleted because gamemaster left`);
@@ -468,6 +466,7 @@ io.on('connection', (socket) => {
         
         // Only delete the room if both game master and all players are gone
         if (room.players.length === 0 && !room.gamemaster) {
+          clearRoomTimer(roomCode);
           delete gameRooms[roomCode];
           console.log(`Room ${roomCode} deleted because all players and gamemaster left`);
         } else {
@@ -511,10 +510,10 @@ function generateRoomCode() {
 function startQuestionTimer(roomCode) {
   if (!gameRooms[roomCode] || !gameRooms[roomCode].timeLimit) return;
   
-  // Clear any existing timer
-  if (gameRooms[roomCode].timers.questionTimer) {
-    clearInterval(gameRooms[roomCode].timers.questionTimer);
-    gameRooms[roomCode].timers.questionTimer = null;
+  // Clear any existing timer for this room
+  if (timers.has(roomCode)) {
+    clearInterval(timers.get(roomCode));
+    timers.delete(roomCode);
   }
   
   // Set initial time
@@ -524,13 +523,13 @@ function startQuestionTimer(roomCode) {
   io.to(roomCode).emit('timer_update', { timeRemaining });
   
   // Start interval timer
-  gameRooms[roomCode].timers.questionTimer = setInterval(() => {
+  const timerId = setInterval(() => {
     timeRemaining--;
     
     if (timeRemaining <= 0) {
       // Clear timer and emit time up
-      clearInterval(gameRooms[roomCode].timers.questionTimer);
-      gameRooms[roomCode].timers.questionTimer = null;
+      clearInterval(timerId);
+      timers.delete(roomCode);
       io.to(roomCode).emit('time_up');
       console.log(`Time's up for room: ${roomCode}`);
     } else {
@@ -538,6 +537,16 @@ function startQuestionTimer(roomCode) {
       io.to(roomCode).emit('timer_update', { timeRemaining });
     }
   }, 1000);
+  
+  // Store timer reference
+  timers.set(roomCode, timerId);
+}
+
+function clearRoomTimer(roomCode) {
+  if (timers.has(roomCode)) {
+    clearInterval(timers.get(roomCode));
+    timers.delete(roomCode);
+  }
 }
 
 // Handle disconnection

@@ -60,6 +60,8 @@ const GameMaster: React.FC = () => {
   const [sortByGrade, setSortByGrade] = useState<boolean>(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerUpdateRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>();
 
   useEffect(() => {
     // Connect to socket server
@@ -264,13 +266,32 @@ const GameMaster: React.FC = () => {
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
-      setTimeRemaining(data.timeRemaining);
-      setIsTimerRunning(true);
+      const now = performance.now();
+      // Only update if at least 900ms have passed since last update
+      if (now - timerUpdateRef.current >= 900) {
+        // Use requestAnimationFrame for smooth updates
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        
+        animationFrameRef.current = requestAnimationFrame(() => {
+          setTimeRemaining(data.timeRemaining);
+          setIsTimerRunning(true);
+          timerUpdateRef.current = now;
+        });
+      }
     });
 
     socketService.on('time_up', () => {
-      setTimeRemaining(0);
-      setIsTimerRunning(false);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      requestAnimationFrame(() => {
+        setTimeRemaining(0);
+        setIsTimerRunning(false);
+        timerUpdateRef.current = performance.now();
+      });
     });
 
     // Check if returning from a refresh (restore state)
@@ -297,6 +318,9 @@ const GameMaster: React.FC = () => {
       socketService.off('game_restarted');
       socketService.off('timer_update');
       socketService.off('time_up');
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, []);
 
@@ -494,7 +518,7 @@ const GameMaster: React.FC = () => {
     setQuestions(organized);
   };
 
-  // Format time remaining
+  // Format time remaining with smooth transitions
   const formatTime = (seconds: number | null) => {
     if (seconds === null) return '--:--';
     const mins = Math.floor(seconds / 60);
@@ -1033,9 +1057,15 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
-      {/* Timer display */}
+      {/* Timer display with smooth transitions */}
       <div className="fixed top-4 right-4 bg-white rounded-lg shadow-md p-4">
-        <div className="text-2xl font-bold text-gray-800">
+        <div 
+          className="text-2xl font-bold text-gray-800 transition-all duration-300"
+          style={{
+            opacity: isTimerRunning ? 1 : 0.7,
+            transform: isTimerRunning ? 'scale(1)' : 'scale(0.95)'
+          }}
+        >
           {formatTime(timeRemaining)}
         </div>
         {isTimerRunning && (
