@@ -263,11 +263,14 @@ const GameMaster: React.FC = () => {
     });
     
     socketService.on('timer_started', (data: { timeLimit: number }) => {
-      setTimeRemaining(data.timeLimit);
-      // Clear any existing timer
+      // Clear any existing timer first
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
+      
+      setTimeRemaining(data.timeLimit);
+      
       // Start new timer
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
@@ -276,6 +279,7 @@ const GameMaster: React.FC = () => {
           } else {
             if (timerRef.current) {
               clearInterval(timerRef.current);
+              timerRef.current = null;
             }
             return 0;
           }
@@ -286,6 +290,7 @@ const GameMaster: React.FC = () => {
     socketService.on('time_up', () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
       setTimeRemaining(0);
     });
@@ -314,6 +319,10 @@ const GameMaster: React.FC = () => {
       socketService.off('game_restarted');
       socketService.off('timer_started');
       socketService.off('time_up');
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, []);
 

@@ -221,11 +221,14 @@ const Player: React.FC = () => {
     });
     
     socketService.on('timer_started', (data: { timeLimit: number }) => {
-      setTimeRemaining(data.timeLimit);
-      // Clear any existing timer
+      // Clear any existing timer first
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
+      
+      setTimeRemaining(data.timeLimit);
+      
       // Start new timer
       timerRef.current = setInterval(() => {
         setTimeRemaining(prev => {
@@ -234,6 +237,7 @@ const Player: React.FC = () => {
           } else {
             if (timerRef.current) {
               clearInterval(timerRef.current);
+              timerRef.current = null;
             }
             return 0;
           }
@@ -244,6 +248,7 @@ const Player: React.FC = () => {
     socketService.on('time_up', () => {
       if (timerRef.current) {
         clearInterval(timerRef.current);
+        timerRef.current = null;
       }
       setTimeRemaining(0);
       
@@ -352,6 +357,12 @@ const Player: React.FC = () => {
       
       // Disconnect
       socketService.disconnect();
+
+      // Clean up timer on component unmount
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
     };
   }, [navigate, roomCode]);
 

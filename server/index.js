@@ -514,17 +514,18 @@ function startQuestionTimer(roomCode) {
   // Clear any existing timer
   if (gameRooms[roomCode].timers.questionTimer) {
     clearTimeout(gameRooms[roomCode].timers.questionTimer);
+    gameRooms[roomCode].timers.questionTimer = null;
   }
   
   // Set new timer
-  const timeLimit = gameRooms[roomCode].timeLimit * 1000; // Convert to milliseconds
+  const timeLimit = gameRooms[roomCode].timeLimit; // Don't multiply by 1000 here
   gameRooms[roomCode].timers.questionTimer = setTimeout(() => {
     io.to(roomCode).emit('time_up');
     console.log(`Time's up for room: ${roomCode}`);
-  }, timeLimit);
+  }, timeLimit * 1000); // Multiply by 1000 here for milliseconds
 
   // Emit the time limit to all clients in the room
-  io.to(roomCode).emit('timer_started', { timeLimit: gameRooms[roomCode].timeLimit });
+  io.to(roomCode).emit('timer_started', { timeLimit: timeLimit });
 }
 
 // Handle disconnection
