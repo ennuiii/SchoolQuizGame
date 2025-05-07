@@ -288,7 +288,7 @@ io.on('connection', (socket) => {
     // Notify game master
     const gameMasterId = gameRooms[roomCode].gamemaster;
     if (gameMasterId) {
-      io.to(gameMasterId).emit('player_answer', {
+      io.to(gameMasterId).emit('answer_submitted', {
         playerId: socket.id,
         playerName: gameRooms[roomCode].players[playerIndex].name,
         answer,
@@ -517,10 +517,14 @@ function startQuestionTimer(roomCode) {
   }
   
   // Set new timer
+  const timeLimit = gameRooms[roomCode].timeLimit * 1000; // Convert to milliseconds
   gameRooms[roomCode].timers.questionTimer = setTimeout(() => {
     io.to(roomCode).emit('time_up');
     console.log(`Time's up for room: ${roomCode}`);
-  }, gameRooms[roomCode].timeLimit * 1000);
+  }, timeLimit);
+
+  // Emit the time limit to all clients in the room
+  io.to(roomCode).emit('timer_started', { timeLimit: gameRooms[roomCode].timeLimit });
 }
 
 // Handle disconnection

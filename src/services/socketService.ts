@@ -90,8 +90,8 @@ class SocketService {
     this.emit('join_room', { roomCode, playerName });
   }
 
-  submitAnswer(roomCode: string, answer: any) {
-    this.emit('submit_answer', { roomCode, answer });
+  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false) {
+    this.emit('submit_answer', { roomCode, answer, hasDrawing });
   }
   
   // Board update function - missing function that was causing the build error

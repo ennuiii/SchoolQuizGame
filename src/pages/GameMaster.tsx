@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import supabaseService from '../services/supabaseService';
@@ -58,6 +58,7 @@ const GameMaster: React.FC = () => {
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [sortByGrade, setSortByGrade] = useState<boolean>(true);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     // Connect to socket server
@@ -261,7 +262,31 @@ const GameMaster: React.FC = () => {
       setIsRestarting(false);
     });
     
+    socketService.on('timer_started', (data: { timeLimit: number }) => {
+      setTimeRemaining(data.timeLimit);
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      // Start new timer
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev !== null && prev > 0) {
+            return prev - 1;
+          } else {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+            return 0;
+          }
+        });
+      }, 1000);
+    });
+
     socketService.on('time_up', () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
       setTimeRemaining(0);
     });
 
@@ -287,6 +312,7 @@ const GameMaster: React.FC = () => {
       socketService.off('answer_submitted');
       socketService.off('error');
       socketService.off('game_restarted');
+      socketService.off('timer_started');
       socketService.off('time_up');
     };
   }, []);
@@ -358,21 +384,6 @@ const GameMaster: React.FC = () => {
       setCurrentQuestion(questions[nextIndex]);
       setPendingAnswers([]);
       socketService.nextQuestion(roomCode);
-      
-      // Reset timer for new question if time limit is set
-      if (timeLimit) {
-        setTimeRemaining(timeLimit);
-        const questionTimer = setInterval(() => {
-          setTimeRemaining(prev => {
-            if (prev !== null && prev > 0) {
-              return prev - 1;
-            } else {
-              clearInterval(questionTimer);
-              return 0;
-            }
-          });
-        }, 1000);
-      }
     } else {
       // End game logic
       alert('No more questions available!');

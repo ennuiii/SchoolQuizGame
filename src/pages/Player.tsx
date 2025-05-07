@@ -30,6 +30,7 @@ const Player: React.FC = () => {
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+  const timerRef = useRef<NodeJS.Timeout | null>(null);
 
   // Create a throttled version of the update function
   const sendBoardUpdate = useCallback(
@@ -219,8 +220,31 @@ const Player: React.FC = () => {
       }
     });
     
+    socketService.on('timer_started', (data: { timeLimit: number }) => {
+      setTimeRemaining(data.timeLimit);
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
+      // Start new timer
+      timerRef.current = setInterval(() => {
+        setTimeRemaining(prev => {
+          if (prev !== null && prev > 0) {
+            return prev - 1;
+          } else {
+            if (timerRef.current) {
+              clearInterval(timerRef.current);
+            }
+            return 0;
+          }
+        });
+      }, 1000);
+    });
+    
     socketService.on('time_up', () => {
-      console.log('Time up event received, timeRemaining set to 0');
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+      }
       setTimeRemaining(0);
       
       // Multiple checks to avoid duplicate submissions
