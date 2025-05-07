@@ -40,12 +40,20 @@ const GameMaster: React.FC = () => {
   const [gameStarted, setGameStarted] = useState(false);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [players, setPlayers] = useState<Player[]>([]);
+  const [pendingAnswers, setPendingAnswers] = useState<AnswerSubmission[]>([]);
+  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [languages, setLanguages] = useState<string[]>([]);
+  const [selectedSubject, setSelectedSubject] = useState<string>('');
+  const [selectedGrade, setSelectedGrade] = useState<number>(0);
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('');
+  const [isLoadingQuestions, setIsLoadingQuestions] = useState<boolean>(false);
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
