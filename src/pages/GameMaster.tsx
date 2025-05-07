@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import supabaseService from '../services/supabaseService';
+import { supabaseService } from '../services/supabaseService';
 
 interface Player {
   id: string;
