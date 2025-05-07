@@ -34,6 +34,7 @@ interface AnswerSubmission {
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
+  const [roomCodeInput, setRoomCodeInput] = useState('');
   const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
@@ -306,7 +307,7 @@ const GameMaster: React.FC = () => {
   const createRoom = () => {
     console.log('Creating new room...');
     setIsLoading(true);
-    socketService.createRoom(roomCode);
+    socketService.createRoom(roomCodeInput);
   };
 
   const startGame = () => {
@@ -528,8 +529,8 @@ const GameMaster: React.FC = () => {
                   id="roomCodeInput"
                   className="form-control"
                   placeholder="Leave blank for random code"
-                  value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value)}
+                  value={roomCodeInput}
+                  onChange={(e) => setRoomCodeInput(e.target.value)}
                 />
                 <small className="text-muted">You can specify a custom room code or leave it blank for a random one.</small>
               </div>
