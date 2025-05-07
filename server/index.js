@@ -237,110 +237,67 @@ io.on('connection', (socket) => {
     console.log(`Game restarted in room: ${roomCode}`);
   });
 
-  // Board update from a player
-  socket.on('board_update', ({ roomCode, boardData }) => {
+  // Handle board updates from players
+  socket.on('board_update', (data) => {
+    const { roomCode, boardData } = data;
     if (!gameRooms[roomCode]) {
-      console.log('Board update for non-existent room:', roomCode);
+      console.log(`Board update for non-existent room: ${roomCode}`);
       return;
     }
     
-    // Store the latest board data for this player
-    if (!gameRooms[roomCode].playerBoards[socket.id]) {
-      console.log('Creating board data for player:', socket.id);
-      gameRooms[roomCode].playerBoards[socket.id] = {
-        boardData: '',
-        answers: [],
-        answerSubmitted: false
-      };
-    }
-    
-    gameRooms[roomCode].playerBoards[socket.id].boardData = boardData;
-    
-    // Send to gamemaster only if connected
-    if (gameRooms[roomCode].gamemaster) {
-      io.to(gameRooms[roomCode].gamemaster).emit('player_board_update', {
-        playerId: socket.id,
-        playerName: getPlayerName(roomCode, socket.id),
-        boardData
-      });
-    } else {
-      console.log('No gamemaster connected to receive board update');
+    // Store the board data for this player
+    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === socket.id);
+    if (playerIndex !== -1) {
+      gameRooms[roomCode].players[playerIndex].boardData = boardData;
+      
+      // Emit the board update to the game master
+      const gameMasterId = gameRooms[roomCode].gamemaster;
+      if (gameMasterId) {
+        io.to(gameMasterId).emit('player_board_update', {
+          playerId: socket.id,
+          playerName: gameRooms[roomCode].players[playerIndex].name,
+          boardData: boardData
+        });
+      }
     }
   });
 
-  // Player submits an answer
-  socket.on('submit_answer', ({ roomCode, answer }) => {
-    console.log(`Player ${socket.id} submitting answer in room ${roomCode}: "${answer}"`);
-    
-    // Additional debug info to help diagnose issues
-    console.log('Available rooms:', Object.keys(gameRooms));
-    console.log('Player room code from socket:', socket.roomCode);
-    
-    // If roomCode is not provided but stored on socket, use that
-    if (!roomCode && socket.roomCode) {
-      console.log(`No roomCode provided, using socket.roomCode: ${socket.roomCode}`);
-      roomCode = socket.roomCode;
-    }
-    
-    if (!roomCode) {
-      console.log('No room code provided and none stored on socket.');
-      socket.emit('error', 'No room code provided');
-      return;
-    }
+  // Handle answer submission
+  socket.on('submit_answer', (data) => {
+    const { roomCode, answer, hasDrawing } = data;
+    console.log(`Player ${socket.id} submitting answer in room ${roomCode}: "${answer}" ${hasDrawing ? '(with drawing)' : ''}`);
     
     if (!gameRooms[roomCode]) {
       console.log(`Room ${roomCode} not found for answer submission. Available rooms: ${Object.keys(gameRooms).join(', ')}`);
-      socket.emit('error', 'Room not found');
       return;
     }
-    
-    const playerId = socket.id;
-    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === playerId);
-    
+
+    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === socket.id);
     if (playerIndex === -1) {
-      console.log(`Player ${playerId} not found in room ${roomCode}`);
-      socket.emit('error', 'Player not found in room');
+      console.log(`Player ${socket.id} not found in room ${roomCode}`);
       return;
     }
-    
-    const playerName = gameRooms[roomCode].players[playerIndex].name;
-    console.log(`Identified player: ${playerName}`);
-    
-    // Make sure player board exists
-    if (!gameRooms[roomCode].playerBoards[playerId]) {
-      console.log(`Creating player board for ${playerName} (${playerId})`);
-      gameRooms[roomCode].playerBoards[playerId] = {
-        boardData: '',
-        answers: [],
-        answerSubmitted: false
-      };
+
+    // Store the answer
+    gameRooms[roomCode].players[playerIndex].answers.push({
+      answer,
+      hasDrawing,
+      timestamp: new Date().toISOString()
+    });
+
+    // Notify game master
+    const gameMasterId = gameRooms[roomCode].gamemaster;
+    if (gameMasterId) {
+      io.to(gameMasterId).emit('player_answer', {
+        playerId: socket.id,
+        playerName: gameRooms[roomCode].players[playerIndex].name,
+        answer,
+        hasDrawing
+      });
     }
-    
-    gameRooms[roomCode].playerBoards[playerId].answers.push(answer);
-    gameRooms[roomCode].playerBoards[playerId].answerSubmitted = true;
-    
-    console.log(`Answer submitted by ${playerName} (${playerId}): "${answer}"`);
-    
-    // Notify gamemaster - critical path for answer delivery
-    if (gameRooms[roomCode].gamemaster) {
-      console.log(`Sending answer to gamemaster ${gameRooms[roomCode].gamemaster}`);
-      try {
-        io.to(gameRooms[roomCode].gamemaster).emit('answer_submitted', {
-          playerId,
-          playerName,
-          answer
-        });
-        
-        // Also send confirmation to the player that their answer was received
-        socket.emit('answer_received', { status: 'success', message: 'Your answer has been sent to the Game Master' });
-      } catch (error) {
-        console.error(`Failed to send answer to gamemaster: ${error.message}`);
-        socket.emit('error', 'Failed to send answer to Game Master');
-      }
-    } else {
-      console.log(`No gamemaster found for room ${roomCode}`);
-      socket.emit('error', 'Game Master not found');
-    }
+
+    // Notify the player that their answer was received
+    socket.emit('answer_received');
   });
 
   // Gamemaster evaluates an answer
@@ -535,6 +492,15 @@ io.on('connection', (socket) => {
     }
   });
 });
+
+// Helper function to get player name from room
+function getPlayerName(roomCode, playerId) {
+  if (!gameRooms[roomCode] || !gameRooms[roomCode].players) {
+    return 'Unknown Player';
+  }
+  const player = gameRooms[roomCode].players.find(p => p.id === playerId);
+  return player ? player.name : 'Unknown Player';
+}
 
 // Helper function to generate a room code
 function generateRoomCode() {
