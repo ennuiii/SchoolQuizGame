@@ -62,6 +62,7 @@ const GameMaster: React.FC = () => {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerUpdateRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
+  const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     // Connect to socket server
@@ -511,6 +512,19 @@ const GameMaster: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // Add toggle function for board visibility
+  const toggleBoardVisibility = (playerId: string) => {
+    setVisibleBoards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  };
+
   return (
     <div className="container">
       <h1 className="text-center mb-4">Game Master Dashboard</h1>
@@ -629,9 +643,17 @@ const GameMaster: React.FC = () => {
                       <li 
                         key={player.id} 
                         className={`list-group-item d-flex justify-content-between align-items-center ${!player.isActive ? 'text-muted' : ''}`}
-                        onClick={() => setSelectedPlayerId(player.id)}
                       >
-                        <span>{player.name} {!player.isActive && '(Eliminated)'}</span>
+                        <div className="d-flex align-items-center">
+                          <span>{player.name} {!player.isActive && '(Eliminated)'}</span>
+                          <button
+                            className={`btn btn-sm ms-2 ${visibleBoards.has(player.id) ? 'btn-primary' : 'btn-outline-primary'}`}
+                            onClick={() => toggleBoardVisibility(player.id)}
+                            title={visibleBoards.has(player.id) ? "Hide board" : "Show board"}
+                          >
+                            {visibleBoards.has(player.id) ? 'Hide Board' : 'Show Board'}
+                          </button>
+                        </div>
                         <div>
                           {Array.from({length: player.lives}, (_, i) => (
                             <span key={i} className="text-danger me-1">❤</span>
@@ -734,78 +756,100 @@ const GameMaster: React.FC = () => {
                   </div>
                   
                   <div className="card">
-                    <div className="card-header">
+                    <div className="card-header d-flex justify-content-between align-items-center">
                       <h3 className="mb-0">Player Boards</h3>
+                      <div>
+                        <button 
+                          className="btn btn-sm btn-outline-primary me-2"
+                          onClick={() => setVisibleBoards(new Set())}
+                        >
+                          Hide All
+                        </button>
+                        <button 
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => setVisibleBoards(new Set(players.map(p => p.id)))}
+                        >
+                          Show All
+                        </button>
+                      </div>
                     </div>
                     <div className="card-body">
                       {playerBoards.length === 0 ? (
                         <p className="text-center">No player boards available</p>
                       ) : (
                         <div className="row">
-                          {playerBoards.map((board) => {
-                            const player = players.find(p => p.id === board.playerId);
-                            return (
-                              <div key={board.playerId} className="col-md-6 mb-4">
-                                <div className="card h-100">
-                                  <div className="card-header bg-success text-white">
-                                    <h5 className="mb-0">{board.playerName || 'Unknown Player'} {!player?.isActive && '(Eliminated)'}</h5>
-                                  </div>
-                                  <div className="card-body p-0">
-                                    <div 
-                                      className="drawing-board"
-                                      style={{ 
-                                        backgroundColor: '#0C6A35', // School green board color 
-                                        border: '12px solid #8B4513', // Brown wooden frame
-                                        borderRadius: '4px',
-                                        minHeight: '400px',
-                                        width: '100%',
-                                        boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.5)',
-                                        overflow: 'hidden',
-                                        position: 'relative'
-                                      }}
-                                    >
+                          {playerBoards
+                            .filter(board => visibleBoards.has(board.playerId))
+                            .map((board) => {
+                              const player = players.find(p => p.id === board.playerId);
+                              return (
+                                <div key={board.playerId} className="col-md-6 mb-4">
+                                  <div className="card h-100">
+                                    <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
+                                      <h5 className="mb-0">{board.playerName || 'Unknown Player'} {!player?.isActive && '(Eliminated)'}</h5>
+                                      <button
+                                        className="btn btn-sm btn-light"
+                                        onClick={() => toggleBoardVisibility(board.playerId)}
+                                      >
+                                        Hide
+                                      </button>
+                                    </div>
+                                    <div className="card-body p-0">
                                       <div 
-                                        style={{
+                                        className="drawing-board"
+                                        style={{ 
+                                          backgroundColor: '#0C6A35',
+                                          border: '12px solid #8B4513',
+                                          borderRadius: '4px',
+                                          minHeight: '400px',
                                           width: '100%',
-                                          height: '100%',
-                                          position: 'absolute',
-                                          top: 0,
-                                          left: 0,
-                                          transformOrigin: 'top left',
-                                          transform: 'scale(1)',
+                                          boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.5)',
+                                          overflow: 'hidden',
+                                          position: 'relative'
                                         }}
-                                        dangerouslySetInnerHTML={{ 
-                                          __html: board.boardData || '' 
-                                        }}
-                                      />
+                                      >
+                                        <div 
+                                          style={{
+                                            width: '100%',
+                                            height: '100%',
+                                            position: 'absolute',
+                                            top: 0,
+                                            left: 0,
+                                            transformOrigin: 'top left',
+                                            transform: 'scale(1)',
+                                          }}
+                                          dangerouslySetInnerHTML={{ 
+                                            __html: board.boardData || '' 
+                                          }}
+                                        />
+                                      </div>
+                                    </div>
+                                    <div className="card-footer d-flex justify-content-between align-items-center">
+                                      <span>
+                                        {Array.from({length: player?.lives || 0}, (_, i) => (
+                                          <span key={i} className="text-danger me-1" role="img" aria-label="heart">❤</span>
+                                        ))}
+                                      </span>
+                                      {pendingAnswers.find(a => a.playerId === board.playerId) && (
+                                        <div>
+                                          <button 
+                                            className="btn btn-sm btn-success me-2"
+                                            onClick={() => evaluateAnswer(board.playerId, true)}
+                                          >
+                                            Correct
+                                          </button>
+                                          <button 
+                                            className="btn btn-sm btn-danger"
+                                            onClick={() => evaluateAnswer(board.playerId, false)}
+                                          >
+                                            Incorrect
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
                                   </div>
-                                  <div className="card-footer d-flex justify-content-between align-items-center">
-                                    <span>
-                                      {Array.from({length: player?.lives || 0}, (_, i) => (
-                                        <span key={i} className="text-danger me-1" role="img" aria-label="heart">❤</span>
-                                      ))}
-                                    </span>
-                                    {pendingAnswers.find(a => a.playerId === board.playerId) && (
-                                      <div>
-                                        <button 
-                                          className="btn btn-sm btn-success me-2"
-                                          onClick={() => evaluateAnswer(board.playerId, true)}
-                                        >
-                                          Correct
-                                        </button>
-                                        <button 
-                                          className="btn btn-sm btn-danger"
-                                          onClick={() => evaluateAnswer(board.playerId, false)}
-                                        >
-                                          Incorrect
-                                        </button>
-                                      </div>
-                                    )}
-                                  </div>
                                 </div>
-                              </div>
-                            );
+                              );
                           })}
                         </div>
                       )}
