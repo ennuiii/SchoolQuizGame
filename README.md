@@ -39,19 +39,34 @@ A multiplayer educational game based on the German school system. Players join a
    npm install --legacy-peer-deps
    ```
 
-3. Start the backend server
+3. Set up environment variables
+   
+   For Windows:
+   ```
+   .\setup-env.ps1
+   ```
+   
+   For macOS/Linux:
+   ```
+   chmod +x setup-env.sh
+   ./setup-env.sh
+   ```
+   
+   This will create the necessary .env files for local development with the correct values.
+
+4. Start the backend server
    ```
    cd server
    node index.js
    ```
 
-4. In a new terminal, start the frontend development server
+5. In a new terminal, start the frontend development server
    ```
    cd ..
    npm start
    ```
 
-5. Open your browser to [http://localhost:3000](http://localhost:3000)
+6. Open your browser to [http://localhost:3000](http://localhost:3000)
 
 ### Quick Start with PowerShell Script
 

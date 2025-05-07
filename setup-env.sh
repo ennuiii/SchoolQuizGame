@@ -1,38 +1,37 @@
-# PowerShell script to create .env files for local development
+#!/bin/bash
 
-# Create or update .env files for local development
 # Root project (client/game)
-$rootEnvContent = @"
+cat > .env << EOL
 REACT_APP_SUPABASE_URL=https://msocknepcnzlrelwplkf.supabase.co
 REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zb2NrbmVwY256bHJlbHdwbGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1MTU3MTIsImV4cCI6MjA2MjA5MTcxMn0.vOoZEjyKKcbym8nkK5knRb_JTiOBlP1m6fUK7Z2wTN4
 NODE_ENV=development
 SKIP_PREFLIGHT_CHECK=true
 CI=false
 TSC_COMPILE_ON_ERROR=true
-"@
-$rootEnvContent | Out-File -FilePath ".env" -Encoding utf8
+EOL
 
 # Admin panel
-$adminEnvContent = @"
+cat > admin-panel/.env << EOL
 REACT_APP_SUPABASE_URL=https://msocknepcnzlrelwplkf.supabase.co
 REACT_APP_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zb2NrbmVwY256bHJlbHdwbGtmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDY1MTU3MTIsImV4cCI6MjA2MjA5MTcxMn0.vOoZEjyKKcbym8nkK5knRb_JTiOBlP1m6fUK7Z2wTN4
 SKIP_PREFLIGHT_CHECK=true
 NODE_ENV=development
 CI=false
 TSC_COMPILE_ON_ERROR=true
-"@
-$adminEnvContent | Out-File -FilePath "admin-panel/.env" -Encoding utf8
+EOL
 
 # Server
-$serverEnvContent = @"
+cat > server/.env << EOL
 NODE_ENV=development
 PORT=5000
 CORS_ORIGIN=http://localhost:3000
-"@
-$serverEnvContent | Out-File -FilePath "server/.env" -Encoding utf8
+EOL
 
-Write-Host "Environment files created successfully!"
-Write-Host "Root .env file created at: $((Get-Item '.env').FullName)"
-Write-Host "Admin panel .env file created at: $((Get-Item 'admin-panel/.env').FullName)"
-Write-Host "Server .env file created at: $((Get-Item 'server/.env').FullName)"
-Write-Host "These files are already in .gitignore and won't be committed to Git." 
+echo "Environment files created successfully!"
+echo "Root .env file created at: $(pwd)/.env"
+echo "Admin panel .env file created at: $(pwd)/admin-panel/.env"
+echo "Server .env file created at: $(pwd)/server/.env"
+echo "These files are already in .gitignore and won't be committed to Git."
+
+# Make the script executable
+chmod +x setup-env.sh 
