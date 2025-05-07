@@ -7,7 +7,7 @@
     "start": "node server/index.js",
     "dev:client": "react-scripts start",
     "dev:server": "cd server && node index.js",
-    "build": "react-scripts build",
+    "build": "set NODE_OPTIONS=--openssl-legacy-provider && react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
     "render-build": "npm install --legacy-peer-deps && npm run build && mkdir -p server/build && cp -r build/* server/build/ && cd server && npm install --legacy-peer-deps"
