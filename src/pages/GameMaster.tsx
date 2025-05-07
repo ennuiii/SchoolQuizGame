@@ -59,6 +59,7 @@ const GameMaster: React.FC = () => {
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [sortByGrade, setSortByGrade] = useState<boolean>(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   useEffect(() => {
     // Connect to socket server
@@ -264,10 +265,12 @@ const GameMaster: React.FC = () => {
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
       setTimeRemaining(data.timeRemaining);
+      setIsTimerRunning(true);
     });
 
     socketService.on('time_up', () => {
       setTimeRemaining(0);
+      setIsTimerRunning(false);
     });
 
     // Check if returning from a refresh (restore state)
@@ -491,6 +494,14 @@ const GameMaster: React.FC = () => {
     setQuestions(organized);
   };
 
+  // Format time remaining
+  const formatTime = (seconds: number | null) => {
+    if (seconds === null) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="container">
       <h1 className="text-center mb-4">Game Master Dashboard</h1>
@@ -639,7 +650,7 @@ const GameMaster: React.FC = () => {
                       <div className="mb-3 text-center">
                         <h5>Time Remaining:</h5>
                         <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
-                          {timeRemaining !== null ? timeRemaining : timeLimit} seconds
+                          {formatTime(timeRemaining)}
                         </div>
                       </div>
                     )}
@@ -1021,6 +1032,16 @@ const GameMaster: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Timer display */}
+      <div className="fixed top-4 right-4 bg-white rounded-lg shadow-md p-4">
+        <div className="text-2xl font-bold text-gray-800">
+          {formatTime(timeRemaining)}
+        </div>
+        {isTimerRunning && (
+          <div className="text-sm text-gray-500">Time Remaining</div>
+        )}
+      </div>
     </div>
   );
 };
