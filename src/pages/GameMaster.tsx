@@ -367,21 +367,6 @@ const GameMaster: React.FC = () => {
     setIsLoading(true);
     socketService.startGame(roomCode, gradeSortedQuestions, timeLimit || undefined);
     setGameStarted(true);
-    
-    // Initialize timer if timeLimit is set
-    if (timeLimit) {
-      setTimeRemaining(timeLimit);
-      const timer = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev !== null && prev > 0) {
-            return prev - 1;
-          } else {
-            clearInterval(timer);
-            return 0;
-          }
-        });
-      }, 1000);
-    }
   };
 
   const nextQuestion = () => {
@@ -670,14 +655,12 @@ const GameMaster: React.FC = () => {
                     </button>
                   </div>
                   <div className="card-body">
-                    {timeLimit !== null && (
-                      <div className="mb-3 text-center">
-                        <h5>Time Remaining:</h5>
-                        <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
-                          {formatTime(timeRemaining)}
-                        </div>
+                    <div className="mb-3 text-center">
+                      <h5>Time Remaining:</h5>
+                      <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
+                        {formatTime(timeRemaining)}
                       </div>
-                    )}
+                    </div>
                     
                     <div className="mb-3">
                       <h5>Current Question ({currentQuestionIndex + 1}/{questions.length}):</h5>
@@ -1056,22 +1039,6 @@ const GameMaster: React.FC = () => {
           </div>
         </div>
       )}
-
-      {/* Timer display with smooth transitions */}
-      <div className="fixed top-4 right-4 bg-white rounded-lg shadow-md p-4">
-        <div 
-          className="text-2xl font-bold text-gray-800 transition-all duration-300"
-          style={{
-            opacity: isTimerRunning ? 1 : 0.7,
-            transform: isTimerRunning ? 'scale(1)' : 'scale(0.95)'
-          }}
-        >
-          {formatTime(timeRemaining)}
-        </div>
-        {isTimerRunning && (
-          <div className="text-sm text-gray-500">Time Remaining</div>
-        )}
-      </div>
     </div>
   );
 };

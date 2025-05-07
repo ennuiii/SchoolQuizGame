@@ -27,6 +27,9 @@ const Player: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const timerUpdateRef = useRef<number>(0);
+  const animationFrameRef = useRef<number>();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -221,78 +224,37 @@ const Player: React.FC = () => {
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
-      setTimeRemaining(data.timeRemaining);
+      const now = performance.now();
+      // Only update if at least 900ms have passed since last update
+      if (now - timerUpdateRef.current >= 900) {
+        // Use requestAnimationFrame for smooth updates
+        if (animationFrameRef.current) {
+          cancelAnimationFrame(animationFrameRef.current);
+        }
+        
+        animationFrameRef.current = requestAnimationFrame(() => {
+          setTimeRemaining(data.timeRemaining);
+          setIsTimerRunning(true);
+          timerUpdateRef.current = now;
+        });
+      }
     });
     
     socketService.on('time_up', () => {
-      setTimeRemaining(0);
-      
-      // Auto-submit logic here...
-      if (!submittedAnswer) {
-        // Multiple checks to avoid duplicate submissions
-        // 1. React state check
-        if (submittedAnswer) {
-          console.log('Answer already submitted (state check), not auto-submitting');
-          return;
-        }
-
-        // 2. UI check - see if submission confirmation is visible
-        const submissionAlreadyProcessed = document.querySelector('.alert-info')?.textContent?.includes('Your answer has been submitted');
-        if (submissionAlreadyProcessed) {
-          console.log('Submission confirmation visible on screen, not auto-submitting');
-          setSubmittedAnswer(true);
-          return;
-        }
-        
-        // Get room code from current state or session storage as a fallback
-        const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
-        
-        if (!currentRoomCode) {
-          console.error('No room code available for submission!');
-          showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
-          return;
-        }
-        
-        console.log('Answer not submitted yet, preparing auto-submission to room:', currentRoomCode);
-        
-        try {
-          // Get the latest answer text directly from the DOM in case state isn't updated
-          const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement;
-          const currentAnswer = inputElement?.value || answer;
-          const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-          
-          // Auto-submit the current answer if time is up
-          if (currentAnswer && currentAnswer.trim()) {
-            // If there's text in the input field, submit that (potentially adding drawing note)
-            const finalAnswer = hasDrawing ? `${currentAnswer} (with drawing)` : currentAnswer;
-            console.log(`Auto-submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
-            socketService.submitAnswer(currentRoomCode, finalAnswer);
-            setSubmittedAnswer(true);
-            showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
-          } else if (hasDrawing) {
-            // If canvas has content but no text answer, submit with drawing note
-            // Also include any partial text the player might have been typing
-            const textContent = currentAnswer && currentAnswer.trim() ? currentAnswer : "";
-            const finalAnswer = textContent ? 
-              `${textContent} (drawing submitted, time's up)` : 
-              "Drawing submitted (time's up)";
-              
-            console.log('Auto-submitting drawing to room ' + currentRoomCode);
-            socketService.submitAnswer(currentRoomCode, finalAnswer);
-            setSubmittedAnswer(true);
-            showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
-          } else {
-            // If no input and no drawing, send empty answer
-            console.log('Auto-submitting empty answer to room ' + currentRoomCode);
-            socketService.submitAnswer(currentRoomCode, "No answer (time's up)");
-            setSubmittedAnswer(true);
-            showFlashMessage('Time\'s up! No answer was provided.', 'warning');
-          }
-        } catch (error) {
-          console.error('Error during auto-submission:', error);
-          showFlashMessage('Error submitting your answer. Please try again.', 'danger');
-        }
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
       }
+      
+      requestAnimationFrame(() => {
+        setTimeRemaining(0);
+        setIsTimerRunning(false);
+        timerUpdateRef.current = performance.now();
+        
+        // Auto-submit answer if not already submitted
+        if (!submittedAnswer && currentQuestion) {
+          handleSubmitAnswer();
+        }
+      });
     });
     
     // Add listener for answer received confirmation
@@ -359,14 +321,9 @@ const Player: React.FC = () => {
     setAnswer(e.target.value);
   };
 
-  const submitAnswer = () => {
-    // Don't allow submitting if already submitted
-    if (submittedAnswer) {
-      console.log('Answer already submitted, ignoring submission attempt');
-      showFlashMessage('Your answer has already been submitted', 'info');
-      return;
-    }
-
+  const handleSubmitAnswer = () => {
+    if (!currentQuestion || submittedAnswer) return;
+    
     // Get room code from current state or session storage as a fallback
     const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
     
@@ -383,19 +340,16 @@ const Player: React.FC = () => {
       if (answer && answer.trim()) {
         // Submit text input
         const finalAnswer = hasDrawing ? `${answer} (with drawing)` : answer;
-        console.log(`Manually submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
         socketService.submitAnswer(currentRoomCode, finalAnswer);
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else if (hasDrawing) {
         // Submit drawing
-        // Also include any partial text the player might have been typing
         const textContent = answer && answer.trim() ? answer : "";
         const finalAnswer = textContent ? 
           `${textContent} (drawing submitted)` : 
           "Drawing submitted";
-          
-        console.log('Manually submitting drawing to room ' + currentRoomCode);
+        
         socketService.submitAnswer(currentRoomCode, finalAnswer);
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
@@ -545,7 +499,7 @@ const Player: React.FC = () => {
                 <button
                   className="btn btn-primary"
                   type="button"
-                  onClick={submitAnswer}
+                  onClick={handleSubmitAnswer}
                   disabled={submittedAnswer}
                 >
                   Submit Answer
@@ -554,7 +508,7 @@ const Player: React.FC = () => {
               
               {timeLimit !== null && timeRemaining !== null && (
                 <div className={`text-center ${timeRemaining <= 10 ? 'text-danger fw-bold' : ''}`}>
-                  Time remaining: {timeRemaining} seconds
+                  Time remaining: {formatTime(timeRemaining)}
                   {timeRemaining <= 10 && <span className="ms-1">- Answer will be auto-submitted when time is up!</span>}
                 </div>
               )}
@@ -570,6 +524,14 @@ const Player: React.FC = () => {
       )}
     </div>
   );
+};
+
+// Helper function to format time
+const formatTime = (seconds: number | null): string => {
+  if (seconds === null) return '--:--';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 export default Player; 

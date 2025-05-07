@@ -337,35 +337,26 @@ io.on('connection', (socket) => {
   // Next question from gamemaster
   socket.on('next_question', ({ roomCode }) => {
     if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
-      socket.emit('error', 'Not authorized to change questions');
+      socket.emit('error', 'Not authorized to move to next question');
       return;
     }
-    
-    // Clear any active timers
-    clearRoomTimer(roomCode);
-    
-    gameRooms[roomCode].currentQuestionIndex++;
-    const index = gameRooms[roomCode].currentQuestionIndex;
-    
-    if (index >= gameRooms[roomCode].questions.length) {
-      io.to(roomCode).emit('game_completed');
-      return;
-    }
-    
-    const nextQuestion = gameRooms[roomCode].questions[index];
-    gameRooms[roomCode].currentQuestion = nextQuestion;
-    
-    // Clear boards for next question
-    Object.keys(gameRooms[roomCode].playerBoards).forEach(id => {
-      gameRooms[roomCode].playerBoards[id].boardData = '';
-      gameRooms[roomCode].playerBoards[id].answerSubmitted = false;
-    });
-    
-    io.to(roomCode).emit('new_question', { question: nextQuestion, timeLimit: gameRooms[roomCode].timeLimit });
-    
-    // Start the timer for this question if a time limit is set
-    if (gameRooms[roomCode].timeLimit) {
-      startQuestionTimer(roomCode);
+
+    const room = gameRooms[roomCode];
+    const nextIndex = room.currentQuestionIndex + 1;
+
+    if (nextIndex < room.questions.length) {
+      room.currentQuestionIndex = nextIndex;
+      room.currentQuestion = room.questions[nextIndex];
+      
+      // Clear existing timer and start a new one if time limit is set
+      if (room.timeLimit) {
+        startQuestionTimer(roomCode);
+      }
+
+      io.to(roomCode).emit('new_question', {
+        question: room.currentQuestion,
+        timeLimit: room.timeLimit
+      });
     }
   });
 
@@ -508,43 +499,49 @@ function generateRoomCode() {
 
 // Helper function to start question timer
 function startQuestionTimer(roomCode) {
-  if (!gameRooms[roomCode] || !gameRooms[roomCode].timeLimit) return;
-  
+  const room = gameRooms[roomCode];
+  if (!room || !room.timeLimit) return;
+
   // Clear any existing timer for this room
-  if (timers.has(roomCode)) {
-    clearInterval(timers.get(roomCode));
-    timers.delete(roomCode);
-  }
+  clearRoomTimer(roomCode);
+
+  let timeRemaining = room.timeLimit;
   
-  // Set initial time
-  let timeRemaining = gameRooms[roomCode].timeLimit;
-  
-  // Emit initial time
-  io.to(roomCode).emit('timer_update', { timeRemaining });
-  
-  // Start interval timer
-  const timerId = setInterval(() => {
+  // Create a new timer
+  const timer = setInterval(() => {
     timeRemaining--;
     
+    // Broadcast the remaining time to all clients
+    io.to(roomCode).emit('timer_update', { timeRemaining });
+    
     if (timeRemaining <= 0) {
-      // Clear timer and emit time up
-      clearInterval(timerId);
-      timers.delete(roomCode);
+      clearInterval(timer);
       io.to(roomCode).emit('time_up');
-      console.log(`Time's up for room: ${roomCode}`);
-    } else {
-      // Emit updated time
-      io.to(roomCode).emit('timer_update', { timeRemaining });
+      
+      // Auto-submit answers for players who haven't submitted yet
+      const room = gameRooms[roomCode];
+      if (room) {
+        room.players.forEach(player => {
+          if (player.isActive && !player.answers[room.currentQuestionIndex]) {
+            // Auto-submit empty answer
+            player.answers[room.currentQuestionIndex] = {
+              answer: '',
+              timestamp: Date.now()
+            };
+          }
+        });
+      }
     }
   }, 1000);
-  
-  // Store timer reference
-  timers.set(roomCode, timerId);
+
+  // Store the timer reference
+  timers.set(roomCode, timer);
 }
 
 function clearRoomTimer(roomCode) {
-  if (timers.has(roomCode)) {
-    clearInterval(timers.get(roomCode));
+  const timer = timers.get(roomCode);
+  if (timer) {
+    clearInterval(timer);
     timers.delete(roomCode);
   }
 }
