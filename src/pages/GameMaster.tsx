@@ -262,36 +262,11 @@ const GameMaster: React.FC = () => {
       setIsRestarting(false);
     });
     
-    socketService.on('timer_started', (data: { timeLimit: number }) => {
-      // Clear any existing timer first
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      
-      setTimeRemaining(data.timeLimit);
-      
-      // Start new timer
-      timerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev !== null && prev > 0) {
-            return prev - 1;
-          } else {
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-              timerRef.current = null;
-            }
-            return 0;
-          }
-        });
-      }, 1000);
+    socketService.on('timer_update', (data: { timeRemaining: number }) => {
+      setTimeRemaining(data.timeRemaining);
     });
 
     socketService.on('time_up', () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
       setTimeRemaining(0);
     });
 
@@ -317,12 +292,8 @@ const GameMaster: React.FC = () => {
       socketService.off('answer_submitted');
       socketService.off('error');
       socketService.off('game_restarted');
-      socketService.off('timer_started');
+      socketService.off('timer_update');
       socketService.off('time_up');
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
     };
   }, []);
 

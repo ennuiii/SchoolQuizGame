@@ -220,100 +220,78 @@ const Player: React.FC = () => {
       }
     });
     
-    socketService.on('timer_started', (data: { timeLimit: number }) => {
-      // Clear any existing timer first
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      
-      setTimeRemaining(data.timeLimit);
-      
-      // Start new timer
-      timerRef.current = setInterval(() => {
-        setTimeRemaining(prev => {
-          if (prev !== null && prev > 0) {
-            return prev - 1;
-          } else {
-            if (timerRef.current) {
-              clearInterval(timerRef.current);
-              timerRef.current = null;
-            }
-            return 0;
-          }
-        });
-      }, 1000);
+    socketService.on('timer_update', (data: { timeRemaining: number }) => {
+      setTimeRemaining(data.timeRemaining);
     });
     
     socketService.on('time_up', () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
       setTimeRemaining(0);
       
-      // Multiple checks to avoid duplicate submissions
-      // 1. React state check
-      if (submittedAnswer) {
-        console.log('Answer already submitted (state check), not auto-submitting');
-        return;
-      }
-
-      // 2. UI check - see if submission confirmation is visible
-      const submissionAlreadyProcessed = document.querySelector('.alert-info')?.textContent?.includes('Your answer has been submitted');
-      if (submissionAlreadyProcessed) {
-        console.log('Submission confirmation visible on screen, not auto-submitting');
-        setSubmittedAnswer(true);
-        return;
-      }
-      
-      // Get room code from current state or session storage as a fallback
-      const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
-      
-      if (!currentRoomCode) {
-        console.error('No room code available for submission!');
-        showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
-        return;
-      }
-      
-      console.log('Answer not submitted yet, preparing auto-submission to room:', currentRoomCode);
-      
-      try {
-        // Get the latest answer text directly from the DOM in case state isn't updated
-        const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement;
-        const currentAnswer = inputElement?.value || answer;
-        const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-        
-        // Auto-submit the current answer if time is up
-        if (currentAnswer && currentAnswer.trim()) {
-          // If there's text in the input field, submit that (potentially adding drawing note)
-          const finalAnswer = hasDrawing ? `${currentAnswer} (with drawing)` : currentAnswer;
-          console.log(`Auto-submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
-          socketService.submitAnswer(currentRoomCode, finalAnswer);
-          setSubmittedAnswer(true);
-          showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
-        } else if (hasDrawing) {
-          // If canvas has content but no text answer, submit with drawing note
-          // Also include any partial text the player might have been typing
-          const textContent = currentAnswer && currentAnswer.trim() ? currentAnswer : "";
-          const finalAnswer = textContent ? 
-            `${textContent} (drawing submitted, time's up)` : 
-            "Drawing submitted (time's up)";
-            
-          console.log('Auto-submitting drawing to room ' + currentRoomCode);
-          socketService.submitAnswer(currentRoomCode, finalAnswer);
-          setSubmittedAnswer(true);
-          showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
-        } else {
-          // If no input and no drawing, send empty answer
-          console.log('Auto-submitting empty answer to room ' + currentRoomCode);
-          socketService.submitAnswer(currentRoomCode, "No answer (time's up)");
-          setSubmittedAnswer(true);
-          showFlashMessage('Time\'s up! No answer was provided.', 'warning');
+      // Auto-submit logic here...
+      if (!submittedAnswer) {
+        // Multiple checks to avoid duplicate submissions
+        // 1. React state check
+        if (submittedAnswer) {
+          console.log('Answer already submitted (state check), not auto-submitting');
+          return;
         }
-      } catch (error) {
-        console.error('Error during auto-submission:', error);
-        showFlashMessage('Error submitting your answer. Please try again.', 'danger');
+
+        // 2. UI check - see if submission confirmation is visible
+        const submissionAlreadyProcessed = document.querySelector('.alert-info')?.textContent?.includes('Your answer has been submitted');
+        if (submissionAlreadyProcessed) {
+          console.log('Submission confirmation visible on screen, not auto-submitting');
+          setSubmittedAnswer(true);
+          return;
+        }
+        
+        // Get room code from current state or session storage as a fallback
+        const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
+        
+        if (!currentRoomCode) {
+          console.error('No room code available for submission!');
+          showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
+          return;
+        }
+        
+        console.log('Answer not submitted yet, preparing auto-submission to room:', currentRoomCode);
+        
+        try {
+          // Get the latest answer text directly from the DOM in case state isn't updated
+          const inputElement = document.querySelector('input[type="text"]') as HTMLInputElement;
+          const currentAnswer = inputElement?.value || answer;
+          const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
+          
+          // Auto-submit the current answer if time is up
+          if (currentAnswer && currentAnswer.trim()) {
+            // If there's text in the input field, submit that (potentially adding drawing note)
+            const finalAnswer = hasDrawing ? `${currentAnswer} (with drawing)` : currentAnswer;
+            console.log(`Auto-submitting text answer: "${finalAnswer}" to room ${currentRoomCode}`);
+            socketService.submitAnswer(currentRoomCode, finalAnswer);
+            setSubmittedAnswer(true);
+            showFlashMessage('Time\'s up! Your answer was submitted automatically.', 'info');
+          } else if (hasDrawing) {
+            // If canvas has content but no text answer, submit with drawing note
+            // Also include any partial text the player might have been typing
+            const textContent = currentAnswer && currentAnswer.trim() ? currentAnswer : "";
+            const finalAnswer = textContent ? 
+              `${textContent} (drawing submitted, time's up)` : 
+              "Drawing submitted (time's up)";
+              
+            console.log('Auto-submitting drawing to room ' + currentRoomCode);
+            socketService.submitAnswer(currentRoomCode, finalAnswer);
+            setSubmittedAnswer(true);
+            showFlashMessage('Time\'s up! Your drawing was submitted automatically.', 'info');
+          } else {
+            // If no input and no drawing, send empty answer
+            console.log('Auto-submitting empty answer to room ' + currentRoomCode);
+            socketService.submitAnswer(currentRoomCode, "No answer (time's up)");
+            setSubmittedAnswer(true);
+            showFlashMessage('Time\'s up! No answer was provided.', 'warning');
+          }
+        } catch (error) {
+          console.error('Error during auto-submission:', error);
+          showFlashMessage('Error submitting your answer. Please try again.', 'danger');
+        }
       }
     });
     
@@ -343,7 +321,7 @@ const Player: React.FC = () => {
     });
     
     return () => {
-      // Cleanup listeners
+      // Clean up listeners
       socketService.off('game_started');
       socketService.off('new_question');
       socketService.off('answer_evaluation');
@@ -351,18 +329,13 @@ const Player: React.FC = () => {
       socketService.off('game_winner');
       socketService.off('gamemaster_left');
       socketService.off('error');
+      socketService.off('timer_update');
       socketService.off('time_up');
       socketService.off('game_restarted');
       socketService.off('answer_received');
       
       // Disconnect
       socketService.disconnect();
-
-      // Clean up timer on component unmount
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
     };
   }, [navigate, roomCode]);
 
