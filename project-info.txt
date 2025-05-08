@@ -1,0 +1,102 @@
+# School Quiz Game Project Information
+
+## Project Overview
+A multiplayer educational game based on the German school system where players join rooms and answer questions while a Game Master evaluates their answers.
+
+## Repository Information
+- GitHub Repository: https://github.com/ennuiii/SchoolQuizGame
+- Branch: Development
+- Deployment: Published on Render.com
+  - Server: Deployed as a Service
+  - Game: Deployed as a Static Site
+  - Admin Panel: Deployed as a Static Site
+
+## Technology Stack
+- Frontend: React, TypeScript, Fabric.js (for canvas drawing)
+- Backend: Node.js, Express
+- Real-time Communication: Socket.IO
+- Styling: Bootstrap and custom CSS
+- Database: Supabase
+
+## Key Features
+1. Game Master Role
+   - Create rooms
+   - Manage questions
+   - Evaluate player answers
+
+2. Player Role
+   - Join rooms
+   - Draw answers on virtual chalkboard
+   - Real-time drawing updates
+   - Three lives system
+
+3. Admin Panel
+   - Separate single-page application
+   - Question database management
+   - Admin authentication
+   - Bulk question upload
+   - CRUD operations for questions
+   - JSON file validation
+
+## Project Structure
+- /admin-panel - Admin interface
+- /public - Static assets
+- /server - Backend server
+- /src - Frontend source code
+
+## Setup Requirements
+- Node.js 16+
+- npm or yarn
+- Environment variables setup required
+
+## Development Scripts
+- start-app.ps1 - Starts both server and client
+- run-admin.ps1 - Runs admin panel
+- run-server.ps1 - Runs backend server
+- build-admin.ps1 - Builds admin panel
+- setup-env.ps1 - Sets up environment variables
+
+## Deployment Configuration
+- render.yaml - Render.com deployment configuration
+  - Game: Static site deployment
+  - Server: Web service deployment
+  - Admin Panel: Static site deployment
+- netlify.toml - Netlify configuration (if applicable)
+
+## Important Files
+- package.json - Project dependencies
+- tsconfig.json - TypeScript configuration
+- .env files - Environment variables (not tracked in git)
+
+## Game Mechanics
+- Players join via room codes
+- Real-time drawing on chalkboard
+- Lives system (3 lives per player)
+- German educational content
+- Game Master evaluation system
+
+## Security Notes
+- Admin authentication required for question management
+- Environment variables for sensitive data
+- No hardcoded credentials
+- Supabase database security rules
+
+## Maintenance
+- Regular dependency updates
+- Environment variable management
+- Database backup procedures
+
+## Admin Panel Deployment (Render.com)
+1. Create new static site
+2. Connect to GitHub repository
+3. Build settings:
+   - Build Command: cd admin && npm install && npm run build
+   - Publish Directory: admin/build
+4. Environment Variables:
+   - REACT_APP_SUPABASE_URL
+   - REACT_APP_SUPABASE_ANON_KEY
+5. Auto-Deploy: Enabled
+6. Branch: Development
+
+## Contact
+For issues and contributions, please use the GitHub repository. 
