@@ -216,20 +216,16 @@ const Player: React.FC = () => {
     
     socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number }) => {
       setLives(data.lives);
-      
       // Set review notification
       setReviewNotification({
         isCorrect: data.isCorrect,
         message: 'Reviewed by Game Master',
         timestamp: Date.now()
       });
-      
       // Clear the notification after 5 seconds
       setTimeout(() => {
         setReviewNotification(null);
       }, 5000);
-      
-      setSubmittedAnswer(false);
     });
     
     socketService.on('game_over', () => {
