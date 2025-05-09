@@ -288,7 +288,13 @@ const Player: React.FC = () => {
       
       // Force submit answer if not already submitted
       if (!submittedAnswerRef.current && currentQuestion) {
-        handleSubmitAnswer();
+        // Simulate clicking the submit button
+        const submitButton = document.querySelector('button[onClick="handleSubmitAnswer"]');
+        if (submitButton) {
+          (submitButton as HTMLButtonElement).click();
+        } else {
+          handleSubmitAnswer();
+        }
       }
       
       // Show notification
