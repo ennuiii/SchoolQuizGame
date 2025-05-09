@@ -84,6 +84,10 @@ class SocketService {
     this.emit('next_question', { roomCode });
   }
 
+  endRoundEarly(roomCode: string) {
+    this.emit('end_round_early', { roomCode });
+  }
+
   // Player actions
   joinRoom(roomCode: string, playerName: string) {
     console.log(`Joining room ${roomCode} as ${playerName}`);

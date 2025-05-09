@@ -49,6 +49,7 @@ const GameMaster: React.FC = () => {
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
+  const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
   const [subjects, setSubjects] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
@@ -535,6 +536,19 @@ const GameMaster: React.FC = () => {
     }));
   };
 
+  const handleEndRoundEarly = () => {
+    setShowEndRoundConfirm(true);
+  };
+
+  const confirmEndRoundEarly = () => {
+    socketService.endRoundEarly(roomCode);
+    setShowEndRoundConfirm(false);
+  };
+
+  const cancelEndRoundEarly = () => {
+    setShowEndRoundConfirm(false);
+  };
+
   return (
     <div className="container">
       <h1 className="text-center mb-4">Game Master Dashboard</h1>
@@ -548,6 +562,26 @@ const GameMaster: React.FC = () => {
             onClick={() => setErrorMsg('')}
             aria-label="Close"
           ></button>
+        </div>
+      )}
+      
+      {showEndRoundConfirm && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">End Round Early?</h5>
+                <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to end this round early? All players' current answers will be submitted automatically.</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
+                <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
       
@@ -730,37 +764,48 @@ const GameMaster: React.FC = () => {
                       {pendingAnswers.length === 0 ? (
                         <p className="text-center">No pending answers</p>
                       ) : (
-                        <ul className="list-group">
-                          {pendingAnswers.map((submission, index) => (
-                            <li key={index} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <h5 className="mb-0">{submission.playerName}</h5>
-                                <div>
-                                  <button 
-                                    className="btn btn-success me-2"
-                                    onClick={() => evaluateAnswer(submission.playerId, true)}
-                                  >
-                                    Correct
-                                  </button>
-                                  <button 
-                                    className="btn btn-danger"
-                                    onClick={() => evaluateAnswer(submission.playerId, false)}
-                                  >
-                                    Incorrect
-                                  </button>
+                        <>
+                          <div className="d-flex justify-content-end mb-3">
+                            <button 
+                              className="btn btn-warning"
+                              onClick={handleEndRoundEarly}
+                              disabled={!isTimerRunning}
+                            >
+                              End Round Early
+                            </button>
+                          </div>
+                          <ul className="list-group">
+                            {pendingAnswers.map((submission, index) => (
+                              <li key={index} className="list-group-item">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <h5 className="mb-0">{submission.playerName}</h5>
+                                  <div>
+                                    <button 
+                                      className="btn btn-success me-2"
+                                      onClick={() => evaluateAnswer(submission.playerId, true)}
+                                    >
+                                      Correct
+                                    </button>
+                                    <button 
+                                      className="btn btn-danger"
+                                      onClick={() => evaluateAnswer(submission.playerId, false)}
+                                    >
+                                      Incorrect
+                                    </button>
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="answer-container">
-                                <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
-                                {currentQuestion?.answer && (
-                                  <p className="mb-0 text-success small">
-                                    <strong>Correct Answer:</strong> {currentQuestion.answer}
-                                  </p>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
+                                <div className="answer-container">
+                                  <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
+                                  {currentQuestion?.answer && (
+                                    <p className="mb-0 text-success small">
+                                      <strong>Correct Answer:</strong> {currentQuestion.answer}
+                                    </p>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        </>
                       )}
                     </div>
                   </div>

@@ -281,6 +281,26 @@ const Player: React.FC = () => {
         }
       });
     });
+
+    socketService.on('end_round_early', () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      requestAnimationFrame(() => {
+        setTimeRemaining(0);
+        setIsTimerRunning(false);
+        timerUpdateRef.current = performance.now();
+        
+        // Auto-submit answer if not already submitted
+        if (!submittedAnswerRef.current && currentQuestion) {
+          handleSubmitAnswer();
+        }
+        
+        // Show notification
+        showFlashMessage('Round ended early by Game Master', 'warning');
+      });
+    });
     
     // Add listener for answer received confirmation
     socketService.on('answer_received', (data: { status: string, message: string }) => {
@@ -319,6 +339,7 @@ const Player: React.FC = () => {
       socketService.off('error');
       socketService.off('timer_update');
       socketService.off('time_up');
+      socketService.off('end_round_early');
       socketService.off('game_restarted');
       socketService.off('answer_received');
       
