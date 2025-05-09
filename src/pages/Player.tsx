@@ -276,40 +276,19 @@ const Player: React.FC = () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
-      
       // Clear any existing timer
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
-      
       // Immediately update state
       setTimeRemaining(0);
       setIsTimerRunning(false);
       timerUpdateRef.current = performance.now();
-      
       // Force submit answer if not already submitted
       if (!submittedAnswerRef.current && currentQuestion) {
-        const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
-        if (currentRoomCode) {
-          const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-          const currentAnswer = answerRef.current;
-          if ((currentAnswer && currentAnswer.trim()) || hasDrawing) {
-            let finalAnswer = '';
-            if (currentAnswer && currentAnswer.trim()) {
-              finalAnswer = currentAnswer.trim();
-              if (hasDrawing) {
-                finalAnswer += ' (with drawing)';
-              }
-            } else if (hasDrawing) {
-              finalAnswer = 'Drawing submitted';
-            }
-            socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
-            setSubmittedAnswer(true);
-          }
-        }
+        handleSubmitAnswer();
       }
-      
       // Show notification
       showFlashMessage('Round ended early by Game Master', 'warning');
     });
