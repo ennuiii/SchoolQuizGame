@@ -54,10 +54,12 @@ const Player: React.FC = () => {
     const updateSize = () => {
       if (boardContainerRef.current) {
         const rect = boardContainerRef.current.getBoundingClientRect();
-        setCanvasSize({
-          width: Math.floor(rect.width),
-          height: Math.floor(rect.height)
-        });
+        if (rect.width > 0 && rect.height > 0) {
+          setCanvasSize({
+            width: Math.floor(rect.width),
+            height: Math.floor(rect.height)
+          });
+        }
       }
     };
     updateSize();
@@ -65,9 +67,9 @@ const Player: React.FC = () => {
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Initialize canvas
+  // Initialize and resize canvas
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current && !canvasInitialized) {
+    if (canvasRef.current && !fabricCanvasRef.current && !canvasInitialized && canvasSize.width > 0 && canvasSize.height > 0) {
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         isDrawingMode: true,
         width: canvasSize.width,
@@ -75,14 +77,11 @@ const Player: React.FC = () => {
         backgroundColor: '#0C6A35'
       });
       setCanvasInitialized(true);
-      
-      // Set up drawing brush
+      console.log('[DEBUG] fabric.Canvas initialized', canvasSize);
       if (fabricCanvasRef.current.freeDrawingBrush) {
-        fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
+        fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF';
         fabricCanvasRef.current.freeDrawingBrush.width = 3;
       }
-      
-      // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
         if (fabricCanvasRef.current && roomCode) {
           const width = fabricCanvasRef.current.width;
@@ -96,7 +95,6 @@ const Player: React.FC = () => {
           socketService.updateBoard(roomCode, svgData);
         }
       };
-      
       fabricCanvasRef.current.on('path:created', sendBoardToGamemaster);
       fabricCanvasRef.current.on('mouse:move', () => {
         if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode) {
@@ -104,12 +102,22 @@ const Player: React.FC = () => {
           sendBoardUpdate(roomCode, svgData);
         }
       });
-      
       if (roomCode) {
         setTimeout(sendBoardToGamemaster, 1000);
       }
+    } else if (fabricCanvasRef.current && canvasInitialized) {
+      // Resize the canvas if the size changes
+      if (
+        fabricCanvasRef.current.width !== canvasSize.width ||
+        fabricCanvasRef.current.height !== canvasSize.height
+      ) {
+        fabricCanvasRef.current.width = canvasSize.width;
+        fabricCanvasRef.current.height = canvasSize.height;
+        fabricCanvasRef.current.backgroundColor = '#0C6A35';
+        fabricCanvasRef.current.renderAll();
+        console.log('[DEBUG] fabric.Canvas resized', canvasSize);
+      }
     }
-    
     return () => {
       if (fabricCanvasRef.current) {
         fabricCanvasRef.current.dispose();
@@ -117,7 +125,7 @@ const Player: React.FC = () => {
         setCanvasInitialized(false);
       }
     };
-  }, [canvasRef, canvasSize, roomCode, sendBoardUpdate]);
+  }, [canvasRef, canvasSize, roomCode, sendBoardUpdate, canvasInitialized]);
 
   // Setup socket connection
   useEffect(() => {
