@@ -762,7 +762,7 @@ const GameMaster: React.FC = () => {
                       <button 
                         className="btn btn-warning"
                         onClick={handleEndRoundEarly}
-                        disabled={!isTimerRunning}
+                        disabled={!(gameStarted && currentQuestion)}
                       >
                         End Round Early
                       </button>
