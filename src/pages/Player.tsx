@@ -23,6 +23,7 @@ const Player: React.FC = () => {
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [answer, setAnswer] = useState('');
   const [submittedAnswer, setSubmittedAnswer] = useState(false);
+  const submittedAnswerRef = useRef(submittedAnswer);
   const [canvasKey, setCanvasKey] = useState(0); // For canvas reset
   const [errorMsg, setErrorMsg] = useState('');
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
@@ -274,7 +275,7 @@ const Player: React.FC = () => {
         timerUpdateRef.current = performance.now();
         
         // Auto-submit answer if not already submitted
-        if (!submittedAnswer && currentQuestion) {
+        if (!submittedAnswerRef.current && currentQuestion) {
           handleSubmitAnswer();
         }
       });
@@ -325,6 +326,10 @@ const Player: React.FC = () => {
     };
   }, [navigate, roomCode]);
 
+  useEffect(() => {
+    submittedAnswerRef.current = submittedAnswer;
+  }, [submittedAnswer]);
+
   // Only call resetCanvas on explicit actions
   const resetCanvas = () => {
     setCanvasKey(prev => prev + 1);
@@ -347,7 +352,7 @@ const Player: React.FC = () => {
   };
 
   const handleSubmitAnswer = () => {
-    if (!currentQuestion || submittedAnswer) return;
+    if (!currentQuestion || submittedAnswerRef.current) return;
     
     // Get room code from current state or session storage as a fallback
     const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
@@ -365,7 +370,7 @@ const Player: React.FC = () => {
       if (answer && answer.trim()) {
         // Submit text input
         const finalAnswer = hasDrawing ? `${answer} (with drawing)` : answer;
-        socketService.submitAnswer(currentRoomCode, finalAnswer);
+        socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else if (hasDrawing) {
@@ -375,7 +380,7 @@ const Player: React.FC = () => {
           `${textContent} (drawing submitted)` : 
           "Drawing submitted";
         
-        socketService.submitAnswer(currentRoomCode, finalAnswer);
+        socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else {
@@ -524,13 +529,13 @@ const Player: React.FC = () => {
                   placeholder="Type your answer here..."
                   value={answer}
                   onChange={handleAnswerChange}
-                  disabled={submittedAnswer}
+                  disabled={submittedAnswer || timeRemaining === 0}
                 />
                 <button
                   className="btn btn-primary"
                   type="button"
                   onClick={handleSubmitAnswer}
-                  disabled={submittedAnswer}
+                  disabled={submittedAnswer || timeRemaining === 0}
                 >
                   Submit Answer
                 </button>
