@@ -288,23 +288,7 @@ const Player: React.FC = () => {
       
       // Force submit answer if not already submitted
       if (!submittedAnswerRef.current && currentQuestion) {
-        const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-        const currentAnswer = answerRef.current;
-        let finalAnswer = '';
-        
-        if (currentAnswer && currentAnswer.trim()) {
-          finalAnswer = currentAnswer.trim();
-          if (hasDrawing) {
-            finalAnswer += ' (with drawing)';
-          }
-        } else if (hasDrawing) {
-          finalAnswer = 'Drawing submitted';
-        } else {
-          finalAnswer = 'No answer submitted';
-        }
-        
-        socketService.submitAnswer(roomCode, finalAnswer, Boolean(hasDrawing));
-        setSubmittedAnswer(true);
+        handleSubmitAnswer();
       }
       
       // Show notification
