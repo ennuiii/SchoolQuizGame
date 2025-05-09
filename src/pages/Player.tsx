@@ -504,12 +504,17 @@ const Player: React.FC = () => {
             </div>
             <div className="card-body">
               <div className="mb-4 drawing-board-container" style={{ 
+                width: '800px',
+                height: '400px',
                 border: '12px solid #8B4513', 
                 borderRadius: '4px',
                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                position: 'relative'
+                position: 'relative',
+                overflow: 'hidden',
+                margin: '0 auto',
+                background: '#0C6A35', // fallback in case canvas doesn't fill
               }}>
-                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" />
+                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block' }} />
               </div>
               
               <div className="input-group mb-3">
