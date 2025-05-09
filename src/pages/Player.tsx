@@ -12,6 +12,12 @@ interface Question {
   language?: string;
 }
 
+interface ReviewNotification {
+  isCorrect: boolean;
+  message: string;
+  timestamp: number;
+}
+
 const Player: React.FC = () => {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
@@ -31,6 +37,7 @@ const Player: React.FC = () => {
   const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerUpdateRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
+  const [reviewNotification, setReviewNotification] = useState<ReviewNotification | null>(null);
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -211,12 +218,17 @@ const Player: React.FC = () => {
     socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number }) => {
       setLives(data.lives);
       
-      // Flash the result
-      if (data.isCorrect) {
-        showFlashMessage('Correct!', 'success');
-      } else {
-        showFlashMessage('Incorrect!', 'danger');
-      }
+      // Set review notification
+      setReviewNotification({
+        isCorrect: data.isCorrect,
+        message: 'Reviewed by Game Master',
+        timestamp: Date.now()
+      });
+      
+      // Clear the notification after 5 seconds
+      setTimeout(() => {
+        setReviewNotification(null);
+      }, 5000);
       
       setSubmittedAnswer(false);
     });
@@ -515,6 +527,24 @@ const Player: React.FC = () => {
       {errorMsg && (
         <div id="flash-message" className="alert mb-4" role="alert">
           {errorMsg}
+        </div>
+      )}
+
+      {reviewNotification && (
+        <div className={`alert ${reviewNotification.isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
+          <div className="me-3">
+            {reviewNotification.isCorrect ? (
+              <span role="img" aria-label="thumbs up" style={{ fontSize: '1.5rem' }}>👍</span>
+            ) : (
+              <span role="img" aria-label="thumbs down" style={{ fontSize: '1.5rem' }}>👎</span>
+            )}
+          </div>
+          <div>
+            <strong>{reviewNotification.message}</strong>
+            <div className="small">
+              {reviewNotification.isCorrect ? 'Your answer was correct!' : 'Your answer was incorrect.'}
+            </div>
+          </div>
         </div>
       )}
       
