@@ -45,7 +45,7 @@ const Player: React.FC = () => {
     throttle((roomCode: string, svgData: string) => {
       socketService.updateBoard(roomCode, svgData);
       console.log('Sent throttled board update');
-    }, 100), // Throttle to max once per 100ms
+    }, 50), // Throttle to max once per 50ms for smoother drawing
     []
   );
 
