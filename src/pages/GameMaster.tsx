@@ -379,9 +379,10 @@ const GameMaster: React.FC = () => {
       setCurrentQuestionIndex(nextIndex);
       setCurrentQuestion(questions[nextIndex]);
       setPendingAnswers([]);
+      setTimeRemaining(null);
+      setIsTimerRunning(false);
       socketService.nextQuestion(roomCode);
     } else {
-      // End game logic
       alert('No more questions available!');
     }
   };

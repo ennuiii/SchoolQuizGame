@@ -189,12 +189,12 @@ const Player: React.FC = () => {
       setSubmittedAnswer(false);
       setAnswer('');
       resetCanvas();
-      
+      setErrorMsg(''); // Clear any error messages
+      setReviewNotification(null); // Clear review notification
       // Reset timer for new question if time limit is set
       if (data.timeLimit) {
         setTimeLimit(data.timeLimit);
         setTimeRemaining(data.timeLimit);
-        
         // Start countdown
         const timer = setInterval(() => {
           setTimeRemaining(prev => {
@@ -206,7 +206,6 @@ const Player: React.FC = () => {
             }
           });
         }, 1000);
-        
         // Clean up timer
         return () => clearInterval(timer);
       } else {
