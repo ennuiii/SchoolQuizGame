@@ -353,38 +353,29 @@ const Player: React.FC = () => {
 
   const handleSubmitAnswer = () => {
     if (!currentQuestion || submittedAnswerRef.current) return;
-    
     // Get room code from current state or session storage as a fallback
     const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
-    
     if (!currentRoomCode) {
       console.error('No room code available for submission!');
       showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
       return;
     }
-
     try {
       const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-      
-      // Check what to submit
-      if (answer && answer.trim()) {
-        // Submit text input
-        const finalAnswer = hasDrawing ? `${answer} (with drawing)` : answer;
-        socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
-        setSubmittedAnswer(true);
-        showFlashMessage('Answer submitted!', 'info');
-      } else if (hasDrawing) {
-        // Submit drawing
-        const textContent = answer && answer.trim() ? answer : "";
-        const finalAnswer = textContent ? 
-          `${textContent} (drawing submitted)` : 
-          "Drawing submitted";
-        
+      if ((answer && answer.trim()) || hasDrawing) {
+        let finalAnswer = '';
+        if (answer && answer.trim()) {
+          finalAnswer = answer.trim();
+          if (hasDrawing) {
+            finalAnswer += ' (with drawing)';
+          }
+        } else if (hasDrawing) {
+          finalAnswer = 'Drawing submitted';
+        }
         socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');
       } else {
-        // Nothing to submit
         showFlashMessage('Please enter an answer or draw something', 'warning');
       }
     } catch (error) {
