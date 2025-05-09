@@ -399,6 +399,13 @@ const Player: React.FC = () => {
     }, 3000);
   };
 
+  useEffect(() => {
+    if (!submittedAnswerRef.current && currentQuestion && (!timeRemaining || timeRemaining <= 0)) {
+      handleSubmitAnswer();
+    }
+    // eslint-disable-next-line
+  }, [timeRemaining]);
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
