@@ -61,6 +61,7 @@ body {
 .drawing-board-container {
   background-color: #0C6A35;
   position: relative;
+  min-height: 320px;
 }
 
 .drawing-board-container::before {
@@ -90,6 +91,7 @@ body {
 
 .drawing-board {
   position: relative;
+  min-height: 300px;
 }
 
 .drawing-board::after {

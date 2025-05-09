@@ -804,19 +804,17 @@ const GameMaster: React.FC = () => {
                                         Hide
                                       </button>
                                     </div>
-                                    <div className="card-body p-0">
+                                    <div className="card-body p-0" style={{ minHeight: '350px', position: 'relative' }}>
                                       <div
                                         className="drawing-board-panzoom"
                                         style={{
                                           width: '100%',
-                                          height: '100%',
-                                          position: 'absolute',
-                                          top: 0,
-                                          left: 0,
+                                          height: '320px',
+                                          position: 'relative',
                                           overflow: 'hidden',
                                           cursor: 'grab',
                                           background: 'transparent',
-                                          zIndex: 2
+                                          zIndex: 1
                                         }}
                                         onWheel={e => {
                                           if (!e.altKey) return;
@@ -866,6 +864,7 @@ const GameMaster: React.FC = () => {
                                             transition: 'transform 0.05s',
                                             pointerEvents: 'none',
                                           }}
+                                          className="drawing-board"
                                           dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
                                         />
                                       </div>
