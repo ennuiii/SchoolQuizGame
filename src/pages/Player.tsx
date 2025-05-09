@@ -81,12 +81,16 @@ const Player: React.FC = () => {
       // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
         if (fabricCanvasRef.current && roomCode) {
-          // Generate SVG with specific attributes via a format that works with the fabric typings
-          const svgData = fabricCanvasRef.current.toSVG();
-          
+          // Generate SVG with green background
+          let svgData = fabricCanvasRef.current.toSVG();
+          // Insert a green rect as the first child of the SVG
+          svgData = svgData.replace(
+            /(<svg[^>]*>)/,
+            `$1<rect width=\"100%\" height=\"100%\" fill=\"#0C6A35\" />`
+          );
+          console.log('[DEBUG] sendBoardToGamemaster called, sending SVG with green background');
           // Send to server
           socketService.updateBoard(roomCode, svgData);
-          console.log('Sent board update to gamemaster');
         }
       };
       
