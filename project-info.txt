@@ -99,4 +99,58 @@ A multiplayer educational game based on the German school system where players j
 6. Branch: Development
 
 ## Contact
-For issues and contributions, please use the GitHub repository. 
+For issues and contributions, please use the GitHub repository.
+
+## File Structure & Key Files
+
+- /src
+  - /pages
+    - Player.tsx: Player game UI, drawing board, answer input, socket logic
+    - GameMaster.tsx: Gamemaster UI, player management, question control, player board viewing
+    - JoinGame.tsx: UI for joining a game
+    - Home.tsx: Home page
+    - Join.tsx: Room join logic
+  - /components: (empty or shared components)
+  - /services
+    - socketService.ts: Handles all socket.io communication
+    - supabaseService.ts: Handles Supabase DB communication
+  - /utils
+    - throttle.ts: Utility for throttling function calls
+  - App.tsx: Main React app entry
+  - index.tsx: ReactDOM entry point
+  - App.css, index.css: Styling
+
+- /server
+  - index.js: Node.js/Express backend, socket.io game logic
+  - package.json: Server dependencies
+
+- /admin-panel
+  - package.json, tsconfig.json: Admin panel config
+  - README.md: Admin panel usage
+
+- /admin
+  - /src
+    - /pages
+      - Dashboard.tsx: Admin dashboard
+      - BulkUpload.tsx: Bulk question upload
+      - Questions.tsx: Question management
+      - Login.tsx: Admin login
+    - /contexts
+      - AuthContext.tsx: Admin authentication context
+    - App.tsx, index.tsx, index.css: Admin SPA entry and styling
+  - /public: Static assets for admin panel
+  - package.json, tsconfig.json: Admin build config
+
+- /public
+  - index.html: Main HTML template
+  - manifest.json: PWA manifest
+
+- package.json: Project dependencies (root)
+- tsconfig.json: TypeScript config (root)
+- render.yaml: Render.com deployment config
+- setup-env.ps1, start-app.ps1, deploy.ps1: Scripts for setup, running, deployment
+- deployment-guide.md: Deployment instructions
+- github-cleanup.md, github-push-instructions.md: GitHub workflow docs
+- changes-report.txt: Change log
+- create-schema.js: DB schema script
+- .gitignore: Git ignore rules 

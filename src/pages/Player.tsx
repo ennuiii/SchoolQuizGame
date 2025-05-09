@@ -34,6 +34,8 @@ const Player: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const boardContainerRef = useRef<HTMLDivElement>(null);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
 
   // Create a throttled version of the update function
   const sendBoardUpdate = useCallback(
@@ -44,13 +46,29 @@ const Player: React.FC = () => {
     []
   );
 
+  // Responsive canvas sizing
+  useEffect(() => {
+    const updateSize = () => {
+      if (boardContainerRef.current) {
+        const rect = boardContainerRef.current.getBoundingClientRect();
+        setCanvasSize({
+          width: Math.floor(rect.width),
+          height: Math.floor(rect.height)
+        });
+      }
+    };
+    updateSize();
+    window.addEventListener('resize', updateSize);
+    return () => window.removeEventListener('resize', updateSize);
+  }, []);
+
   // Initialize canvas
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         isDrawingMode: true,
-        width: 800,
-        height: 400,
+        width: canvasSize.width,
+        height: canvasSize.height,
         backgroundColor: '#0C6A35' // School green board color
       });
       
@@ -478,13 +496,17 @@ const Player: React.FC = () => {
               </div>
             </div>
             <div className="card-body">
-              <div className="mb-4 drawing-board-container" style={{ 
+              <div className="mb-4 drawing-board-container" ref={boardContainerRef} style={{ 
                 border: '12px solid #8B4513', 
                 borderRadius: '4px',
                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                position: 'relative'
+                position: 'relative',
+                width: '100%',
+                height: '400px', // You can adjust this for your preferred height
+                background: '#0C6A35',
+                overflow: 'hidden'
               }}>
-                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" />
+                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width={canvasSize.width} height={canvasSize.height} style={{ display: 'block', width: '100%', height: '100%', background: '#0C6A35' }} />
               </div>
               
               <div className="input-group mb-3">

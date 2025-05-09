@@ -63,6 +63,8 @@ const GameMaster: React.FC = () => {
   const timerUpdateRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
+  const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
+  const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
 
   useEffect(() => {
     // Connect to socket server
@@ -525,6 +527,14 @@ const GameMaster: React.FC = () => {
     });
   };
 
+  // Helper to update transform state
+  const updateBoardTransform = (playerId: string, update: (t: {scale: number, x: number, y: number}) => {scale: number, x: number, y: number}) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: update(prev[playerId] || {scale: 1, x: 0, y: 0})
+    }));
+  };
+
   return (
     <div className="container">
       <h1 className="text-center mb-4">Game Master Dashboard</h1>
@@ -795,20 +805,56 @@ const GameMaster: React.FC = () => {
                                       </button>
                                     </div>
                                     <div className="card-body p-0">
-                                      <div 
-                                        className="drawing-board"
-                                        style={{ 
-                                          backgroundColor: '#0C6A35',
-                                          border: '12px solid #8B4513',
-                                          borderRadius: '4px',
-                                          minHeight: '400px',
+                                      <div
+                                        className="drawing-board-panzoom"
+                                        style={{
                                           width: '100%',
-                                          boxShadow: 'inset 0 0 10px rgba(0, 0, 0, 0.5)',
+                                          height: '100%',
+                                          position: 'absolute',
+                                          top: 0,
+                                          left: 0,
                                           overflow: 'hidden',
-                                          position: 'relative'
+                                          cursor: 'grab',
+                                          background: 'transparent',
+                                          zIndex: 2
+                                        }}
+                                        onWheel={e => {
+                                          if (!e.altKey) return;
+                                          e.preventDefault();
+                                          const playerId = board.playerId;
+                                          const delta = e.deltaY < 0 ? 0.1 : -0.1;
+                                          updateBoardTransform(playerId, t => {
+                                            let newScale = Math.max(0.2, Math.min(3, t.scale + delta));
+                                            return { ...t, scale: newScale };
+                                          });
+                                        }}
+                                        onMouseDown={e => {
+                                          if (!e.altKey) return;
+                                          e.preventDefault();
+                                          const playerId = board.playerId;
+                                          panState.current[playerId] = { panning: true, lastX: e.clientX, lastY: e.clientY };
+                                        }}
+                                        onMouseMove={e => {
+                                          const playerId = board.playerId;
+                                          if (panState.current[playerId]?.panning) {
+                                            e.preventDefault();
+                                            const dx = e.clientX - panState.current[playerId].lastX;
+                                            const dy = e.clientY - panState.current[playerId].lastY;
+                                            panState.current[playerId].lastX = e.clientX;
+                                            panState.current[playerId].lastY = e.clientY;
+                                            updateBoardTransform(playerId, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
+                                          }
+                                        }}
+                                        onMouseUp={e => {
+                                          const playerId = board.playerId;
+                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
+                                        }}
+                                        onMouseLeave={e => {
+                                          const playerId = board.playerId;
+                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
                                         }}
                                       >
-                                        <div 
+                                        <div
                                           style={{
                                             width: '100%',
                                             height: '100%',
@@ -816,11 +862,11 @@ const GameMaster: React.FC = () => {
                                             top: 0,
                                             left: 0,
                                             transformOrigin: 'top left',
-                                            transform: 'scale(1)',
+                                            transform: `translate(${(boardTransforms[board.playerId]?.x||0)}px, ${(boardTransforms[board.playerId]?.y||0)}px) scale(${boardTransforms[board.playerId]?.scale||1})`,
+                                            transition: 'transform 0.05s',
+                                            pointerEvents: 'none',
                                           }}
-                                          dangerouslySetInnerHTML={{ 
-                                            __html: board.boardData || '' 
-                                          }}
+                                          dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
                                         />
                                       </div>
                                     </div>
