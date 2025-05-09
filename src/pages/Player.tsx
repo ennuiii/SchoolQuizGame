@@ -36,6 +36,7 @@ const Player: React.FC = () => {
   const timerRef = useRef<NodeJS.Timeout | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
+  const [canvasInitialized, setCanvasInitialized] = useState(false);
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -66,13 +67,14 @@ const Player: React.FC = () => {
 
   // Initialize canvas
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
+    if (canvasRef.current && !fabricCanvasRef.current && !canvasInitialized) {
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         isDrawingMode: true,
         width: canvasSize.width,
         height: canvasSize.height,
-        backgroundColor: '#0C6A35' // School green board color
+        backgroundColor: '#0C6A35'
       });
+      setCanvasInitialized(true);
       
       // Set up drawing brush
       if (fabricCanvasRef.current.freeDrawingBrush) {
@@ -83,25 +85,19 @@ const Player: React.FC = () => {
       // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
         if (fabricCanvasRef.current && roomCode) {
-          // Generate SVG with green background using pixel width/height
           const width = fabricCanvasRef.current.width;
           const height = fabricCanvasRef.current.height;
           let svgData = fabricCanvasRef.current.toSVG();
-          // Insert a green rect as the first child of the SVG, using pixel values
           svgData = svgData.replace(
             /(<svg[^>]*>)/,
             `$1<rect width=\"${width}\" height=\"${height}\" fill=\"#0C6A35\" />`
           );
           console.log('[DEBUG] sendBoardToGamemaster called, sending SVG with green background', { width, height });
-          // Send to server
           socketService.updateBoard(roomCode, svgData);
         }
       };
       
-      // Send canvas updates to gamemaster
       fabricCanvasRef.current.on('path:created', sendBoardToGamemaster);
-
-      // Also send updates during mouse movement for real-time drawing
       fabricCanvasRef.current.on('mouse:move', () => {
         if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode) {
           const svgData = fabricCanvasRef.current.toSVG();
@@ -109,18 +105,19 @@ const Player: React.FC = () => {
         }
       });
       
-      // Initial board update
       if (roomCode) {
         setTimeout(sendBoardToGamemaster, 1000);
       }
     }
     
     return () => {
-      console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
-      fabricCanvasRef.current?.dispose();
-      fabricCanvasRef.current = null;
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+        setCanvasInitialized(false);
+      }
     };
-  }, [canvasKey, roomCode, sendBoardUpdate]);
+  }, [canvasRef, canvasSize, roomCode, sendBoardUpdate]);
 
   // Setup socket connection
   useEffect(() => {
@@ -329,9 +326,17 @@ const Player: React.FC = () => {
     };
   }, [navigate, roomCode]);
 
+  // Only call resetCanvas on explicit actions
   const resetCanvas = () => {
     console.log('[DEBUG] resetCanvas called');
-    setCanvasKey(prev => prev + 1);
+    if (fabricCanvasRef.current) {
+      fabricCanvasRef.current.clear();
+      fabricCanvasRef.current.backgroundColor = '#0C6A35';
+      fabricCanvasRef.current.renderAll();
+      // Send empty board to gamemaster
+      const svgData = fabricCanvasRef.current.toSVG();
+      socketService.updateBoard(roomCode, svgData);
+    }
   };
 
   const clearCanvas = () => {

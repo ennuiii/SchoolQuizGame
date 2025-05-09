@@ -813,7 +813,7 @@ const GameMaster: React.FC = () => {
                                           position: 'relative',
                                           overflow: 'hidden',
                                           cursor: 'grab',
-                                          background: 'transparent',
+                                          background: '#0C6A35',
                                           zIndex: 1
                                         }}
                                         onWheel={e => {
