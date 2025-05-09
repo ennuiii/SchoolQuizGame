@@ -108,6 +108,7 @@ const Player: React.FC = () => {
     }
     
     return () => {
+      console.log('[DEBUG] Player component unmounted or useEffect cleanup');
       fabricCanvasRef.current?.dispose();
       fabricCanvasRef.current = null;
     };
@@ -301,6 +302,7 @@ const Player: React.FC = () => {
     });
     
     return () => {
+      console.log('[DEBUG] Player component unmounted or useEffect cleanup');
       // Clean up listeners
       socketService.off('game_started');
       socketService.off('new_question');
@@ -320,6 +322,7 @@ const Player: React.FC = () => {
   }, [navigate, roomCode]);
 
   const resetCanvas = () => {
+    console.log('[DEBUG] resetCanvas called');
     setCanvasKey(prev => prev + 1);
   };
 
