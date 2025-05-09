@@ -342,11 +342,10 @@ io.on('connection', (socket) => {
     }
 
     const room = gameRooms[roomCode];
-    const nextIndex = room.currentQuestionIndex + 1;
-
-    if (nextIndex < room.questions.length) {
-      room.currentQuestionIndex = nextIndex;
-      room.currentQuestion = room.questions[nextIndex];
+    // Only increment if there is a next question
+    if (room.currentQuestionIndex < room.questions.length - 1) {
+      room.currentQuestionIndex += 1;
+      room.currentQuestion = room.questions[room.currentQuestionIndex];
 
       // Reset answer for the new question index for all players
       room.players.forEach(player => {
