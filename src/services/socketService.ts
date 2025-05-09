@@ -85,7 +85,10 @@ class SocketService {
   }
 
   endRoundEarly(roomCode: string) {
-    this.emit('end_round_early', { roomCode });
+    this.emit('end_round_early', { 
+      roomCode,
+      timestamp: Date.now()
+    });
   }
 
   // Player actions

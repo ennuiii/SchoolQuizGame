@@ -287,6 +287,12 @@ const Player: React.FC = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
       
+      // Clear any existing timer
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      
       requestAnimationFrame(() => {
         setTimeRemaining(0);
         setIsTimerRunning(false);
