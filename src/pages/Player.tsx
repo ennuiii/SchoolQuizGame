@@ -368,6 +368,9 @@ const Player: React.FC = () => {
 
   const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setAnswer(e.target.value);
+    // Store current answer in socket for auto-submission
+    const socket = socketService.connect();
+    (socket as any).currentAnswer = e.target.value;
   };
 
   const handleSubmitAnswer = () => {
@@ -391,6 +394,11 @@ const Player: React.FC = () => {
         } else if (hasDrawing) {
           finalAnswer = 'Drawing submitted';
         }
+        // Store current answer and drawing state in socket
+        const socket = socketService.connect();
+        (socket as any).currentAnswer = finalAnswer;
+        (socket as any).hasDrawing = hasDrawing;
+        
         socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
         setSubmittedAnswer(true);
         showFlashMessage('Answer submitted!', 'info');

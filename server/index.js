@@ -392,11 +392,26 @@ io.on('connection', (socket) => {
       const qIndex = room.currentQuestionIndex;
       room.players.forEach(player => {
         if (player.isActive && (!player.answers[qIndex] || player.answers[qIndex] === undefined)) {
-          // Auto-submit empty answer for current question index
-          player.answers[qIndex] = {
-            answer: '',
-            timestamp: Date.now()
-          };
+          // Get the player's current input from their socket
+          const playerSocket = io.sockets.sockets.get(player.id);
+          if (playerSocket) {
+            const currentAnswer = playerSocket.currentAnswer || '';
+            const hasDrawing = playerSocket.hasDrawing || false;
+            
+            // Store the answer
+            player.answers[qIndex] = {
+              answer: currentAnswer,
+              timestamp: Date.now()
+            };
+            
+            // Notify game master about the auto-submitted answer
+            io.to(room.gamemaster).emit('answer_submitted', {
+              playerId: player.id,
+              playerName: player.name,
+              answer: currentAnswer,
+              hasDrawing: hasDrawing
+            });
+          }
         }
       });
     }
