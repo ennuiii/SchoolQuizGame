@@ -347,7 +347,21 @@ io.on('connection', (socket) => {
     if (nextIndex < room.questions.length) {
       room.currentQuestionIndex = nextIndex;
       room.currentQuestion = room.questions[nextIndex];
-      
+
+      // Reset answer for the new question index for all players
+      room.players.forEach(player => {
+        player.answers[room.currentQuestionIndex] = undefined;
+      });
+
+      // Clear playerBoards answerSubmitted flag if you use it
+      if (room.playerBoards) {
+        Object.keys(room.playerBoards).forEach(pid => {
+          if (room.playerBoards[pid]) {
+            room.playerBoards[pid].answerSubmitted = false;
+          }
+        });
+      }
+
       // Clear existing timer and start a new one if time limit is set
       if (room.timeLimit) {
         startQuestionTimer(roomCode);
