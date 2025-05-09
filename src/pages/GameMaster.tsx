@@ -375,9 +375,7 @@ const GameMaster: React.FC = () => {
 
   const nextQuestion = () => {
     if (currentQuestionIndex < questions.length - 1) {
-      const nextIndex = currentQuestionIndex + 1;
-      setCurrentQuestionIndex(nextIndex);
-      setCurrentQuestion(questions[nextIndex]);
+      // Do NOT update currentQuestionIndex or currentQuestion here!
       setPendingAnswers([]);
       setTimeRemaining(null);
       setIsTimerRunning(false);
