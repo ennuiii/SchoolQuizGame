@@ -96,12 +96,6 @@ const Player: React.FC = () => {
         }
       };
       fabricCanvasRef.current.on('path:created', sendBoardToGamemaster);
-      fabricCanvasRef.current.on('mouse:move', () => {
-        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode) {
-          const svgData = fabricCanvasRef.current.toSVG();
-          sendBoardUpdate(roomCode, svgData);
-        }
-      });
       if (roomCode) {
         setTimeout(sendBoardToGamemaster, 1000);
       }
