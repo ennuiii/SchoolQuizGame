@@ -298,6 +298,19 @@ const GameMaster: React.FC = () => {
       });
     });
 
+    // Add handler for end_round_early event
+    socketService.on('end_round_early', () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
+      
+      requestAnimationFrame(() => {
+        setTimeRemaining(0);
+        setIsTimerRunning(false);
+        timerUpdateRef.current = performance.now();
+      });
+    });
+
     // Check if returning from a refresh (restore state)
     const savedRoomCode = sessionStorage.getItem('roomCode');
     const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
@@ -322,6 +335,7 @@ const GameMaster: React.FC = () => {
       socketService.off('game_restarted');
       socketService.off('timer_update');
       socketService.off('time_up');
+      socketService.off('end_round_early');
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
