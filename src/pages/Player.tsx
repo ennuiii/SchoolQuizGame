@@ -283,6 +283,7 @@ const Player: React.FC = () => {
     });
 
     socketService.on('end_round_early', () => {
+      // Clear any existing animation frame
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -293,19 +294,35 @@ const Player: React.FC = () => {
         timerRef.current = null;
       }
       
-      requestAnimationFrame(() => {
-        setTimeRemaining(0);
-        setIsTimerRunning(false);
-        timerUpdateRef.current = performance.now();
-        
-        // Auto-submit answer if not already submitted
-        if (!submittedAnswerRef.current && currentQuestion) {
-          handleSubmitAnswer();
+      // Immediately update state
+      setTimeRemaining(0);
+      setIsTimerRunning(false);
+      timerUpdateRef.current = performance.now();
+      
+      // Force submit answer if not already submitted
+      if (!submittedAnswerRef.current && currentQuestion) {
+        const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
+        if (currentRoomCode) {
+          const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
+          const currentAnswer = answerRef.current;
+          if ((currentAnswer && currentAnswer.trim()) || hasDrawing) {
+            let finalAnswer = '';
+            if (currentAnswer && currentAnswer.trim()) {
+              finalAnswer = currentAnswer.trim();
+              if (hasDrawing) {
+                finalAnswer += ' (with drawing)';
+              }
+            } else if (hasDrawing) {
+              finalAnswer = 'Drawing submitted';
+            }
+            socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
+            setSubmittedAnswer(true);
+          }
         }
-        
-        // Show notification
-        showFlashMessage('Round ended early by Game Master', 'warning');
-      });
+      }
+      
+      // Show notification
+      showFlashMessage('Round ended early by Game Master', 'warning');
     });
     
     // Add listener for answer received confirmation

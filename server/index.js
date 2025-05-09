@@ -360,6 +360,34 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Handle end round early request from gamemaster
+  socket.on('end_round_early', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to end round early');
+      return;
+    }
+
+    // Clear the timer for this room
+    clearRoomTimer(roomCode);
+
+    // Notify all players in the room that the round has ended early
+    io.to(roomCode).emit('end_round_early');
+
+    // Auto-submit answers for players who haven't submitted yet
+    const room = gameRooms[roomCode];
+    if (room) {
+      room.players.forEach(player => {
+        if (player.isActive && !player.answers[room.currentQuestionIndex]) {
+          // Auto-submit empty answer
+          player.answers[room.currentQuestionIndex] = {
+            answer: '',
+            timestamp: Date.now()
+          };
+        }
+      });
+    }
+  });
+
   // Rejoin as gamemaster (when refreshing)
   socket.on('rejoin_gamemaster', ({ roomCode }) => {
     console.log(`Attempt to rejoin as gamemaster for room: ${roomCode}`);
