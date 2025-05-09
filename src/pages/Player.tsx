@@ -37,6 +37,8 @@ const Player: React.FC = () => {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
 
+  console.log('[DEBUG] Player component MOUNTED');
+
   // Create a throttled version of the update function
   const sendBoardUpdate = useCallback(
     throttle((roomCode: string, svgData: string) => {
@@ -81,14 +83,16 @@ const Player: React.FC = () => {
       // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
         if (fabricCanvasRef.current && roomCode) {
-          // Generate SVG with green background
+          // Generate SVG with green background using pixel width/height
+          const width = fabricCanvasRef.current.width;
+          const height = fabricCanvasRef.current.height;
           let svgData = fabricCanvasRef.current.toSVG();
-          // Insert a green rect as the first child of the SVG
+          // Insert a green rect as the first child of the SVG, using pixel values
           svgData = svgData.replace(
             /(<svg[^>]*>)/,
-            `$1<rect width=\"100%\" height=\"100%\" fill=\"#0C6A35\" />`
+            `$1<rect width=\"${width}\" height=\"${height}\" fill=\"#0C6A35\" />`
           );
-          console.log('[DEBUG] sendBoardToGamemaster called, sending SVG with green background');
+          console.log('[DEBUG] sendBoardToGamemaster called, sending SVG with green background', { width, height });
           // Send to server
           socketService.updateBoard(roomCode, svgData);
         }
@@ -112,7 +116,7 @@ const Player: React.FC = () => {
     }
     
     return () => {
-      console.log('[DEBUG] Player component unmounted or useEffect cleanup');
+      console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       fabricCanvasRef.current?.dispose();
       fabricCanvasRef.current = null;
     };
@@ -306,7 +310,7 @@ const Player: React.FC = () => {
     });
     
     return () => {
-      console.log('[DEBUG] Player component unmounted or useEffect cleanup');
+      console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       // Clean up listeners
       socketService.off('game_started');
       socketService.off('new_question');
