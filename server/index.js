@@ -548,10 +548,12 @@ function startQuestionTimer(roomCode) {
   clearRoomTimer(roomCode);
 
   let timeRemaining = room.timeLimit;
+  const startTime = Date.now();
   
-  // Create a new timer
+  // Create a new timer that uses absolute time
   const timer = setInterval(() => {
-    timeRemaining--;
+    const elapsedTime = Math.floor((Date.now() - startTime) / 1000);
+    timeRemaining = Math.max(0, room.timeLimit - elapsedTime);
     
     // Broadcast the remaining time to all clients
     io.to(roomCode).emit('timer_update', { timeRemaining });
