@@ -423,6 +423,23 @@ const Player: React.FC = () => {
     }
   }, [timeRemaining]);
 
+  // Add visibility change handler
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
+        // When tab becomes visible, check if we need to submit
+        if (timeRemaining <= 0 && !submittedAnswerRef.current && currentQuestion) {
+          handleSubmitAnswer();
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [timeRemaining, timeLimit, currentQuestion]);
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">

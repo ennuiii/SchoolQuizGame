@@ -743,7 +743,7 @@ const GameMaster: React.FC = () => {
                     <button 
                       className="btn btn-primary w-100"
                       onClick={nextQuestion}
-                      disabled={currentQuestionIndex >= questions.length - 1}
+                      disabled={currentQuestionIndex >= questions.length - 1 || pendingAnswers.length > 0}
                     >
                       Next Question
                     </button>
