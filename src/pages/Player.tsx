@@ -38,6 +38,7 @@ const Player: React.FC = () => {
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
   const [canvasInitialized, setCanvasInitialized] = useState(false);
+  const answerRef = useRef(answer);
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -330,6 +331,10 @@ const Player: React.FC = () => {
     submittedAnswerRef.current = submittedAnswer;
   }, [submittedAnswer]);
 
+  useEffect(() => {
+    answerRef.current = answer;
+  }, [answer]);
+
   // Only call resetCanvas on explicit actions
   const resetCanvas = () => {
     setCanvasKey(prev => prev + 1);
@@ -353,7 +358,6 @@ const Player: React.FC = () => {
 
   const handleSubmitAnswer = () => {
     if (!currentQuestion || submittedAnswerRef.current) return;
-    // Get room code from current state or session storage as a fallback
     const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
     if (!currentRoomCode) {
       console.error('No room code available for submission!');
@@ -362,10 +366,11 @@ const Player: React.FC = () => {
     }
     try {
       const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-      if ((answer && answer.trim()) || hasDrawing) {
+      const currentAnswer = answerRef.current;
+      if ((currentAnswer && currentAnswer.trim()) || hasDrawing) {
         let finalAnswer = '';
-        if (answer && answer.trim()) {
-          finalAnswer = answer.trim();
+        if (currentAnswer && currentAnswer.trim()) {
+          finalAnswer = currentAnswer.trim();
           if (hasDrawing) {
             finalAnswer += ' (with drawing)';
           }
@@ -520,13 +525,13 @@ const Player: React.FC = () => {
                   placeholder="Type your answer here..."
                   value={answer}
                   onChange={handleAnswerChange}
-                  disabled={submittedAnswer || timeRemaining === 0}
+                  disabled={submittedAnswer || !timeRemaining || timeRemaining <= 0}
                 />
                 <button
                   className="btn btn-primary"
                   type="button"
                   onClick={handleSubmitAnswer}
-                  disabled={submittedAnswer || timeRemaining === 0}
+                  disabled={submittedAnswer || !timeRemaining || timeRemaining <= 0}
                 >
                   Submit Answer
                 </button>
