@@ -67,59 +67,56 @@ const Player: React.FC = () => {
     return () => window.removeEventListener('resize', updateSize);
   }, []);
 
-  // Initialize and resize canvas
+  // Initialize canvas
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current && !canvasInitialized && canvasSize.width > 0 && canvasSize.height > 0) {
+    if (canvasRef.current && !fabricCanvasRef.current) {
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         isDrawingMode: true,
-        width: canvasSize.width,
-        height: canvasSize.height,
-        backgroundColor: '#0C6A35'
+        width: 800,
+        height: 400,
+        backgroundColor: '#0C6A35' // School green board color
       });
-      setCanvasInitialized(true);
-      console.log('[DEBUG] fabric.Canvas initialized', canvasSize);
+      
+      // Set up drawing brush
       if (fabricCanvasRef.current.freeDrawingBrush) {
-        fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF';
+        fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
         fabricCanvasRef.current.freeDrawingBrush.width = 3;
       }
+      
+      // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
         if (fabricCanvasRef.current && roomCode) {
-          const width = fabricCanvasRef.current.width;
-          const height = fabricCanvasRef.current.height;
-          let svgData = fabricCanvasRef.current.toSVG();
-          svgData = svgData.replace(
-            /(<svg[^>]*>)/,
-            `$1<rect width=\"${width}\" height=\"${height}\" fill=\"#0C6A35\" />`
-          );
-          console.log('[DEBUG] sendBoardToGamemaster called, sending SVG with green background', { width, height });
+          // Generate SVG with specific attributes via a format that works with the fabric typings
+          const svgData = fabricCanvasRef.current.toSVG();
+          
+          // Send to server
           socketService.updateBoard(roomCode, svgData);
+          console.log('Sent board update to gamemaster');
         }
       };
+      
+      // Send canvas updates to gamemaster
       fabricCanvasRef.current.on('path:created', sendBoardToGamemaster);
+
+      // Also send updates during mouse movement for real-time drawing
+      fabricCanvasRef.current.on('mouse:move', () => {
+        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode) {
+          const svgData = fabricCanvasRef.current.toSVG();
+          sendBoardUpdate(roomCode, svgData);
+        }
+      });
+      
+      // Initial board update
       if (roomCode) {
         setTimeout(sendBoardToGamemaster, 1000);
       }
-    } else if (fabricCanvasRef.current && canvasInitialized) {
-      // Resize the canvas if the size changes
-      if (
-        fabricCanvasRef.current.width !== canvasSize.width ||
-        fabricCanvasRef.current.height !== canvasSize.height
-      ) {
-        fabricCanvasRef.current.width = canvasSize.width;
-        fabricCanvasRef.current.height = canvasSize.height;
-        fabricCanvasRef.current.backgroundColor = '#0C6A35';
-        fabricCanvasRef.current.renderAll();
-        console.log('[DEBUG] fabric.Canvas resized', canvasSize);
-      }
     }
+    
     return () => {
-      if (fabricCanvasRef.current) {
-        fabricCanvasRef.current.dispose();
-        fabricCanvasRef.current = null;
-        setCanvasInitialized(false);
-      }
+      fabricCanvasRef.current?.dispose();
+      fabricCanvasRef.current = null;
     };
-  }, [canvasRef, canvasSize, roomCode, sendBoardUpdate, canvasInitialized]);
+  }, [canvasKey, roomCode, sendBoardUpdate]);
 
   // Setup socket connection
   useEffect(() => {
@@ -330,15 +327,7 @@ const Player: React.FC = () => {
 
   // Only call resetCanvas on explicit actions
   const resetCanvas = () => {
-    console.log('[DEBUG] resetCanvas called');
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#0C6A35';
-      fabricCanvasRef.current.renderAll();
-      // Send empty board to gamemaster
-      const svgData = fabricCanvasRef.current.toSVG();
-      socketService.updateBoard(roomCode, svgData);
-    }
+    setCanvasKey(prev => prev + 1);
   };
 
   const clearCanvas = () => {
@@ -514,17 +503,13 @@ const Player: React.FC = () => {
               </div>
             </div>
             <div className="card-body">
-              <div className="mb-4 drawing-board-container" ref={boardContainerRef} style={{ 
+              <div className="mb-4 drawing-board-container" style={{ 
                 border: '12px solid #8B4513', 
                 borderRadius: '4px',
                 boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                position: 'relative',
-                width: '100%',
-                height: '400px', // You can adjust this for your preferred height
-                background: '#0C6A35',
-                overflow: 'hidden'
+                position: 'relative'
               }}>
-                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width={canvasSize.width} height={canvasSize.height} style={{ display: 'block', width: '100%', height: '100%', background: '#0C6A35' }} />
+                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" />
               </div>
               
               <div className="input-group mb-3">
