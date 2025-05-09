@@ -189,29 +189,11 @@ const Player: React.FC = () => {
       setSubmittedAnswer(false);
       setAnswer('');
       resetCanvas();
-      setErrorMsg(''); // Clear any error messages
-      setReviewNotification(null); // Clear review notification
-      // Reset timer for new question if time limit is set
-      if (data.timeLimit) {
-        setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit);
-        // Start countdown
-        const timer = setInterval(() => {
-          setTimeRemaining(prev => {
-            if (prev !== null && prev > 0) {
-              return prev - 1;
-            } else {
-              clearInterval(timer);
-              return 0;
-            }
-          });
-        }, 1000);
-        // Clean up timer
-        return () => clearInterval(timer);
-      } else {
-        setTimeLimit(null);
-        setTimeRemaining(null);
-      }
+      setErrorMsg('');
+      setReviewNotification(null);
+      setTimeLimit(data.timeLimit ?? null);
+      setTimeRemaining(data.timeLimit ?? null);
+      setIsTimerRunning(!!data.timeLimit);
     });
     
     socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number }) => {
@@ -451,10 +433,15 @@ const Player: React.FC = () => {
   };
 
   useEffect(() => {
-    if (!submittedAnswerRef.current && currentQuestion && (!timeRemaining || timeRemaining <= 0)) {
+    if (
+      !submittedAnswerRef.current &&
+      currentQuestion &&
+      timeLimit !== null &&
+      timeRemaining !== null &&
+      timeRemaining <= 0
+    ) {
       handleSubmitAnswer();
     }
-    // eslint-disable-next-line
   }, [timeRemaining]);
 
   if (gameOver && !isWinner) {
