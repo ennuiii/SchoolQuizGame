@@ -386,13 +386,14 @@ io.on('connection', (socket) => {
     // Notify all players in the room that the round has ended early
     io.to(roomCode).emit('end_round_early');
 
-    // Auto-submit answers for players who haven't submitted yet
+    // Auto-submit answers for players who haven't submitted yet for the current question index
     const room = gameRooms[roomCode];
     if (room) {
+      const qIndex = room.currentQuestionIndex;
       room.players.forEach(player => {
-        if (player.isActive && !player.answers[room.currentQuestionIndex]) {
-          // Auto-submit empty answer
-          player.answers[room.currentQuestionIndex] = {
+        if (player.isActive && (!player.answers[qIndex] || player.answers[qIndex] === undefined)) {
+          // Auto-submit empty answer for current question index
+          player.answers[qIndex] = {
             answer: '',
             timestamp: Date.now()
           };
