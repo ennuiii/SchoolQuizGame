@@ -388,7 +388,7 @@ const Player: React.FC = () => {
     const hasDrawing = fabricCanvasRef.current ? (fabricCanvasRef.current as any).getObjects().length > 0 : false;
     const text = answerRef.current?.trim() || '';
   
-    // Only bail out if not forced and truly empty
+    // Only check for empty submission if not forced (i.e., not ending round early)
     if (!force && !text && !hasDrawing) {
       showFlashMessage('Please enter an answer or draw something', 'warning');
       return;
