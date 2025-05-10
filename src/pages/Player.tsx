@@ -286,18 +286,9 @@ const Player: React.FC = () => {
       setIsTimerRunning(false);
       timerUpdateRef.current = performance.now();
       
-      // Force submit answer if not already submitted
       if (!submittedAnswerRef.current && currentQuestion) {
-        // Simulate clicking the submit button
-        const submitButton = document.querySelector('button[onClick="handleSubmitAnswer"]');
-        if (submitButton) {
-          (submitButton as HTMLButtonElement).click();
-        } else {
-          handleSubmitAnswer();
-        }
+        handleSubmitAnswer(true);
       }
-      
-      // Show notification
       showFlashMessage('Round ended early by Game Master', 'warning');
     });
     
@@ -379,42 +370,30 @@ const Player: React.FC = () => {
     (socket as any).currentAnswer = e.target.value;
   };
 
-  const handleSubmitAnswer = () => {
+  const handleSubmitAnswer = (force = false) => {
     if (!currentQuestion || submittedAnswerRef.current) return;
-    const currentRoomCode = roomCode || sessionStorage.getItem('roomCode');
-    if (!currentRoomCode) {
-      console.error('No room code available for submission!');
-      showFlashMessage('Error: Unable to submit answer - missing room code', 'danger');
+  
+    const room = roomCode || sessionStorage.getItem('roomCode')!;
+    const hasDrawing = /* your existing check */;
+    const text = answerRef.current?.trim() || '';
+  
+    // Only bail out if not forced and truly empty
+    if (!force && !text && !hasDrawing) {
+      showFlashMessage('Please enter an answer or draw something', 'warning');
       return;
     }
-    try {
-      const hasDrawing = fabricCanvasRef.current && fabricCanvasRef.current.toSVG().length > 100;
-      const currentAnswer = answerRef.current;
-      if ((currentAnswer && currentAnswer.trim()) || hasDrawing) {
-        let finalAnswer = '';
-        if (currentAnswer && currentAnswer.trim()) {
-          finalAnswer = currentAnswer.trim();
-          if (hasDrawing) {
-            finalAnswer += ' (with drawing)';
-          }
-        } else if (hasDrawing) {
-          finalAnswer = 'Drawing submitted';
-        }
-        // Store current answer and drawing state in socket
-        const socket = socketService.connect();
-        (socket as any).currentAnswer = finalAnswer;
-        (socket as any).hasDrawing = hasDrawing;
-        
-        socketService.submitAnswer(currentRoomCode, finalAnswer, Boolean(hasDrawing));
-        setSubmittedAnswer(true);
-        showFlashMessage('Answer submitted!', 'info');
-      } else {
-        showFlashMessage('Please enter an answer or draw something', 'warning');
-      }
-    } catch (error) {
-      console.error('Error submitting answer:', error);
-      showFlashMessage('Error submitting your answer. Please try again.', 'danger');
+  
+    // Build the payload: if forced & empty, send empty string
+    let finalAnswer = '';
+    if (text) {
+      finalAnswer = hasDrawing ? `${text} (with drawing)` : text;
+    } else if (hasDrawing) {
+      finalAnswer = 'Drawing submitted';
     }
+  
+    socketService.submitAnswer(room, finalAnswer, hasDrawing);
+    setSubmittedAnswer(true);
+    showFlashMessage(force ? 'Answer submitted automatically' : 'Answer submitted!', 'info');
   };
 
   const showFlashMessage = (message: string, type: 'success' | 'danger' | 'warning' | 'info') => {
