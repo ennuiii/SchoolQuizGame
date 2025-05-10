@@ -178,18 +178,18 @@ io.on('connection', (socket) => {
       return;
     }
     
-    console.log('[SERVER] Starting game:', { roomCode, questionCount: questions.length, timeLimit: timeLimit || 'no limit', timestamp: new Date().toISOString() });
+    console.log('[SERVER] Starting game:', { roomCode, questionCount: questions.length, timeLimit: timeLimit || 99999, timestamp: new Date().toISOString() });
     
     // Set up the game state
     room.questions = questions;
     room.currentQuestionIndex = 0;
     room.started = true;
-    room.timeLimit = timeLimit || 99999; // Use a very long time if no limit is set
+    room.timeLimit = timeLimit || 99999; // Set to 99999 if no time limit provided
     
     // Notify all players that the game has started
     io.to(roomCode).emit('game_started', {
       question: questions[0],
-      timeLimit: timeLimit || undefined // Only send timeLimit if it was specified
+      timeLimit: room.timeLimit // Always send the timeLimit, which will be 99999 if none was specified
     });
   });
 
