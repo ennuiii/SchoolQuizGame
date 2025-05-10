@@ -1209,28 +1209,28 @@ const GameMaster: React.FC = () => {
         }}>
           <div style={{
             background: '#eee',
-            borderRadius: 12,
-            padding: 32,
-            minWidth: 900,
-            minHeight: 600,
+            borderRadius: 16,
+            padding: 48,
+            minWidth: 1400,
+            minHeight: 900,
             boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
             position: 'relative',
-            maxWidth: '95vw',
-            maxHeight: '95vh',
+            maxWidth: '99vw',
+            maxHeight: '99vh',
             overflow: 'auto',
           }}>
             <h2 className="text-center mb-4">Preview Mode</h2>
-            <div className="mb-4 text-center" style={{fontSize: 20, fontWeight: 500}}>
+            <div className="mb-4 text-center" style={{fontSize: 24, fontWeight: 600}}>
               {currentQuestion?.text || 'Current Question'}
             </div>
             <button
               className="btn btn-secondary"
-              style={{position: 'absolute', top: 24, right: 24}}
+              style={{position: 'absolute', top: 32, right: 32, fontSize: 20, padding: '8px 24px'}}
               onClick={() => { setIsPreviewMode(false); setEnlargedPlayerId(null); }}
             >
               Close
             </button>
-            <div className="row" style={{gap: 24, justifyContent: 'center'}}>
+            <div className="row" style={{gap: 32, justifyContent: 'center'}}>
               {players.map((player, idx) => {
                 const answer = allAnswersThisRound[player.id] || { answer: '', playerId: player.id, playerName: player.name };
                 const board = playerBoards.find(b => b.playerId === player.id);
@@ -1240,11 +1240,11 @@ const GameMaster: React.FC = () => {
                     key={player.id}
                     className="col-md-4 mb-4"
                     style={{
-                      width: 260,
+                      width: 400,
                       background: '#fff',
-                      borderRadius: 8,
-                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-                      padding: 12,
+                      borderRadius: 10,
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+                      padding: 18,
                       textAlign: 'center',
                       cursor: 'pointer',
                       border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
@@ -1252,22 +1252,22 @@ const GameMaster: React.FC = () => {
                     }}
                     onClick={() => setEnlargedPlayerId(player.id)}
                   >
-                    <div style={{fontWeight: 600, fontSize: 18, marginBottom: 4}}>
+                    <div style={{fontWeight: 700, fontSize: 22, marginBottom: 8}}>
                       {player.name} <span style={{color: 'red'}}>{'❤'.repeat(player.lives)}</span>
                     </div>
-                    <div style={{background: '#0C6A35', minHeight: 120, margin: '8px 0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                    <div style={{background: '#0C6A35', minHeight: 220, height: 220, margin: '12px 0', borderRadius: 6, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
                       {board?.boardData ? (
-                        <div style={{width: '100%', height: 120, overflow: 'hidden'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                        <div style={{width: '100%', height: 220, overflow: 'hidden'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
                       ) : (
                         <span style={{color: '#fff'}}>No Drawing</span>
                       )}
                     </div>
-                    <div style={{margin: '8px 0', fontSize: 15}}>
+                    <div style={{margin: '12px 0', fontSize: 18}}>
                       {answer.answer || <span style={{color: '#888'}}>No Text</span>}
                     </div>
-                    <div style={{marginTop: 8}}>
-                      {evalStatus === true && <span style={{color: 'green', fontSize: 24}} title="Correct">👍</span>}
-                      {evalStatus === false && <span style={{color: 'red', fontSize: 24}} title="Incorrect">👎</span>}
+                    <div style={{marginTop: 10}}>
+                      {evalStatus === true && <span style={{color: 'green', fontSize: 32}} title="Correct">👍</span>}
+                      {evalStatus === false && <span style={{color: 'red', fontSize: 32}} title="Incorrect">👎</span>}
                     </div>
                   </div>
                 );
@@ -1289,10 +1289,10 @@ const GameMaster: React.FC = () => {
               }}
               onClick={() => setEnlargedPlayerId(null)}
               >
-                <div style={{background: '#fff', borderRadius: 12, padding: 32, minWidth: 400, minHeight: 300, maxWidth: '90vw', maxHeight: '90vh', position: 'relative'}}>
+                <div style={{background: '#fff', borderRadius: 16, padding: 48, minWidth: 600, minHeight: 400, maxWidth: '95vw', maxHeight: '95vh', position: 'relative'}}>
                   <button
                     className="btn btn-secondary"
-                    style={{position: 'absolute', top: 16, right: 16}}
+                    style={{position: 'absolute', top: 24, right: 24, fontSize: 20, padding: '8px 24px'}}
                     onClick={e => { e.stopPropagation(); setEnlargedPlayerId(null); }}
                   >
                     Close
@@ -1303,15 +1303,15 @@ const GameMaster: React.FC = () => {
                     const board = playerBoards.find(b => b.playerId === enlargedPlayerId);
                     return (
                       <>
-                        <div style={{fontWeight: 600, fontSize: 22, marginBottom: 8}}>{player?.name}</div>
-                        <div style={{background: '#0C6A35', minHeight: 200, margin: '8px 0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                        <div style={{fontWeight: 700, fontSize: 28, marginBottom: 12}}>{player?.name}</div>
+                        <div style={{background: '#0C6A35', minHeight: 350, height: 350, margin: '12px 0', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
                           {board?.boardData ? (
-                            <div style={{width: '100%', height: 200, overflow: 'hidden'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                            <div style={{width: '100%', height: 350, overflow: 'hidden'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
                           ) : (
                             <span style={{color: '#fff'}}>No Drawing</span>
                           )}
                         </div>
-                        <div style={{margin: '8px 0', fontSize: 18}}>
+                        <div style={{margin: '12px 0', fontSize: 22}}>
                           {answer?.answer || <span style={{color: '#888'}}>No Text</span>}
                         </div>
                       </>
