@@ -374,7 +374,7 @@ const Player: React.FC = () => {
     if (!currentQuestion || submittedAnswerRef.current) return;
   
     const room = roomCode || sessionStorage.getItem('roomCode')!;
-    const hasDrawing = /* your existing check */;
+    const hasDrawing = fabricCanvasRef.current ? (fabricCanvasRef.current as any).getObjects().length > 0 : false;
     const text = answerRef.current?.trim() || '';
   
     // Only bail out if not forced and truly empty
@@ -584,7 +584,7 @@ const Player: React.FC = () => {
                 <button
                   className="btn btn-primary"
                   type="button"
-                  onClick={handleSubmitAnswer}
+                  onClick={() => handleSubmitAnswer()}
                   disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
                 >
                   Submit Answer
