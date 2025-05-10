@@ -576,6 +576,20 @@ const GameMaster: React.FC = () => {
   // Add a function to check if all answers are in
   const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
 
+  // Set initial scale to 0.25 for each board
+  useEffect(() => {
+    const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
+    players.forEach(player => {
+      if (!boardTransforms[player.id]) {
+        initialTransforms[player.id] = { scale: 0.25, x: 0, y: 0 };
+      }
+    });
+    if (Object.keys(initialTransforms).length > 0) {
+      setBoardTransforms(prev => ({ ...initialTransforms, ...prev }));
+    }
+    // eslint-disable-next-line
+  }, [players.length]);
+
   return (
     <div className="container">
       <h1 className="text-center mb-4">Game Master Dashboard</h1>
@@ -1286,13 +1300,16 @@ const GameMaster: React.FC = () => {
                         position: 'relative',
                         margin: '0 auto',
                         userSelect: 'none',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                       }}
                         onWheel={e => {
                           if (!e.altKey) return;
                           e.preventDefault();
                           const delta = e.deltaY < 0 ? 0.1 : -0.1;
                           updateBoardTransform(player.id, t => {
-                            let newScale = Math.max(0.2, Math.min(3, t.scale + delta));
+                            let newScale = Math.max(0.1, Math.min(3, t.scale + delta));
                             return { ...t, scale: newScale };
                           });
                         }}
@@ -1324,7 +1341,7 @@ const GameMaster: React.FC = () => {
                               width: '100%',
                               height: '100%',
                               transformOrigin: 'top left',
-                              transform: `translate(${(boardTransforms[player.id]?.x||0)}px, ${(boardTransforms[player.id]?.y||0)}px) scale(${boardTransforms[player.id]?.scale||1})`,
+                              transform: `translate(${(boardTransforms[player.id]?.x||0)}px, ${(boardTransforms[player.id]?.y||0)}px) scale(${boardTransforms[player.id]?.scale||0.25})`,
                               transition: 'transform 0.05s',
                               pointerEvents: 'none',
                             }}
@@ -1333,14 +1350,6 @@ const GameMaster: React.FC = () => {
                         ) : (
                           <span style={{color: '#fff'}}>No Drawing</span>
                         )}
-                        <button
-                          className="btn btn-sm btn-outline-secondary"
-                          style={{position: 'absolute', top: 8, right: 8, zIndex: 2}}
-                          onClick={e => { e.stopPropagation(); fitToScreen(player.id); }}
-                          title="Fit to screen"
-                        >
-                          ⤢
-                        </button>
                       </div>
                     </div>
                     <div style={{margin: '12px 0', fontSize: 18}}>
@@ -1374,11 +1383,15 @@ const GameMaster: React.FC = () => {
                   background: '#fff',
                   borderRadius: 16,
                   padding: 48,
-                  minWidth: 1000,
-                  minHeight: 800,
+                  minWidth: 900,
+                  minHeight: 600,
                   maxWidth: '95vw',
                   maxHeight: '95vh',
                   position: 'relative',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}>
                   <button
                     className="btn btn-secondary"
@@ -1394,21 +1407,64 @@ const GameMaster: React.FC = () => {
                     return (
                       <>
                         <div style={{fontWeight: 700, fontSize: 28, marginBottom: 12}}>{player?.name}</div>
-                        <div style={{
-                          width: 800,
-                          height: 400,
-                          background: '#0C6A35',
-                          margin: '12px 0',
-                          borderRadius: 8,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          overflow: 'hidden',
-                        }}>
+                        <div
+                          style={{
+                            width: 800,
+                            height: 400,
+                            background: '#0C6A35',
+                            border: '16px solid #8B4513',
+                            borderRadius: 12,
+                            overflow: 'hidden',
+                            margin: '12px 0',
+                            userSelect: 'none',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            position: 'relative',
+                          }}
+                          onWheel={e => {
+                            if (!e.altKey) return;
+                            e.preventDefault();
+                            const delta = e.deltaY < 0 ? 0.1 : -0.1;
+                            updateBoardTransform(enlargedPlayerId, t => {
+                              let newScale = Math.max(0.1, Math.min(3, t.scale + delta));
+                              return { ...t, scale: newScale };
+                            });
+                          }}
+                          onMouseDown={e => {
+                            if (!e.altKey) return;
+                            e.preventDefault();
+                            panState.current[enlargedPlayerId] = { panning: true, lastX: e.clientX, lastY: e.clientY };
+                          }}
+                          onMouseMove={e => {
+                            if (panState.current[enlargedPlayerId]?.panning) {
+                              e.preventDefault();
+                              const dx = e.clientX - panState.current[enlargedPlayerId].lastX;
+                              const dy = e.clientY - panState.current[enlargedPlayerId].lastY;
+                              panState.current[enlargedPlayerId].lastX = e.clientX;
+                              panState.current[enlargedPlayerId].lastY = e.clientY;
+                              updateBoardTransform(enlargedPlayerId, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
+                            }
+                          }}
+                          onMouseUp={e => {
+                            if (panState.current[enlargedPlayerId]) panState.current[enlargedPlayerId].panning = false;
+                          }}
+                          onMouseLeave={e => {
+                            if (panState.current[enlargedPlayerId]) panState.current[enlargedPlayerId].panning = false;
+                          }}
+                        >
                           {board?.boardData ? (
-                            <div style={{width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                              <div style={{width: '100%', height: '100%'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
-                            </div>
+                            <div
+                              style={{
+                                width: '100%',
+                                height: '100%',
+                                transformOrigin: 'top left',
+                                transform: `translate(${(boardTransforms[enlargedPlayerId]?.x||0)}px, ${(boardTransforms[enlargedPlayerId]?.y||0)}px) scale(${boardTransforms[enlargedPlayerId]?.scale||0.25})`,
+                                transition: 'transform 0.05s',
+                                pointerEvents: 'none',
+                              }}
+                              dangerouslySetInnerHTML={{__html: board.boardData}}
+                            />
                           ) : (
                             <span style={{color: '#fff'}}>No Drawing</span>
                           )}
