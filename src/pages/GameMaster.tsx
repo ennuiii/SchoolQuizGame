@@ -1282,28 +1282,31 @@ const GameMaster: React.FC = () => {
                       background: '#fff',
                       borderRadius: 10,
                       boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-                      padding: 18,
+                      padding: '18px 0 0 0',
                       textAlign: 'center',
                       cursor: 'pointer',
                       border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
                       position: 'relative',
                       margin: '0 auto',
                       boxSizing: 'border-box',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'flex-start',
                     }}>
                       <div style={{
-                        width: '100%',
-                        height: 160,
+                        width: 400,
+                        height: 200,
                         background: '#0C6A35',
                         border: '8px solid #8B4513',
                         borderRadius: 6,
                         overflow: 'hidden',
-                        position: 'relative',
-                        margin: '0 auto',
                         userSelect: 'none',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         boxSizing: 'border-box',
+                        margin: '0 auto',
                       }}
                         onWheel={e => {
                           if (!e.altKey) return;
@@ -1352,13 +1355,13 @@ const GameMaster: React.FC = () => {
                           <span style={{color: '#fff'}}>No Drawing</span>
                         )}
                       </div>
-                    </div>
-                    <div style={{margin: '12px 0', fontSize: 18}}>
-                      {answer.answer || <span style={{color: '#888'}}>No Text</span>}
-                    </div>
-                    <div style={{marginTop: 10}}>
-                      {evalStatus === true && <span style={{color: 'green', fontSize: 32}} title="Correct">👍</span>}
-                      {evalStatus === false && <span style={{color: 'red', fontSize: 32}} title="Incorrect">👎</span>}
+                      <div style={{margin: '12px 0 0 0', fontSize: 18, width: '100%'}}>
+                        {answer.answer || <span style={{color: '#888'}}>No Text</span>}
+                      </div>
+                      <div style={{margin: '8px 0 16px 0', width: '100%'}}>
+                        {evalStatus === true && <span style={{color: 'green', fontSize: 32}} title="Correct">👍</span>}
+                        {evalStatus === false && <span style={{color: 'red', fontSize: 32}} title="Incorrect">👎</span>}
+                      </div>
                     </div>
                   </div>
                 );
