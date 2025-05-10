@@ -69,6 +69,7 @@ const GameMaster: React.FC = () => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
+  const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
 
   useEffect(() => {
     // Connect to socket server
@@ -167,6 +168,7 @@ const GameMaster: React.FC = () => {
         setCurrentQuestion(questionObj);
         setCurrentQuestionIndex(prev => prev + 1);
         setPendingAnswers([]);
+        setAllAnswersThisRound({});
         
         // Reset timer for new question if time limit is set
         if (data.timeLimit) {
@@ -237,20 +239,14 @@ const GameMaster: React.FC = () => {
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
       console.log(`Answer received from ${submission.playerName}:`, submission.answer);
       
-      // Make sure we're not adding duplicate answers
+      setAllAnswersThisRound(prev => ({ ...prev, [submission.playerId]: submission }));
       setPendingAnswers(prev => {
-        // Check if we already have an answer from this player
         const existingIndex = prev.findIndex(a => a.playerId === submission.playerId);
-        
         if (existingIndex >= 0) {
-          // Replace the existing answer
-          console.log(`Replacing existing answer for ${submission.playerName}`);
           const updatedAnswers = [...prev];
           updatedAnswers[existingIndex] = submission;
           return updatedAnswers;
         } else {
-          // Add as new answer
-          console.log(`Adding new answer from ${submission.playerName}`);
           return [...prev, submission];
         }
       });
@@ -270,6 +266,7 @@ const GameMaster: React.FC = () => {
       setPendingAnswers([]);
       setTimeRemaining(null);
       setIsRestarting(false);
+      setAllAnswersThisRound({});
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
@@ -1235,7 +1232,7 @@ const GameMaster: React.FC = () => {
             </button>
             <div className="row" style={{gap: 24, justifyContent: 'center'}}>
               {players.map((player, idx) => {
-                const answer = pendingAnswers.find(a => a.playerId === player.id) || { answer: '', playerId: player.id, playerName: player.name };
+                const answer = allAnswersThisRound[player.id] || { answer: '', playerId: player.id, playerName: player.name };
                 const board = playerBoards.find(b => b.playerId === player.id);
                 const evalStatus = evaluatedAnswers[player.id];
                 return (
@@ -1302,7 +1299,7 @@ const GameMaster: React.FC = () => {
                   </button>
                   {(() => {
                     const player = players.find(p => p.id === enlargedPlayerId);
-                    const answer = pendingAnswers.find(a => a.playerId === enlargedPlayerId);
+                    const answer = allAnswersThisRound[enlargedPlayerId];
                     const board = playerBoards.find(b => b.playerId === enlargedPlayerId);
                     return (
                       <>
