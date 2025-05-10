@@ -580,23 +580,19 @@ const GameMaster: React.FC = () => {
   useEffect(() => {
     const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
     players.forEach(player => {
-      if (!boardTransforms[player.id]) {
-        initialTransforms[player.id] = { scale: 0.4, x: 0, y: 0 };
-      }
+      initialTransforms[player.id] = { scale: 0.4, x: 0, y: 0 };
     });
-    if (Object.keys(initialTransforms).length > 0) {
-      setBoardTransforms(prev => ({ ...initialTransforms, ...prev }));
-    }
-    // eslint-disable-next-line
-  }, [players.length]);
+    setBoardTransforms(initialTransforms);
+  }, [players]);
 
   // Add toggle scale on click
   const toggleBoardScale = (playerId: string) => {
     setBoardTransforms(prev => {
       const current = prev[playerId] || { scale: 0.4, x: 0, y: 0 };
+      const newScale = current.scale === 0.4 ? 1.0 : 0.4;
       return {
         ...prev,
-        [playerId]: { ...current, scale: current.scale === 0.4 ? 1.0 : 0.4 }
+        [playerId]: { ...current, scale: newScale }
       };
     });
   };
@@ -956,9 +952,9 @@ const GameMaster: React.FC = () => {
                                             position: 'absolute',
                                             top: 0,
                                             left: 0,
-                                            transformOrigin: 'top left',
+                                            transformOrigin: 'center center',
                                             transform: `translate(${(boardTransforms[board.playerId]?.x||0)}px, ${(boardTransforms[board.playerId]?.y||0)}px) scale(${boardTransforms[board.playerId]?.scale||1})`,
-                                            transition: 'transform 0.05s',
+                                            transition: 'transform 0.2s ease-out',
                                             pointerEvents: 'none',
                                           }}
                                           className="drawing-board"
@@ -1273,7 +1269,7 @@ const GameMaster: React.FC = () => {
                     key={player.id}
                     className="col-md-4 mb-4"
                     style={{
-                      width: 440,
+                      width: 400,
                       background: '#fff',
                       borderRadius: 10,
                       boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
@@ -1357,9 +1353,9 @@ const GameMaster: React.FC = () => {
                             style={{
                               width: '100%',
                               height: '100%',
-                              transformOrigin: 'top left',
+                              transformOrigin: 'center center',
                               transform: `translate(${(boardTransforms[player.id]?.x||0)}px, ${(boardTransforms[player.id]?.y||0)}px) scale(${boardTransforms[player.id]?.scale||0.4})`,
-                              transition: 'transform 0.05s',
+                              transition: 'transform 0.2s ease-out',
                               pointerEvents: 'none',
                             }}
                             dangerouslySetInnerHTML={{__html: board.boardData}}
@@ -1475,9 +1471,9 @@ const GameMaster: React.FC = () => {
                               style={{
                                 width: '100%',
                                 height: '100%',
-                                transformOrigin: 'top left',
+                                transformOrigin: 'center center',
                                 transform: `translate(${(boardTransforms[enlargedPlayerId]?.x||0)}px, ${(boardTransforms[enlargedPlayerId]?.y||0)}px) scale(${boardTransforms[enlargedPlayerId]?.scale||0.4})`,
-                                transition: 'transform 0.05s',
+                                transition: 'transform 0.2s ease-out',
                                 pointerEvents: 'none',
                               }}
                               dangerouslySetInnerHTML={{__html: board.boardData}}
