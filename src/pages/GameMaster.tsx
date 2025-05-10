@@ -1278,8 +1278,7 @@ const GameMaster: React.FC = () => {
                       {player.name} <span style={{color: 'red'}}>{'❤'.repeat(player.lives)}</span>
                     </div>
                     <div style={{
-                      width: 400,
-                      height: 200,
+                      width: 440,
                       background: '#fff',
                       borderRadius: 10,
                       boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
@@ -1289,6 +1288,7 @@ const GameMaster: React.FC = () => {
                       border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
                       position: 'relative',
                       margin: '0 auto',
+                      boxSizing: 'border-box',
                     }}>
                       <div style={{
                         width: '100%',
@@ -1303,6 +1303,7 @@ const GameMaster: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
+                        boxSizing: 'border-box',
                       }}
                         onWheel={e => {
                           if (!e.altKey) return;
