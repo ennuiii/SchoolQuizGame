@@ -1,10 +1,10 @@
 import { io, Socket } from 'socket.io-client';
 
 // Determine the server URL based on environment
-// In production, use the specific backend URL
-const SOCKET_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://schoolquizgame.onrender.com' // The deployed backend URL
-  : 'http://localhost:5000'; // Use port 5000 to match server
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 
+  (process.env.NODE_ENV === 'production' 
+    ? 'https://schoolquizgame.onrender.com' // Fallback for production
+    : 'http://localhost:5000'); // Fallback for development
 
 class SocketService {
   private socket: Socket | null = null;
