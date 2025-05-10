@@ -66,6 +66,8 @@ const GameMaster: React.FC = () => {
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
   const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
 
   useEffect(() => {
     // Connect to socket server
@@ -563,6 +565,9 @@ const GameMaster: React.FC = () => {
   const cancelEndRoundEarly = () => {
     setShowEndRoundConfirm(false);
   };
+
+  // Add a function to check if all answers are in
+  const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
 
   return (
     <div className="container">
@@ -1187,6 +1192,142 @@ const GameMaster: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Preview Mode Overlay */}
+      {isPreviewMode && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.5)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}>
+          <div style={{
+            background: '#eee',
+            borderRadius: 12,
+            padding: 32,
+            minWidth: 900,
+            minHeight: 600,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
+            position: 'relative',
+            maxWidth: '95vw',
+            maxHeight: '95vh',
+            overflow: 'auto',
+          }}>
+            <h2 className="text-center mb-4">Preview Mode</h2>
+            <div className="mb-4 text-center" style={{fontSize: 20, fontWeight: 500}}>
+              {currentQuestion?.text || 'Current Question'}
+            </div>
+            <button
+              className="btn btn-secondary"
+              style={{position: 'absolute', top: 24, right: 24}}
+              onClick={() => { setIsPreviewMode(false); setEnlargedPlayerId(null); }}
+            >
+              Close
+            </button>
+            <div className="row" style={{gap: 24, justifyContent: 'center'}}>
+              {players.map((player, idx) => {
+                const answer = pendingAnswers.find(a => a.playerId === player.id);
+                const board = playerBoards.find(b => b.playerId === player.id);
+                return (
+                  <div
+                    key={player.id}
+                    className="col-md-4 mb-4"
+                    style={{
+                      width: 260,
+                      background: '#fff',
+                      borderRadius: 8,
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                      padding: 12,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
+                      position: 'relative',
+                    }}
+                    onClick={() => setEnlargedPlayerId(player.id)}
+                  >
+                    <div style={{fontWeight: 600, fontSize: 18, marginBottom: 4}}>
+                      {player.name} <span style={{color: 'red'}}>{'❤'.repeat(player.lives)}</span>
+                    </div>
+                    <div style={{background: '#0C6A35', minHeight: 120, margin: '8px 0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                      {board?.boardData ? (
+                        <div style={{width: '100%', height: 120, overflow: 'hidden'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                      ) : (
+                        <span style={{color: '#fff'}}>No Drawing</span>
+                      )}
+                    </div>
+                    <div style={{margin: '8px 0', fontSize: 15}}>
+                      {answer?.answer || <span style={{color: '#888'}}>No Text</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {/* Enlarged view */}
+            {enlargedPlayerId && (
+              <div style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                width: '100vw',
+                height: '100vh',
+                background: 'rgba(0,0,0,0.7)',
+                zIndex: 10000,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+              onClick={() => setEnlargedPlayerId(null)}
+              >
+                <div style={{background: '#fff', borderRadius: 12, padding: 32, minWidth: 400, minHeight: 300, maxWidth: '90vw', maxHeight: '90vh', position: 'relative'}}>
+                  <button
+                    className="btn btn-secondary"
+                    style={{position: 'absolute', top: 16, right: 16}}
+                    onClick={e => { e.stopPropagation(); setEnlargedPlayerId(null); }}
+                  >
+                    Close
+                  </button>
+                  {(() => {
+                    const player = players.find(p => p.id === enlargedPlayerId);
+                    const answer = pendingAnswers.find(a => a.playerId === enlargedPlayerId);
+                    const board = playerBoards.find(b => b.playerId === enlargedPlayerId);
+                    return (
+                      <>
+                        <div style={{fontWeight: 600, fontSize: 22, marginBottom: 8}}>{player?.name}</div>
+                        <div style={{background: '#0C6A35', minHeight: 200, margin: '8px 0', borderRadius: 4, display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                          {board?.boardData ? (
+                            <div style={{width: '100%', height: 200, overflow: 'hidden'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                          ) : (
+                            <span style={{color: '#fff'}}>No Drawing</span>
+                          )}
+                        </div>
+                        <div style={{margin: '8px 0', fontSize: 18}}>
+                          {answer?.answer || <span style={{color: '#888'}}>No Text</span>}
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Preview Mode Button */}
+      {allAnswersIn && !isPreviewMode && (
+        <button
+          className="btn btn-info mb-3"
+          onClick={() => setIsPreviewMode(true)}
+        >
+          Preview Mode
+        </button>
       )}
     </div>
   );
