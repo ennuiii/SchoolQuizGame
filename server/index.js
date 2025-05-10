@@ -7,6 +7,7 @@ const cors = require('cors');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
+const { supabase } = require('./supabase');
 
 const app = express();
 app.use(cors());
@@ -598,6 +599,76 @@ io.on('disconnect', (socket) => {
         io.to(roomCode).emit('players_update', room.players);
       }
     }
+  }
+});
+
+// Get questions metadata (subjects and grades for a language)
+app.get('/api/questions/metadata', async (req, res) => {
+  try {
+    const { language } = req.query;
+    const { data: subjects, error: subjectsError } = await supabase
+      .from('questions')
+      .select('subject')
+      .eq('language', language)
+      .distinct();
+
+    const { data: grades, error: gradesError } = await supabase
+      .from('questions')
+      .select('grade')
+      .eq('language', language)
+      .distinct();
+
+    if (subjectsError || gradesError) {
+      throw new Error('Failed to fetch metadata');
+    }
+
+    res.json({
+      subjects: subjects.map(s => s.subject).sort(),
+      grades: grades.map(g => g.grade).sort((a, b) => a - b)
+    });
+  } catch (error) {
+    console.error('Error fetching metadata:', error);
+    res.status(500).json({ error: 'Failed to fetch metadata' });
+  }
+});
+
+// Autofill questions based on criteria
+app.post('/api/questions/autofill', async (req, res) => {
+  try {
+    const { language, subjects, grades, questionsPerGrade } = req.body;
+
+    // Validate input
+    if (!language || !subjects?.length || !grades?.length || !questionsPerGrade) {
+      return res.status(400).json({ error: 'Missing required parameters' });
+    }
+
+    // Get questions for each grade level
+    const allQuestions = [];
+    for (const grade of grades) {
+      const { data: questions, error } = await supabase
+        .from('questions')
+        .select('*')
+        .eq('language', language)
+        .eq('grade', grade)
+        .in('subject', subjects);
+
+      if (error) {
+        throw new Error(`Failed to fetch questions for grade ${grade}`);
+      }
+
+      // Randomly select questions for this grade
+      const shuffled = questions.sort(() => 0.5 - Math.random());
+      const selected = shuffled.slice(0, questionsPerGrade);
+      allQuestions.push(...selected);
+    }
+
+    // Sort questions by grade
+    allQuestions.sort((a, b) => a.grade - b.grade);
+
+    res.json(allQuestions);
+  } catch (error) {
+    console.error('Error autofilling questions:', error);
+    res.status(500).json({ error: 'Failed to autofill questions' });
   }
 });
 

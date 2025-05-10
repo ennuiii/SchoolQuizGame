@@ -33,6 +33,13 @@ interface AnswerSubmission {
   hasDrawing: boolean;
 }
 
+interface AutofillSettings {
+  language: string;
+  subjects: string[];
+  grades: number[];
+  questionsPerGrade: number;
+}
+
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
   const [roomCodeInput, setRoomCodeInput] = useState('');
@@ -70,6 +77,16 @@ const GameMaster: React.FC = () => {
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [selectedPreviewPlayer, setSelectedPreviewPlayer] = useState<string | null>(null);
   const [previewAnswers, setPreviewAnswers] = useState<AnswerSubmission[]>([]);
+  const [showAutofillPopup, setShowAutofillPopup] = useState(false);
+  const [autofillSettings, setAutofillSettings] = useState<AutofillSettings>({
+    language: 'de',
+    subjects: [],
+    grades: [],
+    questionsPerGrade: 1
+  });
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [availableGrades, setAvailableGrades] = useState<number[]>([]);
+  const [isLoadingAutofill, setIsLoadingAutofill] = useState(false);
 
   useEffect(() => {
     // Connect to socket server
@@ -606,719 +623,209 @@ const GameMaster: React.FC = () => {
     setSelectedPreviewPlayer(previewAnswers[prevIndex].playerId);
   };
 
-  return (
-    <div className="container">
-      <h1 className="text-center mb-4">Game Master Dashboard</h1>
-      
-      {errorMsg && (
-        <div className="alert alert-danger" role="alert">
-          {errorMsg}
-          <button 
-            type="button" 
-            className="btn-close float-end" 
-            onClick={() => setErrorMsg('')}
-            aria-label="Close"
-          ></button>
-        </div>
-      )}
-      
-      {showEndRoundConfirm && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">End Round Early?</h5>
-                <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to end this round early? All players' current answers will be submitted automatically.</p>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
-                <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!roomCode ? (
-        <div className="row justify-content-center">
-          <div className="col-md-6">
-            <div className="card p-4 text-center">
-              <h3>Create a New Game Room</h3>
-              <p>As the Game Master, you'll manage questions and evaluate answers.</p>
-              <div className="form-group mb-3">
-                <label htmlFor="roomCodeInput" className="form-label">Room Code (optional):</label>
-                <input
-                  type="text"
-                  id="roomCodeInput"
-                  className="form-control"
-                  placeholder="Leave blank for random code"
-                  value={roomCodeInput}
-                  onChange={(e) => setRoomCodeInput(e.target.value)}
-                />
-                <small className="text-muted">You can specify a custom room code or leave it blank for a random one.</small>
-              </div>
-              <button 
-                className="btn btn-primary btn-lg mt-3"
-                onClick={createRoom}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Creating...' : 'Create Room'}
-              </button>
-              <button 
-                className="btn btn-outline-secondary mt-3"
-                onClick={() => navigate('/')}
-              >
-                Back to Home
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="game-master-container" style={{ 
-          backgroundImage: 'linear-gradient(to bottom right, #8B4513, #A0522D)', 
-          padding: '20px', 
-          borderRadius: '12px',
-          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
-          backgroundSize: '100% 100%',
-          backgroundRepeat: 'no-repeat'
-        }}>
-          <div className="row">
-            <div className="col-md-4">
-              <div className="card mb-4">
-                <div className="card-header">
-                  <h3 className="mb-0">Room Information</h3>
-                </div>
-                <div className="card-body text-center">
-                  <h5>Room Code:</h5>
-                  <div className="room-code">{roomCode}</div>
-                  <p className="mb-3">Share this code with players to join</p>
-                  
-                  {!gameStarted && (
-                    <>
-                      <div className="mb-3">
-                        <label htmlFor="timeLimit" className="form-label">Time Limit (seconds):</label>
-                        <input 
-                          type="number"
-                          id="timeLimit"
-                          className="form-control mb-2"
-                          min="0"
-                          value={timeLimit || ''}
-                          onChange={(e) => setTimeLimit(e.target.value ? parseInt(e.target.value, 10) : null)}
-                          placeholder="No time limit"
-                        />
-                        <small className="text-muted">Leave empty for no time limit</small>
-                      </div>
-                      <button 
-                        className="btn btn-success btn-lg w-100"
-                        onClick={startGame}
-                        disabled={players.length < 2}
-                      >
-                        Start Game ({players.length}/2 players)
-                      </button>
-                    </>
-                  )}
-                  
-                  {gameStarted && (
-                    <button 
-                      className="btn btn-warning btn-lg w-100"
-                      onClick={restartGame}
-                      disabled={isRestarting}
-                    >
-                      {isRestarting ? 'Restarting...' : 'Restart Game'}
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="card mb-4">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <h3 className="mb-0">Players</h3>
-                  <span className="badge bg-primary">{players.length}</span>
-                </div>
-                <div className="card-body p-0">
-                  <ul className="list-group list-group-flush player-list">
-                    {players.map(player => (
-                      <li 
-                        key={player.id} 
-                        className={`list-group-item d-flex justify-content-between align-items-center ${!player.isActive ? 'text-muted' : ''}`}
-                      >
-                        <div className="d-flex align-items-center">
-                          <span>{player.name} {!player.isActive && '(Eliminated)'}</span>
-                          <button
-                            className={`btn btn-sm ms-2 ${visibleBoards.has(player.id) ? 'btn-primary' : 'btn-outline-primary'}`}
-                            onClick={() => toggleBoardVisibility(player.id)}
-                            title={visibleBoards.has(player.id) ? "Hide board" : "Show board"}
-                          >
-                            {visibleBoards.has(player.id) ? 'Hide Board' : 'Show Board'}
-                          </button>
-                        </div>
-                        <div>
-                          {Array.from({length: player.lives}, (_, i) => (
-                            <span key={i} className="text-danger me-1">❤</span>
-                          ))}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              
-              {gameStarted && (
-                <div className="card mb-4">
-                  <div className="card-header d-flex justify-content-between align-items-center">
-                    <h3 className="mb-0">Questions</h3>
-                    <button 
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={addCustomQuestion}
-                    >
-                      Add Question
-                    </button>
-                  </div>
-                  <div className="card-body">
-                    <div className="mb-3 text-center">
-                      {timeLimit !== null && timeLimit < 99999 && (
-                        <>
-                          <h5>Time Remaining:</h5>
-                          <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
-                            {formatTime(timeRemaining)}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="mb-3">
-                      <h5>Current Question ({currentQuestionIndex + 1}/{questions.length}):</h5>
-                      <div className="question-container">
-                        <p className="mb-1">{currentQuestion?.text}</p>
-                        <small>Grade: {currentQuestion?.grade} | Subject: {currentQuestion?.subject} | Language: {currentQuestion?.language || 'de'}</small>
-                        {currentQuestion?.answer && (
-                          <div className="mt-2 correct-answer">
-                            <strong>Correct Answer:</strong> {currentQuestion.answer}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <button 
-                      className="btn btn-primary w-100"
-                      onClick={nextQuestion}
-                      disabled={currentQuestionIndex >= questions.length - 1 || pendingAnswers.length > 0}
-                    >
-                      Next Question
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="col-md-8">
-              {gameStarted ? (
-                <>
-                  <div className="card mb-4">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">Pending Answers</h3>
-                      <div>
-                        <button 
-                          className="btn btn-info me-2"
-                          onClick={togglePreviewMode}
-                          disabled={pendingAnswers.length === 0}
-                        >
-                          {isPreviewMode ? 'Exit Preview' : 'Preview Mode'}
-                        </button>
-                        <button 
-                          className="btn btn-warning"
-                          onClick={handleEndRoundEarly}
-                          disabled={!(gameStarted && currentQuestion)}
-                        >
-                          End Round Early
-                        </button>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      {isPreviewMode ? (
-                        <div className="preview-mode">
-                          <div className="row mb-3">
-                            <div className="col-12 d-flex justify-content-between align-items-center">
-                              <button 
-                                className="btn btn-outline-primary"
-                                onClick={prevPreviewPlayer}
-                                disabled={previewAnswers.length === 0}
-                              >
-                                Previous
-                              </button>
-                              <h4 className="mb-0">
-                                {selectedPreviewPlayer 
-                                  ? previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.playerName 
-                                  : 'Select a player'}
-                              </h4>
-                              <button 
-                                className="btn btn-outline-primary"
-                                onClick={nextPreviewPlayer}
-                                disabled={previewAnswers.length === 0}
-                              >
-                                Next
-                              </button>
-                            </div>
-                          </div>
-                          
-                          <div className="row">
-                            <div className="col-md-4">
-                              <div className="list-group">
-                                {previewAnswers.map((submission) => (
-                                  <button
-                                    key={submission.playerId}
-                                    className={`list-group-item list-group-item-action ${
-                                      selectedPreviewPlayer === submission.playerId ? 'active' : ''
-                                    }`}
-                                    onClick={() => selectPreviewPlayer(submission.playerId)}
-                                  >
-                                    <div className="d-flex justify-content-between align-items-center">
-                                      <span>{submission.playerName}</span>
-                                      {submission.hasDrawing && (
-                                        <span className="badge bg-info">Drawing</span>
-                                      )}
-                                    </div>
-                                  </button>
-                                ))}
-                              </div>
-                            </div>
-                            
-                            <div className="col-md-8">
-                              {selectedPreviewPlayer ? (
-                                <div className="card">
-                                  <div className="card-body">
-                                    <h5 className="card-title">
-                                      {previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.playerName}'s Answer
-                                    </h5>
-                                    <div className="mb-3">
-                                      <strong>Text Answer:</strong>
-                                      <p className="mt-2">
-                                        {previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.answer || 'No text answer'}
-                                      </p>
-                                    </div>
-                                    {previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.hasDrawing && (
-                                      <div className="drawing-preview">
-                                        <strong>Drawing:</strong>
-                                        <div 
-                                          className="mt-2 drawing-board"
-                                          dangerouslySetInnerHTML={{
-                                            __html: playerBoards.find(b => b.playerId === selectedPreviewPlayer)?.boardData || ''
-                                          }}
-                                        />
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              ) : (
-                                <div className="text-center text-muted">
-                                  Select a player to preview their answer
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      ) : (
-                        pendingAnswers.length === 0 ? (
-                          <p className="text-center">No pending answers</p>
-                        ) : (
-                          <ul className="list-group">
-                            {pendingAnswers.map((submission, index) => (
-                              <li key={index} className="list-group-item">
-                                <div className="d-flex justify-content-between align-items-center mb-2">
-                                  <h5 className="mb-0">{submission.playerName}</h5>
-                                  <div>
-                                    <button 
-                                      className="btn btn-success me-2"
-                                      onClick={() => evaluateAnswer(submission.playerId, true)}
-                                    >
-                                      Correct
-                                    </button>
-                                    <button 
-                                      className="btn btn-danger"
-                                      onClick={() => evaluateAnswer(submission.playerId, false)}
-                                    >
-                                      Incorrect
-                                    </button>
-                                  </div>
-                                </div>
-                                <div className="answer-container">
-                                  <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
-                                  {currentQuestion?.answer && (
-                                    <p className="mb-0 text-success small">
-                                      <strong>Correct Answer:</strong> {currentQuestion.answer}
-                                    </p>
-                                  )}
-                                </div>
-                              </li>
-                            ))}
-                          </ul>
-                        )
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">Player Boards</h3>
-                      <div>
-                        <button 
-                          className="btn btn-sm btn-outline-primary me-2"
-                          onClick={() => setVisibleBoards(new Set())}
-                        >
-                          Hide All
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => setVisibleBoards(new Set(players.map(p => p.id)))}
-                        >
-                          Show All
-                        </button>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      {playerBoards.length === 0 ? (
-                        <p className="text-center">No player boards available</p>
-                      ) : (
-                        <div className="row">
-                          {playerBoards
-                            .filter(board => visibleBoards.has(board.playerId))
-                            .map((board) => {
-                              const player = players.find(p => p.id === board.playerId);
-                              return (
-                                <div key={board.playerId} className="col-md-6 mb-4">
-                                  <div className="card h-100">
-                                    <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                                      <h5 className="mb-0">{board.playerName || 'Unknown Player'} {!player?.isActive && '(Eliminated)'}</h5>
-                                      <button
-                                        className="btn btn-sm btn-light"
-                                        onClick={() => toggleBoardVisibility(board.playerId)}
-                                      >
-                                        Hide
-                                      </button>
-                                    </div>
-                                    <div className="card-body p-0" style={{ minHeight: '350px', position: 'relative' }}>
-                                      <div
-                                        className="drawing-board-panzoom"
-                                        style={{
-                                          width: '100%',
-                                          height: '320px',
-                                          position: 'relative',
-                                          overflow: 'hidden',
-                                          cursor: 'grab',
-                                          background: '#0C6A35',
-                                          zIndex: 1
-                                        }}
-                                        onWheel={e => {
-                                          if (!e.altKey) return;
-                                          e.preventDefault();
-                                          const playerId = board.playerId;
-                                          const delta = e.deltaY < 0 ? 0.1 : -0.1;
-                                          updateBoardTransform(playerId, t => {
-                                            let newScale = Math.max(0.2, Math.min(3, t.scale + delta));
-                                            return { ...t, scale: newScale };
-                                          });
-                                        }}
-                                        onMouseDown={e => {
-                                          if (!e.altKey) return;
-                                          e.preventDefault();
-                                          const playerId = board.playerId;
-                                          panState.current[playerId] = { panning: true, lastX: e.clientX, lastY: e.clientY };
-                                        }}
-                                        onMouseMove={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]?.panning) {
-                                            e.preventDefault();
-                                            const dx = e.clientX - panState.current[playerId].lastX;
-                                            const dy = e.clientY - panState.current[playerId].lastY;
-                                            panState.current[playerId].lastX = e.clientX;
-                                            panState.current[playerId].lastY = e.clientY;
-                                            updateBoardTransform(playerId, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-                                          }
-                                        }}
-                                        onMouseUp={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
-                                        }}
-                                        onMouseLeave={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
-                                        }}
-                                      >
-                                        <div
-                                          style={{
-                                            width: '100%',
-                                            height: '100%',
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            transformOrigin: 'top left',
-                                            transform: `translate(${(boardTransforms[board.playerId]?.x||0)}px, ${(boardTransforms[board.playerId]?.y||0)}px) scale(${boardTransforms[board.playerId]?.scale||1})`,
-                                            transition: 'transform 0.05s',
-                                            pointerEvents: 'none',
-                                          }}
-                                          className="drawing-board"
-                                          dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="card-footer d-flex justify-content-between align-items-center">
-                                      <span>
-                                        {Array.from({length: player?.lives || 0}, (_, i) => (
-                                          <span key={i} className="text-danger me-1" role="img" aria-label="heart">❤</span>
-                                        ))}
-                                      </span>
-                                      {pendingAnswers.find(a => a.playerId === board.playerId) && (
-                                        <div>
-                                          <button 
-                                            className="btn btn-sm btn-success me-2"
-                                            onClick={() => evaluateAnswer(board.playerId, true)}
-                                          >
-                                            Correct
-                                          </button>
-                                          <button 
-                                            className="btn btn-sm btn-danger"
-                                            onClick={() => evaluateAnswer(board.playerId, false)}
-                                          >
-                                            Incorrect
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="card">
-                  <div className="card-header">
-                    <h3 className="mb-0">Getting Started</h3>
-                  </div>
-                  <div className="card-body">
-                    <p className="mb-4">
-                      Welcome to the Game Master dashboard! Share the room code with your players and prepare your questions. When everyone is ready, start the game!
-                    </p>
-                    
-                    <div className="mb-4">
-                      <h5>Current Players:</h5>
-                      {players.length === 0 ? (
-                        <p className="text-center text-muted">No players have joined yet</p>
-                      ) : (
-                        <ul className="list-group">
-                          {players.map(player => (
-                            <li key={player.id} className="list-group-item">
-                              {player.name}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    
-                    <div className="mb-3">
-                      <h5>Room Settings:</h5>
-                      <div className="mb-3">
-                        <label htmlFor="timeLimitInput" className="form-label">Time Limit per Question (seconds):</label>
-                        <input
-                          type="number"
-                          id="timeLimitInput"
-                          className="form-control"
-                          placeholder="No time limit"
-                          min="5"
-                          max="300"
-                          value={timeLimit === null ? '' : timeLimit}
-                          onChange={(e) => setTimeLimit(e.target.value ? parseInt(e.target.value) : null)}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="mb-4">
-                      <h5>Load Questions from Database:</h5>
-                      <div className="row g-3 mb-3">
-                        <div className="col-md-3">
-                          <label htmlFor="languageSelect" className="form-label">Language</label>
-                          <select 
-                            id="languageSelect" 
-                            className="form-select"
-                            value={selectedLanguage}
-                            onChange={(e) => setSelectedLanguage(e.target.value)}
-                          >
-                            {languages.length > 0 ? (
-                              languages.map((language, index) => (
-                                <option key={index} value={language}>{language}</option>
-                              ))
-                            ) : (
-                              <option value="de">de</option>
-                            )}
-                          </select>
-                        </div>
-                        <div className="col-md-3">
-                          <label htmlFor="subjectSelect" className="form-label">Subject</label>
-                          <select 
-                            id="subjectSelect" 
-                            className="form-select"
-                            value={selectedSubject}
-                            onChange={(e) => setSelectedSubject(e.target.value)}
-                          >
-                            <option value="">All Subjects</option>
-                            {subjects.map((subject, index) => (
-                              <option key={index} value={subject}>{subject}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-md-3">
-                          <label htmlFor="gradeSelect" className="form-label">Grade</label>
-                          <select 
-                            id="gradeSelect" 
-                            className="form-select"
-                            value={selectedGrade}
-                            onChange={(e) => setSelectedGrade(e.target.value ? Number(e.target.value) : '')}
-                          >
-                            <option value="">All Grades</option>
-                            {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(grade => (
-                              <option key={grade} value={grade}>{grade}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-md-3">
-                          <label className="form-label">&nbsp;</label>
-                          <button 
-                            className="btn btn-primary d-block w-100"
-                            onClick={loadQuestionsFromSupabase}
-                            disabled={isLoadingQuestions}
-                          >
-                            {isLoadingQuestions ? 'Loading...' : 'Search Questions'}
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-3">
-                        <div className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="sortByGradeCheckbox"
-                            checked={sortByGrade}
-                            onChange={(e) => setSortByGrade(e.target.checked)}
-                          />
-                          <label className="form-check-label" htmlFor="sortByGradeCheckbox">
-                            Sort questions by grade (lowest to highest)
-                          </label>
-                        </div>
-                      </div>
-                      
-                      <div className="row">
-                        <div className="col-md-6">
-                          <div className="card mb-3">
-                            <div className="card-header bg-light">
-                              <h6 className="mb-0">Available Questions ({availableQuestions.length})</h6>
-                            </div>
-                            <div className="card-body" style={{maxHeight: '300px', overflowY: 'auto'}}>
-                              {availableQuestions.length === 0 ? (
-                                <p className="text-center text-muted">No questions available. Use the filters above to search for questions.</p>
-                              ) : (
-                                <div className="list-group">
-                                  {availableQuestions.map((question) => (
-                                    <div key={question.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                      <div>
-                                        <p className="mb-1 fw-bold">{question.text}</p>
-                                        <small>
-                                          Grade: {question.grade} | {question.subject} | {question.language || 'de'}
-                                          {question.answer && <span> | Answer: {question.answer}</span>}
-                                        </small>
-                                      </div>
-                                      <button 
-                                        className="btn btn-sm btn-success" 
-                                        onClick={() => addQuestionToSelected(question)}
-                                        title="Add to selected questions"
-                                      >
-                                        +
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="col-md-6">
-                          <div className="card mb-3">
-                            <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                              <h6 className="mb-0">Selected Questions ({selectedQuestions.length})</h6>
-                              <button 
-                                className="btn btn-sm btn-outline-primary" 
-                                onClick={organizeSelectedQuestions}
-                                disabled={selectedQuestions.length < 2}
-                                title="Sort by grade (lowest to highest)"
-                              >
-                                Sort by Grade
-                              </button>
-                            </div>
-                            <div className="card-body" style={{maxHeight: '300px', overflowY: 'auto'}}>
-                              {selectedQuestions.length === 0 ? (
-                                <p className="text-center text-muted">No questions selected yet. Add questions from the left panel.</p>
-                              ) : (
-                                <div className="list-group">
-                                  {selectedQuestions.map((question, index) => (
-                                    <div key={question.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                      <div>
-                                        <div className="d-flex align-items-center mb-1">
-                                          <span className="badge bg-primary me-2">{index + 1}</span>
-                                          <span className="fw-bold">{question.text}</span>
-                                        </div>
-                                        <small>
-                                          Grade: {question.grade} | {question.subject} | {question.language || 'de'}
-                                          {question.answer && <span> | Answer: {question.answer}</span>}
-                                        </small>
-                                      </div>
-                                      <button 
-                                        className="btn btn-sm btn-danger" 
-                                        onClick={() => removeSelectedQuestion(question.id)}
-                                        title="Remove from selected questions"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
+  const handleAutofillQuestions = async () => {
+    setIsLoadingAutofill(true);
+    try {
+      const response = await fetch('/api/questions/autofill', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(autofillSettings),
+      });
 
-                      <div className="mb-3">
-                        <h6>Selected Question Summary:</h6>
-                        {selectedQuestions.length > 0 ? (
-                          <>
-                            <p>Total questions: {selectedQuestions.length}</p>
-                            <p>Grade range: {Math.min(...selectedQuestions.map(q => q.grade))} - {Math.max(...selectedQuestions.map(q => q.grade))}</p>
-                            <p>Subjects: {Array.from(new Set(selectedQuestions.map(q => q.subject))).join(', ')}</p>
-                          </>
-                        ) : (
-                          <p className="text-muted">No questions selected yet</p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="mb-3">
-                      <button 
-                        className="btn btn-success btn-lg w-100"
-                        onClick={addCustomQuestion}
-                      >
-                        Add Custom Question
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )}
+      if (!response.ok) {
+        throw new Error('Failed to fetch questions');
+      }
+
+      const questions: Question[] = await response.json();
+      setQuestions(questions);
+      setShowAutofillPopup(false);
+    } catch (error) {
+      console.error('Error fetching questions:', error);
+      alert('Failed to fetch questions. Please try again.');
+    } finally {
+      setIsLoadingAutofill(false);
+    }
+  };
+
+  const handleLanguageChange = async (language: string) => {
+    setAutofillSettings(prev => ({ ...prev, language }));
+    try {
+      const response = await fetch(`/api/questions/metadata?language=${language}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch metadata');
+      }
+      const metadata = await response.json();
+      setAvailableSubjects(metadata.subjects);
+      setAvailableGrades(metadata.grades);
+    } catch (error) {
+      console.error('Error fetching metadata:', error);
+    }
+  };
+
+  const handleSubjectToggle = (subject: string) => {
+    setAutofillSettings(prev => ({
+      ...prev,
+      subjects: prev.subjects.includes(subject)
+        ? prev.subjects.filter(s => s !== subject)
+        : [...prev.subjects, subject]
+    }));
+  };
+
+  const handleGradeToggle = (grade: number) => {
+    setAutofillSettings(prev => ({
+      ...prev,
+      grades: prev.grades.includes(grade)
+        ? prev.grades.filter(g => g !== grade)
+        : [...prev.grades, grade]
+    }));
+  };
+
+  const handleMarkAllSubjects = () => {
+    setAutofillSettings(prev => ({
+      ...prev,
+      subjects: availableSubjects
+    }));
+  };
+
+  const handleMarkAllGrades = () => {
+    setAutofillSettings(prev => ({
+      ...prev,
+      grades: availableGrades
+    }));
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-100">
+      <div className="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+        <div className="px-4 py-6 sm:px-0">
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-2xl font-bold text-gray-900">Questions</h2>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowAutofillPopup(true)}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Autofill Questions
+              </button>
+              <button
+                onClick={addCustomQuestion}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Add Question
+              </button>
+            </div>
+          </div>
+          {/* ... existing questions list ... */}
+        </div>
+      </div>
+
+      {/* Autofill Popup */}
+      {showAutofillPopup && (
+        <div className="fixed inset-0 bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full">
+            <h3 className="text-lg font-medium text-gray-900 mb-4">Autofill Questions</h3>
+            
+            {/* Language Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Language</label>
+              <select
+                value={autofillSettings.language}
+                onChange={(e) => handleLanguageChange(e.target.value)}
+                className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md"
+              >
+                <option value="de">German</option>
+                <option value="en">English</option>
+                <option value="fr">French</option>
+              </select>
+            </div>
+
+            {/* Subjects Selection */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">Subjects</label>
+                <button
+                  onClick={handleMarkAllSubjects}
+                  className="text-sm text-indigo-600 hover:text-indigo-500"
+                >
+                  Mark All
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {availableSubjects.map((subject) => (
+                  <label key={subject} className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={autofillSettings.subjects.includes(subject)}
+                      onChange={() => handleSubjectToggle(subject)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">{subject}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Grades Selection */}
+            <div className="mb-4">
+              <div className="flex justify-between items-center mb-2">
+                <label className="block text-sm font-medium text-gray-700">Grades</label>
+                <button
+                  onClick={handleMarkAllGrades}
+                  className="text-sm text-indigo-600 hover:text-indigo-500"
+                >
+                  Mark All
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {availableGrades.map((grade) => (
+                  <label key={grade} className="inline-flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={autofillSettings.grades.includes(grade)}
+                      onChange={() => handleGradeToggle(grade)}
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                    />
+                    <span className="ml-2 text-sm text-gray-700">Grade {grade}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {/* Questions per Grade */}
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Questions per Grade Level
+              </label>
+              <input
+                type="number"
+                min="1"
+                max="10"
+                value={autofillSettings.questionsPerGrade}
+                onChange={(e) => setAutofillSettings(prev => ({
+                  ...prev,
+                  questionsPerGrade: Math.min(10, Math.max(1, parseInt(e.target.value) || 1))
+                }))}
+                className="mt-1 block w-full border-gray-300 rounded-md shadow-sm focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm"
+              />
+            </div>
+
+            {/* Action Buttons */}
+            <div className="flex justify-end space-x-3">
+              <button
+                onClick={() => setShowAutofillPopup(false)}
+                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAutofillQuestions}
+                disabled={isLoadingAutofill || autofillSettings.subjects.length === 0 || autofillSettings.grades.length === 0}
+                className="px-4 py-2 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoadingAutofill ? 'Loading...' : 'Confirm'}
+              </button>
             </div>
           </div>
         </div>
