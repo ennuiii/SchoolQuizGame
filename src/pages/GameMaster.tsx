@@ -918,8 +918,8 @@ const GameMaster: React.FC = () => {
                                       >
                                         <div
                                           style={{
-                                            width: '100%',
-                                            height: '100%',
+                                            width: 400,
+                                            height: 200,
                                             position: 'absolute',
                                             top: 0,
                                             left: 0,
@@ -1256,18 +1256,20 @@ const GameMaster: React.FC = () => {
                       {player.name} <span style={{color: 'red'}}>{'❤'.repeat(player.lives)}</span>
                     </div>
                     <div style={{
-                      width: '100%',
-                      maxWidth: 800,
-                      aspectRatio: '2/1',
+                      width: 400,
+                      height: 200,
                       background: '#0C6A35',
                       margin: '12px 0',
                       borderRadius: 6,
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
+                      overflow: 'hidden',
                     }}>
                       {board?.boardData ? (
-                        <div style={{width: '100%', height: '100%'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                        <div style={{width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                          <div style={{width: '100%', height: '100%'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                        </div>
                       ) : (
                         <span style={{color: '#fff'}}>No Drawing</span>
                       )}
@@ -1324,18 +1326,20 @@ const GameMaster: React.FC = () => {
                       <>
                         <div style={{fontWeight: 700, fontSize: 28, marginBottom: 12}}>{player?.name}</div>
                         <div style={{
-                          width: '100%',
-                          maxWidth: 1000,
-                          aspectRatio: '2/1',
+                          width: 800,
+                          height: 400,
                           background: '#0C6A35',
                           margin: '12px 0',
                           borderRadius: 8,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
+                          overflow: 'hidden',
                         }}>
                           {board?.boardData ? (
-                            <div style={{width: '100%', height: '100%'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                            <div style={{width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
+                              <div style={{width: '100%', height: '100%'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
+                            </div>
                           ) : (
                             <span style={{color: '#fff'}}>No Drawing</span>
                           )}
