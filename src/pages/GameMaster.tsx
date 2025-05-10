@@ -383,7 +383,9 @@ const GameMaster: React.FC = () => {
     
     // Start the game with the existing room
     setIsLoading(true);
-    socketService.startGame(roomCode, gradeSortedQuestions, timeLimit || undefined);
+    // If timeLimit is null or blank, set it to 99999 internally but don't show it
+    const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
+    socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
     setGameStarted(true);
   };
 
