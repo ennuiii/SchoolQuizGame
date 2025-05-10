@@ -68,6 +68,7 @@ const GameMaster: React.FC = () => {
   const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
   const [isPreviewMode, setIsPreviewMode] = useState(false);
   const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
+  const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
 
   useEffect(() => {
     // Connect to socket server
@@ -406,6 +407,7 @@ const GameMaster: React.FC = () => {
   const evaluateAnswer = (playerId: string, isCorrect: boolean) => {
     socketService.evaluateAnswer(roomCode, playerId, isCorrect);
     setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
+    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
   };
 
   const addCustomQuestion = async () => {
@@ -1233,8 +1235,9 @@ const GameMaster: React.FC = () => {
             </button>
             <div className="row" style={{gap: 24, justifyContent: 'center'}}>
               {players.map((player, idx) => {
-                const answer = pendingAnswers.find(a => a.playerId === player.id);
+                const answer = pendingAnswers.find(a => a.playerId === player.id) || { answer: '', playerId: player.id, playerName: player.name };
                 const board = playerBoards.find(b => b.playerId === player.id);
+                const evalStatus = evaluatedAnswers[player.id];
                 return (
                   <div
                     key={player.id}
@@ -1263,7 +1266,11 @@ const GameMaster: React.FC = () => {
                       )}
                     </div>
                     <div style={{margin: '8px 0', fontSize: 15}}>
-                      {answer?.answer || <span style={{color: '#888'}}>No Text</span>}
+                      {answer.answer || <span style={{color: '#888'}}>No Text</span>}
+                    </div>
+                    <div style={{marginTop: 8}}>
+                      {evalStatus === true && <span style={{color: 'green', fontSize: 24}} title="Correct">👍</span>}
+                      {evalStatus === false && <span style={{color: 'red', fontSize: 24}} title="Incorrect">👎</span>}
                     </div>
                   </div>
                 );
