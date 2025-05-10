@@ -162,39 +162,35 @@ io.on('connection', (socket) => {
   });
 
   // Start the game (Gamemaster only)
-  socket.on('start_game', ({ roomCode, questions, timeLimit }) => {
-    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
-      socket.emit('error', 'Not authorized to start the game');
+  socket.on('start_game', (data) => {
+    const { roomCode, questions, timeLimit } = data;
+    const room = gameRooms[roomCode];
+    
+    if (!room) {
+      console.log('[SERVER] Start game failed - Room not found:', { roomCode, timestamp: new Date().toISOString() });
+      socket.emit('error', 'Room not found');
       return;
     }
-
-    if (gameRooms[roomCode].players.length < 2) {
-      socket.emit('error', 'Need at least 2 players to start');
+    
+    if (socket.id !== room.gamemaster) {
+      console.log('[SERVER] Start game failed - Not authorized:', { roomCode, socketId: socket.id, timestamp: new Date().toISOString() });
+      socket.emit('error', 'Not authorized to start game');
       return;
     }
-
-    gameRooms[roomCode].started = true;
-    gameRooms[roomCode].questions = questions;
-    gameRooms[roomCode].currentQuestionIndex = 0;
-    gameRooms[roomCode].timeLimit = timeLimit || null;
     
-    const currentQuestion = gameRooms[roomCode].questions[0];
-    gameRooms[roomCode].currentQuestion = currentQuestion;
-
-    console.log(`Starting game in room ${roomCode} with first question:`, JSON.stringify(currentQuestion));
+    console.log('[SERVER] Starting game:', { roomCode, questionCount: questions.length, timeLimit: timeLimit || 'no limit', timestamp: new Date().toISOString() });
     
-    // Send the game_started event with the first question
-    io.to(roomCode).emit('game_started', { 
-      question: currentQuestion, 
-      timeLimit: timeLimit || null 
+    // Set up the game state
+    room.questions = questions;
+    room.currentQuestionIndex = 0;
+    room.started = true;
+    room.timeLimit = timeLimit || 99999; // Use a very long time if no limit is set
+    
+    // Notify all players that the game has started
+    io.to(roomCode).emit('game_started', {
+      question: questions[0],
+      timeLimit: timeLimit || undefined // Only send timeLimit if it was specified
     });
-    
-    console.log(`Game started in room: ${roomCode}`);
-    
-    // Start the timer for this question if a time limit is set
-    if (timeLimit) {
-      startQuestionTimer(roomCode);
-    }
   });
 
   // Restart the game (Gamemaster only)

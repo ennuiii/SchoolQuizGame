@@ -735,10 +735,14 @@ const GameMaster: React.FC = () => {
                   </div>
                   <div className="card-body">
                     <div className="mb-3 text-center">
-                      <h5>Time Remaining:</h5>
-                      <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
-                        {formatTime(timeRemaining)}
-                      </div>
+                      {timeLimit !== null && timeLimit < 99999 && (
+                        <>
+                          <h5>Time Remaining:</h5>
+                          <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
+                            {formatTime(timeRemaining)}
+                          </div>
+                        </>
+                      )}
                     </div>
                     
                     <div className="mb-3">

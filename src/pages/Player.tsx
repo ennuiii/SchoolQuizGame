@@ -181,6 +181,9 @@ const Player: React.FC = () => {
         
         // Clean up timer
         return () => clearInterval(timer);
+      } else {
+        setTimeLimit(null);
+        setTimeRemaining(null);
       }
     });
     
@@ -191,9 +194,17 @@ const Player: React.FC = () => {
       resetCanvas();
       setErrorMsg('');
       setReviewNotification(null);
-      setTimeLimit(data.timeLimit ?? null);
-      setTimeRemaining(data.timeLimit ?? null);
-      setIsTimerRunning(!!data.timeLimit);
+      
+      // Set time limit if present
+      if (data.timeLimit) {
+        setTimeLimit(data.timeLimit);
+        setTimeRemaining(data.timeLimit);
+        setIsTimerRunning(true);
+      } else {
+        setTimeLimit(null);
+        setTimeRemaining(null);
+        setIsTimerRunning(false);
+      }
     });
     
     socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number }) => {
@@ -477,7 +488,7 @@ const Player: React.FC = () => {
           <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
         </div>
         <div className="col-md-3">
-          {timeLimit !== null && timeRemaining !== null && (
+          {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
             <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
               <h3>
                 <span className="me-2">Time:</span>
@@ -591,7 +602,7 @@ const Player: React.FC = () => {
                 </button>
               </div>
               
-              {timeLimit !== null && timeRemaining !== null && (
+              {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
                 <div className={`text-center ${timeRemaining <= 10 ? 'text-danger fw-bold' : ''}`}>
                   Time remaining: {formatTime(timeRemaining)}
                   {timeRemaining <= 10 && <span className="ms-1">- Answer will be auto-submitted when time is up!</span>}
