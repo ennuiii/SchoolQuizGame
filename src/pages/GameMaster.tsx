@@ -30,6 +30,7 @@ interface AnswerSubmission {
   playerId: string;
   playerName: string;
   answer: string;
+  hasDrawing: boolean;
 }
 
 const GameMaster: React.FC = () => {
@@ -66,6 +67,9 @@ const GameMaster: React.FC = () => {
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
   const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [selectedPreviewPlayer, setSelectedPreviewPlayer] = useState<string | null>(null);
+  const [previewAnswers, setPreviewAnswers] = useState<AnswerSubmission[]>([]);
 
   useEffect(() => {
     // Connect to socket server
@@ -355,6 +359,11 @@ const GameMaster: React.FC = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    // Update preview answers when pending answers change
+    setPreviewAnswers(pendingAnswers);
+  }, [pendingAnswers]);
+
   const createRoom = () => {
     console.log('Creating new room...');
     setIsLoading(true);
@@ -562,6 +571,39 @@ const GameMaster: React.FC = () => {
 
   const cancelEndRoundEarly = () => {
     setShowEndRoundConfirm(false);
+  };
+
+  const togglePreviewMode = () => {
+    setIsPreviewMode(!isPreviewMode);
+    if (!isPreviewMode) {
+      setSelectedPreviewPlayer(null);
+    }
+  };
+
+  const selectPreviewPlayer = (playerId: string) => {
+    setSelectedPreviewPlayer(playerId);
+  };
+
+  const nextPreviewPlayer = () => {
+    if (previewAnswers.length === 0) return;
+    
+    const currentIndex = selectedPreviewPlayer 
+      ? previewAnswers.findIndex(a => a.playerId === selectedPreviewPlayer)
+      : -1;
+    
+    const nextIndex = (currentIndex + 1) % previewAnswers.length;
+    setSelectedPreviewPlayer(previewAnswers[nextIndex].playerId);
+  };
+
+  const prevPreviewPlayer = () => {
+    if (previewAnswers.length === 0) return;
+    
+    const currentIndex = selectedPreviewPlayer 
+      ? previewAnswers.findIndex(a => a.playerId === selectedPreviewPlayer)
+      : -1;
+    
+    const prevIndex = (currentIndex - 1 + previewAnswers.length) % previewAnswers.length;
+    setSelectedPreviewPlayer(previewAnswers[prevIndex].playerId);
   };
 
   return (
@@ -778,49 +820,142 @@ const GameMaster: React.FC = () => {
                   <div className="card mb-4">
                     <div className="card-header d-flex justify-content-between align-items-center">
                       <h3 className="mb-0">Pending Answers</h3>
-                      <button 
-                        className="btn btn-warning"
-                        onClick={handleEndRoundEarly}
-                        disabled={!(gameStarted && currentQuestion)}
-                      >
-                        End Round Early
-                      </button>
+                      <div>
+                        <button 
+                          className="btn btn-info me-2"
+                          onClick={togglePreviewMode}
+                          disabled={pendingAnswers.length === 0}
+                        >
+                          {isPreviewMode ? 'Exit Preview' : 'Preview Mode'}
+                        </button>
+                        <button 
+                          className="btn btn-warning"
+                          onClick={handleEndRoundEarly}
+                          disabled={!(gameStarted && currentQuestion)}
+                        >
+                          End Round Early
+                        </button>
+                      </div>
                     </div>
                     <div className="card-body">
-                      {pendingAnswers.length === 0 ? (
-                        <p className="text-center">No pending answers</p>
-                      ) : (
-                        <ul className="list-group">
-                          {pendingAnswers.map((submission, index) => (
-                            <li key={index} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <h5 className="mb-0">{submission.playerName}</h5>
-                                <div>
-                                  <button 
-                                    className="btn btn-success me-2"
-                                    onClick={() => evaluateAnswer(submission.playerId, true)}
+                      {isPreviewMode ? (
+                        <div className="preview-mode">
+                          <div className="row mb-3">
+                            <div className="col-12 d-flex justify-content-between align-items-center">
+                              <button 
+                                className="btn btn-outline-primary"
+                                onClick={prevPreviewPlayer}
+                                disabled={previewAnswers.length === 0}
+                              >
+                                Previous
+                              </button>
+                              <h4 className="mb-0">
+                                {selectedPreviewPlayer 
+                                  ? previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.playerName 
+                                  : 'Select a player'}
+                              </h4>
+                              <button 
+                                className="btn btn-outline-primary"
+                                onClick={nextPreviewPlayer}
+                                disabled={previewAnswers.length === 0}
+                              >
+                                Next
+                              </button>
+                            </div>
+                          </div>
+                          
+                          <div className="row">
+                            <div className="col-md-4">
+                              <div className="list-group">
+                                {previewAnswers.map((submission) => (
+                                  <button
+                                    key={submission.playerId}
+                                    className={`list-group-item list-group-item-action ${
+                                      selectedPreviewPlayer === submission.playerId ? 'active' : ''
+                                    }`}
+                                    onClick={() => selectPreviewPlayer(submission.playerId)}
                                   >
-                                    Correct
+                                    <div className="d-flex justify-content-between align-items-center">
+                                      <span>{submission.playerName}</span>
+                                      {submission.hasDrawing && (
+                                        <span className="badge bg-info">Drawing</span>
+                                      )}
+                                    </div>
                                   </button>
-                                  <button 
-                                    className="btn btn-danger"
-                                    onClick={() => evaluateAnswer(submission.playerId, false)}
-                                  >
-                                    Incorrect
-                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                            
+                            <div className="col-md-8">
+                              {selectedPreviewPlayer ? (
+                                <div className="card">
+                                  <div className="card-body">
+                                    <h5 className="card-title">
+                                      {previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.playerName}'s Answer
+                                    </h5>
+                                    <div className="mb-3">
+                                      <strong>Text Answer:</strong>
+                                      <p className="mt-2">
+                                        {previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.answer || 'No text answer'}
+                                      </p>
+                                    </div>
+                                    {previewAnswers.find(a => a.playerId === selectedPreviewPlayer)?.hasDrawing && (
+                                      <div className="drawing-preview">
+                                        <strong>Drawing:</strong>
+                                        <div 
+                                          className="mt-2 drawing-board"
+                                          dangerouslySetInnerHTML={{
+                                            __html: playerBoards.find(b => b.playerId === selectedPreviewPlayer)?.boardData || ''
+                                          }}
+                                        />
+                                      </div>
+                                    )}
+                                  </div>
                                 </div>
-                              </div>
-                              <div className="answer-container">
-                                <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
-                                {currentQuestion?.answer && (
-                                  <p className="mb-0 text-success small">
-                                    <strong>Correct Answer:</strong> {currentQuestion.answer}
-                                  </p>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
+                              ) : (
+                                <div className="text-center text-muted">
+                                  Select a player to preview their answer
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ) : (
+                        pendingAnswers.length === 0 ? (
+                          <p className="text-center">No pending answers</p>
+                        ) : (
+                          <ul className="list-group">
+                            {pendingAnswers.map((submission, index) => (
+                              <li key={index} className="list-group-item">
+                                <div className="d-flex justify-content-between align-items-center mb-2">
+                                  <h5 className="mb-0">{submission.playerName}</h5>
+                                  <div>
+                                    <button 
+                                      className="btn btn-success me-2"
+                                      onClick={() => evaluateAnswer(submission.playerId, true)}
+                                    >
+                                      Correct
+                                    </button>
+                                    <button 
+                                      className="btn btn-danger"
+                                      onClick={() => evaluateAnswer(submission.playerId, false)}
+                                    >
+                                      Incorrect
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="answer-container">
+                                  <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
+                                  {currentQuestion?.answer && (
+                                    <p className="mb-0 text-success small">
+                                      <strong>Correct Answer:</strong> {currentQuestion.answer}
+                                    </p>
+                                  )}
+                                </div>
+                              </li>
+                            ))}
+                          </ul>
+                        )
                       )}
                     </div>
                   </div>
