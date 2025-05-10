@@ -552,6 +552,14 @@ const GameMaster: React.FC = () => {
     }));
   };
 
+  // Fit to screen handler
+  const fitToScreen = (playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {scale: 1, x: 0, y: 0}
+    }));
+  };
+
   const handleEndRoundEarly = () => {
     setShowEndRoundConfirm(true);
   };
@@ -1258,21 +1266,82 @@ const GameMaster: React.FC = () => {
                     <div style={{
                       width: 400,
                       height: 200,
-                      background: '#0C6A35',
-                      margin: '12px 0',
-                      borderRadius: 6,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      overflow: 'hidden',
+                      background: '#fff',
+                      borderRadius: 10,
+                      boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
+                      padding: 18,
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
+                      position: 'relative',
+                      margin: '0 auto',
                     }}>
-                      {board?.boardData ? (
-                        <div style={{width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center'}}>
-                          <div style={{width: '100%', height: '100%'}} dangerouslySetInnerHTML={{__html: board.boardData}} />
-                        </div>
-                      ) : (
-                        <span style={{color: '#fff'}}>No Drawing</span>
-                      )}
+                      <div style={{
+                        width: '100%',
+                        height: 160,
+                        background: '#0C6A35',
+                        border: '8px solid #8B4513',
+                        borderRadius: 6,
+                        overflow: 'hidden',
+                        position: 'relative',
+                        margin: '0 auto',
+                        userSelect: 'none',
+                      }}
+                        onWheel={e => {
+                          if (!e.altKey) return;
+                          e.preventDefault();
+                          const delta = e.deltaY < 0 ? 0.1 : -0.1;
+                          updateBoardTransform(player.id, t => {
+                            let newScale = Math.max(0.2, Math.min(3, t.scale + delta));
+                            return { ...t, scale: newScale };
+                          });
+                        }}
+                        onMouseDown={e => {
+                          if (!e.altKey) return;
+                          e.preventDefault();
+                          panState.current[player.id] = { panning: true, lastX: e.clientX, lastY: e.clientY };
+                        }}
+                        onMouseMove={e => {
+                          if (panState.current[player.id]?.panning) {
+                            e.preventDefault();
+                            const dx = e.clientX - panState.current[player.id].lastX;
+                            const dy = e.clientY - panState.current[player.id].lastY;
+                            panState.current[player.id].lastX = e.clientX;
+                            panState.current[player.id].lastY = e.clientY;
+                            updateBoardTransform(player.id, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
+                          }
+                        }}
+                        onMouseUp={e => {
+                          if (panState.current[player.id]) panState.current[player.id].panning = false;
+                        }}
+                        onMouseLeave={e => {
+                          if (panState.current[player.id]) panState.current[player.id].panning = false;
+                        }}
+                      >
+                        {board?.boardData ? (
+                          <div
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              transformOrigin: 'top left',
+                              transform: `translate(${(boardTransforms[player.id]?.x||0)}px, ${(boardTransforms[player.id]?.y||0)}px) scale(${boardTransforms[player.id]?.scale||1})`,
+                              transition: 'transform 0.05s',
+                              pointerEvents: 'none',
+                            }}
+                            dangerouslySetInnerHTML={{__html: board.boardData}}
+                          />
+                        ) : (
+                          <span style={{color: '#fff'}}>No Drawing</span>
+                        )}
+                        <button
+                          className="btn btn-sm btn-outline-secondary"
+                          style={{position: 'absolute', top: 8, right: 8, zIndex: 2}}
+                          onClick={e => { e.stopPropagation(); fitToScreen(player.id); }}
+                          title="Fit to screen"
+                        >
+                          ⤢
+                        </button>
+                      </div>
                     </div>
                     <div style={{margin: '12px 0', fontSize: 18}}>
                       {answer.answer || <span style={{color: '#888'}}>No Text</span>}
