@@ -415,7 +415,7 @@ const Player: React.FC = () => {
       });
     });
 
-    socketService.on('answer_received', (data: { playerId: string; answer: string }) => {
+    socketService.on('answer_submitted', (data: { playerId: string; playerName: string; answer: string }) => {
       setAllAnswersThisRound(prev => ({
         ...prev,
         [data.playerId]: {
@@ -445,6 +445,7 @@ const Player: React.FC = () => {
       socketService.off('focus_submission');
       socketService.off('player_list');
       socketService.off('board_update');
+      socketService.off('answer_submitted');
       
       // Disconnect
       socketService.disconnect();
