@@ -585,7 +585,9 @@ const Player: React.FC = () => {
   const renderPreviewMode = () => {
     if (!previewMode.isActive) return null;
 
-    // Always use up-to-date playerBoards and allAnswersThisRound
+    // Show loading or empty state if data is not available
+    const hasData = players.length > 0 && playerBoards.length > 0 && Object.keys(allAnswersThisRound).length > 0;
+
     return (
       <div className="preview-mode-overlay" style={{
         position: 'fixed',
@@ -627,7 +629,14 @@ const Player: React.FC = () => {
             ×
           </button>
           <h2 className="text-center mb-4">Round Preview</h2>
-          {previewMode.focusedPlayerId ? (
+          {!hasData ? (
+            <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <span className="ms-3">Waiting for submissions...</span>
+            </div>
+          ) : previewMode.focusedPlayerId ? (
             // Focused view
             <div className="focused-submission">
               {(() => {
