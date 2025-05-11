@@ -1394,7 +1394,7 @@ const GameMaster: React.FC = () => {
                   const focusedPlayer = players.find(p => p.id === previewMode.focusedPlayerId);
                   const focusedAnswer = allAnswersThisRound[previewMode.focusedPlayerId];
                   const focusedBoard = playerBoards.find(b => b.playerId === previewMode.focusedPlayerId);
-                  
+                  const evalStatus = evaluatedAnswers?.[previewMode.focusedPlayerId];
                   return (
                     <>
                       <h3 className="text-center mb-3">{focusedPlayer?.name}</h3>
@@ -1415,7 +1415,10 @@ const GameMaster: React.FC = () => {
                       </div>
                       <div className="answer-container mt-3 text-center">
                         <h4>Answer:</h4>
-                        <p>{focusedAnswer?.answer || 'No answer submitted'}</p>
+                        <p>{focusedAnswer?.answer || 'No answer submitted'}{' '}
+                          {evalStatus === true && <span title="Correct" style={{fontSize: '1.5em', color: 'green'}}>👍</span>}
+                          {evalStatus === false && <span title="Incorrect" style={{fontSize: '1.5em', color: 'red'}}>👎</span>}
+                        </p>
                       </div>
                       <div className="navigation-controls mt-4" style={{
                         display: 'flex',
@@ -1458,7 +1461,7 @@ const GameMaster: React.FC = () => {
                 {players.map(player => {
                   const answer = allAnswersThisRound[player.id];
                   const board = playerBoards.find(b => b.playerId === player.id);
-                  
+                  const evalStatus = evaluatedAnswers?.[player.id];
                   return (
                     <div 
                       key={player.id} 
@@ -1497,7 +1500,10 @@ const GameMaster: React.FC = () => {
                         )}
                       </div>
                       <div className="answer-preview text-center">
-                        <p className="mb-0">{answer?.answer || 'No answer submitted'}</p>
+                        <p className="mb-0">{answer?.answer || 'No answer submitted'}{' '}
+                          {evalStatus === true && <span title="Correct" style={{fontSize: '1.5em', color: 'green'}}>👍</span>}
+                          {evalStatus === false && <span title="Incorrect" style={{fontSize: '1.5em', color: 'red'}}>👎</span>}
+                        </p>
                       </div>
                     </div>
                   );
