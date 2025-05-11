@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { fabric } from 'fabric';
 import socketService from '../services/socketService';
 import { throttle } from '../utils/throttle';
+import audioService from '../services/audioService';
 
 interface Question {
   text: string;
@@ -38,6 +39,7 @@ const Player: React.FC = () => {
   const timerUpdateRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   const [reviewNotification, setReviewNotification] = useState<ReviewNotification | null>(null);
+  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -446,6 +448,21 @@ const Player: React.FC = () => {
     };
   }, [timeRemaining, timeLimit, currentQuestion]);
 
+  useEffect(() => {
+    // Start playing background music when component mounts
+    audioService.playBackgroundMusic();
+
+    // Cleanup when component unmounts
+    return () => {
+      audioService.pauseBackgroundMusic();
+    };
+  }, []);
+
+  const handleToggleMute = () => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  };
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
@@ -482,6 +499,20 @@ const Player: React.FC = () => {
 
   return (
     <div className="container">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="text-center mb-0">Player Dashboard</h1>
+        <button
+          className="btn btn-outline-secondary"
+          onClick={handleToggleMute}
+          title={isMuted ? "Unmute" : "Mute"}
+        >
+          {isMuted ? (
+            <i className="bi bi-volume-mute-fill"></i>
+          ) : (
+            <i className="bi bi-volume-up-fill"></i>
+          )}
+        </button>
+      </div>
       <div className="row mb-4">
         <div className="col-md-6">
           <h1>Player: {playerName}</h1>

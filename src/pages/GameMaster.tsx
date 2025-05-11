@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
+import audioService from '../services/audioService';
 
 interface Player {
   id: string;
@@ -70,6 +71,7 @@ const GameMaster: React.FC = () => {
   const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
+  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
 
   useEffect(() => {
     // Connect to socket server
@@ -355,6 +357,21 @@ const GameMaster: React.FC = () => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    // Start playing background music when component mounts
+    audioService.playBackgroundMusic();
+
+    // Cleanup when component unmounts
+    return () => {
+      audioService.pauseBackgroundMusic();
+    };
+  }, []);
+
+  const handleToggleMute = () => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  };
+
   const createRoom = () => {
     console.log('Creating new room...');
     setIsLoading(true);
@@ -599,7 +616,20 @@ const GameMaster: React.FC = () => {
 
   return (
     <div className="container">
-      <h1 className="text-center mb-4">Game Master Dashboard</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="text-center mb-0">Game Master Dashboard</h1>
+        <button
+          className="btn btn-outline-secondary"
+          onClick={handleToggleMute}
+          title={isMuted ? "Unmute" : "Mute"}
+        >
+          {isMuted ? (
+            <i className="bi bi-volume-mute-fill"></i>
+          ) : (
+            <i className="bi bi-volume-up-fill"></i>
+          )}
+        </button>
+      </div>
       
       {errorMsg && (
         <div className="alert alert-danger" role="alert">
