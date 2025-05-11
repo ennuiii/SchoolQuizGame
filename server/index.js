@@ -246,15 +246,12 @@ io.on('connection', (socket) => {
     if (playerIndex !== -1) {
       gameRooms[roomCode].players[playerIndex].boardData = boardData;
       
-      // Emit the board update to the game master
-      const gameMasterId = gameRooms[roomCode].gamemaster;
-      if (gameMasterId) {
-        io.to(gameMasterId).emit('player_board_update', {
-          playerId: socket.id,
-          playerName: gameRooms[roomCode].players[playerIndex].name,
-          boardData: boardData
-        });
-      }
+      // Broadcast the board update to all clients in the room
+      io.to(roomCode).emit('board_update', {
+        playerId: socket.id,
+        playerName: gameRooms[roomCode].players[playerIndex].name,
+        boardData: boardData
+      });
     }
   });
 
@@ -281,19 +278,16 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
 
-    // Notify game master
-    const gameMasterId = gameRooms[roomCode].gamemaster;
-    if (gameMasterId) {
-      io.to(gameMasterId).emit('answer_submitted', {
-        playerId: socket.id,
-        playerName: gameRooms[roomCode].players[playerIndex].name,
-        answer,
-        hasDrawing
-      });
-    }
+    // Broadcast the answer submission to all clients in the room
+    io.to(roomCode).emit('answer_submitted', {
+      playerId: socket.id,
+      playerName: gameRooms[roomCode].players[playerIndex].name,
+      answer,
+      hasDrawing
+    });
 
     // Notify the player that their answer was received
-    socket.emit('answer_received');
+    socket.emit('answer_received', { status: 'success', message: 'Answer received!' });
   });
 
   // Gamemaster evaluates an answer
