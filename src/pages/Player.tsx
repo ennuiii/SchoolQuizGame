@@ -575,6 +575,11 @@ const Player: React.FC = () => {
     setPreviewMode({ isActive: false, focusedPlayerId: null });
   };
 
+  const handleFocusSubmission = (playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
+  };
+
   // Add preview mode overlay
   const renderPreviewMode = () => {
     if (!previewMode.isActive) return null;
@@ -670,12 +675,18 @@ const Player: React.FC = () => {
                 const board = playerBoards.find(b => b.playerId === player.id);
                 const evalStatus = evaluatedAnswers?.[player.id];
                 return (
-                  <div key={player.id} className="submission-card" style={{
-                    background: '#fff',
-                    borderRadius: '8px',
-                    padding: '15px',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}>
+                  <div 
+                    key={player.id} 
+                    className="submission-card" 
+                    style={{
+                      background: '#fff',
+                      borderRadius: '8px',
+                      padding: '15px',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => handleFocusSubmission(player.id)}
+                  >
                     <h4 className="text-center mb-3">{player.name}</h4>
                     <div className="board-preview" style={{
                       width: '100%',
