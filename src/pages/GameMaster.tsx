@@ -1306,7 +1306,16 @@ const GameMaster: React.FC = () => {
         display: 'flex',
         gap: '10px',
         alignItems: 'center',
-        justifyContent: 'center'
+        justifyContent: 'center',
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 1000,
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
       }}>
         {!previewMode.isActive ? (
           <button
@@ -1357,8 +1366,26 @@ const GameMaster: React.FC = () => {
             padding: '20px',
             maxWidth: '90vw',
             maxHeight: '90vh',
-            overflow: 'auto'
+            overflow: 'auto',
+            position: 'relative'
           }}>
+            {/* Close button */}
+            <button
+              style={{
+                position: 'absolute',
+                top: 10,
+                right: 10,
+                background: 'transparent',
+                border: 'none',
+                fontSize: 32,
+                cursor: 'pointer',
+                zIndex: 10001
+              }}
+              aria-label="Close Preview Mode"
+              onClick={handleStopPreviewMode}
+            >
+              ×
+            </button>
             <h2 className="text-center mb-4">Round Preview</h2>
             {previewMode.focusedPlayerId ? (
               // Focused view

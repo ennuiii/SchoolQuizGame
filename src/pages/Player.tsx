@@ -125,7 +125,7 @@ const Player: React.FC = () => {
       
       // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
-        if (fabricCanvasRef.current && roomCode) {
+        if (fabricCanvasRef.current && roomCode && !submittedAnswerRef.current) {
           // Generate SVG with specific attributes via a format that works with the fabric typings
           const svgData = fabricCanvasRef.current.toSVG();
           
@@ -140,7 +140,7 @@ const Player: React.FC = () => {
 
       // Also send updates during mouse movement for real-time drawing
       fabricCanvasRef.current.on('mouse:move', () => {
-        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode) {
+        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode && !submittedAnswerRef.current) {
           const svgData = fabricCanvasRef.current.toSVG();
           sendBoardUpdate(roomCode, svgData);
         }
@@ -157,6 +157,25 @@ const Player: React.FC = () => {
       fabricCanvasRef.current = null;
     };
   }, [canvasKey, roomCode, sendBoardUpdate]);
+
+  // Add effect to disable canvas interaction after submission
+  useEffect(() => {
+    if (fabricCanvasRef.current) {
+      if (submittedAnswer) {
+        // Disable all interactions
+        fabricCanvasRef.current.isDrawingMode = false;
+        (fabricCanvasRef.current as any).selection = false;
+        (fabricCanvasRef.current as any).forEachObject((obj: any) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
+        fabricCanvasRef.current.renderAll();
+      } else {
+        // Enable drawing mode if not submitted
+        fabricCanvasRef.current.isDrawingMode = true;
+      }
+    }
+  }, [submittedAnswer]);
 
   // Setup socket connection
   useEffect(() => {
@@ -445,8 +464,9 @@ const Player: React.FC = () => {
     setCanvasKey(prev => prev + 1);
   };
 
+  // Update clearCanvas to check for submission
   const clearCanvas = () => {
-    if (fabricCanvasRef.current) {
+    if (fabricCanvasRef.current && !submittedAnswer) {
       fabricCanvasRef.current.clear();
       fabricCanvasRef.current.backgroundColor = '#0C6A35'; // School green board color
       fabricCanvasRef.current.renderAll();
@@ -582,7 +602,7 @@ const Player: React.FC = () => {
           overflow: 'auto',
           position: 'relative'
         }}>
-          {/* X button */}
+          {/* Close button */}
           <button
             style={{
               position: 'absolute',
