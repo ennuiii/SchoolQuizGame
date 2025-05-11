@@ -383,6 +383,34 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('end_round_early');
   });
 
+  // Preview Mode handlers
+  socket.on('start_preview_mode', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to start preview mode');
+      return;
+    }
+    // Broadcast to all clients in the room
+    io.to(roomCode).emit('start_preview_mode');
+  });
+
+  socket.on('stop_preview_mode', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to stop preview mode');
+      return;
+    }
+    // Broadcast to all clients in the room
+    io.to(roomCode).emit('stop_preview_mode');
+  });
+
+  socket.on('focus_submission', ({ roomCode, playerId }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to focus submission');
+      return;
+    }
+    // Broadcast to all clients in the room
+    io.to(roomCode).emit('focus_submission', { playerId });
+  });
+
   // Rejoin as gamemaster (when refreshing)
   socket.on('rejoin_gamemaster', ({ roomCode }) => {
     console.log(`Attempt to rejoin as gamemaster for room: ${roomCode}`);
