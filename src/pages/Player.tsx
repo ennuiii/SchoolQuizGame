@@ -40,6 +40,7 @@ const Player: React.FC = () => {
   const animationFrameRef = useRef<number>();
   const [reviewNotification, setReviewNotification] = useState<ReviewNotification | null>(null);
   const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
+  const [volume, setVolume] = useState(audioService.getVolume());
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -463,6 +464,12 @@ const Player: React.FC = () => {
     setIsMuted(newMuteState);
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  };
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
@@ -501,17 +508,30 @@ const Player: React.FC = () => {
     <div className="container">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="text-center mb-0">Player Dashboard</h1>
-        <button
-          className="btn btn-outline-secondary"
-          onClick={handleToggleMute}
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? (
-            <i className="bi bi-volume-mute-fill"></i>
-          ) : (
-            <i className="bi bi-volume-up-fill"></i>
-          )}
-        </button>
+        <div className="d-flex align-items-center gap-2">
+          <input
+            type="range"
+            className="form-range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={volume}
+            onChange={handleVolumeChange}
+            style={{ width: '100px' }}
+            title="Volume"
+          />
+          <button
+            className="btn btn-outline-secondary"
+            onClick={handleToggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <i className="bi bi-volume-mute-fill"></i>
+            ) : (
+              <i className="bi bi-volume-up-fill"></i>
+            )}
+          </button>
+        </div>
       </div>
       <div className="row mb-4">
         <div className="col-md-6">

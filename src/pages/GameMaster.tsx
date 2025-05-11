@@ -72,6 +72,7 @@ const GameMaster: React.FC = () => {
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
   const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
+  const [volume, setVolume] = useState(audioService.getVolume());
 
   useEffect(() => {
     // Connect to socket server
@@ -372,6 +373,12 @@ const GameMaster: React.FC = () => {
     setIsMuted(newMuteState);
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  };
+
   const createRoom = () => {
     console.log('Creating new room...');
     setIsLoading(true);
@@ -618,17 +625,30 @@ const GameMaster: React.FC = () => {
     <div className="container">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="text-center mb-0">Game Master Dashboard</h1>
-        <button
-          className="btn btn-outline-secondary"
-          onClick={handleToggleMute}
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? (
-            <i className="bi bi-volume-mute-fill"></i>
-          ) : (
-            <i className="bi bi-volume-up-fill"></i>
-          )}
-        </button>
+        <div className="d-flex align-items-center gap-2">
+          <input
+            type="range"
+            className="form-range"
+            min="0"
+            max="1"
+            step="0.1"
+            value={volume}
+            onChange={handleVolumeChange}
+            style={{ width: '100px' }}
+            title="Volume"
+          />
+          <button
+            className="btn btn-outline-secondary"
+            onClick={handleToggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <i className="bi bi-volume-mute-fill"></i>
+            ) : (
+              <i className="bi bi-volume-up-fill"></i>
+            )}
+          </button>
+        </div>
       </div>
       
       {errorMsg && (
