@@ -19,6 +19,26 @@ interface ReviewNotification {
   timestamp: number;
 }
 
+interface Player {
+  id: string;
+  name: string;
+}
+
+interface PlayerBoard {
+  playerId: string;
+  boardData: string;
+}
+
+interface Answer {
+  answer: string;
+  timestamp: number;
+}
+
+interface PreviewModeState {
+  isActive: boolean;
+  focusedPlayerId: string | null;
+}
+
 const Player: React.FC = () => {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
@@ -49,6 +69,13 @@ const Player: React.FC = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
   const [canvasInitialized, setCanvasInitialized] = useState(false);
   const answerRef = useRef(answer);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
+  const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, Answer>>({});
+  const [previewMode, setPreviewMode] = useState<PreviewModeState>({
+    isActive: false,
+    focusedPlayerId: null
+  });
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -331,6 +358,46 @@ const Player: React.FC = () => {
       showFlashMessage('Game has been restarted. Waiting for game master to start a new round.', 'info');
     });
     
+    // Add preview mode event listeners
+    socketService.on('start_preview_mode', () => {
+      setPreviewMode(prev => ({ ...prev, isActive: true }));
+    });
+
+    socketService.on('stop_preview_mode', () => {
+      setPreviewMode({ isActive: false, focusedPlayerId: null });
+    });
+
+    socketService.on('focus_submission', (data: { playerId: string }) => {
+      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
+    });
+
+    // Add player list and board updates
+    socketService.on('player_list', (playerList: Player[]) => {
+      setPlayers(playerList);
+    });
+
+    socketService.on('board_update', (boardData: PlayerBoard) => {
+      setPlayerBoards(prev => {
+        const index = prev.findIndex(b => b.playerId === boardData.playerId);
+        if (index >= 0) {
+          const newBoards = [...prev];
+          newBoards[index] = boardData;
+          return newBoards;
+        }
+        return [...prev, boardData];
+      });
+    });
+
+    socketService.on('answer_received', (data: { playerId: string; answer: string }) => {
+      setAllAnswersThisRound(prev => ({
+        ...prev,
+        [data.playerId]: {
+          answer: data.answer,
+          timestamp: Date.now()
+        }
+      }));
+    });
+
     return () => {
       console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       // Clean up listeners
@@ -346,6 +413,11 @@ const Player: React.FC = () => {
       socketService.off('end_round_early');
       socketService.off('game_restarted');
       socketService.off('answer_received');
+      socketService.off('start_preview_mode');
+      socketService.off('stop_preview_mode');
+      socketService.off('focus_submission');
+      socketService.off('player_list');
+      socketService.off('board_update');
       
       // Disconnect
       socketService.disconnect();
@@ -470,6 +542,123 @@ const Player: React.FC = () => {
     setVolume(newVolume);
   };
 
+  // Add preview mode overlay
+  const renderPreviewMode = () => {
+    if (!previewMode.isActive) return null;
+
+    return (
+      <div className="preview-mode-overlay" style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        background: 'rgba(0,0,0,0.8)',
+        zIndex: 9999,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '20px'
+      }}>
+        <div className="preview-content" style={{
+          background: '#fff',
+          borderRadius: '8px',
+          padding: '20px',
+          maxWidth: '90vw',
+          maxHeight: '90vh',
+          overflow: 'auto'
+        }}>
+          <h2 className="text-center mb-4">Round Preview</h2>
+          {previewMode.focusedPlayerId ? (
+            // Focused view
+            <div className="focused-submission">
+              {(() => {
+                const focusedPlayer = players.find(p => p.id === previewMode.focusedPlayerId);
+                const focusedAnswer = allAnswersThisRound[previewMode.focusedPlayerId];
+                const focusedBoard = playerBoards.find(b => b.playerId === previewMode.focusedPlayerId);
+                
+                return (
+                  <>
+                    <h3 className="text-center mb-3">{focusedPlayer?.name}</h3>
+                    <div className="board-container" style={{
+                      width: '100%',
+                      maxWidth: '800px',
+                      margin: '0 auto',
+                      background: '#0C6A35',
+                      border: '8px solid #8B4513',
+                      borderRadius: '4px',
+                      overflow: 'hidden'
+                    }}>
+                      {focusedBoard?.boardData ? (
+                        <div dangerouslySetInnerHTML={{ __html: focusedBoard.boardData }} />
+                      ) : (
+                        <div className="text-center text-white p-4">No drawing submitted</div>
+                      )}
+                    </div>
+                    <div className="answer-container mt-3 text-center">
+                      <h4>Answer:</h4>
+                      <p>{focusedAnswer?.answer || 'No answer submitted'}</p>
+                    </div>
+                  </>
+                );
+              })()}
+            </div>
+          ) : (
+            // Gallery view
+            <div className="submissions-grid" style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+              gap: '20px',
+              padding: '20px'
+            }}>
+              {players.map(player => {
+                const answer = allAnswersThisRound[player.id];
+                const board = playerBoards.find(b => b.playerId === player.id);
+                
+                return (
+                  <div key={player.id} className="submission-card" style={{
+                    background: '#fff',
+                    borderRadius: '8px',
+                    padding: '15px',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}>
+                    <h4 className="text-center mb-3">{player.name}</h4>
+                    <div className="board-preview" style={{
+                      width: '100%',
+                      aspectRatio: '2/1',
+                      background: '#0C6A35',
+                      border: '4px solid #8B4513',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                      marginBottom: '10px'
+                    }}>
+                      {board?.boardData ? (
+                        <div 
+                          style={{
+                            transform: 'scale(0.5)',
+                            transformOrigin: 'top left',
+                            width: '200%',
+                            height: '200%'
+                          }}
+                          dangerouslySetInnerHTML={{ __html: board.boardData }} 
+                        />
+                      ) : (
+                        <div className="text-center text-white p-4">No drawing submitted</div>
+                      )}
+                    </div>
+                    <div className="answer-preview text-center">
+                      <p className="mb-0">{answer?.answer || 'No answer submitted'}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  };
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
@@ -514,7 +703,7 @@ const Player: React.FC = () => {
             className="form-range"
             min="0"
             max="1"
-            step="0.1"
+            step="0.01"
             value={volume}
             onChange={handleVolumeChange}
             style={{ width: '100px' }}
@@ -669,6 +858,7 @@ const Player: React.FC = () => {
           </div>
         </>
       )}
+      {renderPreviewMode()}
     </div>
   );
 };

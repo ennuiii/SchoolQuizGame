@@ -91,6 +91,19 @@ class SocketService {
     });
   }
 
+  // Preview Mode actions
+  startPreviewMode(roomCode: string) {
+    this.emit('start_preview_mode', { roomCode });
+  }
+
+  stopPreviewMode(roomCode: string) {
+    this.emit('stop_preview_mode', { roomCode });
+  }
+
+  focusSubmission(roomCode: string, playerId: string) {
+    this.emit('focus_submission', { roomCode, playerId });
+  }
+
   // Player actions
   joinRoom(roomCode: string, playerName: string) {
     console.log(`Joining room ${roomCode} as ${playerName}`);

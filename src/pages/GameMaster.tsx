@@ -33,6 +33,11 @@ interface AnswerSubmission {
   answer: string;
 }
 
+interface PreviewModeState {
+  isActive: boolean;
+  focusedPlayerId: string | null;
+}
+
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
   const [roomCodeInput, setRoomCodeInput] = useState('');
@@ -73,6 +78,10 @@ const GameMaster: React.FC = () => {
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
   const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
   const [volume, setVolume] = useState(audioService.getVolume());
+  const [previewMode, setPreviewMode] = useState<PreviewModeState>({
+    isActive: false,
+    focusedPlayerId: null
+  });
 
   useEffect(() => {
     // Connect to socket server
@@ -325,6 +334,11 @@ const GameMaster: React.FC = () => {
       socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
     }
 
+    // Add preview mode event listeners
+    socketService.on('focus_submission', (data: { playerId: string }) => {
+      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
+    });
+
     return () => {
       // Clean up listeners
       socketService.off('room_created');
@@ -339,6 +353,7 @@ const GameMaster: React.FC = () => {
       socketService.off('timer_update');
       socketService.off('time_up');
       socketService.off('end_round_early');
+      socketService.off('focus_submission');
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -621,6 +636,20 @@ const GameMaster: React.FC = () => {
     });
   };
 
+  const handleStartPreviewMode = () => {
+    socketService.startPreviewMode(roomCode);
+    setPreviewMode(prev => ({ ...prev, isActive: true }));
+  };
+
+  const handleStopPreviewMode = () => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  };
+
+  const handleFocusSubmission = (playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+  };
+
   return (
     <div className="container">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -631,7 +660,7 @@ const GameMaster: React.FC = () => {
             className="form-range"
             min="0"
             max="1"
-            step="0.1"
+            step="0.01"
             value={volume}
             onChange={handleVolumeChange}
             style={{ width: '100px' }}
@@ -1272,287 +1301,184 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
+      {/* Add Preview Mode Controls */}
+      <div className="preview-mode-controls mt-3" style={{
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'center',
+        justifyContent: 'center'
+      }}>
+        {!previewMode.isActive ? (
+          <button
+            className="btn btn-primary"
+            onClick={handleStartPreviewMode}
+            disabled={!allAnswersIn}
+          >
+            Start Preview Mode
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={handleStopPreviewMode}
+            >
+              Stop Preview Mode
+            </button>
+            {previewMode.focusedPlayerId && (
+              <button
+                className="btn btn-outline-primary"
+                onClick={() => handleFocusSubmission('')}
+              >
+                Back to Gallery
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
       {/* Preview Mode Overlay */}
-      {isPreviewMode && (
-        <div style={{
+      {previewMode.isActive && (
+        <div className="preview-mode-overlay" style={{
           position: 'fixed',
           top: 0,
           left: 0,
           width: '100vw',
           height: '100vh',
-          background: 'rgba(0,0,0,0.5)',
+          background: 'rgba(0,0,0,0.8)',
           zIndex: 9999,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
+          padding: '20px'
         }}>
-          <div style={{
-            background: '#eee',
-            borderRadius: 16,
-            padding: 48,
-            minWidth: 1400,
-            minHeight: 900,
-            boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-            position: 'relative',
-            maxWidth: '99vw',
-            maxHeight: '99vh',
-            overflow: 'auto',
+          <div className="preview-content" style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '20px',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            overflow: 'auto'
           }}>
-            <h2 className="text-center mb-4">Preview Mode</h2>
-            <div className="mb-4 text-center" style={{fontSize: 24, fontWeight: 600}}>
-              {currentQuestion?.text || 'Current Question'}
-            </div>
-            <button
-              className="btn btn-secondary"
-              style={{position: 'absolute', top: 32, right: 32, fontSize: 20, padding: '8px 24px'}}
-              onClick={() => { setIsPreviewMode(false); setEnlargedPlayerId(null); }}
-            >
-              Close
-            </button>
-            <div className="row" style={{gap: 32, justifyContent: 'center'}}>
-              {players.map((player, idx) => {
-                const answer = allAnswersThisRound[player.id] || { answer: '', playerId: player.id, playerName: player.name };
-                const board = playerBoards.find(b => b.playerId === player.id);
-                const evalStatus = evaluatedAnswers[player.id];
-                return (
-                  <div
-                    key={player.id}
-                    className="col-md-4 mb-4"
-                    style={{
-                      width: 400,
-                      background: '#fff',
-                      borderRadius: 10,
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-                      padding: 18,
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
-                      position: 'relative',
-                    }}
-                    onClick={() => setEnlargedPlayerId(player.id)}
-                  >
-                    <div style={{fontWeight: 700, fontSize: 22, marginBottom: 8}}>
-                      {player.name} <span style={{color: 'red'}}>{'❤'.repeat(player.lives)}</span>
-                    </div>
-                    <div style={{
-                      width: 400,
-                      background: '#fff',
-                      borderRadius: 10,
-                      boxShadow: '0 2px 12px rgba(0,0,0,0.10)',
-                      padding: '18px 0 0 0',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      border: enlargedPlayerId === player.id ? '3px solid #007bff' : '1px solid #ccc',
-                      position: 'relative',
-                      margin: '0 auto',
-                      boxSizing: 'border-box',
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      justifyContent: 'flex-start',
-                    }}>
-                      <div style={{
-                        width: 400,
-                        height: 200,
+            <h2 className="text-center mb-4">Round Preview</h2>
+            {previewMode.focusedPlayerId ? (
+              // Focused view
+              <div className="focused-submission">
+                {(() => {
+                  const focusedPlayer = players.find(p => p.id === previewMode.focusedPlayerId);
+                  const focusedAnswer = allAnswersThisRound[previewMode.focusedPlayerId];
+                  const focusedBoard = playerBoards.find(b => b.playerId === previewMode.focusedPlayerId);
+                  
+                  return (
+                    <>
+                      <h3 className="text-center mb-3">{focusedPlayer?.name}</h3>
+                      <div className="board-container" style={{
+                        width: '100%',
+                        maxWidth: '800px',
+                        margin: '0 auto',
                         background: '#0C6A35',
                         border: '8px solid #8B4513',
-                        borderRadius: 6,
-                        overflow: 'hidden',
-                        userSelect: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxSizing: 'border-box',
-                        margin: '0 auto',
-                        cursor: 'pointer',
-                      }}
-                        onClick={() => toggleBoardScale(player.id)}
-                        onWheel={e => {
-                          if (!e.altKey) return;
-                          e.preventDefault();
-                          const delta = e.deltaY < 0 ? 0.1 : -0.1;
-                          updateBoardTransform(player.id, t => {
-                            let newScale = Math.max(0.1, Math.min(3, t.scale + delta));
-                            return { ...t, scale: newScale };
-                          });
-                        }}
-                        onMouseDown={e => {
-                          if (!e.altKey) return;
-                          e.preventDefault();
-                          panState.current[player.id] = { panning: true, lastX: e.clientX, lastY: e.clientY };
-                        }}
-                        onMouseMove={e => {
-                          if (panState.current[player.id]?.panning) {
-                            e.preventDefault();
-                            const dx = e.clientX - panState.current[player.id].lastX;
-                            const dy = e.clientY - panState.current[player.id].lastY;
-                            panState.current[player.id].lastX = e.clientX;
-                            panState.current[player.id].lastY = e.clientY;
-                            updateBoardTransform(player.id, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-                          }
-                        }}
-                        onMouseUp={e => {
-                          if (panState.current[player.id]) panState.current[player.id].panning = false;
-                        }}
-                        onMouseLeave={e => {
-                          if (panState.current[player.id]) panState.current[player.id].panning = false;
-                        }}
-                      >
-                        {board?.boardData ? (
-                          <div
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              transformOrigin: 'center center',
-                              transform: `translate(${(boardTransforms[player.id]?.x||0)}px, ${(boardTransforms[player.id]?.y||0)}px) scale(${boardTransforms[player.id]?.scale||0.4})`,
-                              transition: 'transform 0.2s ease-out',
-                              pointerEvents: 'none',
-                            }}
-                            dangerouslySetInnerHTML={{__html: board.boardData}}
-                          />
+                        borderRadius: '4px',
+                        overflow: 'hidden'
+                      }}>
+                        {focusedBoard?.boardData ? (
+                          <div dangerouslySetInnerHTML={{ __html: focusedBoard.boardData }} />
                         ) : (
-                          <span style={{color: '#fff'}}>No Drawing</span>
+                          <div className="text-center text-white p-4">No drawing submitted</div>
                         )}
                       </div>
-                      <div style={{margin: '12px 0 0 0', fontSize: 18, width: '100%'}}>
-                        {answer.answer || <span style={{color: '#888'}}>No Text</span>}
+                      <div className="answer-container mt-3 text-center">
+                        <h4>Answer:</h4>
+                        <p>{focusedAnswer?.answer || 'No answer submitted'}</p>
                       </div>
-                      <div style={{margin: '8px 0 16px 0', width: '100%'}}>
-                        {evalStatus === true && <span style={{color: 'green', fontSize: 32}} title="Correct">👍</span>}
-                        {evalStatus === false && <span style={{color: 'red', fontSize: 32}} title="Incorrect">👎</span>}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {/* Enlarged view */}
-            {enlargedPlayerId && (
-              <div style={{
-                position: 'fixed',
-                top: 0,
-                left: 0,
-                width: '100vw',
-                height: '100vh',
-                background: 'rgba(0,0,0,0.7)',
-                zIndex: 10000,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              onClick={() => setEnlargedPlayerId(null)}
-              >
-                <div style={{
-                  background: '#fff',
-                  borderRadius: 16,
-                  padding: 48,
-                  minWidth: 900,
-                  minHeight: 600,
-                  maxWidth: '95vw',
-                  maxHeight: '95vh',
-                  position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
-                  <button
-                    className="btn btn-secondary"
-                    style={{position: 'absolute', top: 24, right: 24, fontSize: 20, padding: '8px 24px'}}
-                    onClick={e => { e.stopPropagation(); setEnlargedPlayerId(null); }}
-                  >
-                    Close
-                  </button>
-                  {(() => {
-                    const player = players.find(p => p.id === enlargedPlayerId);
-                    const answer = allAnswersThisRound[enlargedPlayerId];
-                    const board = playerBoards.find(b => b.playerId === enlargedPlayerId);
-                    return (
-                      <>
-                        <div style={{fontWeight: 700, fontSize: 28, marginBottom: 12}}>{player?.name}</div>
-                        <div
-                          style={{
-                            width: 800,
-                            height: 400,
-                            background: '#0C6A35',
-                            border: '16px solid #8B4513',
-                            borderRadius: 12,
-                            overflow: 'hidden',
-                            margin: '12px 0',
-                            userSelect: 'none',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            position: 'relative',
-                          }}
-                          onWheel={e => {
-                            if (!e.altKey) return;
-                            e.preventDefault();
-                            const delta = e.deltaY < 0 ? 0.1 : -0.1;
-                            updateBoardTransform(enlargedPlayerId, t => {
-                              let newScale = Math.max(0.1, Math.min(3, t.scale + delta));
-                              return { ...t, scale: newScale };
-                            });
-                          }}
-                          onMouseDown={e => {
-                            if (!e.altKey) return;
-                            e.preventDefault();
-                            panState.current[enlargedPlayerId] = { panning: true, lastX: e.clientX, lastY: e.clientY };
-                          }}
-                          onMouseMove={e => {
-                            if (panState.current[enlargedPlayerId]?.panning) {
-                              e.preventDefault();
-                              const dx = e.clientX - panState.current[enlargedPlayerId].lastX;
-                              const dy = e.clientY - panState.current[enlargedPlayerId].lastY;
-                              panState.current[enlargedPlayerId].lastX = e.clientX;
-                              panState.current[enlargedPlayerId].lastY = e.clientY;
-                              updateBoardTransform(enlargedPlayerId, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-                            }
-                          }}
-                          onMouseUp={e => {
-                            if (panState.current[enlargedPlayerId]) panState.current[enlargedPlayerId].panning = false;
-                          }}
-                          onMouseLeave={e => {
-                            if (panState.current[enlargedPlayerId]) panState.current[enlargedPlayerId].panning = false;
+                      <div className="navigation-controls mt-4" style={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        gap: '10px'
+                      }}>
+                        <button
+                          className="btn btn-outline-primary"
+                          onClick={() => {
+                            const currentIndex = players.findIndex(p => p.id === previewMode.focusedPlayerId);
+                            const prevIndex = (currentIndex - 1 + players.length) % players.length;
+                            handleFocusSubmission(players[prevIndex].id);
                           }}
                         >
-                          {board?.boardData ? (
-                            <div
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                transformOrigin: 'center center',
-                                transform: `translate(${(boardTransforms[enlargedPlayerId]?.x||0)}px, ${(boardTransforms[enlargedPlayerId]?.y||0)}px) scale(${boardTransforms[enlargedPlayerId]?.scale||0.4})`,
-                                transition: 'transform 0.2s ease-out',
-                                pointerEvents: 'none',
-                              }}
-                              dangerouslySetInnerHTML={{__html: board.boardData}}
-                            />
-                          ) : (
-                            <span style={{color: '#fff'}}>No Drawing</span>
-                          )}
-                        </div>
-                        <div style={{margin: '12px 0', fontSize: 22}}>
-                          {answer?.answer || <span style={{color: '#888'}}>No Text</span>}
-                        </div>
-                      </>
-                    );
-                  })()}
-                </div>
+                          Previous
+                        </button>
+                        <button
+                          className="btn btn-outline-primary"
+                          onClick={() => {
+                            const currentIndex = players.findIndex(p => p.id === previewMode.focusedPlayerId);
+                            const nextIndex = (currentIndex + 1) % players.length;
+                            handleFocusSubmission(players[nextIndex].id);
+                          }}
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            ) : (
+              // Gallery view
+              <div className="submissions-grid" style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))',
+                gap: '20px',
+                padding: '20px'
+              }}>
+                {players.map(player => {
+                  const answer = allAnswersThisRound[player.id];
+                  const board = playerBoards.find(b => b.playerId === player.id);
+                  
+                  return (
+                    <div 
+                      key={player.id} 
+                      className="submission-card" 
+                      style={{
+                        background: '#fff',
+                        borderRadius: '8px',
+                        padding: '15px',
+                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => handleFocusSubmission(player.id)}
+                    >
+                      <h4 className="text-center mb-3">{player.name}</h4>
+                      <div className="board-preview" style={{
+                        width: '100%',
+                        aspectRatio: '2/1',
+                        background: '#0C6A35',
+                        border: '4px solid #8B4513',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        marginBottom: '10px'
+                      }}>
+                        {board?.boardData ? (
+                          <div 
+                            style={{
+                              transform: 'scale(0.5)',
+                              transformOrigin: 'top left',
+                              width: '200%',
+                              height: '200%'
+                            }}
+                            dangerouslySetInnerHTML={{ __html: board.boardData }} 
+                          />
+                        ) : (
+                          <div className="text-center text-white p-4">No drawing submitted</div>
+                        )}
+                      </div>
+                      <div className="answer-preview text-center">
+                        <p className="mb-0">{answer?.answer || 'No answer submitted'}</p>
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
         </div>
-      )}
-
-      {/* Preview Mode Button */}
-      {allAnswersIn && !isPreviewMode && (
-        <button
-          className="btn btn-info mb-3"
-          onClick={() => setIsPreviewMode(true)}
-        >
-          Preview Mode
-        </button>
       )}
     </div>
   );
