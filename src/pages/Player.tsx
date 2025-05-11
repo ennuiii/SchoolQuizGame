@@ -585,6 +585,7 @@ const Player: React.FC = () => {
   const renderPreviewMode = () => {
     if (!previewMode.isActive) return null;
 
+    // Always use up-to-date playerBoards and allAnswersThisRound
     return (
       <div className="preview-mode-overlay" style={{
         position: 'fixed',
@@ -658,6 +659,38 @@ const Player: React.FC = () => {
                         {evalStatus === true && <span title="Correct" style={{fontSize: '1.5em', color: 'green'}}>👍</span>}
                         {evalStatus === false && <span title="Incorrect" style={{fontSize: '1.5em', color: 'red'}}>👎</span>}
                       </p>
+                    </div>
+                    <div className="navigation-controls mt-4" style={{
+                      display: 'flex',
+                      justifyContent: 'center',
+                      gap: '10px'
+                    }}>
+                      <button
+                        className="btn btn-outline-primary"
+                        onClick={() => {
+                          const currentIndex = players.findIndex(p => p.id === previewMode.focusedPlayerId);
+                          const prevIndex = (currentIndex - 1 + players.length) % players.length;
+                          handleFocusSubmission(players[prevIndex].id);
+                        }}
+                      >
+                        Previous
+                      </button>
+                      <button
+                        className="btn btn-outline-primary"
+                        onClick={() => {
+                          const currentIndex = players.findIndex(p => p.id === previewMode.focusedPlayerId);
+                          const nextIndex = (currentIndex + 1) % players.length;
+                          handleFocusSubmission(players[nextIndex].id);
+                        }}
+                      >
+                        Next
+                      </button>
+                      <button
+                        className="btn btn-outline-secondary"
+                        onClick={() => handleFocusSubmission("")}
+                      >
+                        Back to Gallery
+                      </button>
                     </div>
                   </>
                 );
