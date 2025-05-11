@@ -248,6 +248,20 @@ const GameMaster: React.FC = () => {
       }
     });
 
+    // Listen for board_update events (broadcast to all clients)
+    socketService.on('board_update', (data: PlayerBoard) => {
+      setPlayerBoards(prevBoards => {
+        const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
+        if (existingIndex >= 0) {
+          const updatedBoards = [...prevBoards];
+          updatedBoards[existingIndex] = data;
+          return updatedBoards;
+        } else {
+          return [...prevBoards, data];
+        }
+      });
+    });
+
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
       console.log(`Answer received from ${submission.playerName}:`, submission.answer);
       
@@ -354,6 +368,7 @@ const GameMaster: React.FC = () => {
       socketService.off('time_up');
       socketService.off('end_round_early');
       socketService.off('focus_submission');
+      socketService.off('board_update');
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
