@@ -76,6 +76,7 @@ const Player: React.FC = () => {
     isActive: false,
     focusedPlayerId: null
   });
+  const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -237,7 +238,7 @@ const Player: React.FC = () => {
       }
     });
     
-    socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number }) => {
+    socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number, playerId?: string }) => {
       setLives(data.lives);
       // Set review notification
       setReviewNotification({
@@ -245,6 +246,13 @@ const Player: React.FC = () => {
         message: 'Reviewed by Game Master',
         timestamp: Date.now()
       });
+      // Update evaluatedAnswers for preview mode
+      if (data.playerId) {
+        setEvaluatedAnswers(prev => ({ ...prev, [data.playerId!]: data.isCorrect }));
+      } else if (socketService.connect().id) {
+        // fallback: update for self if playerId not provided
+        setEvaluatedAnswers(prev => ({ ...prev, [socketService.connect().id!]: data.isCorrect }));
+      }
       // Clear the notification after 5 seconds
       setTimeout(() => {
         setReviewNotification(null);
@@ -542,6 +550,11 @@ const Player: React.FC = () => {
     setVolume(newVolume);
   };
 
+  const handleClosePreviewMode = () => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  };
+
   // Add preview mode overlay
   const renderPreviewMode = () => {
     if (!previewMode.isActive) return null;
@@ -566,8 +579,26 @@ const Player: React.FC = () => {
           padding: '20px',
           maxWidth: '90vw',
           maxHeight: '90vh',
-          overflow: 'auto'
+          overflow: 'auto',
+          position: 'relative'
         }}>
+          {/* X button */}
+          <button
+            style={{
+              position: 'absolute',
+              top: 10,
+              right: 10,
+              background: 'transparent',
+              border: 'none',
+              fontSize: 32,
+              cursor: 'pointer',
+              zIndex: 10001
+            }}
+            aria-label="Close Preview Mode"
+            onClick={handleClosePreviewMode}
+          >
+            ×
+          </button>
           <h2 className="text-center mb-4">Round Preview</h2>
           {previewMode.focusedPlayerId ? (
             // Focused view
@@ -576,7 +607,7 @@ const Player: React.FC = () => {
                 const focusedPlayer = players.find(p => p.id === previewMode.focusedPlayerId);
                 const focusedAnswer = allAnswersThisRound[previewMode.focusedPlayerId];
                 const focusedBoard = playerBoards.find(b => b.playerId === previewMode.focusedPlayerId);
-                
+                const evalStatus = evaluatedAnswers?.[previewMode.focusedPlayerId];
                 return (
                   <>
                     <h3 className="text-center mb-3">{focusedPlayer?.name}</h3>
@@ -597,7 +628,10 @@ const Player: React.FC = () => {
                     </div>
                     <div className="answer-container mt-3 text-center">
                       <h4>Answer:</h4>
-                      <p>{focusedAnswer?.answer || 'No answer submitted'}</p>
+                      <p>{focusedAnswer?.answer || 'No answer submitted'}{' '}
+                        {evalStatus === true && <span title="Correct" style={{fontSize: '1.5em', color: 'green'}}>👍</span>}
+                        {evalStatus === false && <span title="Incorrect" style={{fontSize: '1.5em', color: 'red'}}>👎</span>}
+                      </p>
                     </div>
                   </>
                 );
@@ -614,7 +648,7 @@ const Player: React.FC = () => {
               {players.map(player => {
                 const answer = allAnswersThisRound[player.id];
                 const board = playerBoards.find(b => b.playerId === player.id);
-                
+                const evalStatus = evaluatedAnswers?.[player.id];
                 return (
                   <div key={player.id} className="submission-card" style={{
                     background: '#fff',
@@ -647,7 +681,10 @@ const Player: React.FC = () => {
                       )}
                     </div>
                     <div className="answer-preview text-center">
-                      <p className="mb-0">{answer?.answer || 'No answer submitted'}</p>
+                      <p className="mb-0">{answer?.answer || 'No answer submitted'}{' '}
+                        {evalStatus === true && <span title="Correct" style={{fontSize: '1.5em', color: 'green'}}>👍</span>}
+                        {evalStatus === false && <span title="Incorrect" style={{fontSize: '1.5em', color: 'red'}}>👎</span>}
+                      </p>
                     </div>
                   </div>
                 );

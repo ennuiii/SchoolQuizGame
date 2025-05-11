@@ -92,6 +92,10 @@ class SocketService {
   }
 
   // Preview Mode actions
+  /**
+   * These preview mode events are broadcast to all clients in the room.
+   * GameMaster triggers, all Players and GameMaster receive.
+   */
   startPreviewMode(roomCode: string) {
     this.emit('start_preview_mode', { roomCode });
   }
