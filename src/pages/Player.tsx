@@ -585,8 +585,42 @@ const Player: React.FC = () => {
   const renderPreviewMode = () => {
     if (!previewMode.isActive) return null;
 
-    // Show loading or empty state if data is not available
-    const hasData = players.length > 0 && playerBoards.length > 0 && Object.keys(allAnswersThisRound).length > 0;
+    // Only show spinner if there are no players at all
+    if (players.length === 0) {
+      return (
+        <div className="preview-mode-overlay" style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          width: '100vw',
+          height: '100vh',
+          background: 'rgba(0,0,0,0.8)',
+          zIndex: 9999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '20px'
+        }}>
+          <div className="preview-content" style={{
+            background: '#fff',
+            borderRadius: '8px',
+            padding: '20px',
+            maxWidth: '90vw',
+            maxHeight: '90vh',
+            overflow: 'auto',
+            position: 'relative'
+          }}>
+            <h2 className="text-center mb-4">Round Preview</h2>
+            <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div className="spinner-border text-primary" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+              <span className="ms-3">Waiting for players...</span>
+            </div>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="preview-mode-overlay" style={{
@@ -629,14 +663,7 @@ const Player: React.FC = () => {
             ×
           </button>
           <h2 className="text-center mb-4">Round Preview</h2>
-          {!hasData ? (
-            <div style={{ minHeight: 200, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <div className="spinner-border text-primary" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-              <span className="ms-3">Waiting for submissions...</span>
-            </div>
-          ) : previewMode.focusedPlayerId ? (
+          {previewMode.focusedPlayerId ? (
             // Focused view
             <div className="focused-submission">
               {(() => {
