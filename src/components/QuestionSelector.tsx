@@ -30,6 +30,8 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
   const [sortByGrade, setSortByGrade] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState('');
+  const [randomCount, setRandomCount] = useState<number>(5);
+  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
 
   // Fetch available subjects and languages when component mounts
   useEffect(() => {
@@ -83,6 +85,55 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
       setErrorMsg('Failed to load questions. Please try again.');
     } finally {
       setIsLoadingQuestions(false);
+    }
+  };
+
+  const loadRandomQuestions = async () => {
+    setIsLoadingRandom(true);
+    setErrorMsg('');
+    
+    try {
+      const options: {
+        subject?: string;
+        grade?: number;
+        language?: string;
+        limit?: number;
+      } = {};
+      
+      if (selectedSubject) {
+        options.subject = selectedSubject;
+      }
+      
+      if (selectedGrade !== '') {
+        options.grade = Number(selectedGrade);
+      }
+      
+      if (selectedLanguage) {
+        options.language = selectedLanguage;
+      }
+      
+      // Get all questions matching the filters
+      const allQuestions = await supabaseService.getQuestions(options);
+      
+      if (allQuestions && allQuestions.length > 0) {
+        // Shuffle the questions and take the requested number
+        const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+        const selectedCount = Math.min(randomCount, shuffled.length);
+        const randomQuestions = shuffled.slice(0, selectedCount);
+        
+        // Add the random questions to the selected questions
+        const newSelectedQuestions = [...selectedQuestions, ...randomQuestions];
+        onSelectedQuestionsChange(newSelectedQuestions);
+        
+        setErrorMsg(`Added ${selectedCount} random questions to selection`);
+      } else {
+        setErrorMsg('No questions found with the selected filters');
+      }
+    } catch (error) {
+      console.error('Error loading random questions:', error);
+      setErrorMsg('Failed to load random questions. Please try again.');
+    } finally {
+      setIsLoadingRandom(false);
     }
   };
 
@@ -189,27 +240,52 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
           </div>
           <div className="col-md-3">
             <label className="form-label">&nbsp;</label>
-            <button 
-              className="btn btn-primary d-block w-100"
-              onClick={loadQuestionsFromSupabase}
-              disabled={isLoadingQuestions}
-            >
-              {isLoadingQuestions ? 'Loading...' : 'Search Questions'}
-            </button>
+            <div className="d-flex gap-2">
+              <button 
+                className="btn btn-primary flex-grow-1"
+                onClick={loadQuestionsFromSupabase}
+                disabled={isLoadingQuestions}
+              >
+                {isLoadingQuestions ? 'Loading...' : 'Search Questions'}
+              </button>
+              <button 
+                className="btn btn-success flex-grow-1"
+                onClick={loadRandomQuestions}
+                disabled={isLoadingRandom}
+              >
+                {isLoadingRandom ? 'Loading...' : 'Random'}
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="form-check mb-3">
-          <input
-            className="form-check-input"
-            type="checkbox"
-            id="sortByGradeCheckbox"
-            checked={sortByGrade}
-            onChange={(e) => setSortByGrade(e.target.checked)}
-          />
-          <label className="form-check-label" htmlFor="sortByGradeCheckbox">
-            Sort questions by grade (lowest to highest)
-          </label>
+        <div className="row g-3 mb-3">
+          <div className="col-md-3">
+            <label htmlFor="randomCount" className="form-label">Number of Random Questions</label>
+            <input
+              type="number"
+              id="randomCount"
+              className="form-control"
+              min="1"
+              max="50"
+              value={randomCount}
+              onChange={(e) => setRandomCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
+            />
+          </div>
+          <div className="col-md-9">
+            <div className="form-check mt-4">
+              <input
+                className="form-check-input"
+                type="checkbox"
+                id="sortByGradeCheckbox"
+                checked={sortByGrade}
+                onChange={(e) => setSortByGrade(e.target.checked)}
+              />
+              <label className="form-check-label" htmlFor="sortByGradeCheckbox">
+                Sort questions by grade (lowest to highest)
+              </label>
+            </div>
+          </div>
         </div>
       </div>
 
