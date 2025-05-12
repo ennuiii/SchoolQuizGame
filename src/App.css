@@ -392,10 +392,11 @@ body {
 
 /* School desk background for the game master */
 .game-master-container {
-  background: linear-gradient(135deg, #3e2723 80%, #5d4037 100%);
+  background: linear-gradient(135deg, #2d4739 80%, #3e5c4d 100%);
   color: #ffe066;
   border-radius: 16px;
   box-shadow: 0 8px 24px #00000044;
+  border: 3px dashed #ffe066;
 }
 
 /* Flash messages */

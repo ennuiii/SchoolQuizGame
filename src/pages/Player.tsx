@@ -674,11 +674,11 @@ const Player: React.FC = () => {
         <div className="col-12 col-md-8">
           <div className="row g-3 mb-4">
             <div className="col-12 col-md-6 d-flex flex-column gap-2 align-items-start">
-              <div className="room-code-display">
-                Player: <strong>{playerName}</strong>
-              </div>
-              <div className="room-code-display">
-                Room Code: <strong>{roomCode}</strong>
+              <div className="lives-display">
+                <span className="me-2">Lives:</span>
+                {[...Array(lives)].map((_, i) => (
+                  <span key={i} className="life" role="img" aria-label="heart">❤</span>
+                ))}
               </div>
             </div>
             <div className="col-6 col-md-3">
@@ -691,14 +691,6 @@ const Player: React.FC = () => {
                   </h3>
                 </div>
               )}
-            </div>
-            <div className="col-6 col-md-3 text-end">
-              <div className="lives-display">
-                <span className="me-2">Lives:</span>
-                {[...Array(lives)].map((_, i) => (
-                  <span key={i} className="life" role="img" aria-label="heart">❤</span>
-                ))}
-              </div>
             </div>
           </div>
           
@@ -818,9 +810,6 @@ const Player: React.FC = () => {
         </div>
         <div className="col-12 col-md-4">
           <RoomCode roomCode={roomCode} />
-          <div className="player-name mb-3" style={{ width: '100%', textAlign: 'center' }}>
-            {playerName}
-          </div>
           <PlayerList 
             players={players} 
             currentPlayerId={socketService.connect().id || ''}
