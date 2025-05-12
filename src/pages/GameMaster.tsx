@@ -590,6 +590,12 @@ const GameMaster: React.FC = () => {
     }
   }, [isRestarting]);
 
+  // Add a function to check if preview can be started
+  const canStartPreview = gameStarted && (
+    (players.length > 0 && pendingAnswers.length === 0) ||
+    (timeLimit !== null && timeRemaining === 0 && pendingAnswers.length > 0)
+  );
+
   return (
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
@@ -703,7 +709,7 @@ const GameMaster: React.FC = () => {
                   <button
                     className="btn btn-primary w-100"
                     onClick={handleStartPreviewMode}
-                    disabled={!(allAnswersIn || (timeLimit !== null && timeRemaining === 0))}
+                    disabled={!canStartPreview}
                   >
                     Start Preview Mode
                   </button>
