@@ -24,7 +24,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         isDrawingMode: true,
         width: 800,
         height: 400,
-        backgroundColor: '#2d4739' // Darker green for more authentic chalkboard look
+        backgroundColor: '#0C6A35' // Classic chalkboard green
       });
       
       // Set up drawing brush for chalk-like appearance
@@ -79,7 +79,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const clearCanvas = () => {
     if (fabricCanvasRef.current && !submittedAnswer) {
       fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#2d4739';
+      fabricCanvasRef.current.backgroundColor = '#0C6A35';
       fabricCanvasRef.current.renderAll();
       
       // Send empty canvas
@@ -111,15 +111,17 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
           ref={boardContainerRef}
           className="mb-4 drawing-board-container" 
           style={{ 
-            width: '800px',
-            height: '400px',
+            width: '100%',
+            maxWidth: '800px',
+            height: 'auto',
+            minHeight: '250px',
             border: '12px solid #8B4513', 
-            borderRadius: '4px',
-            boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.18)',
             position: 'relative',
             overflow: 'hidden',
             margin: '0 auto',
-            background: '#2d4739',
+            background: '#0C6A35',
           }}
         >
           <canvas 
@@ -127,7 +129,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
             id={`canvas-${canvasKey}`} 
             width="800" 
             height="400" 
-            style={{ display: 'block' }} 
+            style={{ display: 'block', width: '100%', height: '100%' }} 
           />
         </div>
       </div>

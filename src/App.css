@@ -191,12 +191,10 @@ body {
 
 /* Chalkboard drawing area */
 .drawing-board-container {
-  background: #2d4739 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  border: 12px solid #8B4513;
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  border: 12px solid #8B4513; /* Classic wood color */
   border-radius: 8px;
-  box-shadow: 
-    0 4px 12px #00000033,
-    inset 0 0 20px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.18);
   margin-bottom: 16px;
   position: relative;
   overflow: hidden;
