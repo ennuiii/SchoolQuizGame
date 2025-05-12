@@ -203,12 +203,16 @@ io.on('connection', (socket) => {
     // Clear any active timers
     clearRoomTimer(roomCode);
     
-    // Reset the game state but keep the room
+    // Reset the game state but keep the room and settings
     gameRooms[roomCode].started = false;
-    gameRooms[roomCode].questions = [];
-    gameRooms[roomCode].currentQuestion = null;
+    // DO NOT reset questions or timeLimit
+    // Reset progress
     gameRooms[roomCode].currentQuestionIndex = 0;
-    gameRooms[roomCode].timeLimit = null;
+    if (gameRooms[roomCode].questions && gameRooms[roomCode].questions.length > 0) {
+      gameRooms[roomCode].currentQuestion = gameRooms[roomCode].questions[0];
+    } else {
+      gameRooms[roomCode].currentQuestion = null;
+    }
     
     // Reset all players, but keep them in the room
     gameRooms[roomCode].players.forEach(player => {
