@@ -11,6 +11,7 @@ import AnswerList from '../components/game-master/AnswerList';
 import Timer from '../components/shared/Timer';
 import PlayerBoardDisplay from '../components/game-master/PlayerBoardDisplay';
 import PlayerList from '../components/shared/PlayerList';
+import RoomCode from '../components/shared/RoomCode';
 
 interface Player {
   id: string;
@@ -691,6 +692,7 @@ const GameMaster: React.FC = () => {
         }}>
           <div className="row">
             <div className="col-md-4">
+              <RoomCode roomCode={roomCode} />
               <PlayerList 
                 players={players}
                 onPlayerSelect={handlePlayerSelect}

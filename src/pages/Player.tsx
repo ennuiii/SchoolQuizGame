@@ -8,6 +8,7 @@ import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionCard from '../components/player/QuestionCard';
 import Timer from '../components/shared/Timer';
 import PlayerList from '../components/shared/PlayerList';
+import RoomCode from '../components/shared/RoomCode';
 
 interface Question {
   id: number;
@@ -807,6 +808,7 @@ const Player: React.FC = () => {
           />
         </div>
         <div className="col-md-4">
+          <RoomCode roomCode={roomCode} />
           <PlayerList 
             players={players} 
             currentPlayerId={socketService.connect().id || ''}

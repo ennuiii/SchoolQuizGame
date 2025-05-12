@@ -152,6 +152,20 @@ body {
   border: 2px solid #dee2e6;
 }
 
+/* Room code display styling */
+.room-code-display {
+  font-family: monospace;
+  font-size: 1.5rem;
+  font-weight: bold;
+  letter-spacing: 4px;
+  background-color: #f8f9fa;
+  padding: 10px 20px;
+  border-radius: 8px;
+  display: inline-block;
+  margin: 0;
+  border: 2px solid #dee2e6;
+}
+
 /* Lives display */
 .lives-display {
   font-size: 1.5rem;
