@@ -75,8 +75,17 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
       const loadedQuestions = await supabaseService.getQuestions(options);
       
       if (loadedQuestions && loadedQuestions.length > 0) {
-        setAvailableQuestions(loadedQuestions);
-        setErrorMsg('');
+        // Filter out questions that are already selected
+        const filteredQuestions = loadedQuestions.filter(
+          question => !selectedQuestions.some(selected => selected.id === question.id)
+        );
+        
+        if (filteredQuestions.length === 0) {
+          setErrorMsg('All available questions are already selected');
+        } else {
+          setAvailableQuestions(filteredQuestions);
+          setErrorMsg('');
+        }
       } else {
         setErrorMsg('No questions found with the selected filters');
       }
@@ -116,14 +125,29 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
       const allQuestions = await supabaseService.getQuestions(options);
       
       if (allQuestions && allQuestions.length > 0) {
+        // Filter out questions that are already selected
+        const availableQuestions = allQuestions.filter(
+          question => !selectedQuestions.some(selected => selected.id === question.id)
+        );
+        
+        if (availableQuestions.length === 0) {
+          setErrorMsg('All available questions are already selected');
+          return;
+        }
+        
         // Shuffle the questions and take the requested number
-        const shuffled = [...allQuestions].sort(() => Math.random() - 0.5);
+        const shuffled = [...availableQuestions].sort(() => Math.random() - 0.5);
         const selectedCount = Math.min(randomCount, shuffled.length);
         const randomQuestions = shuffled.slice(0, selectedCount);
         
         // Add the random questions to the selected questions
         const newSelectedQuestions = [...selectedQuestions, ...randomQuestions];
         onSelectedQuestionsChange(newSelectedQuestions);
+        
+        // Update available questions list
+        setAvailableQuestions(prev => 
+          prev.filter(q => !randomQuestions.some(rq => rq.id === q.id))
+        );
         
         setErrorMsg(`Added ${selectedCount} random questions to selection`);
       } else {
@@ -138,6 +162,12 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   };
 
   const addQuestionToSelected = (question: Question) => {
+    // Check if question is already selected
+    if (selectedQuestions.some(q => q.id === question.id)) {
+      setErrorMsg('This question is already selected');
+      return;
+    }
+    
     const newSelectedQuestions = [...selectedQuestions, question];
     onSelectedQuestionsChange(newSelectedQuestions);
     setAvailableQuestions(prev => prev.filter(q => q.id !== question.id));
@@ -159,27 +189,49 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
 
   const addCustomQuestion = () => {
     const text = prompt('Enter the question:');
-    if (text) {
-      const answerInput = prompt('Enter the answer:');
-      const answer = answerInput || undefined;
-      const subject = prompt('Enter the subject:') || 'General';
-      const grade = parseInt(prompt('Enter the grade level (1-13):') || '5', 10);
-      const language = prompt('Enter the language (e.g., de, en):') || 'de';
-      
-      const newQuestion: Question = {
-        id: Date.now(), // Use timestamp as temporary ID
-        text,
-        answer,
-        subject,
-        grade: Math.min(13, Math.max(1, grade)),
-        language
-      };
-      
-      const newSelectedQuestions = [...selectedQuestions, newQuestion];
-      onSelectedQuestionsChange(newSelectedQuestions);
-      setErrorMsg('Custom question added to selection');
-      setTimeout(() => setErrorMsg(''), 3000);
+    if (!text) return;
+    
+    const answerInput = prompt('Enter the answer:');
+    const answer = answerInput || undefined;
+    const subject = prompt('Enter the subject:') || 'General';
+    const grade = parseInt(prompt('Enter the grade level (1-13):') || '5', 10);
+    const language = prompt('Enter the language (e.g., de, en):') || 'de';
+    
+    // Validate inputs
+    if (!text.trim()) {
+      setErrorMsg('Question text cannot be empty');
+      return;
     }
+    
+    if (isNaN(grade) || grade < 1 || grade > 13) {
+      setErrorMsg('Grade must be between 1 and 13');
+      return;
+    }
+    
+    const newQuestion: Question = {
+      id: Date.now(), // Use timestamp as temporary ID
+      text: text.trim(),
+      answer: answer?.trim(),
+      subject: subject.trim(),
+      grade: Math.min(13, Math.max(1, grade)),
+      language: language.trim()
+    };
+    
+    // Check for duplicate custom questions
+    const isDuplicate = selectedQuestions.some(
+      q => q.text.toLowerCase() === newQuestion.text.toLowerCase() &&
+           q.subject.toLowerCase() === newQuestion.subject.toLowerCase()
+    );
+    
+    if (isDuplicate) {
+      setErrorMsg('A similar question already exists in the selection');
+      return;
+    }
+    
+    const newSelectedQuestions = [...selectedQuestions, newQuestion];
+    onSelectedQuestionsChange(newSelectedQuestions);
+    setErrorMsg('Custom question added to selection');
+    setTimeout(() => setErrorMsg(''), 3000);
   };
 
   return (
