@@ -89,6 +89,7 @@ io.on('connection', (socket) => {
       questions: [],
       currentQuestion: null,
       playerBoards: {},
+      boards: new Map(),
       timeLimit: null,
       timers: {}
     };
@@ -238,26 +239,29 @@ io.on('connection', (socket) => {
     console.log(`Game restarted in room: ${roomCode}`);
   });
 
-  // Handle board updates from players
-  socket.on('board_update', (data) => {
-    const { roomCode, boardData } = data;
-    if (!gameRooms[roomCode]) {
-      console.log(`Board update for non-existent room: ${roomCode}`);
+  // Handle board updates
+  socket.on('update_board', ({ roomCode, boardData }) => {
+    const room = gameRooms[roomCode];
+    if (!room) {
+      socket.emit('error', 'Room not found');
       return;
     }
-    
-    // Store the board data for this player
-    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === socket.id);
-    if (playerIndex !== -1) {
-      gameRooms[roomCode].players[playerIndex].boardData = boardData;
-      
-      // Broadcast the board update to all clients in the room
-      io.to(roomCode).emit('board_update', {
-        playerId: socket.id,
-        playerName: gameRooms[roomCode].players[playerIndex].name,
-        boardData: boardData
-      });
+
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator) {
+      socket.emit('error', 'Only players can update the board');
+      return;
     }
+
+    // Store the board data
+    room.boards.set(socket.id, boardData);
+    
+    // Broadcast the board update to all clients in the room
+    io.to(roomCode).emit('board_update', {
+      playerId: socket.id,
+      playerName: player.name,
+      boardData: boardData
+    });
   });
 
   // Handle answer submission
@@ -535,21 +539,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle board updates
-  socket.on('update_board', ({ roomCode, boardData }) => {
-    const player = gameRooms[roomCode].players.find(p => p.id === socket.id);
-    if (!player || player.isSpectator) {
-      socket.emit('error', 'Only players can update the board');
-      return;
-    }
-
-    const room = gameRooms[roomCode];
-    if (room) {
-      room.boards.set(socket.id, boardData);
-      socket.to(roomCode).emit('board_updated', { playerId: socket.id, boardData });
-    }
-  });
-
   // Handle spectator joining
   socket.on('join_as_spectator', ({ roomCode, playerName }) => {
     console.log(`Spectator ${playerName} attempting to join room ${roomCode}`);
@@ -578,6 +567,11 @@ io.on('connection', (socket) => {
 
     // Notify spectator they joined successfully
     socket.emit('joined_room', roomCode);
+
+    // Notify gamemaster about new spectator
+    if (gameRooms[roomCode].gamemaster) {
+      io.to(gameRooms[roomCode].gamemaster).emit('player_joined', spectator);
+    }
 
     // Send current game state to spectator
     if (gameRooms[roomCode].currentQuestion) {
