@@ -599,7 +599,7 @@ const GameMaster: React.FC = () => {
   return (
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-        <div className="room-code-display mb-3 mb-md-0" style={{ fontSize: '2rem', width: '100%', textAlign: 'center' }}>
+        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
           <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
           Game Master Dashboard
         </div>

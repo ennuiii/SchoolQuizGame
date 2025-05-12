@@ -456,4 +456,36 @@ body {
   margin-bottom: 10px;
   display: inline-block;
   box-shadow: 0 2px 8px #00000022;
+}
+
+/* Dashboard captions */
+.dashboard-caption {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.7rem;
+  font-weight: bold;
+  letter-spacing: 4px;
+  background: #ffe066;
+  color: #2d4739;
+  padding: 10px 20px;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 0;
+  border: 3px dashed #ffd166;
+  box-shadow: 0 2px 8px #00000022;
+}
+
+/* Player name styling */
+.player-name {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.7rem;
+  font-weight: bold;
+  letter-spacing: 4px;
+  background: #ffe066;
+  color: #2d4739;
+  padding: 10px 20px;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 0;
+  border: 3px dashed #ffd166;
+  box-shadow: 0 2px 8px #00000022;
 } 
