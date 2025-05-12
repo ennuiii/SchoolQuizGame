@@ -136,12 +136,14 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
         const selectedCount = Math.min(randomCount, shuffled.length);
         const randomQuestions = shuffled.slice(0, selectedCount);
         
-        // Always sort after adding
+        // Combine existing and new questions, then sort by grade
         const newSelectedQuestions = [...selectedQuestions, ...randomQuestions].sort((a, b) => a.grade - b.grade);
+        
+        // Update both the selected questions and notify parent
         onSelectedQuestionsChange(newSelectedQuestions);
         onQuestionsSelected(newSelectedQuestions);
         
-        // Update available questions list
+        // Update available questions list, removing the selected ones
         setAvailableQuestions(prev => 
           prev.filter(q => !randomQuestions.some(rq => rq.id === q.id))
         );
