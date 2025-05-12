@@ -24,13 +24,14 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         isDrawingMode: true,
         width: 800,
         height: 400,
-        backgroundColor: '#0C6A35' // School green board color
+        backgroundColor: '#2d4739' // Darker green for more authentic chalkboard look
       });
       
-      // Set up drawing brush
+      // Set up drawing brush for chalk-like appearance
       if (fabricCanvasRef.current.freeDrawingBrush) {
         fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
-        fabricCanvasRef.current.freeDrawingBrush.width = 3;
+        fabricCanvasRef.current.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
+        fabricCanvasRef.current.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
       }
       
       // Send canvas updates
@@ -78,7 +79,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const clearCanvas = () => {
     if (fabricCanvasRef.current && !submittedAnswer) {
       fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#0C6A35';
+      fabricCanvasRef.current.backgroundColor = '#2d4739';
       fabricCanvasRef.current.renderAll();
       
       // Send empty canvas
@@ -95,7 +96,11 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
           <button 
             className="btn btn-outline-light me-2"
             onClick={clearCanvas}
-            style={{ backgroundColor: '#8B4513', border: 'none' }}
+            style={{ 
+              backgroundColor: '#8B4513', 
+              border: 'none',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+            }}
           >
             Erase Board
           </button>
@@ -114,7 +119,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
             position: 'relative',
             overflow: 'hidden',
             margin: '0 auto',
-            background: '#0C6A35',
+            background: '#2d4739',
           }}
         >
           <canvas 
