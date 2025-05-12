@@ -10,27 +10,40 @@ interface Player {
 
 interface PlayerListProps {
   players: Player[];
+  currentPlayerId?: string;
   onPlayerSelect?: (playerId: string) => void;
-  selectedPlayerId: string | null;
+  selectedPlayerId?: string | null;
+  title?: string;
 }
 
-const PlayerList: React.FC<PlayerListProps> = ({ players, onPlayerSelect, selectedPlayerId }) => {
+const PlayerList: React.FC<PlayerListProps> = ({ 
+  players, 
+  currentPlayerId,
+  onPlayerSelect,
+  selectedPlayerId,
+  title = 'Players'
+}) => {
+  // Filter out the current player if currentPlayerId is provided
+  const displayPlayers = currentPlayerId 
+    ? players.filter(player => player.id !== currentPlayerId)
+    : players;
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
-        <h6 className="mb-0">Players ({players.length})</h6>
+        <h6 className="mb-0">{title} ({displayPlayers.length})</h6>
       </div>
       <div className="card-body">
-        {players.length === 0 ? (
-          <p className="text-center text-muted">No players connected yet</p>
+        {displayPlayers.length === 0 ? (
+          <p className="text-center text-muted">No players in the room</p>
         ) : (
           <div className="list-group">
-            {players.map((player) => (
+            {displayPlayers.map((player) => (
               <div
                 key={player.id}
-                className={`list-group-item list-group-item-action d-flex justify-content-between align-items-center ${
-                  selectedPlayerId === player.id ? 'active' : ''
-                }`}
+                className={`list-group-item d-flex justify-content-between align-items-center ${
+                  onPlayerSelect ? 'list-group-item-action' : ''
+                } ${selectedPlayerId === player.id ? 'active' : ''}`}
                 onClick={() => onPlayerSelect?.(player.id)}
                 style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
               >

@@ -10,6 +10,7 @@ import QuestionDisplay from '../components/game-master/QuestionDisplay';
 import AnswerList from '../components/game-master/AnswerList';
 import Timer from '../components/shared/Timer';
 import PlayerBoardDisplay from '../components/game-master/PlayerBoardDisplay';
+import PlayerList from '../components/shared/PlayerList';
 
 interface Player {
   id: string;
@@ -224,6 +225,11 @@ const GameMaster: React.FC = () => {
       ...prev,
       [playerId]: { scale: 1, x: 0, y: 0 }
     }));
+  }, []);
+
+  const handlePlayerSelect = useCallback((playerId: string) => {
+    setSelectedPlayerId(playerId);
+    toggleBoardVisibility(playerId);
   }, []);
 
   useEffect(() => {
@@ -685,131 +691,12 @@ const GameMaster: React.FC = () => {
         }}>
           <div className="row">
             <div className="col-md-4">
-              <div className="card mb-4">
-                <div className="card-header">
-                  <h3 className="mb-0">Room Information</h3>
-                </div>
-                <div className="card-body text-center">
-                  <h5>Room Code:</h5>
-                  <div className="room-code">{roomCode}</div>
-                  <p className="mb-3">Share this code with players to join</p>
-                  
-                  {!gameStarted && (
-                    <>
-                      <div className="mb-3">
-                        <label htmlFor="timeLimit" className="form-label">Time Limit (seconds):</label>
-                        <input 
-                          type="number"
-                          id="timeLimit"
-                          className="form-control mb-2"
-                          min="0"
-                          value={timeLimit || ''}
-                          onChange={(e) => setTimeLimit(e.target.value ? parseInt(e.target.value, 10) : null)}
-                          placeholder="No time limit"
-                        />
-                        <small className="text-muted">Leave empty for no time limit</small>
-                      </div>
-                      <button 
-                        className="btn btn-success btn-lg w-100"
-                        onClick={startGame}
-                        disabled={players.length < 2}
-                      >
-                        Start Game ({players.length}/2 players)
-                      </button>
-                    </>
-                  )}
-                  
-                  {gameStarted && (
-                    <button 
-                      className="btn btn-warning btn-lg w-100"
-                      onClick={restartGame}
-                      disabled={isRestarting}
-                    >
-                      {isRestarting ? 'Restarting...' : 'Restart Game'}
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="card mb-4">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <h3 className="mb-0">Players</h3>
-                  <span className="badge bg-primary">{players.length}</span>
-                </div>
-                <div className="card-body p-0">
-                  <ul className="list-group list-group-flush player-list">
-                    {players.map(player => (
-                      <li 
-                        key={player.id} 
-                        className={`list-group-item d-flex justify-content-between align-items-center ${!player.isActive ? 'text-muted' : ''}`}
-                      >
-                        <div className="d-flex align-items-center">
-                          <span>{player.name} {!player.isActive && '(Eliminated)'}</span>
-                          <button
-                            className={`btn btn-sm ms-2 ${visibleBoards.has(player.id) ? 'btn-primary' : 'btn-outline-primary'}`}
-                            onClick={() => toggleBoardVisibility(player.id)}
-                            title={visibleBoards.has(player.id) ? "Hide board" : "Show board"}
-                          >
-                            {visibleBoards.has(player.id) ? 'Hide Board' : 'Show Board'}
-                          </button>
-                        </div>
-                        <div>
-                          {Array.from({length: player.lives}, (_, i) => (
-                            <span key={i} className="text-danger me-1">❤</span>
-                          ))}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              
-              {gameStarted && (
-                <div className="card mb-4">
-                  <div className="card-header d-flex justify-content-between align-items-center">
-                    <h3 className="mb-0">Questions</h3>
-                  </div>
-                  <div className="card-body">
-                    <div className="mb-3 text-center">
-                      {timeLimit !== null && timeLimit < 99999 && (
-                        <>
-                          <h5>Time Remaining:</h5>
-                          <Timer
-                            timeLimit={timeLimit}
-                            timeRemaining={timeRemaining}
-                            isActive={isTimerRunning}
-                          />
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="mb-3">
-                      <h5>Current Question ({currentQuestionIndex + 1}/{questions.length}):</h5>
-                      <div className="question-container">
-                        {currentQuestion && (
-                          <>
-                            <p className="mb-1">{currentQuestion.text}</p>
-                            <small>Grade: {currentQuestion.grade} | Subject: {currentQuestion.subject} | Language: {currentQuestion.language || 'de'}</small>
-                            {currentQuestion.answer && (
-                              <div className="mt-2 correct-answer">
-                                <strong>Correct Answer:</strong> {currentQuestion.answer}
-                              </div>
-                            )}
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <button 
-                      className="btn btn-primary w-100"
-                      onClick={nextQuestion}
-                      disabled={currentQuestionIndex >= questions.length - 1 || pendingAnswers.length > 0}
-                    >
-                      Next Question
-                    </button>
-                  </div>
-                </div>
-              )}
+              <PlayerList 
+                players={players}
+                onPlayerSelect={handlePlayerSelect}
+                selectedPlayerId={selectedPlayerId}
+                title="Players"
+              />
             </div>
             
             <div className="col-md-8">

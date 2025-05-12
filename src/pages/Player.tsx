@@ -7,6 +7,7 @@ import audioService from '../services/audioService';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionCard from '../components/player/QuestionCard';
 import Timer from '../components/shared/Timer';
+import PlayerList from '../components/shared/PlayerList';
 
 interface Question {
   id: number;
@@ -665,143 +666,154 @@ const Player: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="row mb-4">
-        <div className="col-md-6">
-          <h1>Player: {playerName}</h1>
-          <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
-        </div>
-        <div className="col-md-3">
-          {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
-            <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
-              <h3>
-                <span className="me-2">Time:</span>
-                <span>{timeRemaining}</span>
-                <span className="ms-1">sec</span>
-              </h3>
+      <div className="row">
+        <div className="col-md-8">
+          <div className="row mb-4">
+            <div className="col-md-6">
+              <h1>Player: {playerName}</h1>
+              <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
             </div>
-          )}
-        </div>
-        <div className="col-md-3 text-end">
-          <div className="lives-display">
-            <span className="me-2">Lives:</span>
-            {[...Array(lives)].map((_, i) => (
-              <span key={i} className="life" role="img" aria-label="heart">❤</span>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {errorMsg && (
-        <div id="flash-message" className="alert mb-4" role="alert">
-          {errorMsg}
-        </div>
-      )}
-
-      {reviewNotification && (
-        <div className={`alert ${reviewNotification.isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
-          <div className="me-3">
-            {reviewNotification.isCorrect ? (
-              <span role="img" aria-label="thumbs up" style={{ fontSize: '1.5rem' }}>👍</span>
-            ) : (
-              <span role="img" aria-label="thumbs down" style={{ fontSize: '1.5rem' }}>👎</span>
-            )}
-          </div>
-          <div>
-            <strong>{reviewNotification.message}</strong>
-            <div className="small">
-              {reviewNotification.isCorrect ? 'Your answer was correct!' : 'Your answer was incorrect.'}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!gameStarted ? (
-        <div className="card p-4 text-center">
-          <h2 className="mb-3">Waiting for Game Master to start the game</h2>
-          <p>Get ready! The game will begin soon.</p>
-          <div className="spinner-border text-primary mx-auto mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
-      ) : (
-        <>
-          <QuestionCard currentQuestion={currentQuestion} />
-          
-          {timeLimit !== null && timeRemaining !== null && (
-            <Timer
-              timeLimit={timeLimit}
-              timeRemaining={timeRemaining}
-              isActive={isTimerRunning}
-              showSeconds={true}
-            />
-          )}
-          
-          <div className="card mb-4">
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <h3 className="mb-0">Your Answer</h3>
-              <div>
-                <button 
-                  className="btn btn-outline-light me-2"
-                  onClick={clearCanvas}
-                  style={{ backgroundColor: '#8B4513', border: 'none' }}
-                >
-                  Erase Board
-                </button>
-              </div>
-            </div>
-            <div className="card-body">
-              <div className="mb-4 drawing-board-container" style={{ 
-                width: '800px',
-                height: '400px',
-                border: '12px solid #8B4513', 
-                borderRadius: '4px',
-                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                position: 'relative',
-                overflow: 'hidden',
-                margin: '0 auto',
-                background: '#0C6A35',
-              }}>
-                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block' }} />
-              </div>
-              
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  className="form-control form-control-lg"
-                  placeholder="Type your answer here..."
-                  value={answer}
-                  onChange={handleAnswerChange}
-                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
-                />
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={() => handleSubmitAnswer()}
-                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
-                >
-                  Submit Answer
-                </button>
-              </div>
-              
-              {submittedAnswer && (
-                <div className="alert alert-info">
-                  Your answer has been submitted. Wait for the Game Master to evaluate it.
+            <div className="col-md-3">
+              {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
+                <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
+                  <h3>
+                    <span className="me-2">Time:</span>
+                    <span>{timeRemaining}</span>
+                    <span className="ms-1">sec</span>
+                  </h3>
                 </div>
               )}
             </div>
+            <div className="col-md-3 text-end">
+              <div className="lives-display">
+                <span className="me-2">Lives:</span>
+                {[...Array(lives)].map((_, i) => (
+                  <span key={i} className="life" role="img" aria-label="heart">❤</span>
+                ))}
+              </div>
+            </div>
           </div>
-        </>
-      )}
-      <PreviewOverlay
-        players={players}
-        playerBoards={playerBoards}
-        allAnswersThisRound={allAnswersThisRound}
-        evaluatedAnswers={evaluatedAnswers}
-        previewMode={previewMode}
-        onFocus={handleFocusSubmission}
-        onClose={handleClosePreviewMode}
-        isGameMaster={false}
-      />
+          
+          {errorMsg && (
+            <div id="flash-message" className="alert mb-4" role="alert">
+              {errorMsg}
+            </div>
+          )}
+
+          {reviewNotification && (
+            <div className={`alert ${reviewNotification.isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
+              <div className="me-3">
+                {reviewNotification.isCorrect ? (
+                  <span role="img" aria-label="thumbs up" style={{ fontSize: '1.5rem' }}>👍</span>
+                ) : (
+                  <span role="img" aria-label="thumbs down" style={{ fontSize: '1.5rem' }}>👎</span>
+                )}
+              </div>
+              <div>
+                <strong>{reviewNotification.message}</strong>
+                <div className="small">
+                  {reviewNotification.isCorrect ? 'Your answer was correct!' : 'Your answer was incorrect.'}
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {!gameStarted ? (
+            <div className="card p-4 text-center">
+              <h2 className="mb-3">Waiting for Game Master to start the game</h2>
+              <p>Get ready! The game will begin soon.</p>
+              <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                <span className="visually-hidden">Loading...</span>
+              </div>
+            </div>
+          ) : (
+            <>
+              <QuestionCard currentQuestion={currentQuestion} />
+              
+              {timeLimit !== null && timeRemaining !== null && (
+                <Timer
+                  timeLimit={timeLimit}
+                  timeRemaining={timeRemaining}
+                  isActive={isTimerRunning}
+                  showSeconds={true}
+                />
+              )}
+              
+              <div className="card mb-4">
+                <div className="card-header d-flex justify-content-between align-items-center">
+                  <h3 className="mb-0">Your Answer</h3>
+                  <div>
+                    <button 
+                      className="btn btn-outline-light me-2"
+                      onClick={clearCanvas}
+                      style={{ backgroundColor: '#8B4513', border: 'none' }}
+                    >
+                      Erase Board
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="mb-4 drawing-board-container" style={{ 
+                    width: '800px',
+                    height: '400px',
+                    border: '12px solid #8B4513', 
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    margin: '0 auto',
+                    background: '#0C6A35',
+                  }}>
+                    <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block' }} />
+                  </div>
+                  
+                  <div className="input-group mb-3">
+                    <input
+                      type="text"
+                      className="form-control form-control-lg"
+                      placeholder="Type your answer here..."
+                      value={answer}
+                      onChange={handleAnswerChange}
+                      disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => handleSubmitAnswer()}
+                      disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                  
+                  {submittedAnswer && (
+                    <div className="alert alert-info">
+                      Your answer has been submitted. Wait for the Game Master to evaluate it.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
+          <PreviewOverlay
+            players={players}
+            playerBoards={playerBoards}
+            allAnswersThisRound={allAnswersThisRound}
+            evaluatedAnswers={evaluatedAnswers}
+            previewMode={previewMode}
+            onFocus={handleFocusSubmission}
+            onClose={handleClosePreviewMode}
+            isGameMaster={false}
+          />
+        </div>
+        <div className="col-md-4">
+          <PlayerList 
+            players={players} 
+            currentPlayerId={socketService.connect().id || ''}
+            title="Other Players"
+          />
+        </div>
+      </div>
     </div>
   );
 };

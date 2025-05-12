@@ -19,20 +19,23 @@ const Timer: React.FC<TimerProps> = ({
   className = '',
   showSeconds = false
 }) => {
-  if (timeLimit === null || timeRemaining === null) {
+  // If timeLimit is null, we'll use 99999 but hide the timer
+  const effectiveTimeLimit = timeLimit ?? 99999;
+  const effectiveTimeRemaining = timeRemaining ?? 99999;
+
+  // If both are null, don't show the timer
+  if (timeLimit === null && timeRemaining === null) {
     return null;
   }
 
-  const progress = (timeRemaining / timeLimit) * 100;
-  const minutes = Math.floor(timeRemaining / 60);
-  const seconds = timeRemaining % 60;
-  const timeString = showSeconds 
-    ? `${timeRemaining}s`
-    : `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  const progress = (effectiveTimeRemaining / effectiveTimeLimit) * 100;
+  const minutes = Math.floor(effectiveTimeRemaining / 60);
+  const seconds = effectiveTimeRemaining % 60;
+  const timeString = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
 
   const getProgressColor = () => {
     if (!isActive) return 'bg-secondary';
-    const percentage = (timeRemaining / timeLimit) * 100;
+    const percentage = (effectiveTimeRemaining / effectiveTimeLimit) * 100;
     if (percentage > 60) return 'bg-success';
     if (percentage > 30) return 'bg-warning';
     return 'bg-danger';
@@ -40,11 +43,10 @@ const Timer: React.FC<TimerProps> = ({
 
   if (!showProgressBar) {
     return (
-      <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''} ${className}`}>
+      <div className={`timer-display ${effectiveTimeRemaining <= 10 ? 'text-danger' : ''} ${className}`}>
         <h3>
           <span className="me-2">Time:</span>
-          <span>{timeRemaining}</span>
-          <span className="ms-1">sec</span>
+          <span>{timeString}</span>
         </h3>
       </div>
     );
@@ -57,9 +59,9 @@ const Timer: React.FC<TimerProps> = ({
           className={`progress-bar ${getProgressColor()}`}
           role="progressbar"
           style={{ width: `${progress}%` }}
-          aria-valuenow={timeRemaining}
+          aria-valuenow={effectiveTimeRemaining}
           aria-valuemin={0}
-          aria-valuemax={timeLimit}
+          aria-valuemax={effectiveTimeLimit}
         >
           {timeString}
         </div>
