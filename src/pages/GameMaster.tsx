@@ -698,6 +698,17 @@ const GameMaster: React.FC = () => {
           <div className="row g-3">
             <div className="col-12 col-md-4">
               <RoomCode roomCode={roomCode} />
+              {!previewMode.isActive && (
+                <div className="mb-3">
+                  <button
+                    className="btn btn-primary w-100"
+                    onClick={handleStartPreviewMode}
+                    disabled={!(allAnswersIn || (timeLimit !== null && timeRemaining === 0))}
+                  >
+                    Start Preview Mode
+                  </button>
+                </div>
+              )}
               <PlayerList 
                 players={players}
                 onPlayerSelect={handlePlayerSelect}
@@ -814,51 +825,40 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
-      {/* Add Preview Mode Controls */}
-      <div className="preview-mode-controls mt-3" style={{
-        display: 'flex',
-        gap: '10px',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '10px 20px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-        width: '90%',
-        maxWidth: '500px'
-      }}>
-        {(!previewMode.isActive) ? (
+      {previewMode.isActive && (
+        <div className="preview-mode-controls mt-3" style={{
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          background: 'rgba(255, 255, 255, 0.9)',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          width: '90%',
+          maxWidth: '500px'
+        }}>
           <button
-            className="btn btn-primary w-100"
-            onClick={handleStartPreviewMode}
-            disabled={!(allAnswersIn || (timeLimit !== null && timeRemaining === 0))}
+            className="btn btn-secondary w-100"
+            onClick={handleStopPreviewMode}
           >
-            Start Preview Mode
+            Stop Preview Mode
           </button>
-        ) : (
-          <>
+          {previewMode.focusedPlayerId && (
             <button
-              className="btn btn-secondary w-100"
-              onClick={handleStopPreviewMode}
+              className="btn btn-outline-primary w-100"
+              onClick={() => handleFocusSubmission('')}
             >
-              Stop Preview Mode
+              Back to Gallery
             </button>
-            {previewMode.focusedPlayerId && (
-              <button
-                className="btn btn-outline-primary w-100"
-                onClick={() => handleFocusSubmission('')}
-              >
-                Back to Gallery
-              </button>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Preview Mode Overlay */}
       <PreviewOverlay
