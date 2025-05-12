@@ -191,35 +191,56 @@ body {
 
 /* Chalkboard drawing area */
 .drawing-board-container {
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  border: 6px solid #ffe066;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px #00000033;
+  background: #2d4739 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  border: 12px solid #1a1a1a;
+  border-radius: 8px;
+  box-shadow: 
+    0 4px 12px #00000033,
+    inset 0 0 20px rgba(0, 0, 0, 0.3);
   margin-bottom: 16px;
+  position: relative;
+  overflow: hidden;
+}
+
+.drawing-board-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 20px 20px,
+    linear-gradient(0deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 20px 20px;
+  pointer-events: none;
 }
 
 .drawing-board {
   min-height: 300px;
   background: transparent;
+  position: relative;
 }
 
-/* Responsive tweaks */
+.drawing-board::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('https://www.transparenttextures.com/patterns/chalkboard.png');
+  opacity: 0.1;
+  pointer-events: none;
+}
+
+/* Responsive tweaks for drawing board */
 @media (max-width: 768px) {
-  .header {
-    font-size: 1.5rem;
-  }
-  .card-header {
-    font-size: 1.1rem;
-  }
-  .room-code-display {
-    font-size: 1.1rem;
-    padding: 8px 12px;
-  }
-  .timer {
-    font-size: 1.1rem;
-    min-width: 80px;
-  }
   .drawing-board-container {
+    border-width: 8px;
+    min-height: 180px;
+  }
+  
+  .drawing-board {
     min-height: 180px;
   }
 }
@@ -392,11 +413,40 @@ body {
 
 /* School desk background for the game master */
 .game-master-container {
-  background: linear-gradient(135deg, #2d4739 80%, #3e5c4d 100%);
-  color: #ffe066;
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
+  color: #2d4739;
   border-radius: 16px;
   box-shadow: 0 8px 24px #00000044;
   border: 3px dashed #ffe066;
+  padding: 20px;
+}
+
+.game-master-container .card-header {
+  background: linear-gradient(90deg, #ffe066 80%, #ffd166 100%);
+  color: #2d4739;
+  border-bottom: 2px solid #ffd166;
+}
+
+.game-master-container .card {
+  border: 3px dashed #ffe066;
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
+}
+
+.game-master-container .list-group-item {
+  background: #fffbe7;
+  color: #2d4739;
+  border-bottom: 1px dashed #ffe066;
+}
+
+.game-master-container .btn {
+  background: #ffe066;
+  color: #2d4739;
+  border: 2px solid #ffd166;
+}
+
+.game-master-container .btn:hover {
+  background: #ffd166;
+  transform: scale(1.05) rotate(-2deg);
 }
 
 /* Flash messages */
