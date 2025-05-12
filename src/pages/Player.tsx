@@ -4,7 +4,7 @@ import { fabric } from 'fabric';
 import socketService from '../services/socketService';
 import { throttle } from '../utils/throttle';
 import audioService from '../services/audioService';
-import PreviewOverlay from '../components/PreviewOverlay';
+import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionCard from '../components/player/QuestionCard';
 import Timer from '../components/game-master/Timer';
 

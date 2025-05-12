@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 import audioService from '../services/audioService';
-import PreviewOverlay from '../components/PreviewOverlay';
+import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionSelector from '../components/game-master/QuestionSelector';
 import GameControls from '../components/game-master/GameControls';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
