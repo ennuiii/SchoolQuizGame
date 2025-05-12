@@ -23,16 +23,22 @@ interface ReviewNotification {
 interface Player {
   id: string;
   name: string;
+  lives: number;
+  answers: string[];
+  isActive: boolean;
 }
 
 interface PlayerBoard {
   playerId: string;
+  playerName: string;
   boardData: string;
 }
 
-interface Answer {
+interface AnswerSubmission {
+  playerId: string;
+  playerName: string;
   answer: string;
-  timestamp: number;
+  timestamp?: number;
 }
 
 interface PreviewModeState {
@@ -72,7 +78,7 @@ const Player: React.FC = () => {
   const answerRef = useRef(answer);
   const [players, setPlayers] = useState<Player[]>([]);
   const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
-  const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, Answer>>({});
+  const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, AnswerSubmission>>({});
   const [previewMode, setPreviewMode] = useState<PreviewModeState>({
     isActive: false,
     focusedPlayerId: null
@@ -258,7 +264,7 @@ const Player: React.FC = () => {
       }
     });
     
-    socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number, playerId?: string }) => {
+    socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number, playerId: string }) => {
       setLives(data.lives);
       // Set review notification
       setReviewNotification({
@@ -267,12 +273,10 @@ const Player: React.FC = () => {
         timestamp: Date.now()
       });
       // Update evaluatedAnswers for preview mode
-      if (data.playerId) {
-        setEvaluatedAnswers(prev => ({ ...prev, [data.playerId!]: data.isCorrect }));
-      } else if (socketService.connect().id) {
-        // fallback: update for self if playerId not provided
-        setEvaluatedAnswers(prev => ({ ...prev, [socketService.connect().id!]: data.isCorrect }));
-      }
+      setEvaluatedAnswers(prev => ({
+        ...prev,
+        [data.playerId]: data.isCorrect
+      }));
       // Clear the notification after 5 seconds
       setTimeout(() => {
         setReviewNotification(null);
@@ -388,23 +392,28 @@ const Player: React.FC = () => {
     
     // Add preview mode event listeners
     socketService.on('start_preview_mode', () => {
+      console.log('Preview mode started');
       setPreviewMode(prev => ({ ...prev, isActive: true }));
     });
 
     socketService.on('stop_preview_mode', () => {
+      console.log('Preview mode stopped');
       setPreviewMode({ isActive: false, focusedPlayerId: null });
     });
 
     socketService.on('focus_submission', (data: { playerId: string }) => {
+      console.log('Focus submission:', data);
       setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
     });
 
     // Add player list and board updates
-    socketService.on('player_list', (playerList: Player[]) => {
-      setPlayers(playerList);
+    socketService.on('players_update', (updatedPlayers: Player[]) => {
+      console.log('Players updated:', updatedPlayers);
+      setPlayers(updatedPlayers);
     });
 
     socketService.on('board_update', (boardData: PlayerBoard) => {
+      console.log('Board update received:', boardData);
       setPlayerBoards(prev => {
         const index = prev.findIndex(b => b.playerId === boardData.playerId);
         if (index >= 0) {
@@ -416,11 +425,12 @@ const Player: React.FC = () => {
       });
     });
 
-    socketService.on('answer_submitted', (data: { playerId: string; playerName: string; answer: string }) => {
+    socketService.on('answer_submitted', (submission: AnswerSubmission) => {
+      console.log('Answer submitted:', submission);
       setAllAnswersThisRound(prev => ({
         ...prev,
-        [data.playerId]: {
-          answer: data.answer,
+        [submission.playerId]: {
+          ...submission,
           timestamp: Date.now()
         }
       }));
@@ -444,7 +454,7 @@ const Player: React.FC = () => {
       socketService.off('start_preview_mode');
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
-      socketService.off('player_list');
+      socketService.off('players_update');
       socketService.off('board_update');
       socketService.off('answer_submitted');
       
