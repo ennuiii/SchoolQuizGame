@@ -55,7 +55,6 @@ const GameControls: React.FC<GameControlsProps> = ({
             <button
               className="btn btn-warning flex-grow-1"
               onClick={onEndRoundEarly}
-              disabled={!hasPendingAnswers}
             >
               End Round Early
             </button>
