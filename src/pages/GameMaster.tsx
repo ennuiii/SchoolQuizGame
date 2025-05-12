@@ -831,11 +831,34 @@ const GameMaster: React.FC = () => {
                   />
                   
                   {currentQuestion && (
-                    <QuestionDisplay
-                      question={currentQuestion}
-                    />
+                    <div className="card mb-4">
+                      <div className="card-body">
+                        <QuestionDisplay
+                          question={currentQuestion}
+                        />
+                        <Timer
+                          timeLimit={timeLimit}
+                          timeRemaining={timeRemaining}
+                          isActive={isTimerRunning}
+                        />
+                      </div>
+                    </div>
                   )}
-                  
+
+                  <div className="row">
+                    {playerBoards.map(board => (
+                      <PlayerBoardDisplay
+                        key={board.playerId}
+                        board={board}
+                        isVisible={visibleBoards.has(board.playerId)}
+                        onToggleVisibility={toggleBoardVisibility}
+                        transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                        onScale={handleBoardScale}
+                        onReset={handleBoardReset}
+                      />
+                    ))}
+                  </div>
+
                   <AnswerList
                     answers={pendingAnswers}
                     onEvaluate={evaluateAnswer}
@@ -952,47 +975,6 @@ const GameMaster: React.FC = () => {
         onClose={handleStopPreviewMode}
         isGameMaster={true}
       />
-
-      <div className="row mt-4">
-        <div className="col-md-8">
-          {currentQuestion && (
-            <div className="card mb-4">
-              <div className="card-body">
-                <QuestionDisplay
-                  question={currentQuestion}
-                />
-                <Timer
-                  timeLimit={timeLimit}
-                  timeRemaining={timeRemaining}
-                  isActive={isTimerRunning}
-                />
-              </div>
-            </div>
-          )}
-
-          <div className="row">
-            {playerBoards.map(board => (
-              <PlayerBoardDisplay
-                key={board.playerId}
-                board={board}
-                isVisible={visibleBoards.has(board.playerId)}
-                onToggleVisibility={toggleBoardVisibility}
-                transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                onScale={handleBoardScale}
-                onReset={handleBoardReset}
-              />
-            ))}
-          </div>
-        </div>
-
-        <div className="col-md-4">
-          <AnswerList
-            answers={pendingAnswers}
-            onEvaluate={evaluateAnswer}
-            evaluatedAnswers={evaluatedAnswers}
-          />
-        </div>
-      </div>
     </div>
   );
 };
