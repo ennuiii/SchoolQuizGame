@@ -242,44 +242,35 @@ const GameMaster: React.FC = () => {
     // Connect to socket server
     socketService.connect();
 
-    // Set up event listeners
-    socketService.on('room_created', (data) => {
-      console.log('Room created:', data);
-      setIsLoading(false);
-      
-      // Set room code received from server
-      if (data && data.roomCode) {
-        setRoomCode(data.roomCode);
-        sessionStorage.setItem('roomCode', data.roomCode);
-        sessionStorage.setItem('isGameMaster', 'true');
-      }
-      
-      // Only start the game immediately if questions are already selected
-      if (questions.length > 0) {
-        setCurrentQuestion(questions[0]);
-        
-        // Start the game with sorted questions
-        socketService.startGame(data.roomCode, questions, timeLimit || undefined);
-        setGameStarted(true);
-        
-        // Initialize timer if timeLimit is set
-        if (timeLimit) {
-          setTimeRemaining(timeLimit);
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
-        }
-      }
+    // Set up listeners
+    socketService.on('room_created', (data: { roomCode: string }) => {
+      console.log('Room created:', data.roomCode);
+      setRoomCode(data.roomCode);
     });
-    
-    // Add game_started event listener
+
+    socketService.on('player_joined', (player: Player) => {
+      console.log('Player joined:', player);
+      // Update players list when a player joins
+      setPlayers(prevPlayers => {
+        // Check if player already exists
+        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
+        if (existingIndex >= 0) {
+          // Replace the existing player
+          const updatedPlayers = [...prevPlayers];
+          updatedPlayers[existingIndex] = player;
+          return updatedPlayers;
+        } else {
+          // Add new player
+          return [...prevPlayers, player];
+        }
+      });
+    });
+
+    socketService.on('players_update', (updatedPlayers: Player[]) => {
+      console.log('Players updated:', updatedPlayers);
+      setPlayers(updatedPlayers);
+    });
+
     socketService.on('game_started', (data) => {
       console.log('Game started event received:', data);
       if (data && data.question) {
@@ -317,7 +308,6 @@ const GameMaster: React.FC = () => {
       }
     });
     
-    // Add event handler for new_question event
     socketService.on('new_question', (data) => {
       console.log('New question event received:', data);
       if (data && data.question) {
@@ -355,29 +345,6 @@ const GameMaster: React.FC = () => {
         }
       }
     });
-    
-    socketService.on('player_joined', (player: Player) => {
-      console.log('Player joined:', player);
-      // Update players list when a player joins
-      setPlayers(prevPlayers => {
-        // Check if player already exists
-        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
-        if (existingIndex >= 0) {
-          // Replace the existing player
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingIndex] = player;
-          return updatedPlayers;
-        } else {
-          // Add new player
-          return [...prevPlayers, player];
-        }
-      });
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      console.log('Players updated:', updatedPlayers);
-      setPlayers(updatedPlayers);
-    });
 
     socketService.on('player_board_update', (data: PlayerBoard) => {
       console.log(`Received board update from ${data.playerName}`);
@@ -403,7 +370,6 @@ const GameMaster: React.FC = () => {
       }
     });
 
-    // Listen for board_update events (broadcast to all clients)
     socketService.on('board_update', (data: PlayerBoard) => {
       setPlayerBoards(prevBoards => {
         const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
@@ -480,7 +446,6 @@ const GameMaster: React.FC = () => {
       });
     });
 
-    // Add handler for end_round_early event
     socketService.on('end_round_early', () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -512,10 +477,10 @@ const GameMaster: React.FC = () => {
     return () => {
       // Clean up listeners
       socketService.off('room_created');
-      socketService.off('game_started');
-      socketService.off('new_question');
       socketService.off('player_joined');
       socketService.off('players_update');
+      socketService.off('game_started');
+      socketService.off('new_question');
       socketService.off('player_board_update');
       socketService.off('answer_submitted');
       socketService.off('error');
@@ -529,7 +494,7 @@ const GameMaster: React.FC = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [questions, timeLimit]);
+  }, [navigate]);
 
   useEffect(() => {
     // Start playing background music when component mounts

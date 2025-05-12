@@ -192,19 +192,19 @@ const Player: React.FC = () => {
 
   // Setup socket connection
   useEffect(() => {
-    // Get player info from sessionStorage
+    // Get room code and player name from sessionStorage
     const savedRoomCode = sessionStorage.getItem('roomCode');
     const savedPlayerName = sessionStorage.getItem('playerName');
-    const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
+    const isSpectator = sessionStorage.getItem('isSpectator') === 'true';
 
     if (!savedRoomCode || !savedPlayerName) {
-      navigate('/join');
+      navigate('/');
       return;
     }
 
     setRoomCode(savedRoomCode);
     setPlayerName(savedPlayerName);
-    setIsSpectator(savedIsSpectator);
+    setIsSpectator(isSpectator);
 
     // Connect to socket server
     socketService.connect();
@@ -389,16 +389,16 @@ const Player: React.FC = () => {
       setPlayers(updatedPlayers);
     });
 
-    socketService.on('board_update', (boardData: PlayerBoard) => {
-      console.log('Board update received:', boardData);
-      setPlayerBoards(prev => {
-        const index = prev.findIndex(b => b.playerId === boardData.playerId);
+    socketService.on('board_update', (data: PlayerBoard) => {
+      console.log('Board update received:', data);
+      setPlayerBoards(prevBoards => {
+        const index = prevBoards.findIndex(b => b.playerId === data.playerId);
         if (index >= 0) {
-          const newBoards = [...prev];
-          newBoards[index] = boardData;
+          const newBoards = [...prevBoards];
+          newBoards[index] = data;
           return newBoards;
         }
-        return [...prev, boardData];
+        return [...prevBoards, data];
       });
     });
 
@@ -439,7 +439,7 @@ const Player: React.FC = () => {
       // Disconnect
       socketService.disconnect();
     };
-  }, [navigate, roomCode]);
+  }, [navigate]);
 
   useEffect(() => {
     submittedAnswerRef.current = submittedAnswer;
