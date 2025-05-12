@@ -6,7 +6,9 @@ const JoinGame: React.FC = () => {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [isSpectator, setIsSpectator] = useState(false);
   const [error, setError] = useState('');
+  const [isJoining, setIsJoining] = useState(false);
 
   useEffect(() => {
     // Connect to socket server
@@ -18,13 +20,16 @@ const JoinGame: React.FC = () => {
       sessionStorage.setItem('roomCode', roomCode);
       sessionStorage.setItem('playerName', playerName);
       sessionStorage.setItem('isGameMaster', 'false');
+      sessionStorage.setItem('isSpectator', isSpectator.toString());
       
       // Navigate to player screen
+      setIsJoining(false);
       navigate('/player');
     });
 
     socketService.on('error', (errorMsg: string) => {
       setError(errorMsg);
+      setIsJoining(false);
     });
 
     return () => {
@@ -32,7 +37,7 @@ const JoinGame: React.FC = () => {
       socketService.off('joined_room');
       socketService.off('error');
     };
-  }, [navigate, playerName]);
+  }, [navigate, playerName, isSpectator]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -48,7 +53,14 @@ const JoinGame: React.FC = () => {
     }
     
     setError('');
-    socketService.joinRoom(roomCode, playerName);
+    setIsJoining(true);
+    
+    // Join room as spectator or player
+    if (isSpectator) {
+      socketService.joinAsSpectator(roomCode, playerName);
+    } else {
+      socketService.joinRoom(roomCode, playerName);
+    }
   };
 
   return (
@@ -75,6 +87,7 @@ const JoinGame: React.FC = () => {
                 value={roomCode}
                 onChange={(e) => setRoomCode(e.target.value)}
                 maxLength={6}
+                disabled={isJoining}
                 style={{ fontFamily: 'Schoolbell, Patrick Hand, cursive' }}
               />
             </div>
@@ -88,18 +101,40 @@ const JoinGame: React.FC = () => {
                 value={playerName}
                 onChange={(e) => setPlayerName(e.target.value)}
                 maxLength={15}
+                disabled={isJoining}
                 style={{ fontFamily: 'Schoolbell, Patrick Hand, cursive' }}
               />
             </div>
+            <div className="form-check mb-3">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="spectatorCheck"
+                checked={isSpectator}
+                onChange={(e) => setIsSpectator(e.target.checked)}
+                disabled={isJoining}
+              />
+              <label className="form-check-label" htmlFor="spectatorCheck">
+                Join as Spectator
+              </label>
+              <small className="form-text text-muted d-block mt-1">
+                Spectators can watch the game without participating. You'll be able to see all players' answers and drawings.
+              </small>
+            </div>
             <div className="d-grid gap-2">
-              <button type="submit" className="btn btn-success btn-lg d-flex align-items-center gap-2 justify-content-center">
+              <button 
+                type="submit" 
+                className="btn btn-success btn-lg d-flex align-items-center gap-2 justify-content-center"
+                disabled={isJoining}
+              >
                 <span className="bi bi-door-open"></span>
-                Join Game
+                {isJoining ? 'Joining...' : 'Join Game'}
               </button>
               <button 
                 type="button" 
                 className="btn btn-outline-secondary d-flex align-items-center gap-2 justify-content-center"
                 onClick={() => navigate('/')}
+                disabled={isJoining}
               >
                 <span className="bi bi-arrow-left"></span>
                 Back to Home

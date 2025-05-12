@@ -533,6 +533,59 @@ io.on('connection', (socket) => {
       console.log(`After disconnect, remaining rooms:`, Object.keys(gameRooms));
     }
   });
+
+  // Handle board updates
+  socket.on('update_board', ({ roomCode, boardData }) => {
+    const player = gameRooms[roomCode].players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator) {
+      socket.emit('error', 'Only players can update the board');
+      return;
+    }
+
+    const room = gameRooms[roomCode];
+    if (room) {
+      room.boards.set(socket.id, boardData);
+      socket.to(roomCode).emit('board_updated', { playerId: socket.id, boardData });
+    }
+  });
+
+  // Handle spectator joining
+  socket.on('join_as_spectator', ({ roomCode, playerName }) => {
+    console.log(`Spectator ${playerName} attempting to join room ${roomCode}`);
+    
+    const room = gameRooms[roomCode];
+    if (!room) {
+      socket.emit('error', 'Room not found');
+      return;
+    }
+
+    // Add spectator to room
+    socket.join(roomCode);
+    const spectator = {
+      id: socket.id,
+      name: playerName,
+      isSpectator: true
+    };
+    room.spectators.add(socket.id);
+
+    // Notify spectator they joined successfully
+    socket.emit('joined_room', roomCode);
+
+    // Send current game state to spectator
+    if (room.currentQuestion) {
+      socket.emit('question', room.currentQuestion);
+    }
+
+    // Broadcast player update to all clients in room
+    const roomPlayers = room.players.map(player => {
+      return {
+        id: player.id,
+        name: player.name,
+        isSpectator: false
+      };
+    });
+    io.to(roomCode).emit('players_updated', roomPlayers);
+  });
 });
 
 // Helper function to get player name from room

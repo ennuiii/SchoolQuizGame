@@ -55,6 +55,7 @@ const Player: React.FC = () => {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [isSpectator, setIsSpectator] = useState(false);
   const [lives, setLives] = useState(3);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -191,34 +192,34 @@ const Player: React.FC = () => {
 
   // Setup socket connection
   useEffect(() => {
-    // Get data from session
+    // Get player info from sessionStorage
     const savedRoomCode = sessionStorage.getItem('roomCode');
     const savedPlayerName = sessionStorage.getItem('playerName');
-    
+    const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
+
     if (!savedRoomCode || !savedPlayerName) {
       navigate('/join');
       return;
     }
-    
+
     setRoomCode(savedRoomCode);
     setPlayerName(savedPlayerName);
-    
-    // Connect to socket
-    const socket = socketService.connect();
-    console.log('Player connected with socket ID:', socket.id);
-    
-    // Add a custom property to store room code with the socket object
-    // This will be available on the server side
-    (socket as any).roomCode = savedRoomCode;
-    
-    // Explicitly re-join the room when reconnecting
-    socketService.joinRoom(savedRoomCode, savedPlayerName);
-    
-    // Setup listeners
-    socketService.on('joined_room', (joinedRoomCode: string) => {
-      console.log('Confirmed joined room:', joinedRoomCode);
+    setIsSpectator(savedIsSpectator);
+
+    // Connect to socket server
+    socketService.connect();
+
+    // Set up listeners
+    socketService.on('question', (question: Question) => {
+      setCurrentQuestion(question);
+      setAnswer('');
     });
-    
+
+    socketService.on('error', (errorMsg: string) => {
+      setErrorMsg(errorMsg);
+      setSubmittedAnswer(false);
+    });
+
     socketService.on('game_started', (data: { question: Question, timeLimit?: number }) => {
       setGameStarted(true);
       setCurrentQuestion(data.question);
@@ -303,18 +304,6 @@ const Player: React.FC = () => {
       setTimeout(() => navigate('/'), 3000);
     });
     
-    socketService.on('error', (msg: string) => {
-      setErrorMsg(msg);
-      if (msg === 'Room does not exist') {
-        // If room doesn't exist anymore, redirect to join page
-        setTimeout(() => {
-          sessionStorage.removeItem('roomCode');
-          sessionStorage.removeItem('playerName');
-          navigate('/join');
-        }, 3000);
-      }
-    });
-    
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
       const now = performance.now();
       // Only update if at least 900ms have passed since last update
@@ -378,23 +367,6 @@ const Player: React.FC = () => {
       }
     });
     
-    socketService.on('game_restarted', () => {
-      // Reset game state
-      setGameStarted(false);
-      setGameOver(false);
-      setIsWinner(false);
-      setCurrentQuestion(null);
-      setAnswer('');
-      setSubmittedAnswer(false);
-      setLives(3);
-      setTimeLimit(null);
-      setTimeRemaining(null);
-      resetCanvas();
-      setEvaluatedAnswers({});
-      // Show a message about game restart
-      showFlashMessage('Game has been restarted. Waiting for game master to start a new round.', 'info');
-    });
-    
     // Add preview mode event listeners
     socketService.on('start_preview_mode', () => {
       console.log('Preview mode started');
@@ -444,13 +416,14 @@ const Player: React.FC = () => {
     return () => {
       console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       // Clean up listeners
+      socketService.off('question');
+      socketService.off('error');
       socketService.off('game_started');
       socketService.off('new_question');
       socketService.off('answer_evaluation');
       socketService.off('game_over');
       socketService.off('game_winner');
       socketService.off('gamemaster_left');
-      socketService.off('error');
       socketService.off('timer_update');
       socketService.off('time_up');
       socketService.off('end_round_early');
@@ -633,6 +606,41 @@ const Player: React.FC = () => {
           >
             Back to Home
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSpectator) {
+    return (
+      <div className="container py-4">
+        <div className="row justify-content-center">
+          <div className="col-md-8">
+            <div className="card">
+              <div className="card-header">
+                <h2 className="mb-0">Spectator View</h2>
+              </div>
+              <div className="card-body">
+                <p className="lead">
+                  You are watching the game as a spectator. You can see all players' answers and drawings in real-time.
+                </p>
+                {currentQuestion && (
+                  <div className="mb-4">
+                    <h3>Current Question:</h3>
+                    <p className="lead">{currentQuestion.text}</p>
+                  </div>
+                )}
+                <div className="d-grid gap-2">
+                  <button 
+                    className="btn btn-outline-secondary"
+                    onClick={() => navigate('/')}
+                  >
+                    Leave Game
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     );
