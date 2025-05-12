@@ -192,7 +192,7 @@ body {
 /* Chalkboard drawing area */
 .drawing-board-container {
   background: #2d4739 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  border: 12px solid #1a1a1a;
+  border: 12px solid #8B4513;
   border-radius: 8px;
   box-shadow: 
     0 4px 12px #00000033,
@@ -251,8 +251,6 @@ body {
   outline-offset: 2px;
   transition: outline 0.2s;
 }
-
-/* Add more playful details as needed! */
 
 /* Global Styles */
 body {
@@ -413,12 +411,12 @@ body {
 
 /* School desk background for the game master */
 .game-master-container {
-  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/squared-paper.png'); /* Playful notebook grid */
   color: #2d4739;
-  border-radius: 16px;
+  border-radius: 24px;
   box-shadow: 0 8px 24px #00000044;
-  border: 3px dashed #ffe066;
-  padding: 20px;
+  border: 4px dashed #ffe066;
+  padding: 28px;
 }
 
 .game-master-container .card-header {

@@ -141,14 +141,15 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         height: 'auto',
                         maxHeight: '400px',
                         aspectRatio: '2/1',
-                        backgroundColor: '#0C6A35',
-                        borderRadius: '4px',
+                        backgroundColor: '#2d4739',
+                        borderRadius: '16px',
                         overflow: 'hidden',
-                        border: '12px solid #8B4513',
-                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                        border: '6px dashed #ffe066',
+                        boxShadow: '0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.15)',
                         margin: '0 auto',
                         cursor: 'pointer',
-                        transition: 'box-shadow 0.2s, border-color 0.2s'
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        position: 'relative'
                       }}
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
@@ -163,7 +164,8 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                           minWidth: 0,
                           objectFit: 'contain',
                           transform: 'scale(1)',
-                          transformOrigin: 'top left'
+                          transformOrigin: 'top left',
+                          background: 'transparent'
                         }}
                       />
                     </div>
@@ -211,14 +213,15 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         height: 'auto',
                         maxHeight: '400px',
                         aspectRatio: '2/1',
-                        backgroundColor: '#0C6A35',
-                        borderRadius: '4px',
+                        backgroundColor: '#2d4739',
+                        borderRadius: '16px',
                         overflow: 'hidden',
-                        border: '12px solid #8B4513',
-                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                        border: '6px dashed #ffe066',
+                        boxShadow: '0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.15)',
                         margin: '0 auto',
                         cursor: 'pointer',
-                        transition: 'box-shadow 0.2s, border-color 0.2s'
+                        transition: 'box-shadow 0.2s, border-color 0.2s',
+                        position: 'relative'
                       }}
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
@@ -233,7 +236,8 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                           minWidth: 0,
                           objectFit: 'contain',
                           transform: 'scale(1)',
-                          transformOrigin: 'top left'
+                          transformOrigin: 'top left',
+                          background: 'transparent'
                         }}
                       />
                     </div>

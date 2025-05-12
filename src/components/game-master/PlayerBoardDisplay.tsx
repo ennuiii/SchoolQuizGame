@@ -69,13 +69,14 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
             style={{
               width: '100%',
               minHeight: '300px',
-              backgroundColor: '#0C6A35',
-              borderRadius: '4px',
+              backgroundColor: '#2d4739',
+              borderRadius: '16px',
               overflow: 'hidden',
-              border: '8px solid #8B4513',
-              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+              border: '6px dashed #ffe066',
+              boxShadow: '0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.15)',
               margin: '0 auto',
-              maxWidth: '350px'
+              maxWidth: '350px',
+              position: 'relative'
             }}
           >
             <div
@@ -86,7 +87,8 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 height: '100%',
                 transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
                 transformOrigin: 'top left',
-                transition: 'transform 0.2s ease-out'
+                transition: 'transform 0.2s ease-out',
+                background: 'transparent'
               }}
             />
           </div>
