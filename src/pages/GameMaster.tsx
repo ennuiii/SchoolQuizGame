@@ -110,6 +110,11 @@ const GameMaster: React.FC = () => {
       setErrorMsg('Please select at least one question!');
       return;
     }
+
+    if (players.length === 0) {
+      setErrorMsg('Please wait for at least one player to join before starting the game!');
+      return;
+    }
     
     // Sort questions by grade before starting the game
     const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
@@ -123,7 +128,7 @@ const GameMaster: React.FC = () => {
     const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
     socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
     setGameStarted(true);
-  }, [roomCode, questions, timeLimit]);
+  }, [roomCode, questions, timeLimit, players]);
 
   const nextQuestion = useCallback(() => {
     if (currentQuestionIndex < questions.length - 1) {
