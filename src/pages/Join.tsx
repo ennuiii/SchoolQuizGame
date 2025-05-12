@@ -58,69 +58,66 @@ const Join: React.FC = () => {
   };
 
   return (
-    <div className="container">
-      <div className="row justify-content-center">
-        <div className="col-md-6">
-          <div className="card mt-5">
-            <div className="card-header">
-              <h2 className="text-center">Join Game</h2>
+    <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: '100vh' }}>
+      <div className="card p-4" style={{ maxWidth: 420, width: '100%' }}>
+        <div className="card-header d-flex align-items-center gap-2 justify-content-center">
+          <span className="bi bi-pencil section-icon" aria-label="Pencil"></span>
+          <h2 className="mb-0">Join Game</h2>
+        </div>
+        <div className="card-body">
+          {errorMsg && (
+            <div className="alert alert-danger" role="alert">
+              {errorMsg}
             </div>
-            <div className="card-body">
-              {errorMsg && (
-                <div className="alert alert-danger" role="alert">
-                  {errorMsg}
-                </div>
-              )}
-              
-              <form onSubmit={handleSubmit}>
-                <div className="mb-3">
-                  <label htmlFor="roomCode" className="form-label">Room Code</label>
-                  <input 
-                    type="text" 
-                    className="form-control form-control-lg" 
-                    id="roomCode"
-                    value={roomCode}
-                    onChange={(e) => setRoomCode(e.target.value)}
-                    placeholder="Enter 6-digit code"
-                    disabled={isJoining}
-                    maxLength={6}
-                  />
-                </div>
-                
-                <div className="mb-4">
-                  <label htmlFor="playerName" className="form-label">Your Name</label>
-                  <input 
-                    type="text" 
-                    className="form-control form-control-lg" 
-                    id="playerName"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                    placeholder="Enter your name"
-                    disabled={isJoining}
-                  />
-                </div>
-                
-                <div className="d-grid">
-                  <button 
-                    type="submit" 
-                    className="btn btn-primary btn-lg"
-                    disabled={isJoining}
-                  >
-                    {isJoining ? 'Joining...' : 'Join Game'}
-                  </button>
-                </div>
-              </form>
+          )}
+          <form onSubmit={handleSubmit}>
+            <div className="mb-3">
+              <label htmlFor="roomCode" className="form-label">Room Code</label>
+              <input 
+                type="text" 
+                className="form-control form-control-lg" 
+                id="roomCode"
+                value={roomCode}
+                onChange={(e) => setRoomCode(e.target.value)}
+                placeholder="Enter 6-digit code"
+                disabled={isJoining}
+                maxLength={6}
+                style={{ fontFamily: 'Schoolbell, Patrick Hand, cursive' }}
+              />
             </div>
-            <div className="card-footer text-center">
+            <div className="mb-4">
+              <label htmlFor="playerName" className="form-label">Your Name</label>
+              <input 
+                type="text" 
+                className="form-control form-control-lg" 
+                id="playerName"
+                value={playerName}
+                onChange={(e) => setPlayerName(e.target.value)}
+                placeholder="Enter your name"
+                disabled={isJoining}
+                style={{ fontFamily: 'Schoolbell, Patrick Hand, cursive' }}
+              />
+            </div>
+            <div className="d-grid gap-2">
               <button 
-                className="btn btn-link"
+                type="submit" 
+                className="btn btn-primary btn-lg d-flex align-items-center gap-2 justify-content-center"
+                disabled={isJoining}
+              >
+                <span className="bi bi-door-open"></span>
+                {isJoining ? 'Joining...' : 'Join Game'}
+              </button>
+              <button 
+                type="button"
+                className="btn btn-outline-secondary d-flex align-items-center gap-2 justify-content-center"
                 onClick={() => navigate('/')}
                 disabled={isJoining}
               >
+                <span className="bi bi-arrow-left"></span>
                 Back to Home
               </button>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </div>
