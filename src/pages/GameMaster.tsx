@@ -591,9 +591,9 @@ const GameMaster: React.FC = () => {
   }, [isRestarting]);
 
   return (
-    <div className="container-fluid">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="text-center mb-0">Game Master Dashboard</h1>
+    <div className="container-fluid px-2 px-md-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+        <h1 className="text-center mb-3 mb-md-0">Game Master Dashboard</h1>
         <div className="d-flex align-items-center gap-2">
           <input
             type="range"
@@ -654,7 +654,7 @@ const GameMaster: React.FC = () => {
       
       {!roomCode ? (
         <div className="row justify-content-center">
-          <div className="col-md-6">
+          <div className="col-12 col-md-6">
             <div className="card p-4 text-center">
               <h3>Create a New Game Room</h3>
               <p>As the Game Master, you'll manage questions and evaluate answers.</p>
@@ -689,14 +689,14 @@ const GameMaster: React.FC = () => {
       ) : (
         <div className="game-master-container" style={{ 
           backgroundImage: 'linear-gradient(to bottom right, #8B4513, #A0522D)', 
-          padding: '20px', 
+          padding: '15px', 
           borderRadius: '12px',
           boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
           backgroundSize: '100% 100%',
           backgroundRepeat: 'no-repeat'
         }}>
-          <div className="row">
-            <div className="col-md-4">
+          <div className="row g-3">
+            <div className="col-12 col-md-4">
               <RoomCode roomCode={roomCode} />
               <PlayerList 
                 players={players}
@@ -706,7 +706,7 @@ const GameMaster: React.FC = () => {
               />
             </div>
             
-            <div className="col-md-8">
+            <div className="col-12 col-md-8">
               <GameControls
                 gameStarted={gameStarted}
                 currentQuestionIndex={currentQuestionIndex}
@@ -739,17 +739,18 @@ const GameMaster: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="row">
+                  <div className="row g-3">
                     {playerBoards.map(board => (
-                      <PlayerBoardDisplay
-                        key={board.playerId}
-                        board={board}
-                        isVisible={visibleBoards.has(board.playerId)}
-                        onToggleVisibility={toggleBoardVisibility}
-                        transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                        onScale={handleBoardScale}
-                        onReset={handleBoardReset}
-                      />
+                      <div key={board.playerId} className="col-12 col-md-6">
+                        <PlayerBoardDisplay
+                          board={board}
+                          isVisible={visibleBoards.has(board.playerId)}
+                          onToggleVisibility={toggleBoardVisibility}
+                          transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                          onScale={handleBoardScale}
+                          onReset={handleBoardReset}
+                        />
+                      </div>
                     ))}
                   </div>
 
@@ -828,11 +829,13 @@ const GameMaster: React.FC = () => {
         background: 'rgba(255, 255, 255, 0.9)',
         padding: '10px 20px',
         borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+        width: '90%',
+        maxWidth: '500px'
       }}>
         {!previewMode.isActive ? (
           <button
-            className="btn btn-primary"
+            className="btn btn-primary w-100"
             onClick={handleStartPreviewMode}
             disabled={!allAnswersIn}
           >
@@ -841,14 +844,14 @@ const GameMaster: React.FC = () => {
         ) : (
           <>
             <button
-              className="btn btn-secondary"
+              className="btn btn-secondary w-100"
               onClick={handleStopPreviewMode}
             >
               Stop Preview Mode
             </button>
             {previewMode.focusedPlayerId && (
               <button
-                className="btn btn-outline-primary"
+                className="btn btn-outline-primary w-100"
                 onClick={() => handleFocusSubmission('')}
               >
                 Back to Gallery

@@ -51,9 +51,89 @@ body {
   margin-top: 30px;
 }
 
-@media (max-width: 576px) {
-  .home-buttons {
+/* Mobile Responsive Styles */
+@media (max-width: 768px) {
+  .container-fluid {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  h1 {
+    font-size: 1.8rem;
+  }
+
+  h2 {
+    font-size: 1.5rem;
+  }
+
+  h3 {
+    font-size: 1.3rem;
+  }
+
+  .card {
+    margin-bottom: 15px;
+  }
+
+  .card-body {
+    padding: 15px;
+  }
+
+  .game-master-container {
+    padding: 10px !important;
+  }
+
+  .drawing-board-container {
+    min-height: 250px;
+  }
+
+  .drawing-board {
+    min-height: 230px;
+  }
+
+  .room-code-display {
+    font-size: 1.2rem;
+    padding: 8px 15px;
+  }
+
+  .timer {
+    font-size: 1.2rem;
+    min-width: 100px;
+  }
+
+  .lives-display {
+    font-size: 1.2rem;
+  }
+
+  .life {
+    font-size: 1.5rem;
+  }
+
+  .preview-mode-controls {
+    bottom: 10px;
+    padding: 8px 15px;
+  }
+
+  .btn {
+    padding: 0.375rem 0.75rem;
+    font-size: 0.9rem;
+  }
+
+  .btn-lg {
+    padding: 0.5rem 1rem;
+    font-size: 1.1rem;
+  }
+
+  .input-group {
     flex-direction: column;
+  }
+
+  .input-group > * {
+    width: 100% !important;
+    margin-bottom: 5px;
+  }
+
+  .input-group > .btn {
+    margin-bottom: 0;
   }
 }
 
