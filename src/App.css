@@ -392,10 +392,10 @@ body {
 
 /* School desk background for the game master */
 .game-master-container {
-  background-color: #8b5a2b;
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+  background: linear-gradient(135deg, #3e2723 80%, #5d4037 100%);
+  color: #ffe066;
+  border-radius: 16px;
+  box-shadow: 0 8px 24px #00000044;
 }
 
 /* Flash messages */
@@ -426,4 +426,34 @@ body {
     gap: 16px;
     align-items: center;
   }
+}
+
+.preview-board-clickable:hover {
+  border-color: #ffe066;
+  box-shadow: 0 6px 18px #ffe06699, 0 4px 8px rgba(0,0,0,0.2);
+  filter: brightness(1.08);
+}
+
+/* Player dashboard name and room code backgrounds */
+.player-dashboard-header {
+  background: rgba(44, 62, 80, 0.85);
+  color: #ffe066;
+  border-radius: 12px;
+  padding: 12px 20px;
+  margin-bottom: 18px;
+  box-shadow: 0 2px 8px #00000022;
+  font-size: 1.2rem;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+}
+
+.player-dashboard-roomcode {
+  background: #ffe066;
+  color: #2d4739;
+  border-radius: 10px;
+  padding: 6px 16px;
+  font-size: 1.1rem;
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  margin-bottom: 10px;
+  display: inline-block;
+  box-shadow: 0 2px 8px #00000022;
 } 

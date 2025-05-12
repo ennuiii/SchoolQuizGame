@@ -133,19 +133,26 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         <p className="lead">{answer.answer}</p>
                       </div>
                     )}
-                    <div className="board-container d-flex justify-content-center align-items-center" style={{
-                      width: '100%',
-                      maxWidth: '800px',
-                      height: 'auto',
-                      maxHeight: '400px',
-                      aspectRatio: '2/1',
-                      backgroundColor: '#0C6A35',
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                      border: '12px solid #8B4513',
-                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                      margin: '0 auto'
-                    }}>
+                    <div
+                      className="board-container d-flex justify-content-center align-items-center preview-board-clickable"
+                      style={{
+                        width: '100%',
+                        maxWidth: '800px',
+                        height: 'auto',
+                        maxHeight: '400px',
+                        aspectRatio: '2/1',
+                        backgroundColor: '#0C6A35',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        border: '12px solid #8B4513',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                        margin: '0 auto',
+                        cursor: 'pointer',
+                        transition: 'box-shadow 0.2s, border-color 0.2s'
+                      }}
+                      onClick={() => onFocus(board.playerId)}
+                      title="Click to enlarge"
+                    >
                       <div
                         className="drawing-board"
                         dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
@@ -196,19 +203,26 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         <p className="mb-1"><strong>Answer:</strong> {answer.answer}</p>
                       </div>
                     )}
-                    <div className="board-container d-flex justify-content-center align-items-center" style={{
-                      width: '100%',
-                      maxWidth: '800px',
-                      height: 'auto',
-                      maxHeight: '400px',
-                      aspectRatio: '2/1',
-                      backgroundColor: '#0C6A35',
-                      borderRadius: '4px',
-                      overflow: 'hidden',
-                      border: '12px solid #8B4513',
-                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                      margin: '0 auto'
-                    }}>
+                    <div
+                      className="board-container d-flex justify-content-center align-items-center preview-board-clickable"
+                      style={{
+                        width: '100%',
+                        maxWidth: '800px',
+                        height: 'auto',
+                        maxHeight: '400px',
+                        aspectRatio: '2/1',
+                        backgroundColor: '#0C6A35',
+                        borderRadius: '4px',
+                        overflow: 'hidden',
+                        border: '12px solid #8B4513',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                        margin: '0 auto',
+                        cursor: 'pointer',
+                        transition: 'box-shadow 0.2s, border-color 0.2s'
+                      }}
+                      onClick={() => onFocus(board.playerId)}
+                      title="Click to enlarge"
+                    >
                       <div
                         className="drawing-board"
                         dangerouslySetInnerHTML={{ __html: board.boardData || '' }}

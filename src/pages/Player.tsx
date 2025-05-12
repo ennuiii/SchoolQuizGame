@@ -671,8 +671,12 @@ const Player: React.FC = () => {
         <div className="col-12 col-md-8">
           <div className="row g-3 mb-4">
             <div className="col-12 col-md-6">
-              <h2 className="h4 mb-2">Player: {playerName}</h2>
-              <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
+              <div className="player-dashboard-header mb-2">
+                Player: {playerName}
+              </div>
+              <div className="player-dashboard-roomcode">
+                Room Code: <strong>{roomCode}</strong>
+              </div>
             </div>
             <div className="col-6 col-md-3">
               {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
