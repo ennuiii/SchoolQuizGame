@@ -69,11 +69,6 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
             style={{
               width: '100%',
               minHeight: '250px',
-              backgroundColor: '#0C6A35',
-              borderRadius: '8px',
-              overflow: 'hidden',
-              border: '12px solid #8B4513',
-              boxShadow: '0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.18)',
               margin: '0 auto',
               maxWidth: '800px',
               position: 'relative'

@@ -115,13 +115,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
             maxWidth: '800px',
             height: 'auto',
             minHeight: '250px',
-            border: '12px solid #8B4513', 
-            borderRadius: '8px',
-            boxShadow: '0 4px 12px #00000033, inset 0 0 20px rgba(0,0,0,0.18)',
             position: 'relative',
             overflow: 'hidden',
             margin: '0 auto',
-            background: '#0C6A35',
           }}
         >
           <canvas 
