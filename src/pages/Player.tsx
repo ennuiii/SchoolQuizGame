@@ -275,7 +275,7 @@ const Player: React.FC = () => {
       // Update evaluatedAnswers for preview mode
       setEvaluatedAnswers(prev => ({
         ...prev,
-        [data.playerId]: data.isCorrect
+        [data.playerId]: data.isCorrect  // Use the playerId from the data
       }));
       // Clear the notification after 5 seconds
       setTimeout(() => {

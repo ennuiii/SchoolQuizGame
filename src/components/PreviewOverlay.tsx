@@ -84,8 +84,8 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                   <div className="answer-container mt-3 text-center">
                     <h4>Answer:</h4>
                     <p>{focusedAnswer?.answer || 'No answer submitted'}{' '}
-                      {evalStatus === true && <span title="Correct" style={{ fontSize: '1.5em', color: 'green' }}>👍</span>}
-                      {evalStatus === false && <span title="Incorrect" style={{ fontSize: '1.5em', color: 'red' }}>👎</span>}
+                      {evalStatus === true && <span title="Correct" style={{ fontSize: '2em', color: 'green', background: 'rgba(0,255,0,0.1)', padding: '4px 8px', borderRadius: '4px' }}>👍</span>}
+                      {evalStatus === false && <span title="Incorrect" style={{ fontSize: '2em', color: 'red', background: 'rgba(255,0,0,0.1)', padding: '4px 8px', borderRadius: '4px' }}>👎</span>}
                     </p>
                   </div>
                   <div className="navigation-controls mt-4" style={{ display: 'flex', justifyContent: 'center', gap: '10px' }}>
@@ -128,8 +128,8 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                   </div>
                   <div className="answer-preview text-center">
                     <p className="mb-0">{answer?.answer || 'No answer submitted'}{' '}
-                      {evalStatus === true && <span title="Correct" style={{ fontSize: '1.5em', color: 'green' }}>👍</span>}
-                      {evalStatus === false && <span title="Incorrect" style={{ fontSize: '1.5em', color: 'red' }}>👎</span>}
+                      {evalStatus === true && <span title="Correct" style={{ fontSize: '2em', color: 'green', background: 'rgba(0,255,0,0.1)', padding: '4px 8px', borderRadius: '4px' }}>👍</span>}
+                      {evalStatus === false && <span title="Incorrect" style={{ fontSize: '2em', color: 'red', background: 'rgba(255,0,0,0.1)', padding: '4px 8px', borderRadius: '4px' }}>👎</span>}
                     </p>
                   </div>
                 </div>
