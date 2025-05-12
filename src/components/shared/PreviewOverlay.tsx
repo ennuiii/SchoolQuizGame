@@ -133,14 +133,18 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         <p className="lead">{answer.answer}</p>
                       </div>
                     )}
-                    <div className="board-container" style={{
+                    <div className="board-container d-flex justify-content-center align-items-center" style={{
                       width: '100%',
-                      height: '400px',
+                      maxWidth: '800px',
+                      height: 'auto',
+                      maxHeight: '400px',
+                      aspectRatio: '2/1',
                       backgroundColor: '#0C6A35',
                       borderRadius: '4px',
                       overflow: 'hidden',
                       border: '12px solid #8B4513',
-                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                      margin: '0 auto'
                     }}>
                       <div
                         className="drawing-board"
@@ -148,6 +152,9 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         style={{
                           width: '100%',
                           height: '100%',
+                          minHeight: 0,
+                          minWidth: 0,
+                          objectFit: 'contain',
                           transform: 'scale(1)',
                           transformOrigin: 'top left'
                         }}
@@ -189,24 +196,29 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         <p className="mb-1"><strong>Answer:</strong> {answer.answer}</p>
                       </div>
                     )}
-                    <div className="board-container" style={{
+                    <div className="board-container d-flex justify-content-center align-items-center" style={{
                       width: '100%',
-                      height: '200px',
+                      maxWidth: '800px',
+                      height: 'auto',
+                      maxHeight: '400px',
+                      aspectRatio: '2/1',
                       backgroundColor: '#0C6A35',
                       borderRadius: '4px',
                       overflow: 'hidden',
-                      cursor: 'pointer',
-                      border: '8px solid #8B4513',
-                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                    }}
-                    onClick={() => onFocus(board.playerId)}>
+                      border: '12px solid #8B4513',
+                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                      margin: '0 auto'
+                    }}>
                       <div
                         className="drawing-board"
                         dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
                         style={{
                           width: '100%',
                           height: '100%',
-                          transform: 'scale(0.5)',
+                          minHeight: 0,
+                          minWidth: 0,
+                          objectFit: 'contain',
+                          transform: 'scale(1)',
                           transformOrigin: 'top left'
                         }}
                       />
