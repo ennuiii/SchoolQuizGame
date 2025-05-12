@@ -448,6 +448,7 @@ const GameMaster: React.FC = () => {
       setTimeRemaining(null);
       setIsRestarting(false);
       setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {

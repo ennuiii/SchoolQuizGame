@@ -390,7 +390,7 @@ const Player: React.FC = () => {
       setTimeLimit(null);
       setTimeRemaining(null);
       resetCanvas();
-      
+      setEvaluatedAnswers({});
       // Show a message about game restart
       showFlashMessage('Game has been restarted. Waiting for game master to start a new round.', 'info');
     });
