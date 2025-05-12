@@ -670,11 +670,11 @@ const Player: React.FC = () => {
       <div className="row g-3">
         <div className="col-12 col-md-8">
           <div className="row g-3 mb-4">
-            <div className="col-12 col-md-6">
-              <div className="player-dashboard-header mb-2">
-                Player: {playerName}
+            <div className="col-12 col-md-6 d-flex flex-column gap-2 align-items-start">
+              <div className="room-code-display">
+                Player: <strong>{playerName}</strong>
               </div>
-              <div className="player-dashboard-roomcode">
+              <div className="room-code-display">
                 Room Code: <strong>{roomCode}</strong>
               </div>
             </div>
