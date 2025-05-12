@@ -18,17 +18,20 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ currentQuestion }) => {
 
   return (
     <div className="card mb-4">
-      <div className="card-header">
-        <h3 className="mb-0">Question</h3>
+      <div className="card-header bg-light">
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-2">
+          <h3 className="h5 mb-0">Current Question</h3>
+          <div className="d-flex gap-2">
+            <span className="badge bg-primary">Grade {currentQuestion.grade}</span>
+            <span className="badge bg-secondary">{currentQuestion.subject}</span>
+            {currentQuestion.language && (
+              <span className="badge bg-info">{currentQuestion.language.toUpperCase()}</span>
+            )}
+          </div>
+        </div>
       </div>
       <div className="card-body">
-        <div className="question-container">
-          <p className="lead mb-1">{currentQuestion.text}</p>
-          <small>
-            Grade: {currentQuestion.grade} | Subject: {currentQuestion.subject}
-            {currentQuestion.language && ` | Language: ${currentQuestion.language}`}
-          </small>
-        </div>
+        <p className="lead mb-0">{currentQuestion.text}</p>
       </div>
     </div>
   );

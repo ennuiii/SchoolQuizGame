@@ -639,9 +639,9 @@ const Player: React.FC = () => {
   }
 
   return (
-    <div className="container">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="text-center mb-0">Player Dashboard</h1>
+    <div className="container-fluid px-2 px-md-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+        <h1 className="text-center mb-3 mb-md-0">Player Dashboard</h1>
         <div className="d-flex align-items-center gap-2">
           <input
             type="range"
@@ -667,17 +667,17 @@ const Player: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="row">
-        <div className="col-md-8">
-          <div className="row mb-4">
-            <div className="col-md-6">
-              <h1>Player: {playerName}</h1>
+      <div className="row g-3">
+        <div className="col-12 col-md-8">
+          <div className="row g-3 mb-4">
+            <div className="col-12 col-md-6">
+              <h2 className="h4 mb-2">Player: {playerName}</h2>
               <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
             </div>
-            <div className="col-md-3">
+            <div className="col-6 col-md-3">
               {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
                 <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
-                  <h3>
+                  <h3 className="h5">
                     <span className="me-2">Time:</span>
                     <span>{timeRemaining}</span>
                     <span className="ms-1">sec</span>
@@ -685,7 +685,7 @@ const Player: React.FC = () => {
                 </div>
               )}
             </div>
-            <div className="col-md-3 text-end">
+            <div className="col-6 col-md-3 text-end">
               <div className="lives-display">
                 <span className="me-2">Lives:</span>
                 {[...Array(lives)].map((_, i) => (
@@ -721,7 +721,7 @@ const Player: React.FC = () => {
           
           {!gameStarted ? (
             <div className="card p-4 text-center">
-              <h2 className="mb-3">Waiting for Game Master to start the game</h2>
+              <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
               <p>Get ready! The game will begin soon.</p>
               <div className="spinner-border text-primary mx-auto mt-3" role="status">
                 <span className="visually-hidden">Loading...</span>
@@ -742,10 +742,10 @@ const Player: React.FC = () => {
               
               <div className="card mb-4">
                 <div className="card-header d-flex justify-content-between align-items-center">
-                  <h3 className="mb-0">Your Answer</h3>
+                  <h3 className="h5 mb-0">Your Answer</h3>
                   <div>
                     <button 
-                      className="btn btn-outline-light me-2"
+                      className="btn btn-outline-light"
                       onClick={clearCanvas}
                       style={{ backgroundColor: '#8B4513', border: 'none' }}
                     >
@@ -755,8 +755,10 @@ const Player: React.FC = () => {
                 </div>
                 <div className="card-body">
                   <div className="mb-4 drawing-board-container" style={{ 
-                    width: '800px',
-                    height: '400px',
+                    width: '100%',
+                    maxWidth: '800px',
+                    height: 'auto',
+                    minHeight: '250px',
                     border: '12px solid #8B4513', 
                     borderRadius: '4px',
                     boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
@@ -765,7 +767,7 @@ const Player: React.FC = () => {
                     margin: '0 auto',
                     background: '#0C6A35',
                   }}>
-                    <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block' }} />
+                    <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block', width: '100%', height: '100%' }} />
                   </div>
                   
                   <div className="input-group mb-3">
@@ -807,7 +809,7 @@ const Player: React.FC = () => {
             isGameMaster={false}
           />
         </div>
-        <div className="col-md-4">
+        <div className="col-12 col-md-4">
           <RoomCode roomCode={roomCode} />
           <PlayerList 
             players={players} 

@@ -16,52 +16,49 @@ interface PlayerListProps {
   title?: string;
 }
 
-const PlayerList: React.FC<PlayerListProps> = ({ 
-  players, 
+const PlayerList: React.FC<PlayerListProps> = ({
+  players,
   currentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
-  title = 'Players'
+  title = "Players"
 }) => {
-  // Use all players without filtering
-  const displayPlayers = players;
-
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
-        <h6 className="mb-0">{title} ({displayPlayers.length})</h6>
+        <h6 className="mb-0">{title}</h6>
       </div>
-      <div className="card-body">
-        {displayPlayers.length === 0 ? (
-          <p className="text-center text-muted">No players in the room</p>
-        ) : (
-          <div className="list-group">
-            {displayPlayers.map((player) => (
+      <div className="card-body p-0">
+        <div className="list-group list-group-flush player-list">
+          {players.length === 0 ? (
+            <div className="list-group-item text-center text-muted py-3">
+              No players yet
+            </div>
+          ) : (
+            players.map(player => (
               <div
                 key={player.id}
                 className={`list-group-item d-flex justify-content-between align-items-center ${
-                  onPlayerSelect ? 'list-group-item-action' : ''
-                } ${selectedPlayerId === player.id ? 'active' : ''} ${
                   player.id === currentPlayerId ? 'bg-light' : ''
-                }`}
+                } ${selectedPlayerId === player.id ? 'active' : ''}`}
                 onClick={() => onPlayerSelect?.(player.id)}
                 style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
               >
-                <div>
-                  <span className="fw-bold">{player.name}</span>
-                  <div className="small">
-                    Lives: {[...Array(player.lives)].map((_, i) => (
-                      <span key={i} role="img" aria-label="heart">❤</span>
-                    ))}
-                  </div>
+                <div className="d-flex align-items-center">
+                  <span className="me-2">{player.name}</span>
+                  {player.id === currentPlayerId && (
+                    <span className="badge bg-primary rounded-pill">You</span>
+                  )}
                 </div>
-                <span className={`badge ${player.isActive ? 'bg-success' : 'bg-secondary'}`}>
-                  {player.isActive ? 'Active' : 'Inactive'}
-                </span>
+                <div className="lives-display">
+                  {[...Array(player.lives)].map((_, i) => (
+                    <span key={i} className="life" role="img" aria-label="heart">❤</span>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
-        )}
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
