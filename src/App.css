@@ -336,4 +336,19 @@ body {
   margin-top: 10px;
   font-size: 0.95rem;
   border-radius: 4px;
+}
+
+.board-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 24px;
+}
+
+@media (max-width: 768px) {
+  .board-row {
+    flex-direction: column;
+    gap: 16px;
+    align-items: center;
+  }
 } 

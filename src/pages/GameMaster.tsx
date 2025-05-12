@@ -739,7 +739,7 @@ const GameMaster: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="row g-3 justify-content-center">
+                  <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
                     {playerBoards.map(board => (
                       <PlayerBoardDisplay
                         key={board.playerId}
@@ -832,11 +832,11 @@ const GameMaster: React.FC = () => {
         width: '90%',
         maxWidth: '500px'
       }}>
-        {(!previewMode.isActive && (allAnswersIn || (timeLimit !== null && timeRemaining === 0) || !gameStarted)) ? (
+        {(!previewMode.isActive) ? (
           <button
             className="btn btn-primary w-100"
             onClick={handleStartPreviewMode}
-            disabled={!allAnswersIn && !(timeLimit !== null && timeRemaining === 0) && gameStarted}
+            disabled={!(allAnswersIn || (timeLimit !== null && timeRemaining === 0))}
           >
             Start Preview Mode
           </button>
