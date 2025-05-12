@@ -1,3 +1,238 @@
+/* Elementary School Theme */
+body {
+  background: #2d4739 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png'); /* Chalkboard green with subtle texture */
+  font-family: 'Schoolbell', 'Patrick Hand', 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+  color: #fffbe7;
+}
+
+.app {
+  min-height: 100vh;
+  padding: 20px 0;
+}
+
+.header {
+  margin-bottom: 30px;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+  font-size: 2.5rem;
+  color: #ffe066;
+  text-shadow: 2px 2px 0 #2d4739, 4px 4px 0 #00000033;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.footer {
+  margin-top: 30px;
+  text-align: center;
+  color: #ffe066;
+  font-size: 1.1rem;
+  font-family: 'Patrick Hand', cursive;
+}
+
+.card {
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  margin-bottom: 24px;
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
+  border: 3px dashed #ffe066;
+  color: #2d4739;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+}
+
+.card-header {
+  font-weight: bold;
+  background: linear-gradient(90deg, #ffe066 80%, #ffd166 100%);
+  color: #2d4739;
+  font-size: 1.3rem;
+  border-bottom: 2px solid #ffd166;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.card-header .bi {
+  font-size: 1.3em;
+  margin-right: 8px;
+}
+
+.btn {
+  border-radius: 12px !important;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+  font-size: 1.1rem;
+  font-weight: bold;
+  background: #ffe066;
+  color: #2d4739;
+  border: 2px solid #ffd166;
+  box-shadow: 0 2px 6px #00000022;
+  transition: background 0.2s, color 0.2s, transform 0.15s;
+}
+
+.btn:hover, .btn:focus {
+  background: #ffd166;
+  color: #2d4739;
+  transform: scale(1.05) rotate(-2deg);
+}
+
+.btn-primary {
+  background: #4ecdc4 !important;
+  color: #fffbe7 !important;
+  border-color: #38b2ac !important;
+}
+
+.btn-primary:hover, .btn-primary:focus {
+  background: #38b2ac !important;
+  color: #fffbe7 !important;
+}
+
+.btn-warning {
+  background: #ffe066 !important;
+  color: #2d4739 !important;
+  border-color: #ffd166 !important;
+}
+
+.btn-danger {
+  background: #ff6b6b !important;
+  color: #fffbe7 !important;
+  border-color: #ff8787 !important;
+}
+
+.btn-outline-primary {
+  color: #4ecdc4 !important;
+  border-color: #4ecdc4 !important;
+  background: transparent !important;
+}
+
+.btn-outline-primary:hover, .btn-outline-primary:focus {
+  background: #4ecdc4 !important;
+  color: #fffbe7 !important;
+}
+
+.list-group-item {
+  background: #fffbe7;
+  color: #2d4739;
+  border: none;
+  border-bottom: 1px dashed #ffe066;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+  font-size: 1.1rem;
+}
+
+.list-group-item.active, .list-group-item.bg-light {
+  background: #ffe066 !important;
+  color: #2d4739 !important;
+}
+
+.room-code-display {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.7rem;
+  font-weight: bold;
+  letter-spacing: 4px;
+  background: #ffe066;
+  color: #2d4739;
+  padding: 10px 20px;
+  border-radius: 12px;
+  display: inline-block;
+  margin: 0;
+  border: 3px dashed #ffd166;
+  box-shadow: 0 2px 8px #00000022;
+}
+
+.timer {
+  font-size: 1.5rem;
+  font-weight: bold;
+  padding: 8px;
+  border-radius: 10px;
+  background: #ffe066;
+  color: #2d4739;
+  display: inline-block;
+  min-width: 120px;
+  border: 2px solid #ffd166;
+  box-shadow: 0 2px 8px #00000022;
+}
+
+.timer.text-danger {
+  animation: bounce 1s infinite;
+  background: #ff6b6b;
+  color: #fffbe7;
+}
+
+@keyframes bounce {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.08) rotate(-2deg); }
+  100% { transform: scale(1); }
+}
+
+.lives-display {
+  font-size: 1.5rem;
+  color: #ff6b6b;
+}
+
+.life {
+  color: #ff6b6b;
+  font-size: 1.8rem;
+  margin-right: 5px;
+  filter: drop-shadow(0 1px 0 #fffbe7);
+}
+
+.preview-mode-controls {
+  background: #ffe066;
+  color: #2d4739;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px #00000022;
+  border: 2px dashed #ffd166;
+}
+
+/* Section icons */
+.card-header .section-icon {
+  font-size: 1.5em;
+  margin-right: 10px;
+  vertical-align: middle;
+}
+
+/* Chalkboard drawing area */
+.drawing-board-container {
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  border: 6px solid #ffe066;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px #00000033;
+  margin-bottom: 16px;
+}
+
+.drawing-board {
+  min-height: 300px;
+  background: transparent;
+}
+
+/* Responsive tweaks */
+@media (max-width: 768px) {
+  .header {
+    font-size: 1.5rem;
+  }
+  .card-header {
+    font-size: 1.1rem;
+  }
+  .room-code-display {
+    font-size: 1.1rem;
+    padding: 8px 12px;
+  }
+  .timer {
+    font-size: 1.1rem;
+    min-width: 80px;
+  }
+  .drawing-board-container {
+    min-height: 180px;
+  }
+}
+
+/* Fun border for focus */
+:focus {
+  outline: 3px dashed #4ecdc4 !important;
+  outline-offset: 2px;
+  transition: outline 0.2s;
+}
+
+/* Add more playful details as needed! */
+
 /* Global Styles */
 body {
   background-color: #f5f5f5;
@@ -137,139 +372,6 @@ body {
   }
 }
 
-/* Green chalkboard styles */
-.drawing-board-container {
-  background-color: #0C6A35;
-  position: relative;
-  min-height: 320px;
-}
-
-.drawing-board-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    repeating-linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 1px,
-      transparent 1px,
-      transparent 30px
-    ),
-    repeating-linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 1px,
-      transparent 1px,
-      transparent 30px
-    );
-  pointer-events: none; /* Allow clicks to pass through */
-}
-
-.drawing-board {
-  position: relative;
-  min-height: 300px;
-}
-
-.drawing-board::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    repeating-linear-gradient(
-      to right,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 1px,
-      transparent 1px,
-      transparent 30px
-    ),
-    repeating-linear-gradient(
-      to bottom,
-      rgba(255, 255, 255, 0.05) 0px,
-      rgba(255, 255, 255, 0.05) 1px,
-      transparent 1px,
-      transparent 30px
-    );
-  pointer-events: none; /* Allow clicks to pass through */
-}
-
-/* SVG content in drawing boards */
-.drawing-board svg {
-  width: 100% !important;
-  height: 100% !important;
-  display: block !important;
-}
-
-.drawing-board svg * {
-  vector-effect: non-scaling-stroke;
-}
-
-/* SVG path and line styling to look like chalk */
-.drawing-board svg path,
-.drawing-board svg line {
-  stroke: white !important;
-  stroke-linecap: round !important;
-  stroke-linejoin: round !important;
-}
-
-/* Room code display styling */
-.room-code {
-  font-family: monospace;
-  font-size: 2.5rem;
-  font-weight: bold;
-  letter-spacing: 4px;
-  background-color: #f8f9fa;
-  padding: 10px 20px;
-  border-radius: 8px;
-  display: inline-block;
-  margin: 10px 0;
-  border: 2px solid #dee2e6;
-}
-
-/* Room code display styling */
-.room-code-display {
-  font-family: monospace;
-  font-size: 1.5rem;
-  font-weight: bold;
-  letter-spacing: 4px;
-  background-color: #f8f9fa;
-  padding: 10px 20px;
-  border-radius: 8px;
-  display: inline-block;
-  margin: 0;
-  border: 2px solid #dee2e6;
-}
-
-/* Lives display */
-.lives-display {
-  font-size: 1.5rem;
-}
-
-.life {
-  color: #dc3545;
-  font-size: 1.8rem;
-  margin-right: 5px;
-}
-
-/* Game cards */
-.card {
-  border-radius: 8px;
-  overflow: hidden;
-  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-  margin-bottom: 20px;
-}
-
-.card-header {
-  font-weight: bold;
-  background-color: #f8f9fa;
-}
-
 /* Player list styling */
 .player-list .list-group-item {
   cursor: pointer;
@@ -299,33 +401,6 @@ body {
 /* Flash messages */
 #flash-message {
   transition: opacity 0.5s;
-}
-
-/* Timer styles */
-.timer {
-  font-size: 1.5rem;
-  font-weight: bold;
-  padding: 8px;
-  border-radius: 6px;
-  background-color: #f8f9fa;
-  display: inline-block;
-  min-width: 120px;
-}
-
-.timer.text-danger {
-  animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-  0% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.7;
-  }
-  100% {
-    opacity: 1;
-  }
 }
 
 /* Correct answer styling */
