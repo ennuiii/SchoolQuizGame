@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { fabric } from 'fabric';
 import socketService from '../services/socketService';
 import { throttle } from '../utils/throttle';
+import audioService from '../services/audioService';
+import PreviewOverlay from '../components/PreviewOverlay';
 
 interface Question {
   text: string;
@@ -16,6 +18,32 @@ interface ReviewNotification {
   isCorrect: boolean;
   message: string;
   timestamp: number;
+}
+
+interface Player {
+  id: string;
+  name: string;
+  lives: number;
+  answers: string[];
+  isActive: boolean;
+}
+
+interface PlayerBoard {
+  playerId: string;
+  playerName: string;
+  boardData: string;
+}
+
+interface AnswerSubmission {
+  playerId: string;
+  playerName: string;
+  answer: string;
+  timestamp?: number;
+}
+
+interface PreviewModeState {
+  isActive: boolean;
+  focusedPlayerId: string | null;
 }
 
 const Player: React.FC = () => {
@@ -38,6 +66,8 @@ const Player: React.FC = () => {
   const timerUpdateRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   const [reviewNotification, setReviewNotification] = useState<ReviewNotification | null>(null);
+  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
+  const [volume, setVolume] = useState(audioService.getVolume());
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
@@ -46,6 +76,14 @@ const Player: React.FC = () => {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 400 });
   const [canvasInitialized, setCanvasInitialized] = useState(false);
   const answerRef = useRef(answer);
+  const [players, setPlayers] = useState<Player[]>([]);
+  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
+  const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, AnswerSubmission>>({});
+  const [previewMode, setPreviewMode] = useState<PreviewModeState>({
+    isActive: false,
+    focusedPlayerId: null
+  });
+  const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -94,7 +132,7 @@ const Player: React.FC = () => {
       
       // Function to send canvas updates to gamemaster
       const sendBoardToGamemaster = () => {
-        if (fabricCanvasRef.current && roomCode) {
+        if (fabricCanvasRef.current && roomCode && !submittedAnswerRef.current) {
           // Generate SVG with specific attributes via a format that works with the fabric typings
           const svgData = fabricCanvasRef.current.toSVG();
           
@@ -109,7 +147,7 @@ const Player: React.FC = () => {
 
       // Also send updates during mouse movement for real-time drawing
       fabricCanvasRef.current.on('mouse:move', () => {
-        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode) {
+        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode && !submittedAnswerRef.current) {
           const svgData = fabricCanvasRef.current.toSVG();
           sendBoardUpdate(roomCode, svgData);
         }
@@ -126,6 +164,25 @@ const Player: React.FC = () => {
       fabricCanvasRef.current = null;
     };
   }, [canvasKey, roomCode, sendBoardUpdate]);
+
+  // Add effect to disable canvas interaction after submission
+  useEffect(() => {
+    if (fabricCanvasRef.current) {
+      if (submittedAnswer) {
+        // Disable all interactions
+        fabricCanvasRef.current.isDrawingMode = false;
+        (fabricCanvasRef.current as any).selection = false;
+        (fabricCanvasRef.current as any).forEachObject((obj: any) => {
+          obj.selectable = false;
+          obj.evented = false;
+        });
+        fabricCanvasRef.current.renderAll();
+      } else {
+        // Enable drawing mode if not submitted
+        fabricCanvasRef.current.isDrawingMode = true;
+      }
+    }
+  }, [submittedAnswer]);
 
   // Setup socket connection
   useEffect(() => {
@@ -207,7 +264,7 @@ const Player: React.FC = () => {
       }
     });
     
-    socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number }) => {
+    socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number, playerId: string }) => {
       setLives(data.lives);
       // Set review notification
       setReviewNotification({
@@ -215,6 +272,11 @@ const Player: React.FC = () => {
         message: 'Reviewed by Game Master',
         timestamp: Date.now()
       });
+      // Update evaluatedAnswers for preview mode
+      setEvaluatedAnswers(prev => ({
+        ...prev,
+        [data.playerId]: data.isCorrect  // Use the playerId from the data
+      }));
       // Clear the notification after 5 seconds
       setTimeout(() => {
         setReviewNotification(null);
@@ -328,6 +390,52 @@ const Player: React.FC = () => {
       showFlashMessage('Game has been restarted. Waiting for game master to start a new round.', 'info');
     });
     
+    // Add preview mode event listeners
+    socketService.on('start_preview_mode', () => {
+      console.log('Preview mode started');
+      setPreviewMode(prev => ({ ...prev, isActive: true }));
+    });
+
+    socketService.on('stop_preview_mode', () => {
+      console.log('Preview mode stopped');
+      setPreviewMode({ isActive: false, focusedPlayerId: null });
+    });
+
+    socketService.on('focus_submission', (data: { playerId: string }) => {
+      console.log('Focus submission:', data);
+      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
+    });
+
+    // Add player list and board updates
+    socketService.on('players_update', (updatedPlayers: Player[]) => {
+      console.log('Players updated:', updatedPlayers);
+      setPlayers(updatedPlayers);
+    });
+
+    socketService.on('board_update', (boardData: PlayerBoard) => {
+      console.log('Board update received:', boardData);
+      setPlayerBoards(prev => {
+        const index = prev.findIndex(b => b.playerId === boardData.playerId);
+        if (index >= 0) {
+          const newBoards = [...prev];
+          newBoards[index] = boardData;
+          return newBoards;
+        }
+        return [...prev, boardData];
+      });
+    });
+
+    socketService.on('answer_submitted', (submission: AnswerSubmission) => {
+      console.log('Answer submitted:', submission);
+      setAllAnswersThisRound(prev => ({
+        ...prev,
+        [submission.playerId]: {
+          ...submission,
+          timestamp: Date.now()
+        }
+      }));
+    });
+
     return () => {
       console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       // Clean up listeners
@@ -343,6 +451,12 @@ const Player: React.FC = () => {
       socketService.off('end_round_early');
       socketService.off('game_restarted');
       socketService.off('answer_received');
+      socketService.off('start_preview_mode');
+      socketService.off('stop_preview_mode');
+      socketService.off('focus_submission');
+      socketService.off('players_update');
+      socketService.off('board_update');
+      socketService.off('answer_submitted');
       
       // Disconnect
       socketService.disconnect();
@@ -362,8 +476,9 @@ const Player: React.FC = () => {
     setCanvasKey(prev => prev + 1);
   };
 
+  // Update clearCanvas to check for submission
   const clearCanvas = () => {
-    if (fabricCanvasRef.current) {
+    if (fabricCanvasRef.current && !submittedAnswer) {
       fabricCanvasRef.current.clear();
       fabricCanvasRef.current.backgroundColor = '#0C6A35'; // School green board color
       fabricCanvasRef.current.renderAll();
@@ -446,6 +561,37 @@ const Player: React.FC = () => {
     };
   }, [timeRemaining, timeLimit, currentQuestion]);
 
+  useEffect(() => {
+    // Start playing background music when component mounts
+    audioService.playBackgroundMusic();
+
+    // Cleanup when component unmounts
+    return () => {
+      audioService.pauseBackgroundMusic();
+    };
+  }, []);
+
+  const handleToggleMute = () => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  };
+
+  const handleClosePreviewMode = () => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  };
+
+  const handleFocusSubmission = (playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
+  };
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
@@ -482,6 +628,33 @@ const Player: React.FC = () => {
 
   return (
     <div className="container">
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="text-center mb-0">Player Dashboard</h1>
+        <div className="d-flex align-items-center gap-2">
+          <input
+            type="range"
+            className="form-range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={handleVolumeChange}
+            style={{ width: '100px' }}
+            title="Volume"
+          />
+          <button
+            className="btn btn-outline-secondary"
+            onClick={handleToggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <i className="bi bi-volume-mute-fill"></i>
+            ) : (
+              <i className="bi bi-volume-up-fill"></i>
+            )}
+          </button>
+        </div>
+      </div>
       <div className="row mb-4">
         <div className="col-md-6">
           <h1>Player: {playerName}</h1>
@@ -618,6 +791,16 @@ const Player: React.FC = () => {
           </div>
         </>
       )}
+      <PreviewOverlay
+        players={players}
+        playerBoards={playerBoards}
+        allAnswersThisRound={allAnswersThisRound}
+        evaluatedAnswers={evaluatedAnswers}
+        previewMode={previewMode}
+        onFocus={handleFocusSubmission}
+        onClose={handleClosePreviewMode}
+        isGameMaster={false}
+      />
     </div>
   );
 };

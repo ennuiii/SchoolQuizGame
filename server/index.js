@@ -246,15 +246,12 @@ io.on('connection', (socket) => {
     if (playerIndex !== -1) {
       gameRooms[roomCode].players[playerIndex].boardData = boardData;
       
-      // Emit the board update to the game master
-      const gameMasterId = gameRooms[roomCode].gamemaster;
-      if (gameMasterId) {
-        io.to(gameMasterId).emit('player_board_update', {
-          playerId: socket.id,
-          playerName: gameRooms[roomCode].players[playerIndex].name,
-          boardData: boardData
-        });
-      }
+      // Broadcast the board update to all clients in the room
+      io.to(roomCode).emit('board_update', {
+        playerId: socket.id,
+        playerName: gameRooms[roomCode].players[playerIndex].name,
+        boardData: boardData
+      });
     }
   });
 
@@ -281,19 +278,16 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
 
-    // Notify game master
-    const gameMasterId = gameRooms[roomCode].gamemaster;
-    if (gameMasterId) {
-      io.to(gameMasterId).emit('answer_submitted', {
-        playerId: socket.id,
-        playerName: gameRooms[roomCode].players[playerIndex].name,
-        answer,
-        hasDrawing
-      });
-    }
+    // Broadcast the answer submission to all clients in the room
+    io.to(roomCode).emit('answer_submitted', {
+      playerId: socket.id,
+      playerName: gameRooms[roomCode].players[playerIndex].name,
+      answer,
+      hasDrawing
+    });
 
     // Notify the player that their answer was received
-    socket.emit('answer_received');
+    socket.emit('answer_received', { status: 'success', message: 'Answer received!' });
   });
 
   // Gamemaster evaluates an answer
@@ -317,7 +311,10 @@ io.on('connection', (socket) => {
       }
     }
     
-    io.to(playerId).emit('answer_evaluation', { isCorrect, lives: player.lives });
+    // Send evaluation to the specific player
+    io.to(playerId).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
+    // Broadcast evaluation to all players in the room
+    io.to(roomCode).emit('answer_evaluation', { isCorrect, playerId });
     io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
     
     // Check if only one player is left
@@ -381,6 +378,34 @@ io.on('connection', (socket) => {
 
     // Notify all players in the room that the round has ended early
     io.to(roomCode).emit('end_round_early');
+  });
+
+  // Preview Mode handlers
+  socket.on('start_preview_mode', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to start preview mode');
+      return;
+    }
+    // Broadcast to all clients in the room
+    io.to(roomCode).emit('start_preview_mode');
+  });
+
+  socket.on('stop_preview_mode', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to stop preview mode');
+      return;
+    }
+    // Broadcast to all clients in the room
+    io.to(roomCode).emit('stop_preview_mode');
+  });
+
+  socket.on('focus_submission', ({ roomCode, playerId }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to focus submission');
+      return;
+    }
+    // Broadcast to all clients in the room
+    io.to(roomCode).emit('focus_submission', { playerId });
   });
 
   // Rejoin as gamemaster (when refreshing)

@@ -2,6 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
+import audioService from '../services/audioService';
+import PreviewOverlay from '../components/PreviewOverlay';
 
 interface Player {
   id: string;
@@ -30,6 +32,11 @@ interface AnswerSubmission {
   playerId: string;
   playerName: string;
   answer: string;
+}
+
+interface PreviewModeState {
+  isActive: boolean;
+  focusedPlayerId: string | null;
 }
 
 const GameMaster: React.FC = () => {
@@ -66,6 +73,16 @@ const GameMaster: React.FC = () => {
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
   const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
+  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
+  const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
+  const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
+  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
+  const [volume, setVolume] = useState(audioService.getVolume());
+  const [previewMode, setPreviewMode] = useState<PreviewModeState>({
+    isActive: false,
+    focusedPlayerId: null
+  });
 
   useEffect(() => {
     // Connect to socket server
@@ -164,6 +181,7 @@ const GameMaster: React.FC = () => {
         setCurrentQuestion(questionObj);
         setCurrentQuestionIndex(prev => prev + 1);
         setPendingAnswers([]);
+        setAllAnswersThisRound({});
         
         // Reset timer for new question if time limit is set
         if (data.timeLimit) {
@@ -231,23 +249,31 @@ const GameMaster: React.FC = () => {
       }
     });
 
+    // Listen for board_update events (broadcast to all clients)
+    socketService.on('board_update', (data: PlayerBoard) => {
+      setPlayerBoards(prevBoards => {
+        const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
+        if (existingIndex >= 0) {
+          const updatedBoards = [...prevBoards];
+          updatedBoards[existingIndex] = data;
+          return updatedBoards;
+        } else {
+          return [...prevBoards, data];
+        }
+      });
+    });
+
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
       console.log(`Answer received from ${submission.playerName}:`, submission.answer);
       
-      // Make sure we're not adding duplicate answers
+      setAllAnswersThisRound(prev => ({ ...prev, [submission.playerId]: submission }));
       setPendingAnswers(prev => {
-        // Check if we already have an answer from this player
         const existingIndex = prev.findIndex(a => a.playerId === submission.playerId);
-        
         if (existingIndex >= 0) {
-          // Replace the existing answer
-          console.log(`Replacing existing answer for ${submission.playerName}`);
           const updatedAnswers = [...prev];
           updatedAnswers[existingIndex] = submission;
           return updatedAnswers;
         } else {
-          // Add as new answer
-          console.log(`Adding new answer from ${submission.playerName}`);
           return [...prev, submission];
         }
       });
@@ -267,6 +293,7 @@ const GameMaster: React.FC = () => {
       setPendingAnswers([]);
       setTimeRemaining(null);
       setIsRestarting(false);
+      setAllAnswersThisRound({});
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
@@ -322,6 +349,11 @@ const GameMaster: React.FC = () => {
       socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
     }
 
+    // Add preview mode event listeners
+    socketService.on('focus_submission', (data: { playerId: string }) => {
+      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
+    });
+
     return () => {
       // Clean up listeners
       socketService.off('room_created');
@@ -336,6 +368,8 @@ const GameMaster: React.FC = () => {
       socketService.off('timer_update');
       socketService.off('time_up');
       socketService.off('end_round_early');
+      socketService.off('focus_submission');
+      socketService.off('board_update');
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
@@ -354,6 +388,27 @@ const GameMaster: React.FC = () => {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    // Start playing background music when component mounts
+    audioService.playBackgroundMusic();
+
+    // Cleanup when component unmounts
+    return () => {
+      audioService.pauseBackgroundMusic();
+    };
+  }, []);
+
+  const handleToggleMute = () => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  };
 
   const createRoom = () => {
     console.log('Creating new room...');
@@ -404,6 +459,7 @@ const GameMaster: React.FC = () => {
   const evaluateAnswer = (playerId: string, isCorrect: boolean) => {
     socketService.evaluateAnswer(roomCode, playerId, isCorrect);
     setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
+    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
   };
 
   const addCustomQuestion = async () => {
@@ -551,6 +607,14 @@ const GameMaster: React.FC = () => {
     }));
   };
 
+  // Fit to screen handler
+  const fitToScreen = (playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {scale: 1, x: 0, y: 0}
+    }));
+  };
+
   const handleEndRoundEarly = () => {
     setShowEndRoundConfirm(true);
   };
@@ -564,9 +628,73 @@ const GameMaster: React.FC = () => {
     setShowEndRoundConfirm(false);
   };
 
+  // Add a function to check if all answers are in
+  const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
+
+  // Set initial scale to 0.4 for each board
+  useEffect(() => {
+    const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
+    players.forEach(player => {
+      initialTransforms[player.id] = { scale: 0.4, x: 0, y: 0 };
+    });
+    setBoardTransforms(initialTransforms);
+  }, [players]);
+
+  // Add toggle scale on click
+  const toggleBoardScale = (playerId: string) => {
+    setBoardTransforms(prev => {
+      const current = prev[playerId] || { scale: 0.4, x: 0, y: 0 };
+      const newScale = current.scale === 0.4 ? 1.0 : 0.4;
+      return {
+        ...prev,
+        [playerId]: { ...current, scale: newScale }
+      };
+    });
+  };
+
+  const handleStartPreviewMode = () => {
+    socketService.startPreviewMode(roomCode);
+    setPreviewMode(prev => ({ ...prev, isActive: true }));
+  };
+
+  const handleStopPreviewMode = () => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  };
+
+  const handleFocusSubmission = (playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+  };
+
   return (
     <div className="container">
-      <h1 className="text-center mb-4">Game Master Dashboard</h1>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h1 className="text-center mb-0">Game Master Dashboard</h1>
+        <div className="d-flex align-items-center gap-2">
+          <input
+            type="range"
+            className="form-range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={handleVolumeChange}
+            style={{ width: '100px' }}
+            title="Volume"
+          />
+          <button
+            className="btn btn-outline-secondary"
+            onClick={handleToggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <i className="bi bi-volume-mute-fill"></i>
+            ) : (
+              <i className="bi bi-volume-up-fill"></i>
+            )}
+          </button>
+        </div>
+      </div>
       
       {errorMsg && (
         <div className="alert alert-danger" role="alert">
@@ -914,14 +1042,14 @@ const GameMaster: React.FC = () => {
                                       >
                                         <div
                                           style={{
-                                            width: '100%',
-                                            height: '100%',
+                                            width: 400,
+                                            height: 200,
                                             position: 'absolute',
                                             top: 0,
                                             left: 0,
-                                            transformOrigin: 'top left',
+                                            transformOrigin: 'center center',
                                             transform: `translate(${(boardTransforms[board.playerId]?.x||0)}px, ${(boardTransforms[board.playerId]?.y||0)}px) scale(${boardTransforms[board.playerId]?.scale||1})`,
-                                            transition: 'transform 0.05s',
+                                            transition: 'transform 0.2s ease-out',
                                             pointerEvents: 'none',
                                           }}
                                           className="drawing-board"
@@ -1188,6 +1316,62 @@ const GameMaster: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Add Preview Mode Controls */}
+      <div className="preview-mode-controls mt-3" style={{
+        display: 'flex',
+        gap: '10px',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'fixed',
+        bottom: '20px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        zIndex: 1000,
+        background: 'rgba(255, 255, 255, 0.9)',
+        padding: '10px 20px',
+        borderRadius: '8px',
+        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
+      }}>
+        {!previewMode.isActive ? (
+          <button
+            className="btn btn-primary"
+            onClick={handleStartPreviewMode}
+            disabled={!allAnswersIn}
+          >
+            Start Preview Mode
+          </button>
+        ) : (
+          <>
+            <button
+              className="btn btn-secondary"
+              onClick={handleStopPreviewMode}
+            >
+              Stop Preview Mode
+            </button>
+            {previewMode.focusedPlayerId && (
+              <button
+                className="btn btn-outline-primary"
+                onClick={() => handleFocusSubmission('')}
+              >
+                Back to Gallery
+              </button>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Preview Mode Overlay */}
+      <PreviewOverlay
+        players={players}
+        playerBoards={playerBoards}
+        allAnswersThisRound={allAnswersThisRound}
+        evaluatedAnswers={evaluatedAnswers}
+        previewMode={previewMode}
+        onFocus={handleFocusSubmission}
+        onClose={handleStopPreviewMode}
+        isGameMaster={true}
+      />
     </div>
   );
 };
