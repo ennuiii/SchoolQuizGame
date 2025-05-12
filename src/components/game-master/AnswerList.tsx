@@ -9,9 +9,10 @@ interface AnswerSubmission {
 interface AnswerListProps {
   answers: AnswerSubmission[];
   onEvaluate: (playerId: string, isCorrect: boolean) => void;
+  evaluatedAnswers: {[playerId: string]: boolean | null};
 }
 
-const AnswerList: React.FC<AnswerListProps> = ({ answers, onEvaluate }) => {
+const AnswerList: React.FC<AnswerListProps> = ({ answers, onEvaluate, evaluatedAnswers }) => {
   return (
     <div className="card mb-4">
       <div className="card-header d-flex justify-content-between align-items-center">

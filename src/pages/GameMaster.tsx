@@ -535,8 +535,30 @@ const GameMaster: React.FC = () => {
     socketService.focusSubmission(roomCode, playerId);
   };
 
+  const handleBoardScale = (playerId: string, scale: number) => {
+    updateBoardTransform(playerId, transform => ({
+      ...transform,
+      scale: scale
+    }));
+  };
+
+  const handleBoardPan = (playerId: string, x: number, y: number) => {
+    updateBoardTransform(playerId, transform => ({
+      ...transform,
+      x: transform.x + x,
+      y: transform.y + y
+    }));
+  };
+
+  const handleBoardReset = (playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: { scale: 1, x: 0, y: 0 }
+    }));
+  };
+
   return (
-    <div className="container">
+    <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h1 className="text-center mb-0">Game Master Dashboard</h1>
         <div className="d-flex align-items-center gap-2">
@@ -790,6 +812,7 @@ const GameMaster: React.FC = () => {
                   <AnswerList
                     answers={pendingAnswers}
                     onEvaluate={evaluateAnswer}
+                    evaluatedAnswers={evaluatedAnswers}
                   />
                   
                   {timeLimit !== null && timeRemaining !== null && (
@@ -910,6 +933,102 @@ const GameMaster: React.FC = () => {
         onClose={handleStopPreviewMode}
         isGameMaster={true}
       />
+
+      <div className="row mt-4">
+        <div className="col-md-8">
+          {currentQuestion && (
+            <div className="card mb-4">
+              <div className="card-body">
+                <QuestionDisplay question={currentQuestion} />
+                <Timer timeRemaining={timeRemaining} />
+              </div>
+            </div>
+          )}
+
+          <div className="row">
+            {playerBoards.map(board => {
+              const isVisible = visibleBoards.has(board.playerId);
+              const transform = boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 };
+              
+              return (
+                <div key={board.playerId} className="col-md-6 mb-4">
+                  <div className="card">
+                    <div className="card-header d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">{board.playerName}</h5>
+                      <div className="btn-group">
+                        <button
+                          className="btn btn-sm btn-outline-primary"
+                          onClick={() => toggleBoardVisibility(board.playerId)}
+                        >
+                          {isVisible ? 'Hide' : 'Show'}
+                        </button>
+                        {isVisible && (
+                          <>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={() => handleBoardScale(board.playerId, transform.scale * 1.2)}
+                            >
+                              Zoom In
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={() => handleBoardScale(board.playerId, transform.scale * 0.8)}
+                            >
+                              Zoom Out
+                            </button>
+                            <button
+                              className="btn btn-sm btn-outline-secondary"
+                              onClick={() => handleBoardReset(board.playerId)}
+                            >
+                              Reset
+                            </button>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                    <div className="card-body">
+                      {isVisible && (
+                        <div
+                          className="board-container"
+                          style={{
+                            width: '100%',
+                            height: '300px',
+                            backgroundColor: '#0C6A35',
+                            borderRadius: '4px',
+                            overflow: 'hidden',
+                            border: '8px solid #8B4513',
+                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                          }}
+                        >
+                          <div
+                            className="drawing-board"
+                            dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
+                              transformOrigin: 'top left',
+                              transition: 'transform 0.2s ease-out'
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="col-md-4">
+          <AnswerList
+            answers={pendingAnswers}
+            onEvaluate={evaluateAnswer}
+            evaluatedAnswers={evaluatedAnswers}
+          />
+        </div>
+      </div>
     </div>
   );
 };
