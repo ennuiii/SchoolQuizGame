@@ -23,10 +23,8 @@ const PlayerList: React.FC<PlayerListProps> = ({
   selectedPlayerId,
   title = 'Players'
 }) => {
-  // Filter out the current player if currentPlayerId is provided
-  const displayPlayers = currentPlayerId 
-    ? players.filter(player => player.id !== currentPlayerId)
-    : players;
+  // Use all players without filtering
+  const displayPlayers = players;
 
   return (
     <div className="card mb-3">
@@ -43,7 +41,9 @@ const PlayerList: React.FC<PlayerListProps> = ({
                 key={player.id}
                 className={`list-group-item d-flex justify-content-between align-items-center ${
                   onPlayerSelect ? 'list-group-item-action' : ''
-                } ${selectedPlayerId === player.id ? 'active' : ''}`}
+                } ${selectedPlayerId === player.id ? 'active' : ''} ${
+                  player.id === currentPlayerId ? 'bg-light' : ''
+                }`}
                 onClick={() => onPlayerSelect?.(player.id)}
                 style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
               >
