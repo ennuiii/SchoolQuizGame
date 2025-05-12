@@ -4,6 +4,7 @@ import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 import audioService from '../services/audioService';
 import PreviewOverlay from '../components/PreviewOverlay';
+import QuestionSelector from '../components/QuestionSelector';
 
 interface Player {
   id: string;
@@ -57,17 +58,7 @@ const GameMaster: React.FC = () => {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isRestarting, setIsRestarting] = useState(false);
   const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
-  const [languages, setLanguages] = useState<string[]>([]);
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('de'); // Default to German
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
-  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
-  const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
-  const [sortByGrade, setSortByGrade] = useState<boolean>(true);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
   const timerUpdateRef = useRef<number>(0);
   const animationFrameRef = useRef<number>();
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
@@ -83,6 +74,7 @@ const GameMaster: React.FC = () => {
     isActive: false,
     focusedPlayerId: null
   });
+  const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   useEffect(() => {
     // Connect to socket server
@@ -376,19 +368,6 @@ const GameMaster: React.FC = () => {
     };
   }, []);
 
-  // Fetch available subjects and languages from Supabase when component mounts
-  useEffect(() => {
-    const fetchData = async () => {
-      const subjectList = await supabaseService.getSubjects();
-      setSubjects(subjectList);
-      
-      const languageList = await supabaseService.getLanguages();
-      setLanguages(languageList);
-    };
-
-    fetchData();
-  }, []);
-
   useEffect(() => {
     // Start playing background music when component mounts
     audioService.playBackgroundMusic();
@@ -422,17 +401,14 @@ const GameMaster: React.FC = () => {
       return;
     }
     
-    if (selectedQuestions.length === 0) {
+    if (questions.length === 0) {
       setErrorMsg('Please select at least one question!');
       return;
     }
     
     // Sort questions by grade before starting the game
-    const gradeSortedQuestions = [...selectedQuestions].sort((a, b) => a.grade - b.grade);
-    setSelectedQuestions(gradeSortedQuestions);
+    const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
     setQuestions(gradeSortedQuestions);
-    
-    // Set the first question as the current question
     setCurrentQuestion(gradeSortedQuestions[0]);
     setCurrentQuestionIndex(0);
     
@@ -462,120 +438,9 @@ const GameMaster: React.FC = () => {
     setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
   };
 
-  const addCustomQuestion = async () => {
-    const text = prompt('Enter the question:');
-    if (text) {
-      const answerInput = prompt('Enter the answer:');
-      const answer = answerInput || undefined;
-      const subject = prompt('Enter the subject:') || 'General';
-      const grade = parseInt(prompt('Enter the grade level (1-13):') || '5', 10);
-      const language = prompt('Enter the language (e.g., de, en):') || 'de';
-      
-      const newQuestion: Question = {
-        id: questions.length + 1,
-        text,
-        answer,
-        subject,
-        grade: Math.min(13, Math.max(1, grade)), // Ensure between 1-13
-        language
-      };
-      
-      setQuestions(prev => [...prev, newQuestion]);
-      
-      // Save the question to the database
-      try {
-        setErrorMsg('Saving question to database...');
-        const savedQuestion = await supabaseService.addQuestion(newQuestion);
-        
-        if (savedQuestion) {
-          setErrorMsg('Question saved to database successfully!');
-          
-          // Update subjects and languages lists if new values were added
-          if (!subjects.includes(subject)) {
-            setSubjects(prev => [...prev, subject].sort());
-          }
-          
-          if (language && !languages.includes(language)) {
-            setLanguages(prev => [...prev, language].sort());
-          }
-          
-          setTimeout(() => setErrorMsg(''), 3000);
-        } else {
-          setErrorMsg('Failed to save question to database.');
-        }
-      } catch (error) {
-        console.error('Error saving question:', error);
-        setErrorMsg('Error saving question to database.');
-      }
-    }
-  };
-
   const restartGame = () => {
     setIsRestarting(true);
     socketService.restartGame(roomCode);
-  };
-
-  const loadQuestionsFromSupabase = async () => {
-    setIsLoadingQuestions(true);
-    
-    try {
-      const options: {
-        subject?: string;
-        grade?: number;
-        language?: string;
-        limit?: number;
-        sortByGrade?: boolean;
-      } = {}; // No limit to get all available questions
-      
-      if (selectedSubject) {
-        options.subject = selectedSubject;
-      }
-      
-      if (selectedGrade !== '') {
-        options.grade = Number(selectedGrade);
-      }
-      
-      if (selectedLanguage) {
-        options.language = selectedLanguage;
-      }
-      
-      // Always sort by grade to ensure progression from lowest to highest
-      options.sortByGrade = sortByGrade;
-      
-      const loadedQuestions = await supabaseService.getQuestions(options);
-      
-      if (loadedQuestions && loadedQuestions.length > 0) {
-        setAvailableQuestions(loadedQuestions);
-        setErrorMsg('');
-      } else {
-        setErrorMsg('No questions found with the selected filters');
-      }
-    } catch (error) {
-      console.error('Error loading questions:', error);
-      setErrorMsg('Failed to load questions. Please try again.');
-    } finally {
-      setIsLoadingQuestions(false);
-    }
-  };
-  
-  const addQuestionToSelected = (question: Question) => {
-    setSelectedQuestions(prev => [...prev, question]);
-    setAvailableQuestions(prev => prev.filter(q => q.id !== question.id));
-  };
-  
-  const removeSelectedQuestion = (questionId: number) => {
-    const questionToRemove = selectedQuestions.find(q => q.id === questionId);
-    if (questionToRemove) {
-      setSelectedQuestions(prev => prev.filter(q => q.id !== questionId));
-      setAvailableQuestions(prev => [...prev, questionToRemove].sort((a, b) => a.grade - b.grade));
-    }
-  };
-  
-  const organizeSelectedQuestions = () => {
-    // Sort selected questions by grade (ascending)
-    const organized = [...selectedQuestions].sort((a, b) => a.grade - b.grade);
-    setSelectedQuestions(organized);
-    setQuestions(organized);
   };
 
   // Format time remaining with smooth transitions
@@ -856,12 +721,6 @@ const GameMaster: React.FC = () => {
                 <div className="card mb-4">
                   <div className="card-header d-flex justify-content-between align-items-center">
                     <h3 className="mb-0">Questions</h3>
-                    <button 
-                      className="btn btn-sm btn-outline-primary"
-                      onClick={addCustomQuestion}
-                    >
-                      Add Question
-                    </button>
                   </div>
                   <div className="card-body">
                     <div className="mb-3 text-center">
@@ -1131,184 +990,11 @@ const GameMaster: React.FC = () => {
                       </div>
                     </div>
                     
-                    <div className="mb-4">
-                      <h5>Load Questions from Database:</h5>
-                      <div className="row g-3 mb-3">
-                        <div className="col-md-3">
-                          <label htmlFor="languageSelect" className="form-label">Language</label>
-                          <select 
-                            id="languageSelect" 
-                            className="form-select"
-                            value={selectedLanguage}
-                            onChange={(e) => setSelectedLanguage(e.target.value)}
-                          >
-                            {languages.length > 0 ? (
-                              languages.map((language, index) => (
-                                <option key={index} value={language}>{language}</option>
-                              ))
-                            ) : (
-                              <option value="de">de</option>
-                            )}
-                          </select>
-                        </div>
-                        <div className="col-md-3">
-                          <label htmlFor="subjectSelect" className="form-label">Subject</label>
-                          <select 
-                            id="subjectSelect" 
-                            className="form-select"
-                            value={selectedSubject}
-                            onChange={(e) => setSelectedSubject(e.target.value)}
-                          >
-                            <option value="">All Subjects</option>
-                            {subjects.map((subject, index) => (
-                              <option key={index} value={subject}>{subject}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-md-3">
-                          <label htmlFor="gradeSelect" className="form-label">Grade</label>
-                          <select 
-                            id="gradeSelect" 
-                            className="form-select"
-                            value={selectedGrade}
-                            onChange={(e) => setSelectedGrade(e.target.value ? Number(e.target.value) : '')}
-                          >
-                            <option value="">All Grades</option>
-                            {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(grade => (
-                              <option key={grade} value={grade}>{grade}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="col-md-3">
-                          <label className="form-label">&nbsp;</label>
-                          <button 
-                            className="btn btn-primary d-block w-100"
-                            onClick={loadQuestionsFromSupabase}
-                            disabled={isLoadingQuestions}
-                          >
-                            {isLoadingQuestions ? 'Loading...' : 'Search Questions'}
-                          </button>
-                        </div>
-                      </div>
-                      
-                      <div className="mb-3">
-                        <div className="form-check">
-                          <input
-                            className="form-check-input"
-                            type="checkbox"
-                            id="sortByGradeCheckbox"
-                            checked={sortByGrade}
-                            onChange={(e) => setSortByGrade(e.target.checked)}
-                          />
-                          <label className="form-check-label" htmlFor="sortByGradeCheckbox">
-                            Sort questions by grade (lowest to highest)
-                          </label>
-                        </div>
-                      </div>
-                      
-                      <div className="row">
-                        <div className="col-md-6">
-                          <div className="card mb-3">
-                            <div className="card-header bg-light">
-                              <h6 className="mb-0">Available Questions ({availableQuestions.length})</h6>
-                            </div>
-                            <div className="card-body" style={{maxHeight: '300px', overflowY: 'auto'}}>
-                              {availableQuestions.length === 0 ? (
-                                <p className="text-center text-muted">No questions available. Use the filters above to search for questions.</p>
-                              ) : (
-                                <div className="list-group">
-                                  {availableQuestions.map((question) => (
-                                    <div key={question.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                      <div>
-                                        <p className="mb-1 fw-bold">{question.text}</p>
-                                        <small>
-                                          Grade: {question.grade} | {question.subject} | {question.language || 'de'}
-                                          {question.answer && <span> | Answer: {question.answer}</span>}
-                                        </small>
-                                      </div>
-                                      <button 
-                                        className="btn btn-sm btn-success" 
-                                        onClick={() => addQuestionToSelected(question)}
-                                        title="Add to selected questions"
-                                      >
-                                        +
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        
-                        <div className="col-md-6">
-                          <div className="card mb-3">
-                            <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                              <h6 className="mb-0">Selected Questions ({selectedQuestions.length})</h6>
-                              <button 
-                                className="btn btn-sm btn-outline-primary" 
-                                onClick={organizeSelectedQuestions}
-                                disabled={selectedQuestions.length < 2}
-                                title="Sort by grade (lowest to highest)"
-                              >
-                                Sort by Grade
-                              </button>
-                            </div>
-                            <div className="card-body" style={{maxHeight: '300px', overflowY: 'auto'}}>
-                              {selectedQuestions.length === 0 ? (
-                                <p className="text-center text-muted">No questions selected yet. Add questions from the left panel.</p>
-                              ) : (
-                                <div className="list-group">
-                                  {selectedQuestions.map((question, index) => (
-                                    <div key={question.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
-                                      <div>
-                                        <div className="d-flex align-items-center mb-1">
-                                          <span className="badge bg-primary me-2">{index + 1}</span>
-                                          <span className="fw-bold">{question.text}</span>
-                                        </div>
-                                        <small>
-                                          Grade: {question.grade} | {question.subject} | {question.language || 'de'}
-                                          {question.answer && <span> | Answer: {question.answer}</span>}
-                                        </small>
-                                      </div>
-                                      <button 
-                                        className="btn btn-sm btn-danger" 
-                                        onClick={() => removeSelectedQuestion(question.id)}
-                                        title="Remove from selected questions"
-                                      >
-                                        ×
-                                      </button>
-                                    </div>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="mb-3">
-                        <h6>Selected Question Summary:</h6>
-                        {selectedQuestions.length > 0 ? (
-                          <>
-                            <p>Total questions: {selectedQuestions.length}</p>
-                            <p>Grade range: {Math.min(...selectedQuestions.map(q => q.grade))} - {Math.max(...selectedQuestions.map(q => q.grade))}</p>
-                            <p>Subjects: {Array.from(new Set(selectedQuestions.map(q => q.subject))).join(', ')}</p>
-                          </>
-                        ) : (
-                          <p className="text-muted">No questions selected yet</p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <div className="mb-3">
-                      <button 
-                        className="btn btn-success btn-lg w-100"
-                        onClick={addCustomQuestion}
-                      >
-                        Add Custom Question
-                      </button>
-                    </div>
+                    <QuestionSelector
+                      onQuestionsSelected={setQuestions}
+                      selectedQuestions={questions}
+                      onSelectedQuestionsChange={setQuestions}
+                    />
                   </div>
                 </div>
               )}

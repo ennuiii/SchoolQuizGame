@@ -7,6 +7,7 @@ import audioService from '../services/audioService';
 import PreviewOverlay from '../components/PreviewOverlay';
 
 interface Question {
+  id: number;
   text: string;
   answer?: string;
   grade: number;
