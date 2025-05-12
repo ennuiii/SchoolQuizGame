@@ -49,6 +49,22 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
 }) => {
   if (!previewMode.isActive) return null;
 
+  const currentIndex = previewMode.focusedPlayerId 
+    ? playerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
+    : -1;
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      onFocus(playerBoards[currentIndex - 1].playerId);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex < playerBoards.length - 1) {
+      onFocus(playerBoards[currentIndex + 1].playerId);
+    }
+  };
+
   return (
     <div className="preview-overlay" style={{
       position: 'fixed',
@@ -56,7 +72,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      backgroundColor: 'rgba(0, 0, 0, 0.85)',
       zIndex: 1000,
       padding: '20px',
       overflow: 'auto'
@@ -81,7 +97,23 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                 return (
                   <div key={board.playerId} className="card bg-dark text-white">
                     <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">{board.playerName}</h3>
+                      <div className="d-flex align-items-center">
+                        <button 
+                          className="btn btn-outline-light me-3"
+                          onClick={handlePrevious}
+                          disabled={currentIndex <= 0}
+                        >
+                          ← Previous
+                        </button>
+                        <h3 className="mb-0">{board.playerName}</h3>
+                        <button 
+                          className="btn btn-outline-light ms-3"
+                          onClick={handleNext}
+                          disabled={currentIndex >= playerBoards.length - 1}
+                        >
+                          Next →
+                        </button>
+                      </div>
                       <div>
                         <span className="me-3">
                           {Array.from({length: player?.lives || 0}, (_, i) => (
@@ -107,7 +139,9 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         height: '400px',
                         backgroundColor: '#0C6A35',
                         borderRadius: '4px',
-                        overflow: 'hidden'
+                        overflow: 'hidden',
+                        border: '12px solid #8B4513',
+                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
                       }}>
                         <div
                           className="drawing-board"
@@ -162,7 +196,9 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         backgroundColor: '#0C6A35',
                         borderRadius: '4px',
                         overflow: 'hidden',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        border: '8px solid #8B4513',
+                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
                       }}
                       onClick={() => onFocus(board.playerId)}>
                         <div

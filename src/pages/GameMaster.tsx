@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
@@ -79,6 +79,146 @@ const GameMaster: React.FC = () => {
     focusedPlayerId: null
   });
   const [isTimerRunning, setIsTimerRunning] = useState(false);
+
+  const handleToggleMute = useCallback(() => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  }, []);
+
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  }, []);
+
+  const createRoom = useCallback(() => {
+    console.log('Creating new room...');
+    setIsLoading(true);
+    socketService.createRoom(roomCodeInput);
+  }, [roomCodeInput]);
+
+  const startGame = useCallback(() => {
+    if (!roomCode) {
+      setErrorMsg('Please enter a room code!');
+      return;
+    }
+    
+    if (questions.length === 0) {
+      setErrorMsg('Please select at least one question!');
+      return;
+    }
+    
+    // Sort questions by grade before starting the game
+    const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
+    setQuestions(gradeSortedQuestions);
+    setCurrentQuestion(gradeSortedQuestions[0]);
+    setCurrentQuestionIndex(0);
+    
+    // Start the game with the existing room
+    setIsLoading(true);
+    // If timeLimit is null or blank, set it to 99999 internally but don't show it
+    const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
+    socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
+    setGameStarted(true);
+  }, [roomCode, questions, timeLimit]);
+
+  const nextQuestion = useCallback(() => {
+    if (currentQuestionIndex < questions.length - 1) {
+      // Do NOT update currentQuestionIndex or currentQuestion here!
+      setPendingAnswers([]);
+      setTimeRemaining(null);
+      setIsTimerRunning(false);
+      socketService.nextQuestion(roomCode);
+    } else {
+      alert('No more questions available!');
+    }
+  }, [currentQuestionIndex, questions.length, roomCode]);
+
+  const evaluateAnswer = useCallback((playerId: string, isCorrect: boolean) => {
+    socketService.evaluateAnswer(roomCode, playerId, isCorrect);
+    setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
+    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
+  }, [roomCode]);
+
+  const restartGame = useCallback(() => {
+    setIsRestarting(true);
+    socketService.restartGame(roomCode);
+  }, [roomCode]);
+
+  const handleEndRoundEarly = useCallback(() => {
+    setShowEndRoundConfirm(true);
+  }, []);
+
+  const confirmEndRoundEarly = useCallback(() => {
+    socketService.endRoundEarly(roomCode);
+    setShowEndRoundConfirm(false);
+  }, [roomCode]);
+
+  const cancelEndRoundEarly = useCallback(() => {
+    setShowEndRoundConfirm(false);
+  }, []);
+
+  const toggleBoardVisibility = useCallback((playerId: string) => {
+    setVisibleBoards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  const updateBoardTransform = useCallback((playerId: string, update: (t: {scale: number, x: number, y: number}) => {scale: number, x: number, y: number}) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: update(prev[playerId] || {scale: 1, x: 0, y: 0})
+    }));
+  }, []);
+
+  const fitToScreen = useCallback((playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {scale: 1, x: 0, y: 0}
+    }));
+  }, []);
+
+  const handleStartPreviewMode = useCallback(() => {
+    socketService.startPreviewMode(roomCode);
+    setPreviewMode(prev => ({ ...prev, isActive: true }));
+  }, [roomCode]);
+
+  const handleStopPreviewMode = useCallback(() => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  }, [roomCode]);
+
+  const handleFocusSubmission = useCallback((playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+  }, [roomCode]);
+
+  const handleBoardScale = useCallback((playerId: string, scale: number) => {
+    updateBoardTransform(playerId, transform => ({
+      ...transform,
+      scale: scale
+    }));
+  }, [updateBoardTransform]);
+
+  const handleBoardPan = useCallback((playerId: string, x: number, y: number) => {
+    updateBoardTransform(playerId, transform => ({
+      ...transform,
+      x: transform.x + x,
+      y: transform.y + y
+    }));
+  }, [updateBoardTransform]);
+
+  const handleBoardReset = useCallback((playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: { scale: 1, x: 0, y: 0 }
+    }));
+  }, []);
 
   useEffect(() => {
     // Connect to socket server
@@ -370,7 +510,7 @@ const GameMaster: React.FC = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [questions, timeLimit]);
 
   useEffect(() => {
     // Start playing background music when component mounts
@@ -382,119 +522,12 @@ const GameMaster: React.FC = () => {
     };
   }, []);
 
-  const handleToggleMute = () => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  };
-
-  const createRoom = () => {
-    console.log('Creating new room...');
-    setIsLoading(true);
-    socketService.createRoom(roomCodeInput);
-  };
-
-  const startGame = () => {
-    if (!roomCode) {
-      setErrorMsg('Please enter a room code!');
-      return;
-    }
-    
-    if (questions.length === 0) {
-      setErrorMsg('Please select at least one question!');
-      return;
-    }
-    
-    // Sort questions by grade before starting the game
-    const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
-    setQuestions(gradeSortedQuestions);
-    setCurrentQuestion(gradeSortedQuestions[0]);
-    setCurrentQuestionIndex(0);
-    
-    // Start the game with the existing room
-    setIsLoading(true);
-    // If timeLimit is null or blank, set it to 99999 internally but don't show it
-    const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
-    socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
-    setGameStarted(true);
-  };
-
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      // Do NOT update currentQuestionIndex or currentQuestion here!
-      setPendingAnswers([]);
-      setTimeRemaining(null);
-      setIsTimerRunning(false);
-      socketService.nextQuestion(roomCode);
-    } else {
-      alert('No more questions available!');
-    }
-  };
-
-  const evaluateAnswer = (playerId: string, isCorrect: boolean) => {
-    socketService.evaluateAnswer(roomCode, playerId, isCorrect);
-    setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
-    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
-  };
-
-  const restartGame = () => {
-    setIsRestarting(true);
-    socketService.restartGame(roomCode);
-  };
-
   // Format time remaining with smooth transitions
   const formatTime = (seconds: number | null) => {
     if (seconds === null) return '--:--';
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Add toggle function for board visibility
-  const toggleBoardVisibility = (playerId: string) => {
-    setVisibleBoards(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(playerId)) {
-        newSet.delete(playerId);
-      } else {
-        newSet.add(playerId);
-      }
-      return newSet;
-    });
-  };
-
-  // Helper to update transform state
-  const updateBoardTransform = (playerId: string, update: (t: {scale: number, x: number, y: number}) => {scale: number, x: number, y: number}) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: update(prev[playerId] || {scale: 1, x: 0, y: 0})
-    }));
-  };
-
-  // Fit to screen handler
-  const fitToScreen = (playerId: string) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: {scale: 1, x: 0, y: 0}
-    }));
-  };
-
-  const handleEndRoundEarly = () => {
-    setShowEndRoundConfirm(true);
-  };
-
-  const confirmEndRoundEarly = () => {
-    socketService.endRoundEarly(roomCode);
-    setShowEndRoundConfirm(false);
-  };
-
-  const cancelEndRoundEarly = () => {
-    setShowEndRoundConfirm(false);
   };
 
   // Add a function to check if all answers are in
@@ -510,7 +543,7 @@ const GameMaster: React.FC = () => {
   }, [players]);
 
   // Add toggle scale on click
-  const toggleBoardScale = (playerId: string) => {
+  const toggleBoardScale = useCallback((playerId: string) => {
     setBoardTransforms(prev => {
       const current = prev[playerId] || { scale: 0.4, x: 0, y: 0 };
       const newScale = current.scale === 0.4 ? 1.0 : 0.4;
@@ -519,43 +552,7 @@ const GameMaster: React.FC = () => {
         [playerId]: { ...current, scale: newScale }
       };
     });
-  };
-
-  const handleStartPreviewMode = () => {
-    socketService.startPreviewMode(roomCode);
-    setPreviewMode(prev => ({ ...prev, isActive: true }));
-  };
-
-  const handleStopPreviewMode = () => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
-  };
-
-  const handleFocusSubmission = (playerId: string) => {
-    socketService.focusSubmission(roomCode, playerId);
-  };
-
-  const handleBoardScale = (playerId: string, scale: number) => {
-    updateBoardTransform(playerId, transform => ({
-      ...transform,
-      scale: scale
-    }));
-  };
-
-  const handleBoardPan = (playerId: string, x: number, y: number) => {
-    updateBoardTransform(playerId, transform => ({
-      ...transform,
-      x: transform.x + x,
-      y: transform.y + y
-    }));
-  };
-
-  const handleBoardReset = (playerId: string) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: { scale: 1, x: 0, y: 0 }
-    }));
-  };
+  }, []);
 
   return (
     <div className="container-fluid">
@@ -763,12 +760,16 @@ const GameMaster: React.FC = () => {
                     <div className="mb-3">
                       <h5>Current Question ({currentQuestionIndex + 1}/{questions.length}):</h5>
                       <div className="question-container">
-                        <p className="mb-1">{currentQuestion?.text}</p>
-                        <small>Grade: {currentQuestion?.grade} | Subject: {currentQuestion?.subject} | Language: {currentQuestion?.language || 'de'}</small>
-                        {currentQuestion?.answer && (
-                          <div className="mt-2 correct-answer">
-                            <strong>Correct Answer:</strong> {currentQuestion.answer}
-                          </div>
+                        {currentQuestion && (
+                          <>
+                            <p className="mb-1">{currentQuestion.text}</p>
+                            <small>Grade: {currentQuestion.grade} | Subject: {currentQuestion.subject} | Language: {currentQuestion.language || 'de'}</small>
+                            {currentQuestion.answer && (
+                              <div className="mt-2 correct-answer">
+                                <strong>Correct Answer:</strong> {currentQuestion.answer}
+                              </div>
+                            )}
+                          </>
                         )}
                       </div>
                     </div>
@@ -803,11 +804,11 @@ const GameMaster: React.FC = () => {
                     hasPendingAnswers={pendingAnswers.length > 0}
                   />
                   
-                  <QuestionDisplay
-                    currentQuestion={currentQuestion}
-                    currentQuestionIndex={currentQuestionIndex}
-                    totalQuestions={questions.length}
-                  />
+                  {currentQuestion && (
+                    <QuestionDisplay
+                      question={currentQuestion}
+                    />
+                  )}
                   
                   <AnswerList
                     answers={pendingAnswers}
@@ -818,8 +819,6 @@ const GameMaster: React.FC = () => {
                   {timeLimit !== null && timeRemaining !== null && (
                     <Timer
                       timeRemaining={timeRemaining}
-                      timeLimit={timeLimit}
-                      isRunning={isTimerRunning}
                     />
                   )}
                 </>
@@ -939,8 +938,12 @@ const GameMaster: React.FC = () => {
           {currentQuestion && (
             <div className="card mb-4">
               <div className="card-body">
-                <QuestionDisplay question={currentQuestion} />
-                <Timer timeRemaining={timeRemaining} />
+                <QuestionDisplay
+                  question={currentQuestion}
+                />
+                <Timer
+                  timeRemaining={timeRemaining}
+                />
               </div>
             </div>
           )}
