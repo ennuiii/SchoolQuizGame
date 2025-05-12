@@ -750,18 +750,25 @@ const GameMaster: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
-                    {playerBoards.map(board => (
-                      <PlayerBoardDisplay
-                        key={board.playerId}
-                        board={board}
-                        isVisible={visibleBoards.has(board.playerId)}
-                        onToggleVisibility={toggleBoardVisibility}
-                        transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                        onScale={handleBoardScale}
-                        onReset={handleBoardReset}
-                      />
-                    ))}
+                  <div className="card mb-4">
+                    <div className="card-header bg-light">
+                      <h5 className="mb-0">Player Boards</h5>
+                    </div>
+                    <div className="card-body">
+                      <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
+                        {playerBoards.map(board => (
+                          <PlayerBoardDisplay
+                            key={board.playerId}
+                            board={board}
+                            isVisible={visibleBoards.has(board.playerId)}
+                            onToggleVisibility={toggleBoardVisibility}
+                            transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                            onScale={handleBoardScale}
+                            onReset={handleBoardReset}
+                          />
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <AnswerList
