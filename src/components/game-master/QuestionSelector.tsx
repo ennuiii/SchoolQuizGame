@@ -28,7 +28,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   const [selectedLanguage, setSelectedLanguage] = useState<string>('de');
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
-  const [sortByGrade, setSortByGrade] = useState<boolean>(true);
   const [errorMsg, setErrorMsg] = useState('');
   const [randomCount, setRandomCount] = useState<number>(5);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
@@ -55,7 +54,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
         grade?: number;
         language?: string;
         limit?: number;
-        sortByGrade?: boolean;
       } = {};
       
       if (selectedSubject) {
@@ -69,8 +67,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
       if (selectedLanguage) {
         options.language = selectedLanguage;
       }
-      
-      options.sortByGrade = sortByGrade;
       
       const loadedQuestions = await supabaseService.getQuestions(options);
       
@@ -140,8 +136,8 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
         const selectedCount = Math.min(randomCount, shuffled.length);
         const randomQuestions = shuffled.slice(0, selectedCount);
         
-        // Add the random questions to the selected questions
-        const newSelectedQuestions = [...selectedQuestions, ...randomQuestions];
+        // Always sort after adding
+        const newSelectedQuestions = [...selectedQuestions, ...randomQuestions].sort((a, b) => a.grade - b.grade);
         onSelectedQuestionsChange(newSelectedQuestions);
         onQuestionsSelected(newSelectedQuestions);
         
@@ -163,13 +159,11 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   };
 
   const addQuestionToSelected = (question: Question) => {
-    // Check if question is already selected
     if (selectedQuestions.some(q => q.id === question.id)) {
       setErrorMsg('This question is already selected');
       return;
     }
-    
-    const newSelectedQuestions = [...selectedQuestions, question];
+    const newSelectedQuestions = [...selectedQuestions, question].sort((a, b) => a.grade - b.grade);
     onSelectedQuestionsChange(newSelectedQuestions);
     onQuestionsSelected(newSelectedQuestions);
     setAvailableQuestions(prev => prev.filter(q => q.id !== question.id));
@@ -249,12 +243,15 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
       return;
     }
     
-    const newSelectedQuestions = [...selectedQuestions, newQuestion];
+    const newSelectedQuestions = [...selectedQuestions, newQuestion].sort((a, b) => a.grade - b.grade);
     onSelectedQuestionsChange(newSelectedQuestions);
     onQuestionsSelected(newSelectedQuestions);
     setErrorMsg('Custom question added to selection');
     setTimeout(() => setErrorMsg(''), 3000);
   };
+
+  // Always sort availableQuestions before rendering
+  const sortedAvailableQuestions = [...availableQuestions].sort((a, b) => a.grade - b.grade);
 
   return (
     <div className="question-selector">
@@ -346,20 +343,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
               onChange={(e) => setRandomCount(Math.min(50, Math.max(1, parseInt(e.target.value) || 1)))}
             />
           </div>
-          <div className="col-md-9">
-            <div className="form-check mt-4">
-              <input
-                className="form-check-input"
-                type="checkbox"
-                id="sortByGradeCheckbox"
-                checked={sortByGrade}
-                onChange={(e) => setSortByGrade(e.target.checked)}
-              />
-              <label className="form-check-label" htmlFor="sortByGradeCheckbox">
-                Sort questions by grade (lowest to highest)
-              </label>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -374,7 +357,7 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
                 <p className="text-center text-muted">No questions available. Use the filters above to search for questions.</p>
               ) : (
                 <div className="list-group">
-                  {availableQuestions.map((question) => (
+                  {sortedAvailableQuestions.map((question) => (
                     <div key={question.id} className="list-group-item list-group-item-action d-flex justify-content-between align-items-center">
                       <div>
                         <p className="mb-1 fw-bold">{question.text}</p>
