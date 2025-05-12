@@ -700,23 +700,23 @@ const GameMaster: React.FC = () => {
             </div>
             
             <div className="col-md-8">
+              <GameControls
+                gameStarted={gameStarted}
+                currentQuestionIndex={currentQuestionIndex}
+                totalQuestions={questions.length}
+                onStartGame={startGame}
+                onNextQuestion={nextQuestion}
+                onRestartGame={restartGame}
+                onEndRoundEarly={handleEndRoundEarly}
+                isRestarting={isRestarting}
+                showEndRoundConfirm={showEndRoundConfirm}
+                onConfirmEndRound={confirmEndRoundEarly}
+                onCancelEndRound={cancelEndRoundEarly}
+                hasPendingAnswers={pendingAnswers.length > 0}
+              />
+              
               {gameStarted ? (
                 <>
-                  <GameControls
-                    gameStarted={gameStarted}
-                    currentQuestionIndex={currentQuestionIndex}
-                    totalQuestions={questions.length}
-                    onStartGame={startGame}
-                    onNextQuestion={nextQuestion}
-                    onRestartGame={restartGame}
-                    onEndRoundEarly={handleEndRoundEarly}
-                    isRestarting={isRestarting}
-                    showEndRoundConfirm={showEndRoundConfirm}
-                    onConfirmEndRound={confirmEndRoundEarly}
-                    onCancelEndRound={cancelEndRoundEarly}
-                    hasPendingAnswers={pendingAnswers.length > 0}
-                  />
-                  
                   {currentQuestion && (
                     <div className="card mb-4">
                       <div className="card-body">
