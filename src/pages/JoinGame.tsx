@@ -57,8 +57,10 @@ const JoinGame: React.FC = () => {
     
     // Join room as spectator or player
     if (isSpectator) {
+      console.log('Joining as spectator:', { roomCode, playerName });
       socketService.joinAsSpectator(roomCode, playerName);
     } else {
+      console.log('Joining as player:', { roomCode, playerName });
       socketService.joinRoom(roomCode, playerName);
     }
   };

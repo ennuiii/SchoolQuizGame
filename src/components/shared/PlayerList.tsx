@@ -6,6 +6,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator?: boolean;
 }
 
 interface PlayerListProps {
@@ -49,12 +50,17 @@ const PlayerList: React.FC<PlayerListProps> = ({
                   {player.id === currentPlayerId && (
                     <span className="badge bg-primary rounded-pill">You</span>
                   )}
+                  {player.isSpectator && (
+                    <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
+                  )}
                 </div>
-                <div className="lives-display">
-                  {[...Array(player.lives)].map((_, i) => (
-                    <span key={i} className="life" role="img" aria-label="heart">❤</span>
-                  ))}
-                </div>
+                {!player.isSpectator && (
+                  <div className="lives-display">
+                    {[...Array(player.lives)].map((_, i) => (
+                      <span key={i} className="life" role="img" aria-label="heart">❤</span>
+                    ))}
+                  </div>
+                )}
               </div>
             ))
           )}

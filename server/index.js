@@ -134,7 +134,8 @@ io.on('connection', (socket) => {
       name: playerName,
       lives: 3,
       answers: [],
-      isActive: true
+      isActive: true,
+      isSpectator: false
     };
 
     gameRooms[roomCode].players.push(playerInfo);
@@ -553,38 +554,41 @@ io.on('connection', (socket) => {
   socket.on('join_as_spectator', ({ roomCode, playerName }) => {
     console.log(`Spectator ${playerName} attempting to join room ${roomCode}`);
     
-    const room = gameRooms[roomCode];
-    if (!room) {
+    if (!gameRooms[roomCode]) {
+      console.log(`Room ${roomCode} not found!`);
       socket.emit('error', 'Room not found');
       return;
     }
 
     // Add spectator to room
     socket.join(roomCode);
+    socket.roomCode = roomCode;
+
     const spectator = {
       id: socket.id,
       name: playerName,
+      lives: 0,
+      answers: [],
+      isActive: true,
       isSpectator: true
     };
-    room.spectators.add(socket.id);
+
+    // Add spectator to players list
+    gameRooms[roomCode].players.push(spectator);
 
     // Notify spectator they joined successfully
     socket.emit('joined_room', roomCode);
 
     // Send current game state to spectator
-    if (room.currentQuestion) {
-      socket.emit('question', room.currentQuestion);
+    if (gameRooms[roomCode].currentQuestion) {
+      socket.emit('question', gameRooms[roomCode].currentQuestion);
     }
 
     // Broadcast player update to all clients in room
-    const roomPlayers = room.players.map(player => {
-      return {
-        id: player.id,
-        name: player.name,
-        isSpectator: false
-      };
-    });
-    io.to(roomCode).emit('players_updated', roomPlayers);
+    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
+    
+    console.log(`Spectator ${playerName} (${socket.id}) joined room: ${roomCode}`);
+    console.log(`Current players in room ${roomCode}:`, gameRooms[roomCode].players);
   });
 });
 

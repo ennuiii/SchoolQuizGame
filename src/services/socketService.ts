@@ -115,6 +115,7 @@ class SocketService {
   }
 
   joinAsSpectator(roomCode: string, playerName: string) {
+    console.log(`Joining room ${roomCode} as spectator ${playerName}`);
     this.emit('join_as_spectator', { roomCode, playerName });
   }
 
@@ -122,7 +123,7 @@ class SocketService {
     this.emit('submit_answer', { roomCode, answer, hasDrawing });
   }
   
-  // Board update function - missing function that was causing the build error
+  // Board update function
   updateBoard(roomCode: string, boardData: string) {
     this.emit('update_board', { roomCode, boardData });
   }
