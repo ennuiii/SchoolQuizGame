@@ -739,18 +739,17 @@ const GameMaster: React.FC = () => {
                     </div>
                   )}
 
-                  <div className="row g-3">
+                  <div className="row g-3 justify-content-center">
                     {playerBoards.map(board => (
-                      <div key={board.playerId} className="col-12 col-md-6">
-                        <PlayerBoardDisplay
-                          board={board}
-                          isVisible={visibleBoards.has(board.playerId)}
-                          onToggleVisibility={toggleBoardVisibility}
-                          transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                          onScale={handleBoardScale}
-                          onReset={handleBoardReset}
-                        />
-                      </div>
+                      <PlayerBoardDisplay
+                        key={board.playerId}
+                        board={board}
+                        isVisible={visibleBoards.has(board.playerId)}
+                        onToggleVisibility={toggleBoardVisibility}
+                        transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                        onScale={handleBoardScale}
+                        onReset={handleBoardReset}
+                      />
                     ))}
                   </div>
 
@@ -833,11 +832,11 @@ const GameMaster: React.FC = () => {
         width: '90%',
         maxWidth: '500px'
       }}>
-        {!previewMode.isActive ? (
+        {(!previewMode.isActive && (allAnswersIn || (timeLimit !== null && timeRemaining === 0) || !gameStarted)) ? (
           <button
             className="btn btn-primary w-100"
             onClick={handleStartPreviewMode}
-            disabled={!allAnswersIn}
+            disabled={!allAnswersIn && !(timeLimit !== null && timeRemaining === 0) && gameStarted}
           >
             Start Preview Mode
           </button>

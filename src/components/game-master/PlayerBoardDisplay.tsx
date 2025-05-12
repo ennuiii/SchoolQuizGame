@@ -28,11 +28,11 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   onReset
 }) => {
   return (
-    <div className="col-md-6 mb-4">
-      <div className="card">
-        <div className="card-header d-flex justify-content-between align-items-center">
+    <div className="mb-4">
+      <div className="card h-100">
+        <div className="card-header d-flex flex-wrap justify-content-between align-items-center gap-2">
           <h5 className="mb-0">{board.playerName}</h5>
-          <div className="btn-group">
+          <div className="btn-group flex-wrap">
             <button
               className="btn btn-sm btn-outline-primary"
               onClick={() => onToggleVisibility(board.playerId)}
@@ -63,34 +63,34 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
             )}
           </div>
         </div>
-        <div className="card-body">
-          {isVisible && (
+        {isVisible && (
+          <div
+            className="board-container d-flex justify-content-center align-items-center"
+            style={{
+              width: '100%',
+              minHeight: '300px',
+              backgroundColor: '#0C6A35',
+              borderRadius: '4px',
+              overflow: 'hidden',
+              border: '8px solid #8B4513',
+              boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)',
+              margin: '0 auto',
+              maxWidth: '350px'
+            }}
+          >
             <div
-              className="board-container"
+              className="drawing-board"
+              dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
               style={{
                 width: '100%',
-                height: '300px',
-                backgroundColor: '#0C6A35',
-                borderRadius: '4px',
-                overflow: 'hidden',
-                border: '8px solid #8B4513',
-                boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                height: '100%',
+                transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
+                transformOrigin: 'top left',
+                transition: 'transform 0.2s ease-out'
               }}
-            >
-              <div
-                className="drawing-board"
-                dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
-                  transformOrigin: 'top left',
-                  transition: 'transform 0.2s ease-out'
-                }}
-              />
-            </div>
-          )}
-        </div>
+            />
+          </div>
+        )}
       </div>
     </div>
   );
