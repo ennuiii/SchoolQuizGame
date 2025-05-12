@@ -182,6 +182,22 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
     }
   };
 
+  const clearAllSelectedQuestions = () => {
+    if (selectedQuestions.length === 0) {
+      setErrorMsg('No questions to clear');
+      return;
+    }
+    
+    // Add all selected questions back to available questions
+    const updatedAvailableQuestions = [...availableQuestions, ...selectedQuestions].sort((a, b) => a.grade - b.grade);
+    setAvailableQuestions(updatedAvailableQuestions);
+    
+    // Clear selected questions
+    onSelectedQuestionsChange([]);
+    setErrorMsg('All questions cleared');
+    setTimeout(() => setErrorMsg(''), 3000);
+  };
+
   const organizeSelectedQuestions = () => {
     const organized = [...selectedQuestions].sort((a, b) => a.grade - b.grade);
     onSelectedQuestionsChange(organized);
@@ -380,14 +396,24 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
           <div className="card mb-3">
             <div className="card-header bg-light d-flex justify-content-between align-items-center">
               <h6 className="mb-0">Selected Questions ({selectedQuestions.length})</h6>
-              <button 
-                className="btn btn-sm btn-outline-primary" 
-                onClick={organizeSelectedQuestions}
-                disabled={selectedQuestions.length < 2}
-                title="Sort by grade (lowest to highest)"
-              >
-                Sort by Grade
-              </button>
+              <div className="d-flex gap-2">
+                <button 
+                  className="btn btn-sm btn-outline-primary" 
+                  onClick={organizeSelectedQuestions}
+                  disabled={selectedQuestions.length < 2}
+                  title="Sort by grade (lowest to highest)"
+                >
+                  Sort by Grade
+                </button>
+                <button 
+                  className="btn btn-sm btn-outline-danger" 
+                  onClick={clearAllSelectedQuestions}
+                  disabled={selectedQuestions.length === 0}
+                  title="Clear all selected questions"
+                >
+                  Clear All
+                </button>
+              </div>
             </div>
             <div className="card-body" style={{maxHeight: '300px', overflowY: 'auto'}}>
               {selectedQuestions.length === 0 ? (
