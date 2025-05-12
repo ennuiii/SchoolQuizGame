@@ -4,7 +4,11 @@ import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 import audioService from '../services/audioService';
 import PreviewOverlay from '../components/PreviewOverlay';
-import QuestionSelector from '../components/QuestionSelector';
+import QuestionSelector from '../components/game-master/QuestionSelector';
+import GameControls from '../components/game-master/GameControls';
+import QuestionDisplay from '../components/game-master/QuestionDisplay';
+import AnswerList from '../components/game-master/AnswerList';
+import Timer from '../components/game-master/Timer';
 
 interface Player {
   id: string;
@@ -762,191 +766,39 @@ const GameMaster: React.FC = () => {
             <div className="col-md-8">
               {gameStarted ? (
                 <>
-                  <div className="card mb-4">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">Pending Answers</h3>
-                      <button 
-                        className="btn btn-warning"
-                        onClick={handleEndRoundEarly}
-                        disabled={!(gameStarted && currentQuestion)}
-                      >
-                        End Round Early
-                      </button>
-                    </div>
-                    <div className="card-body">
-                      {pendingAnswers.length === 0 ? (
-                        <p className="text-center">No pending answers</p>
-                      ) : (
-                        <ul className="list-group">
-                          {pendingAnswers.map((submission, index) => (
-                            <li key={index} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <h5 className="mb-0">{submission.playerName}</h5>
-                                <div>
-                                  <button 
-                                    className="btn btn-success me-2"
-                                    onClick={() => evaluateAnswer(submission.playerId, true)}
-                                  >
-                                    Correct
-                                  </button>
-                                  <button 
-                                    className="btn btn-danger"
-                                    onClick={() => evaluateAnswer(submission.playerId, false)}
-                                  >
-                                    Incorrect
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="answer-container">
-                                <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
-                                {currentQuestion?.answer && (
-                                  <p className="mb-0 text-success small">
-                                    <strong>Correct Answer:</strong> {currentQuestion.answer}
-                                  </p>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
+                  <GameControls
+                    gameStarted={gameStarted}
+                    currentQuestionIndex={currentQuestionIndex}
+                    totalQuestions={questions.length}
+                    onStartGame={startGame}
+                    onNextQuestion={nextQuestion}
+                    onRestartGame={restartGame}
+                    onEndRoundEarly={handleEndRoundEarly}
+                    isRestarting={isRestarting}
+                    showEndRoundConfirm={showEndRoundConfirm}
+                    onConfirmEndRound={confirmEndRoundEarly}
+                    onCancelEndRound={cancelEndRoundEarly}
+                    hasPendingAnswers={pendingAnswers.length > 0}
+                  />
                   
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">Player Boards</h3>
-                      <div>
-                        <button 
-                          className="btn btn-sm btn-outline-primary me-2"
-                          onClick={() => setVisibleBoards(new Set())}
-                        >
-                          Hide All
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => setVisibleBoards(new Set(players.map(p => p.id)))}
-                        >
-                          Show All
-                        </button>
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      {playerBoards.length === 0 ? (
-                        <p className="text-center">No player boards available</p>
-                      ) : (
-                        <div className="row">
-                          {playerBoards
-                            .filter(board => visibleBoards.has(board.playerId))
-                            .map((board) => {
-                              const player = players.find(p => p.id === board.playerId);
-                              return (
-                                <div key={board.playerId} className="col-md-6 mb-4">
-                                  <div className="card h-100">
-                                    <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                                      <h5 className="mb-0">{board.playerName || 'Unknown Player'} {!player?.isActive && '(Eliminated)'}</h5>
-                                      <button
-                                        className="btn btn-sm btn-light"
-                                        onClick={() => toggleBoardVisibility(board.playerId)}
-                                      >
-                                        Hide
-                                      </button>
-                                    </div>
-                                    <div className="card-body p-0" style={{ minHeight: '350px', position: 'relative' }}>
-                                      <div
-                                        className="drawing-board-panzoom"
-                                        style={{
-                                          width: '100%',
-                                          height: '320px',
-                                          position: 'relative',
-                                          overflow: 'hidden',
-                                          cursor: 'grab',
-                                          background: '#0C6A35',
-                                          zIndex: 1
-                                        }}
-                                        onWheel={e => {
-                                          if (!e.altKey) return;
-                                          e.preventDefault();
-                                          const playerId = board.playerId;
-                                          const delta = e.deltaY < 0 ? 0.1 : -0.1;
-                                          updateBoardTransform(playerId, t => {
-                                            let newScale = Math.max(0.2, Math.min(3, t.scale + delta));
-                                            return { ...t, scale: newScale };
-                                          });
-                                        }}
-                                        onMouseDown={e => {
-                                          if (!e.altKey) return;
-                                          e.preventDefault();
-                                          const playerId = board.playerId;
-                                          panState.current[playerId] = { panning: true, lastX: e.clientX, lastY: e.clientY };
-                                        }}
-                                        onMouseMove={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]?.panning) {
-                                            e.preventDefault();
-                                            const dx = e.clientX - panState.current[playerId].lastX;
-                                            const dy = e.clientY - panState.current[playerId].lastY;
-                                            panState.current[playerId].lastX = e.clientX;
-                                            panState.current[playerId].lastY = e.clientY;
-                                            updateBoardTransform(playerId, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-                                          }
-                                        }}
-                                        onMouseUp={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
-                                        }}
-                                        onMouseLeave={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
-                                        }}
-                                      >
-                                        <div
-                                          style={{
-                                            width: 400,
-                                            height: 200,
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            transformOrigin: 'center center',
-                                            transform: `translate(${(boardTransforms[board.playerId]?.x||0)}px, ${(boardTransforms[board.playerId]?.y||0)}px) scale(${boardTransforms[board.playerId]?.scale||1})`,
-                                            transition: 'transform 0.2s ease-out',
-                                            pointerEvents: 'none',
-                                          }}
-                                          className="drawing-board"
-                                          dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="card-footer d-flex justify-content-between align-items-center">
-                                      <span>
-                                        {Array.from({length: player?.lives || 0}, (_, i) => (
-                                          <span key={i} className="text-danger me-1" role="img" aria-label="heart">❤</span>
-                                        ))}
-                                      </span>
-                                      {pendingAnswers.find(a => a.playerId === board.playerId) && (
-                                        <div>
-                                          <button 
-                                            className="btn btn-sm btn-success me-2"
-                                            onClick={() => evaluateAnswer(board.playerId, true)}
-                                          >
-                                            Correct
-                                          </button>
-                                          <button 
-                                            className="btn btn-sm btn-danger"
-                                            onClick={() => evaluateAnswer(board.playerId, false)}
-                                          >
-                                            Incorrect
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                          })}
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  <QuestionDisplay
+                    currentQuestion={currentQuestion}
+                    currentQuestionIndex={currentQuestionIndex}
+                    totalQuestions={questions.length}
+                  />
+                  
+                  <AnswerList
+                    answers={pendingAnswers}
+                    onEvaluate={evaluateAnswer}
+                  />
+                  
+                  {timeLimit !== null && timeRemaining !== null && (
+                    <Timer
+                      timeRemaining={timeRemaining}
+                      timeLimit={timeLimit}
+                      isRunning={isTimerRunning}
+                    />
+                  )}
                 </>
               ) : (
                 <div className="card">

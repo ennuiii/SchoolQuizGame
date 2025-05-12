@@ -5,6 +5,8 @@ import socketService from '../services/socketService';
 import { throttle } from '../utils/throttle';
 import audioService from '../services/audioService';
 import PreviewOverlay from '../components/PreviewOverlay';
+import QuestionCard from '../components/player/QuestionCard';
+import Timer from '../components/game-master/Timer';
 
 interface Question {
   id: number;
@@ -716,18 +718,15 @@ const Player: React.FC = () => {
         </div>
       ) : (
         <>
-          <div className="card mb-4">
-            <div className="card-header">
-              <h3 className="mb-0">Question</h3>
-            </div>
-            <div className="card-body">
-              <div className="question-container">
-                <p className="lead mb-1">{currentQuestion?.text}</p>
-                <small>Grade: {currentQuestion?.grade} | Subject: {currentQuestion?.subject} 
-                {currentQuestion?.language && ` | Language: ${currentQuestion.language}`}</small>
-              </div>
-            </div>
-          </div>
+          <QuestionCard currentQuestion={currentQuestion} />
+          
+          {timeLimit !== null && timeRemaining !== null && (
+            <Timer
+              timeRemaining={timeRemaining}
+              timeLimit={timeLimit}
+              isRunning={isTimerRunning}
+            />
+          )}
           
           <div className="card mb-4">
             <div className="card-header d-flex justify-content-between align-items-center">
@@ -752,7 +751,7 @@ const Player: React.FC = () => {
                 position: 'relative',
                 overflow: 'hidden',
                 margin: '0 auto',
-                background: '#0C6A35', // fallback in case canvas doesn't fill
+                background: '#0C6A35',
               }}>
                 <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block' }} />
               </div>
@@ -775,13 +774,6 @@ const Player: React.FC = () => {
                   Submit Answer
                 </button>
               </div>
-              
-              {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
-                <div className={`text-center ${timeRemaining <= 10 ? 'text-danger fw-bold' : ''}`}>
-                  Time remaining: {formatTime(timeRemaining)}
-                  {timeRemaining <= 10 && <span className="ms-1">- Answer will be auto-submitted when time is up!</span>}
-                </div>
-              )}
               
               {submittedAnswer && (
                 <div className="alert alert-info">

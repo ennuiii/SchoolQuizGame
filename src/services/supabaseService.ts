@@ -61,19 +61,20 @@ export const supabaseService = {
     return data as Question[];
   },
 
-  // Add a new question
-  async addQuestion(question: Omit<Question, 'id' | 'created_at'>) {
+  // Add a new question to the database
+  async addQuestion(question: QuestionUpload) {
     const { data, error } = await supabase
       .from('questions')
       .insert([question])
-      .select();
+      .select()
+      .single();
 
     if (error) {
       console.error('Error adding question:', error);
       throw error;
     }
 
-    return data[0] as Question;
+    return data as Question;
   },
 
   // Update an existing question

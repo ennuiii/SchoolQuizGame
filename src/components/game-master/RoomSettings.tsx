@@ -1,0 +1,52 @@
+import React from 'react';
+
+interface RoomSettingsProps {
+  timeLimit: number | null;
+  onTimeLimitChange: (timeLimit: number | null) => void;
+  roomCode: string;
+}
+
+const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange, roomCode }) => {
+  return (
+    <div className="card mb-3">
+      <div className="card-header bg-light">
+        <h6 className="mb-0">Room Settings</h6>
+      </div>
+      <div className="card-body">
+        <div className="mb-3">
+          <label className="form-label">Room Code: <strong>{roomCode}</strong></label>
+        </div>
+        <div className="mb-3">
+          <label htmlFor="timeLimit" className="form-label">Time Limit (seconds)</label>
+          <div className="input-group">
+            <input
+              type="number"
+              className="form-control"
+              id="timeLimit"
+              min="0"
+              max="99999"
+              value={timeLimit || ''}
+              onChange={(e) => {
+                const value = e.target.value ? parseInt(e.target.value) : null;
+                onTimeLimitChange(value);
+              }}
+              placeholder="No time limit"
+            />
+            <button
+              className="btn btn-outline-secondary"
+              type="button"
+              onClick={() => onTimeLimitChange(null)}
+            >
+              Clear
+            </button>
+          </div>
+          <div className="form-text">
+            Set to 0 for no time limit
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default RoomSettings; 
