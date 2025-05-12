@@ -474,32 +474,8 @@ const Player: React.FC = () => {
     answerRef.current = answer;
   }, [answer]);
 
-  // Only call resetCanvas on explicit actions
-  const resetCanvas = () => {
-    setCanvasKey(prev => prev + 1);
-  };
-
-  // Update clearCanvas to check for submission
-  const clearCanvas = () => {
-    if (fabricCanvasRef.current && !submittedAnswer) {
-      fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#0C6A35'; // School green board color
-      fabricCanvasRef.current.renderAll();
-      
-      // Send empty canvas to gamemaster
-      const svgData = fabricCanvasRef.current.toSVG();
-      socketService.updateBoard(roomCode, svgData);
-    }
-  };
-
-  const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAnswer(e.target.value);
-    // Store current answer in socket for auto-submission
-    const socket = socketService.connect();
-    (socket as any).currentAnswer = e.target.value;
-  };
-
-  const handleSubmitAnswer = (force = false) => {
+  // Memoize event handlers
+  const handleSubmitAnswer = useCallback((force = false) => {
     if (!currentQuestion || submittedAnswerRef.current) return;
   
     const room = roomCode || sessionStorage.getItem('roomCode')!;
@@ -523,9 +499,9 @@ const Player: React.FC = () => {
     socketService.submitAnswer(room, finalAnswer, hasDrawing);
     setSubmittedAnswer(true);
     showFlashMessage(force ? 'Answer submitted automatically' : 'Answer submitted!', 'info');
-  };
+  }, [currentQuestion, roomCode]);
 
-  const showFlashMessage = (message: string, type: 'success' | 'danger' | 'warning' | 'info') => {
+  const showFlashMessage = useCallback((message: string, type: 'success' | 'danger' | 'warning' | 'info') => {
     setErrorMsg(message);
     document.getElementById('flash-message')?.classList.add(`alert-${type}`);
     
@@ -533,8 +509,62 @@ const Player: React.FC = () => {
       setErrorMsg('');
       document.getElementById('flash-message')?.classList.remove(`alert-${type}`);
     }, 3000);
-  };
+  }, []);
 
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
+      // When tab becomes visible, check if we need to submit
+      if (timeRemaining <= 0 && !submittedAnswerRef.current && currentQuestion) {
+        handleSubmitAnswer();
+      }
+    }
+  }, [timeRemaining, timeLimit, currentQuestion, handleSubmitAnswer]);
+
+  const handleToggleMute = useCallback(() => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  }, []);
+
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  }, []);
+
+  const handleClosePreviewMode = useCallback(() => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  }, [roomCode]);
+
+  const handleFocusSubmission = useCallback((playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
+  }, [roomCode]);
+
+  const resetCanvas = useCallback(() => {
+    setCanvasKey(prev => prev + 1);
+  }, []);
+
+  const clearCanvas = useCallback(() => {
+    if (fabricCanvasRef.current && !submittedAnswer) {
+      fabricCanvasRef.current.clear();
+      fabricCanvasRef.current.backgroundColor = '#0C6A35'; // School green board color
+      fabricCanvasRef.current.renderAll();
+      
+      // Send empty canvas to gamemaster
+      const svgData = fabricCanvasRef.current.toSVG();
+      socketService.updateBoard(roomCode, svgData);
+    }
+  }, [roomCode, submittedAnswer]);
+
+  const handleAnswerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setAnswer(e.target.value);
+    // Store current answer in socket for auto-submission
+    const socket = socketService.connect();
+    (socket as any).currentAnswer = e.target.value;
+  }, []);
+
+  // Update useEffect dependencies
   useEffect(() => {
     if (
       !submittedAnswerRef.current &&
@@ -545,24 +575,22 @@ const Player: React.FC = () => {
     ) {
       handleSubmitAnswer();
     }
-  }, [timeRemaining]);
+  }, [timeRemaining, currentQuestion, timeLimit, handleSubmitAnswer]);
 
-  // Add visibility change handler
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
-        // When tab becomes visible, check if we need to submit
-        if (timeRemaining <= 0 && !submittedAnswerRef.current && currentQuestion) {
-          handleSubmitAnswer();
-        }
-      }
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [timeRemaining, timeLimit, currentQuestion]);
+  }, [handleVisibilityChange]);
+
+  // Move formatTime outside component since it doesn't depend on any component state
+  const formatTime = (seconds: number | null): string => {
+    if (seconds === null) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     // Start playing background music when component mounts
@@ -573,27 +601,6 @@ const Player: React.FC = () => {
       audioService.pauseBackgroundMusic();
     };
   }, []);
-
-  const handleToggleMute = () => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  };
-
-  const handleClosePreviewMode = () => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
-  };
-
-  const handleFocusSubmission = (playerId: string) => {
-    socketService.focusSubmission(roomCode, playerId);
-    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
-  };
 
   if (gameOver && !isWinner) {
     return (
@@ -796,14 +803,6 @@ const Player: React.FC = () => {
       />
     </div>
   );
-};
-
-// Helper function to format time
-const formatTime = (seconds: number | null): string => {
-  if (seconds === null) return '--:--';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 export default Player; 
