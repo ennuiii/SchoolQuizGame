@@ -8,7 +8,8 @@ import QuestionSelector from '../components/game-master/QuestionSelector';
 import GameControls from '../components/game-master/GameControls';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
 import AnswerList from '../components/game-master/AnswerList';
-import Timer from '../components/game-master/Timer';
+import Timer from '../components/shared/Timer';
+import PlayerBoardDisplay from '../components/game-master/PlayerBoardDisplay';
 
 interface Player {
   id: string;
@@ -165,6 +166,11 @@ const GameMaster: React.FC = () => {
         newSet.delete(playerId);
       } else {
         newSet.add(playerId);
+        // Initialize transform for this board if it doesn't exist
+        setBoardTransforms(prevTransforms => ({
+          ...prevTransforms,
+          [playerId]: prevTransforms[playerId] || { scale: 0.4, x: 0, y: 0 }
+        }));
       }
       return newSet;
     });
@@ -554,6 +560,24 @@ const GameMaster: React.FC = () => {
     });
   }, []);
 
+  // Initialize visibleBoards when players join
+  useEffect(() => {
+    const newVisibleBoards = new Set<string>();
+    players.forEach(player => {
+      if (visibleBoards.has(player.id)) {
+        newVisibleBoards.add(player.id);
+      }
+    });
+    setVisibleBoards(newVisibleBoards);
+  }, [players]);
+
+  // Reset visibleBoards when game restarts
+  useEffect(() => {
+    if (isRestarting) {
+      setVisibleBoards(new Set());
+    }
+  }, [isRestarting]);
+
   return (
     <div className="container-fluid">
       <div className="d-flex justify-content-between align-items-center mb-4">
@@ -750,9 +774,11 @@ const GameMaster: React.FC = () => {
                       {timeLimit !== null && timeLimit < 99999 && (
                         <>
                           <h5>Time Remaining:</h5>
-                          <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
-                            {formatTime(timeRemaining)}
-                          </div>
+                          <Timer
+                            timeLimit={timeLimit}
+                            timeRemaining={timeRemaining}
+                            isActive={isTimerRunning}
+                          />
                         </>
                       )}
                     </div>
@@ -815,12 +841,6 @@ const GameMaster: React.FC = () => {
                     onEvaluate={evaluateAnswer}
                     evaluatedAnswers={evaluatedAnswers}
                   />
-                  
-                  {timeLimit !== null && timeRemaining !== null && (
-                    <Timer
-                      timeRemaining={timeRemaining}
-                    />
-                  )}
                 </>
               ) : (
                 <div className="card">
@@ -942,85 +962,26 @@ const GameMaster: React.FC = () => {
                   question={currentQuestion}
                 />
                 <Timer
+                  timeLimit={timeLimit}
                   timeRemaining={timeRemaining}
+                  isActive={isTimerRunning}
                 />
               </div>
             </div>
           )}
 
           <div className="row">
-            {playerBoards.map(board => {
-              const isVisible = visibleBoards.has(board.playerId);
-              const transform = boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 };
-              
-              return (
-                <div key={board.playerId} className="col-md-6 mb-4">
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">{board.playerName}</h5>
-                      <div className="btn-group">
-                        <button
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => toggleBoardVisibility(board.playerId)}
-                        >
-                          {isVisible ? 'Hide' : 'Show'}
-                        </button>
-                        {isVisible && (
-                          <>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
-                              onClick={() => handleBoardScale(board.playerId, transform.scale * 1.2)}
-                            >
-                              Zoom In
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
-                              onClick={() => handleBoardScale(board.playerId, transform.scale * 0.8)}
-                            >
-                              Zoom Out
-                            </button>
-                            <button
-                              className="btn btn-sm btn-outline-secondary"
-                              onClick={() => handleBoardReset(board.playerId)}
-                            >
-                              Reset
-                            </button>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      {isVisible && (
-                        <div
-                          className="board-container"
-                          style={{
-                            width: '100%',
-                            height: '300px',
-                            backgroundColor: '#0C6A35',
-                            borderRadius: '4px',
-                            overflow: 'hidden',
-                            border: '8px solid #8B4513',
-                            boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                          }}
-                        >
-                          <div
-                            className="drawing-board"
-                            dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                            style={{
-                              width: '100%',
-                              height: '100%',
-                              transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
-                              transformOrigin: 'top left',
-                              transition: 'transform 0.2s ease-out'
-                            }}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
+            {playerBoards.map(board => (
+              <PlayerBoardDisplay
+                key={board.playerId}
+                board={board}
+                isVisible={visibleBoards.has(board.playerId)}
+                onToggleVisibility={toggleBoardVisibility}
+                transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                onScale={handleBoardScale}
+                onReset={handleBoardReset}
+              />
+            ))}
           </div>
         </div>
 

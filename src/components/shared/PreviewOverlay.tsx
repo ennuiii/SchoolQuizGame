@@ -72,154 +72,152 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
       left: 0,
       right: 0,
       bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.85)',
+      backgroundColor: 'rgba(255, 255, 255, 0.95)',
       zIndex: 1000,
       padding: '20px',
       overflow: 'auto'
     }}>
-      <div className="container">
-        <div className="d-flex justify-content-between align-items-center mb-4">
-          <h2 className="text-white mb-0">Preview Mode</h2>
-          <button className="btn btn-light" onClick={onClose}>
-            Close Preview
-          </button>
-        </div>
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <h2 className="mb-0">Preview Mode</h2>
+        <button className="btn btn-primary" onClick={onClose}>
+          Close Preview
+        </button>
+      </div>
 
-        {previewMode.focusedPlayerId ? (
-          <div className="focused-submission">
-            {playerBoards
-              .filter(board => board.playerId === previewMode.focusedPlayerId)
-              .map(board => {
-                const player = players.find(p => p.id === board.playerId);
-                const answer = allAnswersThisRound[board.playerId];
-                const evaluation = evaluatedAnswers[board.playerId];
-                
-                return (
-                  <div key={board.playerId} className="card bg-dark text-white">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <div className="d-flex align-items-center">
-                        <button 
-                          className="btn btn-outline-light me-3"
-                          onClick={handlePrevious}
-                          disabled={currentIndex <= 0}
-                        >
-                          ← Previous
-                        </button>
-                        <h3 className="mb-0">{board.playerName}</h3>
-                        <button 
-                          className="btn btn-outline-light ms-3"
-                          onClick={handleNext}
-                          disabled={currentIndex >= playerBoards.length - 1}
-                        >
-                          Next →
-                        </button>
-                      </div>
-                      <div>
-                        <span className="me-3">
-                          {Array.from({length: player?.lives || 0}, (_, i) => (
-                            <span key={i} className="text-danger me-1">❤</span>
-                          ))}
-                        </span>
-                        {evaluation !== undefined && (
-                          <span className={`badge ${evaluation ? 'bg-success' : 'bg-danger'}`}>
-                            {evaluation ? 'Correct' : 'Incorrect'}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="card-body">
-                      {answer && (
-                        <div className="mb-4">
-                          <h4>Answer:</h4>
-                          <p className="lead">{answer.answer}</p>
-                        </div>
-                      )}
-                      <div className="board-container" style={{
-                        width: '100%',
-                        height: '400px',
-                        backgroundColor: '#0C6A35',
-                        borderRadius: '4px',
-                        overflow: 'hidden',
-                        border: '12px solid #8B4513',
-                        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
-                      }}>
-                        <div
-                          className="drawing-board"
-                          dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            transform: 'scale(1)',
-                            transformOrigin: 'top left'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-          </div>
-        ) : (
-          <div className="row">
-            {playerBoards.map(board => {
+      {previewMode.focusedPlayerId ? (
+        <div className="focused-submission">
+          {playerBoards
+            .filter(board => board.playerId === previewMode.focusedPlayerId)
+            .map(board => {
               const player = players.find(p => p.id === board.playerId);
               const answer = allAnswersThisRound[board.playerId];
               const evaluation = evaluatedAnswers[board.playerId];
               
               return (
-                <div key={board.playerId} className="col-md-6 mb-4">
-                  <div className="card bg-dark text-white">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h4 className="mb-0">{board.playerName}</h4>
-                      <div>
-                        <span className="me-3">
-                          {Array.from({length: player?.lives || 0}, (_, i) => (
-                            <span key={i} className="text-danger me-1">❤</span>
-                          ))}
-                        </span>
-                        {evaluation !== undefined && (
-                          <span className={`badge ${evaluation ? 'bg-success' : 'bg-danger'}`}>
-                            {evaluation ? 'Correct' : 'Incorrect'}
-                          </span>
-                        )}
-                      </div>
+                <div key={board.playerId} className="card">
+                  <div className="card-header d-flex justify-content-between align-items-center">
+                    <div className="d-flex align-items-center">
+                      <button 
+                        className="btn btn-outline-primary me-3"
+                        onClick={handlePrevious}
+                        disabled={currentIndex <= 0}
+                      >
+                        ← Previous
+                      </button>
+                      <h3 className="mb-0">{board.playerName}</h3>
+                      <button 
+                        className="btn btn-outline-primary ms-3"
+                        onClick={handleNext}
+                        disabled={currentIndex >= playerBoards.length - 1}
+                      >
+                        Next →
+                      </button>
                     </div>
-                    <div className="card-body">
-                      {answer && (
-                        <div className="mb-3">
-                          <p className="mb-1"><strong>Answer:</strong> {answer.answer}</p>
-                        </div>
+                    <div>
+                      <span className="me-3">
+                        {Array.from({length: player?.lives || 0}, (_, i) => (
+                          <span key={i} className="text-danger me-1">❤</span>
+                        ))}
+                      </span>
+                      {evaluation !== undefined && (
+                        <span className={`badge ${evaluation ? 'bg-success' : 'bg-danger'}`}>
+                          {evaluation ? 'Correct' : 'Incorrect'}
+                        </span>
                       )}
-                      <div className="board-container" style={{
-                        width: '100%',
-                        height: '200px',
-                        backgroundColor: '#0C6A35',
-                        borderRadius: '4px',
-                        overflow: 'hidden',
-                        cursor: 'pointer',
-                        border: '8px solid #8B4513',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
-                      }}
-                      onClick={() => onFocus(board.playerId)}>
-                        <div
-                          className="drawing-board"
-                          dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                          style={{
-                            width: '100%',
-                            height: '100%',
-                            transform: 'scale(0.5)',
-                            transformOrigin: 'top left'
-                          }}
-                        />
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    {answer && (
+                      <div className="mb-4">
+                        <h4>Answer:</h4>
+                        <p className="lead">{answer.answer}</p>
                       </div>
+                    )}
+                    <div className="board-container" style={{
+                      width: '100%',
+                      height: '400px',
+                      backgroundColor: '#0C6A35',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                      border: '12px solid #8B4513',
+                      boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)'
+                    }}>
+                      <div
+                        className="drawing-board"
+                        dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          transform: 'scale(1)',
+                          transformOrigin: 'top left'
+                        }}
+                      />
                     </div>
                   </div>
                 </div>
               );
             })}
-          </div>
-        )}
-      </div>
+        </div>
+      ) : (
+        <div className="row">
+          {playerBoards.map(board => {
+            const player = players.find(p => p.id === board.playerId);
+            const answer = allAnswersThisRound[board.playerId];
+            const evaluation = evaluatedAnswers[board.playerId];
+            
+            return (
+              <div key={board.playerId} className="col-md-6 mb-4">
+                <div className="card">
+                  <div className="card-header d-flex justify-content-between align-items-center">
+                    <h4 className="mb-0">{board.playerName}</h4>
+                    <div>
+                      <span className="me-3">
+                        {Array.from({length: player?.lives || 0}, (_, i) => (
+                          <span key={i} className="text-danger me-1">❤</span>
+                        ))}
+                      </span>
+                      {evaluation !== undefined && (
+                        <span className={`badge ${evaluation ? 'bg-success' : 'bg-danger'}`}>
+                          {evaluation ? 'Correct' : 'Incorrect'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    {answer && (
+                      <div className="mb-3">
+                        <p className="mb-1"><strong>Answer:</strong> {answer.answer}</p>
+                      </div>
+                    )}
+                    <div className="board-container" style={{
+                      width: '100%',
+                      height: '200px',
+                      backgroundColor: '#0C6A35',
+                      borderRadius: '4px',
+                      overflow: 'hidden',
+                      cursor: 'pointer',
+                      border: '8px solid #8B4513',
+                      boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                    }}
+                    onClick={() => onFocus(board.playerId)}>
+                      <div
+                        className="drawing-board"
+                        dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                        style={{
+                          width: '100%',
+                          height: '100%',
+                          transform: 'scale(0.5)',
+                          transformOrigin: 'top left'
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 };

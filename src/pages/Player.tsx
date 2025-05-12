@@ -6,7 +6,7 @@ import { throttle } from '../utils/throttle';
 import audioService from '../services/audioService';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionCard from '../components/player/QuestionCard';
-import Timer from '../components/game-master/Timer';
+import Timer from '../components/shared/Timer';
 
 interface Question {
   id: number;
@@ -729,9 +729,10 @@ const Player: React.FC = () => {
           
           {timeLimit !== null && timeRemaining !== null && (
             <Timer
-              timeRemaining={timeRemaining}
               timeLimit={timeLimit}
-              isRunning={isTimerRunning}
+              timeRemaining={timeRemaining}
+              isActive={isTimerRunning}
+              showSeconds={true}
             />
           )}
           
