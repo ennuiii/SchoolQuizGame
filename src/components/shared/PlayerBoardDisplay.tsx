@@ -49,11 +49,15 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     }
     // Get initial viewBox
     const vb = svg.getAttribute('viewBox');
-    if (vb) {
+    if (typeof vb === 'string' && vb.trim().length > 0) {
       const parts = vb.split(' ').map(Number);
       if (parts.length === 4 && parts.every(n => !isNaN(n))) {
         setViewBox([parts[0], parts[1], parts[2], parts[3]]);
+      } else {
+        setViewBox([0, 0, 800, 400]); // fallback
       }
+    } else {
+      setViewBox([0, 0, 800, 400]); // fallback
     }
     // Convert SVG element to React
     setSvgContent(
