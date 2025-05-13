@@ -973,6 +973,15 @@ const Player: React.FC = () => {
           </div>
         </div>
       )}
+      {!isSpectator && !gameOver && !isWinner && roomCode && (
+        <button
+          className="btn btn-outline-warning position-fixed"
+          style={{ bottom: '20px', right: '20px', zIndex: 1000 }}
+          onClick={handleSwitchToSpectator}
+        >
+          Switch to Spectator Mode
+        </button>
+      )}
     </div>
   );
 };
