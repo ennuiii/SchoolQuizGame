@@ -155,15 +155,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const activePlayers = players.filter(player => !player.isSpectator);
-    if (activePlayers.length < 2) {
-      setQuestionErrorMsg('Cannot start game: Need at least 2 active players');
-      setTimeout(() => setQuestionErrorMsg(''), 3000);
-      return;
-    }
-
     socketService.startGame(roomCode, questions, timeLimit);
-  }, [players]);
+  }, []);
 
   const nextQuestion = useCallback((roomCode: string) => {
     socketService.nextQuestion(roomCode);
