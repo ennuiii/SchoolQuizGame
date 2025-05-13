@@ -136,10 +136,18 @@ const Spectator: React.FC = () => {
           <PlayerList players={players} title="Players" />
           <div className="d-grid gap-2 mt-3">
             <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
-            {!gameStarted && (
-              <button className="btn btn-success" onClick={handleJoinAsPlayer}>
-                Join as Player
-              </button>
+            <button
+              className="btn btn-success"
+              onClick={handleJoinAsPlayer}
+              disabled={gameStarted}
+              title={gameStarted ? "You can only join as a player when a round is not in progress." : ""}
+            >
+              Join as Player
+            </button>
+            {gameStarted && (
+              <div className="text-muted small mt-1">
+                You can only join as a player when a round is not in progress.
+              </div>
             )}
           </div>
         </div>
