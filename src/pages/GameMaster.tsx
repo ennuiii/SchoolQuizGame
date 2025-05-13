@@ -326,7 +326,7 @@ const GameMaster: React.FC = () => {
         setCurrentQuestionIndex(prev => prev + 1);
         setPendingAnswers([]);
         setAllAnswersThisRound({});
-        
+        setEvaluatedAnswers({});
         // Reset timer for new question if time limit is set
         if (data.timeLimit) {
           setTimeLimit(data.timeLimit);
