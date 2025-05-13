@@ -20,6 +20,8 @@ const JoinGame: React.FC = () => {
   const location = useLocation();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [roomCode, setRoomCode] = useState('');
+  const [playerName, setPlayerName] = useState('');
+  const [isSpectator, setIsSpectator] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
@@ -51,8 +53,16 @@ const JoinGame: React.FC = () => {
       setErrorMsg('Please enter a room code!');
       return;
     }
+    if (!playerName.trim()) {
+      setErrorMsg('Please enter your name!');
+      return;
+    }
     setIsLoading(true);
-    socketService.joinRoom(roomCodeInput, 'Player');
+    if (isSpectator) {
+      socketService.joinAsSpectator(roomCodeInput, playerName);
+    } else {
+      socketService.joinRoom(roomCodeInput, playerName);
+    }
   };
 
   useEffect(() => {
@@ -61,6 +71,14 @@ const JoinGame: React.FC = () => {
     socketService.on('room_joined', (data: { roomCode: string }) => {
       console.log('Room joined:', data.roomCode);
       setRoomCode(data.roomCode);
+      // Store player info in sessionStorage
+      sessionStorage.setItem('roomCode', data.roomCode);
+      sessionStorage.setItem('playerName', playerName);
+      sessionStorage.setItem('isGameMaster', 'false');
+      sessionStorage.setItem('isSpectator', isSpectator.toString());
+      
+      // Navigate to appropriate view
+      navigate(isSpectator ? '/spectator' : '/player');
     });
 
     socketService.on('player_joined', (player: Player) => {
@@ -101,7 +119,7 @@ const JoinGame: React.FC = () => {
       socketService.off('players_update');
       socketService.off('error');
     };
-  }, [navigate]);
+  }, [navigate, playerName, isSpectator]);
 
   useEffect(() => {
     audioService.playBackgroundMusic();
@@ -171,6 +189,33 @@ const JoinGame: React.FC = () => {
                   value={roomCodeInput}
                   onChange={(e) => setRoomCodeInput(e.target.value)}
                 />
+              </div>
+              <div className="form-group mb-3">
+                <label htmlFor="playerName" className="form-label">Your Name:</label>
+                <input
+                  type="text"
+                  id="playerName"
+                  className="form-control"
+                  placeholder="Enter your name"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  maxLength={15}
+                />
+              </div>
+              <div className="form-check mb-3">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="spectatorCheck"
+                  checked={isSpectator}
+                  onChange={(e) => setIsSpectator(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="spectatorCheck">
+                  Join as Spectator
+                </label>
+                <small className="form-text text-muted d-block mt-1">
+                  Spectators can watch the game without participating. You'll be able to see all players' answers and drawings.
+                </small>
               </div>
               <button 
                 className="btn btn-primary btn-lg mt-3"
