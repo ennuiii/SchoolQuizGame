@@ -69,9 +69,22 @@ const GameMaster: React.FC = () => {
   }, []);
 
   const createRoom = useCallback(() => {
+    if (!roomCodeInput.trim()) {
+      setErrorMsg('Please enter a room code');
+      return;
+    }
+    
     console.log('Creating new room...');
     setIsLoading(true);
-    socketService.createRoom(roomCodeInput);
+    setErrorMsg('');
+    
+    try {
+      socketService.createRoom(roomCodeInput);
+    } catch (error) {
+      console.error('Error creating room:', error);
+      setErrorMsg('Failed to create room. Please try again.');
+      setIsLoading(false);
+    }
   }, [roomCodeInput]);
 
   const startGame = useCallback(() => {
@@ -244,6 +257,24 @@ const GameMaster: React.FC = () => {
       navigate('/');
       return;
     }
+
+    // Connect to socket first
+    const socket = socketService.connect();
+    
+    // Set up error handler
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+      setErrorMsg('Connection error. Please try again.');
+      setIsLoading(false);
+    });
+
+    // Set up room creation handler
+    socket.on('room_created', ({ roomCode: newRoomCode }) => {
+      console.log('Room created:', newRoomCode);
+      dispatch({ type: 'SET_ROOM_CODE', payload: newRoomCode });
+      navigate(`/gamemaster/${newRoomCode}`);
+      setIsLoading(false);
+    });
 
     // Join room as game master
     socketService.joinRoom(roomCode, 'Game Master');
