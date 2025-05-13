@@ -16,9 +16,6 @@ const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChang
       </div>
       <div className="card-body">
         <div className="mb-3">
-          <label className="form-label">Room Code: <strong>{roomCode}</strong></label>
-        </div>
-        <div className="mb-3">
           <label htmlFor="timeLimit" className="form-label">Time Limit (seconds)</label>
           <div className="input-group">
             <input

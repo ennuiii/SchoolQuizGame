@@ -171,15 +171,19 @@ io.on('connection', (socket) => {
   socket.on('start_game', (data) => {
     const { roomCode, questions, timeLimit } = data;
     const room = gameRooms[roomCode];
-    
+    console.log('[SERVER] Received start_game request:', {
+      roomCode,
+      fromSocket: socket.id,
+      currentGamemaster: room ? room.gamemaster : undefined,
+      hasRoom: !!room
+    });
     if (!room) {
       console.log('[SERVER] Start game failed - Room not found:', { roomCode, timestamp: new Date().toISOString() });
       socket.emit('error', 'Room not found');
       return;
     }
-    
     if (socket.id !== room.gamemaster) {
-      console.log('[SERVER] Start game failed - Not authorized:', { roomCode, socketId: socket.id, timestamp: new Date().toISOString() });
+      console.log('[SERVER] Start game failed - Not authorized:', { roomCode, socketId: socket.id, gamemaster: room.gamemaster, timestamp: new Date().toISOString() });
       socket.emit('error', 'Not authorized to start game');
       return;
     }
