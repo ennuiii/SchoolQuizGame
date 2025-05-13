@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Question } from '../types/game';
+import type { Question as GameQuestion } from '../types/game';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
 const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
@@ -31,7 +31,7 @@ export const supabaseService = {
     grade?: number;
     language?: string;
     sortByGrade?: boolean;
-  }): Promise<Question[]> {
+  }): Promise<GameQuestion[]> {
     let query = supabase.from('questions').select('*');
 
     if (options?.subject) {
@@ -52,7 +52,11 @@ export const supabaseService = {
 
     const { data, error } = await query;
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error fetching questions:', error);
+      return [];
+    }
+
     return data || [];
   },
 
