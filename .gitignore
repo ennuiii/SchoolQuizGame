@@ -45,3 +45,6 @@ github-setup.ps1
 supabase-*.md
 SUPABASE_*.md
 *supabase*.js
+
+# AI Assistant instructions
+ai-instructions.txt
