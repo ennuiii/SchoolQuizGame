@@ -30,10 +30,11 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   onReset
 }) => {
   const [svgContent, setSvgContent] = useState<React.ReactNode>(null);
-  const [viewBox, setViewBox] = useState<[number, number, number, number]>([0, 0, 800, 400]);
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
+  const [scale, setScale] = useState(1);
+  const [position, setPosition] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!board.boardData) {
@@ -50,27 +51,17 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
       return;
     }
 
-    // Get initial viewBox from SVG
-    const vb = svg.getAttribute('viewBox');
-    if (typeof vb === 'string' && vb.trim().length > 0) {
-      const parts = vb.split(' ').map(Number);
-      if (parts.length === 4 && parts.every(n => !isNaN(n))) {
-        setViewBox(parts as [number, number, number, number]);
-      }
-    }
-
     setSvgContent(
       <svg
         width="100%"
         height="100%"
-        viewBox={viewBox.join(' ')}
         xmlns="http://www.w3.org/2000/svg"
         xmlnsXlink="http://www.w3.org/1999/xlink"
         style={{ display: 'block' }}
         dangerouslySetInnerHTML={{ __html: svg.innerHTML }}
       />
     );
-  }, [board.boardData, viewBox]);
+  }, [board.boardData]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.altKey) return;
@@ -85,20 +76,16 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Calculate mouse position in SVG coordinates
-    const svgX = (mouseX / rect.width) * viewBox[2] + viewBox[0];
-    const svgY = (mouseY / rect.height) * viewBox[3] + viewBox[1];
-
     // Calculate zoom factor
-    const zoomFactor = e.deltaY < 0 ? 0.9 : 1.1;
-    const newWidth = viewBox[2] * zoomFactor;
-    const newHeight = viewBox[3] * zoomFactor;
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = Math.max(0.1, Math.min(5, scale * zoomFactor));
 
-    // Calculate new viewBox to zoom towards mouse position
-    const newX = svgX - (mouseX / rect.width) * newWidth;
-    const newY = svgY - (mouseY / rect.height) * newHeight;
+    // Calculate new position to zoom towards mouse
+    const newX = position.x - (mouseX - position.x) * (zoomFactor - 1);
+    const newY = position.y - (mouseY - position.y) * (zoomFactor - 1);
 
-    setViewBox([newX, newY, newWidth, newHeight]);
+    setScale(newScale);
+    setPosition({ x: newX, y: newY });
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -122,23 +109,13 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   const handleMouseMove = (e: MouseEvent) => {
     if (!isPanning.current) return;
 
-    const container = containerRef.current;
-    if (!container) return;
-
-    const rect = container.getBoundingClientRect();
     const dx = e.clientX - lastMousePos.current.x;
     const dy = e.clientY - lastMousePos.current.y;
 
-    // Convert pixel movement to SVG coordinates
-    const svgDx = (dx / rect.width) * viewBox[2];
-    const svgDy = (dy / rect.height) * viewBox[3];
-
-    setViewBox(prev => [
-      prev[0] - svgDx,
-      prev[1] - svgDy,
-      prev[2],
-      prev[3]
-    ]);
+    setPosition(prev => ({
+      x: prev.x + dx,
+      y: prev.y + dy
+    }));
 
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
@@ -201,6 +178,9 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                transformOrigin: 'center center',
+                transition: 'transform 0.1s ease-out'
               }}
             >
               {svgContent}
