@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
@@ -38,6 +38,7 @@ const GameMaster: React.FC = () => {
 
   const {
     roomCode,
+    createRoom,
     leaveRoom
   } = useRoom();
 
@@ -47,6 +48,14 @@ const GameMaster: React.FC = () => {
     setVolume,
     volume
   } = useAudio();
+
+  // Create a room if one doesn't exist
+  useEffect(() => {
+    if (!roomCode) {
+      const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+      createRoom(newRoomCode);
+    }
+  }, [roomCode, createRoom]);
 
   const handleStartGame = useCallback(() => {
     if (!roomCode || questions.length === 0) return;

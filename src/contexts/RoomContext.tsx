@@ -20,6 +20,7 @@ interface RoomContextType {
   errorMsg: string;
   players: Player[];
   copied: boolean;
+  createRoom: (roomCode: string) => void;
   
   // Actions
   setRoomCode: (code: string) => void;
@@ -127,6 +128,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     errorMsg,
     players,
     copied,
+    createRoom,
     setRoomCode,
     setPlayerName,
     setErrorMsg,
