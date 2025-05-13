@@ -7,7 +7,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
   playerBoards,
   allAnswersThisRound,
   evaluatedAnswers,
-  focusedPlayerId,
+  previewMode,
   onClose
 }) => {
   return (
@@ -29,7 +29,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
             return (
               <div
                 key={board.playerId}
-                className={`preview-board ${focusedPlayerId === board.playerId ? 'focused' : ''}`}
+                className={`preview-board ${previewMode.focusedPlayerId === board.playerId ? 'focused' : ''}`}
               >
                 <h4>{board.playerName}</h4>
                 <PlayerBoardDisplay
