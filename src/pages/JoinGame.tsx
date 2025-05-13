@@ -109,7 +109,7 @@ const JoinGame: React.FC = () => {
                   id="roomCodeInput"
                   className="form-control"
                   placeholder="Enter room code"
-                  value={roomCode}
+                  value={roomCode || ''}
                   onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                 />
               </div>

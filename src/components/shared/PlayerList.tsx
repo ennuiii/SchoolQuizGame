@@ -18,12 +18,13 @@ interface PlayerListProps {
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({
-  currentPlayerId,
+  currentPlayerId: propCurrentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
   title = "Players"
 }) => {
-  const { players } = useRoom();
+  const { players, currentPlayerId: contextCurrentPlayerId } = useRoom();
+  const currentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
 
   return (
     <div className="card mb-3">

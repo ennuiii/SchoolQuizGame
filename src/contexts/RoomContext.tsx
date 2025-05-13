@@ -20,6 +20,7 @@ interface RoomContextType {
   errorMsg: string;
   players: Player[];
   copied: boolean;
+  currentPlayerId: string | null;
   createRoom: (roomCode: string) => void;
   
   // Actions
@@ -42,6 +43,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [errorMsg, setErrorMsg] = useState('');
   const [players, setPlayers] = useState<Player[]>([]);
   const [copied, setCopied] = useState(false);
+  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
 
   const createRoom = useCallback((roomCode: string) => {
     setIsLoading(true);
@@ -81,16 +83,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       sessionStorage.setItem('isGameMaster', 'false');
       sessionStorage.setItem('isSpectator', isSpectator.toString());
       setIsLoading(false);
+      setErrorMsg('');
+      // Set the current player ID when joining a room
+      const socket = socketService.connect();
+      if (socket && socket.id) {
+        setCurrentPlayerId(socket.id);
+      }
       navigate(isSpectator ? '/spectator' : '/player');
     });
 
-    socketService.on('error', (msg: string) => {
-      setErrorMsg(msg);
-      setIsLoading(false);
+    socketService.on('player_joined', (player: Player) => {
+      setPlayers(prev => [...prev, player]);
     });
 
     socketService.on('players_update', (updatedPlayers: Player[]) => {
       setPlayers(updatedPlayers);
+    });
+
+    socketService.on('error', (error: string) => {
+      setErrorMsg(error);
+      setIsLoading(false);
     });
 
     // Check for existing room session
@@ -120,8 +132,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return () => {
       socketService.off('room_created');
       socketService.off('room_joined');
-      socketService.off('error');
+      socketService.off('player_joined');
       socketService.off('players_update');
+      socketService.off('error');
     };
   }, [navigate, playerName, isSpectator]);
 
@@ -133,6 +146,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     errorMsg,
     players,
     copied,
+    currentPlayerId,
     createRoom,
     setRoomCode,
     setPlayerName,
