@@ -168,9 +168,23 @@ class SocketService {
 
   // Player actions
   joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
-    if (this.socket) {
-      this.socket.emit('join_room', { roomCode, playerName, isSpectator });
+    if (!this.socket?.connected) {
+      console.error('Cannot join room: Socket not connected');
+      this.connect();
+      // Wait for connection before emitting
+      setTimeout(() => {
+        if (this.socket?.connected) {
+          console.log('Socket connected, joining room...');
+          this.socket.emit('join_room', { roomCode, playerName, isSpectator });
+        } else {
+          console.error('Failed to connect to socket server');
+          throw new Error('Failed to connect to socket server');
+        }
+      }, 1000);
+      return;
     }
+    console.log('Joining room:', { roomCode, playerName, isSpectator });
+    this.socket.emit('join_room', { roomCode, playerName, isSpectator });
   }
 
   joinAsPlayer(roomCode: string, playerName: string) {

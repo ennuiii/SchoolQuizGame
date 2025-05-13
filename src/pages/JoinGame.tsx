@@ -96,12 +96,18 @@ const JoinGame: React.FC = () => {
       // Set up room joined handler
       socket.on('room_joined', ({ roomCode }) => {
         console.log('Joined room:', roomCode);
+        if (!roomCode) {
+          setErrorMsg('Failed to join room. No room code received.');
+          setIsLoading(false);
+          return;
+        }
+        
         dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
         dispatch({ type: 'SET_PLAYER_NAME', payload: playerNameInput.trim() });
         sessionStorage.setItem('roomCode', roomCode);
         sessionStorage.setItem('playerName', playerNameInput.trim());
         sessionStorage.setItem('isGameMaster', 'false');
-        navigate('/player');
+        navigate(`/player/${roomCode}`);
         setIsLoading(false);
       });
 
@@ -113,6 +119,7 @@ const JoinGame: React.FC = () => {
       });
 
       // Join the room
+      console.log('Joining room:', roomCodeInput.trim());
       socketService.joinRoom(roomCodeInput.trim(), playerNameInput.trim(), false);
     } catch (error) {
       console.error('Error joining room:', error);
@@ -141,11 +148,17 @@ const JoinGame: React.FC = () => {
       // Set up room joined handler
       socket.on('room_joined', ({ roomCode }) => {
         console.log('Joined room as spectator:', roomCode);
+        if (!roomCode) {
+          setErrorMsg('Failed to join as spectator. No room code received.');
+          setIsLoading(false);
+          return;
+        }
+        
         dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
         dispatch({ type: 'SET_SPECTATOR', payload: true });
         sessionStorage.setItem('roomCode', roomCode);
         sessionStorage.setItem('isSpectator', 'true');
-        navigate('/spectator');
+        navigate(`/spectator/${roomCode}`);
         setIsLoading(false);
       });
 
@@ -157,6 +170,7 @@ const JoinGame: React.FC = () => {
       });
 
       // Join the room as spectator
+      console.log('Joining room as spectator:', roomCodeInput.trim());
       socketService.joinRoom(roomCodeInput.trim(), 'Spectator', true);
     } catch (error) {
       console.error('Error joining as spectator:', error);
