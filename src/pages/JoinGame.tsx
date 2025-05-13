@@ -126,11 +126,12 @@ const JoinGame: React.FC = () => {
     });
 
     const savedRoomCode = sessionStorage.getItem('roomCode');
+    const savedPlayerName = sessionStorage.getItem('playerName');
     const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-    if (savedRoomCode && !isGameMaster) {
+    if (savedRoomCode && savedPlayerName && !isGameMaster) {
       console.log('Rejoining as player for room:', savedRoomCode);
       setRoomCode(savedRoomCode);
-      socketService.emit('rejoin_player', { roomCode: savedRoomCode });
+      socketService.emit('rejoin_player', { roomCode: savedRoomCode, playerName: savedPlayerName });
     }
 
     return () => {
