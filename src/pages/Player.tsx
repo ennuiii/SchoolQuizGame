@@ -204,15 +204,16 @@ const Player: React.FC = () => {
     const savedPlayerName = sessionStorage.getItem('playerName');
     const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
     
-    if (savedRoomCode && savedPlayerName) {
-      setRoomCode(savedRoomCode);
-      setPlayerName(savedPlayerName);
-      setIsSpectator(savedIsSpectator);
-      // Connect to socket server
-      socketService.connect();
-      // Join the room
-      socketService.joinRoom(savedRoomCode, savedPlayerName, savedIsSpectator);
+    if (!savedRoomCode || !savedPlayerName) {
+      navigate('/');
+      return;
     }
+    setRoomCode(savedRoomCode);
+    setPlayerName(savedPlayerName);
+    setIsSpectator(savedIsSpectator);
+    // Connect to socket server
+    socketService.connect();
+    // Do NOT join the room here. Only set up listeners below.
     
     // Set up event listeners
     socketService.on('error', (msg: string) => {

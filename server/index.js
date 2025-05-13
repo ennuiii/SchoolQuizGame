@@ -149,7 +149,8 @@ io.on('connection', (socket) => {
       // Notify everyone in the room
       io.to(roomCode).emit('player_joined', player);
       io.to(roomCode).emit('players_update', room.players);
-
+      // Always emit joined_room to the joining socket
+      socket.emit('joined_room', roomCode);
       console.log(`Player ${playerName} joined room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
     } catch (error) {
       console.error('Error in join_room:', error);
