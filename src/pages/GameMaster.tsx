@@ -17,7 +17,7 @@ import { useAudio } from '../contexts/AudioContext';
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
   const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
   
   // Get context values
