@@ -155,7 +155,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    const activePlayers = players.filter(player => !player.isSpectator && player.isActive);
+    const activePlayers = players.filter(player => !player.isSpectator);
     if (activePlayers.length < 2) {
       setQuestionErrorMsg('Cannot start game: Need at least 2 active players');
       setTimeout(() => setQuestionErrorMsg(''), 3000);
