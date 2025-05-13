@@ -321,8 +321,6 @@ io.on('connection', (socket) => {
     
     // Send evaluation to the specific player
     io.to(playerId).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
-    // Broadcast evaluation to all players in the room
-    io.to(roomCode).emit('answer_evaluation', { isCorrect, playerId });
     io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
     
     // Check if only one player is left
