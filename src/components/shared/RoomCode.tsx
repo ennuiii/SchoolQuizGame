@@ -13,6 +13,13 @@ const RoomCode: React.FC<RoomCodeProps> = ({ roomCode }) => {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleCopyLink = () => {
+    const inviteLink = `${window.location.origin}/join?room=${roomCode}`;
+    navigator.clipboard.writeText(inviteLink);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
@@ -23,23 +30,33 @@ const RoomCode: React.FC<RoomCodeProps> = ({ roomCode }) => {
           <div className="room-code-display">
             <span className="h4 mb-0">{roomCode}</span>
           </div>
-          <button
-            className="btn btn-outline-primary"
-            onClick={handleCopy}
-            title="Copy room code"
-          >
-            {copied ? (
-              <>
-                <i className="bi bi-check2 me-1"></i>
-                Copied!
-              </>
-            ) : (
-              <>
-                <i className="bi bi-clipboard me-1"></i>
-                Copy
-              </>
-            )}
-          </button>
+          <div className="d-flex gap-2">
+            <button
+              className="btn btn-outline-primary"
+              onClick={handleCopy}
+              title="Copy room code"
+            >
+              {copied ? (
+                <>
+                  <i className="bi bi-check2 me-1"></i>
+                  Copied!
+                </>
+              ) : (
+                <>
+                  <i className="bi bi-clipboard me-1"></i>
+                  Copy
+                </>
+              )}
+            </button>
+            <button
+              className="btn btn-outline-success"
+              onClick={handleCopyLink}
+              title="Copy invite link"
+            >
+              <i className="bi bi-link-45deg me-1"></i>
+              Invite Link
+            </button>
+          </div>
         </div>
       </div>
     </div>
