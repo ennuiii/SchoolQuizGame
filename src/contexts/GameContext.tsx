@@ -289,6 +289,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setCurrentQuestionIndex(prev => prev + 1);
       setAllAnswersThisRound({});
       setEvaluatedAnswers({});
+      setSubmittedAnswer(false);
       if (data.timeLimit) {
         setTimeLimit(data.timeLimit);
         setTimeRemaining(data.timeLimit);
@@ -364,6 +365,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('time_up', () => {
       setTimeRemaining(0);
       setIsTimerRunning(false);
+      if (!submittedAnswer && currentQuestion) {
+        const roomCode = sessionStorage.getItem('roomCode');
+        if (roomCode) {
+          socketService.submitAnswer(roomCode, '', false);
+          setSubmittedAnswer(true);
+        }
+      }
     });
 
     socketService.on('end_round_early', () => {
