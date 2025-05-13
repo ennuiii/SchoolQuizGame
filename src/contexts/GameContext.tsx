@@ -324,6 +324,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         ...prev,
         [data.playerId]: data.isCorrect
       }));
+      
+      // Remove the evaluated answer from allAnswersThisRound
+      setAllAnswersThisRound(prev => {
+        const newAnswers = { ...prev };
+        delete newAnswers[data.playerId];
+        return newAnswers;
+      });
     });
 
     socketService.on('game_over', () => {

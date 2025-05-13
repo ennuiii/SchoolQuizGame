@@ -11,6 +11,7 @@ import { useGame } from '../contexts/GameContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
 import { useCanvas } from '../contexts/CanvasContext';
+import fabric from 'fabric';
 
 const Player: React.FC = () => {
   const navigate = useNavigate();

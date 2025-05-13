@@ -63,7 +63,8 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       isDrawingMode: true,
       freeDrawingBrush: {
         color: '#FFFFFF',
-        width: 2,
+        width: 4,
+        opacity: 0.9,
         shadow: {
           color: 'rgba(0,0,0,0.3)',
           blur: 5,
@@ -82,6 +83,17 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const roomCode = sessionStorage.getItem('roomCode');
       if (roomCode) {
         sendBoardUpdate(roomCode, svgData);
+      }
+    });
+
+    // Also send updates during mouse movement for real-time drawing
+    canvas.on('mouse:move', () => {
+      if (canvas.isDrawingMode) {
+        const svgData = canvas.toSVG();
+        const roomCode = sessionStorage.getItem('roomCode');
+        if (roomCode) {
+          sendBoardUpdate(roomCode, svgData);
+        }
       }
     });
   }, [canvasSize, sendBoardUpdate]);
