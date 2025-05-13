@@ -793,4 +793,126 @@ body {
     opacity: 1;
   }
 }
-/* --- End shared-components.css styles --- */ 
+/* --- End shared-components.css styles --- */
+
+/* Player Component Styles */
+.player-container {
+  padding: 20px;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.game-board {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  margin-bottom: 20px;
+}
+
+.question-display {
+  margin-bottom: 20px;
+  text-align: center;
+}
+
+.question-display h2 {
+  color: #333;
+  font-size: 1.5rem;
+  margin: 0;
+}
+
+.board-container {
+  width: 100%;
+  height: 400px;
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 4px;
+  margin-bottom: 20px;
+}
+
+.answer-section {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+.answer-section input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid #ced4da;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.answer-section button {
+  padding: 8px 16px;
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.answer-section button:disabled {
+  background-color: #6c757d;
+  cursor: not-allowed;
+}
+
+.waiting-message {
+  text-align: center;
+  padding: 40px;
+  color: #6c757d;
+}
+
+.player-list-container {
+  background: #fff;
+  border-radius: 8px;
+  padding: 20px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* Modal styles */
+.modal {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-dialog {
+  margin: 1.75rem auto;
+}
+
+.modal-content {
+  border-radius: 8px;
+}
+
+.modal-header {
+  border-bottom: 1px solid #dee2e6;
+  padding: 1rem;
+}
+
+.modal-footer {
+  border-top: 1px solid #dee2e6;
+  padding: 1rem;
+}
+
+/* Review notification styles */
+.review-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  background: white;
+  padding: 15px;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 1000;
+  max-width: 300px;
+}
+
+.review-notification.correct {
+  border-left: 4px solid #28a745;
+}
+
+.review-notification.incorrect {
+  border-left: 4px solid #dc3545;
+} 

@@ -10,7 +10,6 @@ import PreviewOverlay from '../components/shared/PreviewOverlay';
 import ReviewNotification from '../components/shared/ReviewNotification';
 import ConfirmationModal from '../components/shared/ConfirmationModal';
 import { PreviewModeState, ReviewNotificationProps } from '../types/game';
-import './Player.css';
 
 const Player: React.FC = () => {
   const { roomCode } = useParams<{ roomCode: string }>();
