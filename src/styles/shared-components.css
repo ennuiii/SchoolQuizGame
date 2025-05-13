@@ -1,0 +1,253 @@
+/* PreviewOverlay styles */
+.preview-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  z-index: 1000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 20px;
+}
+
+.preview-content {
+  background-color: white;
+  border-radius: 8px;
+  padding: 20px;
+  max-width: 1200px;
+  width: 100%;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.preview-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.preview-header h3 {
+  margin: 0;
+}
+
+.preview-boards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.preview-board {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+  transition: all 0.2s ease;
+}
+
+.preview-board.focused {
+  border-color: #007bff;
+  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
+}
+
+.preview-board h4 {
+  margin: 0 0 10px 0;
+}
+
+.answer-info {
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid #eee;
+}
+
+.answer-info p {
+  margin: 5px 0;
+}
+
+.answer-info .correct {
+  color: #28a745;
+}
+
+.answer-info .incorrect {
+  color: #dc3545;
+}
+
+/* PlayerBoardDisplay styles */
+.player-board-display {
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  padding: 15px;
+}
+
+.board-controls {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.board-controls button {
+  padding: 5px 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background-color: white;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.board-controls button:hover {
+  background-color: #f8f9fa;
+  border-color: #adb5bd;
+}
+
+.board-container {
+  width: 100%;
+  min-height: 250px;
+  background-color: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+/* PlayerList styles */
+.player-list {
+  background-color: white;
+  border-radius: 8px;
+  padding: 15px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.player-list h3 {
+  margin: 0 0 15px 0;
+  font-size: 1.2rem;
+}
+
+.player-list-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.player-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.player-item:hover {
+  background-color: #f8f9fa;
+}
+
+.player-item.selected {
+  border-color: #007bff;
+  background-color: #e7f1ff;
+}
+
+.player-name {
+  font-weight: 500;
+}
+
+.player-status {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.lives {
+  display: flex;
+  gap: 2px;
+}
+
+.heart {
+  color: #dc3545;
+}
+
+.spectator-badge {
+  background-color: #6c757d;
+  color: white;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+}
+
+/* ReviewNotification styles */
+.review-notification {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 1000;
+  animation: slideIn 0.3s ease-out;
+}
+
+.notification-content {
+  background-color: white;
+  border-radius: 8px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  width: 300px;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 15px;
+  border-bottom: 1px solid #eee;
+}
+
+.notification-header h4 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.notification-header button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: #6c757d;
+}
+
+.notification-body {
+  padding: 15px;
+}
+
+.answer-text {
+  margin: 0 0 10px 0;
+  font-weight: 500;
+}
+
+.result {
+  margin: 0 0 5px 0;
+  font-weight: 500;
+}
+
+.result.correct {
+  color: #28a745;
+}
+
+.result.incorrect {
+  color: #dc3545;
+}
+
+.timestamp {
+  margin: 0;
+  font-size: 0.8rem;
+  color: #6c757d;
+}
+
+@keyframes slideIn {
+  from {
+    transform: translateX(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+} 
