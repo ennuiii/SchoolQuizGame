@@ -5,6 +5,7 @@ import Home from './pages/Home';
 import GameMaster from './pages/GameMaster';
 import JoinGame from './pages/JoinGame';
 import Player from './pages/Player';
+import Spectator from './pages/Spectator';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const App: React.FC = () => {
@@ -15,7 +16,11 @@ const App: React.FC = () => {
           <Route path="/" element={<Home />} />
           <Route path="/gamemaster" element={<GameMaster />} />
           <Route path="/join" element={<JoinGame />} />
-          <Route path="/player" element={<Player />} />
+          <Route path="/player" element={
+            sessionStorage.getItem('isSpectator') === 'true'
+              ? <Spectator />
+              : <Player />
+          } />
         </Routes>
       </Container>
     </Router>
