@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { useRoom } from '../contexts/RoomContext';
@@ -18,6 +18,7 @@ const JoinGame: React.FC = () => {
   const navigate = useNavigate();
   const [isSpectator, setIsSpectator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   
   // Get context values
   const {
@@ -32,17 +33,48 @@ const JoinGame: React.FC = () => {
     players
   } = useRoom();
 
+  // Ensure socket is connected when component mounts
+  useEffect(() => {
+    const socket = socketService.connect();
+    
+    socket.on('connect', () => {
+      console.log('Socket connected successfully');
+      setIsConnecting(false);
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setErrorMsg('Failed to connect to server. Please try again.');
+      setIsConnecting(false);
+    });
+
+    return () => {
+      socket.off('connect');
+      socket.off('connect_error');
+    };
+  }, [setErrorMsg]);
+
   const handleJoinGame = useCallback(() => {
     if (!roomCode || !playerName) {
       setErrorMsg('Please enter both room code and player name!');
       return;
     }
+
+    setIsConnecting(true);
+    const socket = socketService.connect();
+    
+    if (!socket.connected) {
+      setErrorMsg('Not connected to server. Please try again.');
+      setIsConnecting(false);
+      return;
+    }
+
     joinRoom(roomCode, playerName, isSpectator);
     setHasJoined(true);
   }, [roomCode, playerName, isSpectator, joinRoom, setErrorMsg]);
 
   // Reset hasJoined when roomCode or playerName changes
-  React.useEffect(() => {
+  useEffect(() => {
     setHasJoined(false);
   }, [roomCode, playerName]);
 
@@ -69,7 +101,7 @@ const JoinGame: React.FC = () => {
                   className="form-control"
                   placeholder="Enter room code"
                   value={roomCode}
-                  onChange={(e) => setRoomCode(e.target.value)}
+                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                 />
               </div>
               <div className="form-group mb-3">
@@ -109,9 +141,9 @@ const JoinGame: React.FC = () => {
               <button 
                 className="btn btn-primary btn-lg mt-3"
                 onClick={handleJoinGame}
-                disabled={isLoading}
+                disabled={isLoading || isConnecting}
               >
-                {isLoading ? 'Joining...' : 'Join Game'}
+                {isLoading ? 'Joining...' : isConnecting ? 'Connecting...' : 'Join Game'}
               </button>
               <button 
                 className="btn btn-outline-secondary mt-3"
