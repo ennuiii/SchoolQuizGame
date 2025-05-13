@@ -41,6 +41,10 @@ const Spectator: React.FC = () => {
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, AnswerSubmission>>({});
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
   const [previewMode, setPreviewMode] = useState<PreviewModeState>({ isActive: false, focusedPlayerId: null });
+  const [gameStarted, setGameStarted] = useState(false);
+  const [showJoinAsPlayer, setShowJoinAsPlayer] = useState(false);
+  const [playerNameInput, setPlayerNameInput] = useState('');
+  const [joinError, setJoinError] = useState('');
 
   useEffect(() => {
     socketService.connect();
@@ -70,13 +74,16 @@ const Spectator: React.FC = () => {
     socketService.on('start_preview_mode', () => setPreviewMode(prev => ({ ...prev, isActive: true })));
     socketService.on('stop_preview_mode', () => setPreviewMode({ isActive: false, focusedPlayerId: null }));
     socketService.on('focus_submission', (data: { playerId: string }) => setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })));
+    socketService.on('game_started', () => setGameStarted(true));
     socketService.on('game_restarted', () => {
       setCurrentQuestion('');
       setPlayerBoards([]);
       setAllAnswersThisRound({});
       setEvaluatedAnswers({});
       setVisibleBoards(new Set());
+      setGameStarted(false);
     });
+    socketService.on('game_over', () => setGameStarted(false));
     return () => {
       socketService.off('players_update');
       socketService.off('board_update');
@@ -86,7 +93,9 @@ const Spectator: React.FC = () => {
       socketService.off('start_preview_mode');
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
+      socketService.off('game_started');
       socketService.off('game_restarted');
+      socketService.off('game_over');
     };
   }, []);
 
@@ -101,6 +110,32 @@ const Spectator: React.FC = () => {
     setVisibleBoards(new Set());
   }, []);
 
+  const handleJoinAsPlayer = () => {
+    setShowJoinAsPlayer(true);
+    setPlayerNameInput('');
+    setJoinError('');
+  };
+
+  const confirmJoinAsPlayer = () => {
+    const roomCode = sessionStorage.getItem('roomCode');
+    if (!roomCode) {
+      setJoinError('Room code missing.');
+      return;
+    }
+    if (!playerNameInput.trim()) {
+      setJoinError('Please enter a name.');
+      return;
+    }
+    // Remove spectator from room (optional: could emit a leave event)
+    // Join as player
+    sessionStorage.setItem('playerName', playerNameInput.trim());
+    sessionStorage.setItem('isSpectator', 'false');
+    // Optionally: sessionStorage.removeItem('playerId');
+    socketService.joinRoom(roomCode, playerNameInput.trim(), false);
+    setShowJoinAsPlayer(false);
+    navigate('/player');
+  };
+
   return (
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
@@ -114,6 +149,11 @@ const Spectator: React.FC = () => {
           <PlayerList players={players} title="Players" />
           <div className="d-grid gap-2 mt-3">
             <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
+            {!gameStarted && (
+              <button className="btn btn-success" onClick={handleJoinAsPlayer}>
+                Join as Player
+              </button>
+            )}
           </div>
         </div>
         <div className="col-12 col-md-8">
@@ -179,6 +219,33 @@ const Spectator: React.FC = () => {
           />
         </div>
       </div>
+      {showJoinAsPlayer && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Join as Player</h5>
+                <button type="button" className="btn-close" onClick={() => setShowJoinAsPlayer(false)}></button>
+              </div>
+              <div className="modal-body">
+                <input
+                  type="text"
+                  className="form-control"
+                  placeholder="Enter your name"
+                  value={playerNameInput}
+                  onChange={e => setPlayerNameInput(e.target.value)}
+                  maxLength={15}
+                />
+                {joinError && <div className="alert alert-danger mt-2">{joinError}</div>}
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={() => setShowJoinAsPlayer(false)}>Cancel</button>
+                <button type="button" className="btn btn-success" onClick={confirmJoinAsPlayer}>Join as Player</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
