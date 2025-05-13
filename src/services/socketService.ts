@@ -51,18 +51,38 @@ class SocketService {
   }
 
   on(event: string, callback: (data: any) => void) {
-    this.socket?.on(event, callback);
+    // Store the callback in the listeners object
+    if (!this.listeners[event]) {
+      this.listeners[event] = [];
+    }
+    this.listeners[event].push(callback);
+    
+    // Attach the callback to the socket
+    this.socket?.on(event, (data) => {
+      console.log(`[Socket] Received event: ${event}`, data);
+      callback(data);
+    });
   }
 
   off(event: string) {
-    this.socket?.off(event);
+    // Remove all callbacks for this event
+    if (this.listeners[event]) {
+      this.listeners[event].forEach(callback => {
+        this.socket?.off(event, callback);
+      });
+      delete this.listeners[event];
+    }
   }
 
   onError(callback: (error: string) => void) {
-    this.socket?.on('error', callback);
+    this.socket?.on('error', (error) => {
+      console.error('[Socket] Error:', error);
+      callback(error);
+    });
   }
 
   emit(event: string, ...args: any[]) {
+    console.log(`[Socket] Emitting event: ${event}`, args);
     if (!this.socket?.connected) {
       console.log('Socket not connected, attempting to connect...');
       this.connect();
