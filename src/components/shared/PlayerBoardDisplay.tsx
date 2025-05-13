@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 
 interface PlayerBoard {
   playerId: string;
@@ -29,18 +29,60 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   onPan,
   onReset
 }) => {
+  // Parse SVG and extract initial viewBox
+  const [svgContent, setSvgContent] = useState<React.ReactNode>(null);
+  const [viewBox, setViewBox] = useState<[number, number, number, number]>([0, 0, 800, 400]);
   const panState = useRef<{panning: boolean; lastX: number; lastY: number}>({ panning: false, lastX: 0, lastY: 0 });
 
-  // Mouse wheel for zoom
+  useEffect(() => {
+    if (!board.boardData) return;
+    // Parse SVG string
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(board.boardData, 'image/svg+xml');
+    const svg = doc.querySelector('svg');
+    if (!svg) return;
+    // Get initial viewBox
+    const vb = svg.getAttribute('viewBox');
+    if (vb) {
+      const parts = vb.split(' ').map(Number);
+      if (parts.length === 4 && parts.every(n => !isNaN(n))) {
+        setViewBox([parts[0], parts[1], parts[2], parts[3]]);
+      }
+    }
+    // Convert SVG element to React
+    setSvgContent(
+      <svg
+        width="100%"
+        height="100%"
+        viewBox={viewBox.join(' ')}
+        xmlns="http://www.w3.org/2000/svg"
+        xmlnsXlink="http://www.w3.org/1999/xlink"
+        style={{ display: 'block' }}
+        dangerouslySetInnerHTML={{ __html: svg.innerHTML }}
+      />
+    );
+    // eslint-disable-next-line
+  }, [board.boardData, viewBox.join(' ')]);
+
+  // Mouse wheel for zoom (Alt+Wheel)
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (e.altKey) {
       e.preventDefault();
-      const scaleFactor = e.deltaY < 0 ? 1.1 : 0.9;
-      onScale(board.playerId, Math.max(0.1, transform.scale * scaleFactor));
+      const [x, y, w, h] = viewBox;
+      const scaleFactor = e.deltaY < 0 ? 0.9 : 1.1;
+      // Zoom centered on mouse position
+      const rect = (e.target as HTMLDivElement).getBoundingClientRect();
+      const mx = ((e.clientX - rect.left) / rect.width) * w + x;
+      const my = ((e.clientY - rect.top) / rect.height) * h + y;
+      const newW = w * scaleFactor;
+      const newH = h * scaleFactor;
+      const newX = mx - ((mx - x) * newW) / w;
+      const newY = my - ((my - y) * newH) / h;
+      setViewBox([newX, newY, newW, newH]);
     }
   };
 
-  // Mouse down for pan
+  // Mouse down for pan (Alt+Drag)
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (e.altKey && e.button === 0) {
       panState.current.panning = true;
@@ -58,7 +100,15 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
       const dy = e.clientY - panState.current.lastY;
       panState.current.lastX = e.clientX;
       panState.current.lastY = e.clientY;
-      onPan(board.playerId, dx, dy);
+      // Convert pixel movement to SVG units
+      const [, , w, h] = viewBox;
+      const container = containerRef.current;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        const svgDx = (dx / rect.width) * w;
+        const svgDy = (dy / rect.height) * h;
+        setViewBox(([x, y, w, h]) => [x - svgDx, y - svgDy, w, h]);
+      }
     }
   };
 
@@ -68,6 +118,8 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
   };
+
+  const containerRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="mb-4">
@@ -81,32 +133,11 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
             >
               {isVisible ? 'Hide' : 'Show'}
             </button>
-            {isVisible && (
-              <>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => onScale(board.playerId, transform.scale * 1.2)}
-                >
-                  Zoom In
-                </button>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => onScale(board.playerId, transform.scale * 0.8)}
-                >
-                  Zoom Out
-                </button>
-                <button
-                  className="btn btn-sm btn-outline-secondary"
-                  onClick={() => onReset(board.playerId)}
-                >
-                  Reset
-                </button>
-              </>
-            )}
           </div>
         </div>
         {isVisible && (
           <div
+            ref={containerRef}
             className="board-container d-flex justify-content-center align-items-center"
             style={{
               width: '100%',
@@ -117,29 +148,28 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
               position: 'relative',
               overflow: 'hidden',
             }}
+            onWheel={handleWheel}
+            onMouseDown={handleMouseDown}
+            tabIndex={0}
           >
             <div
               className="drawing-board"
-              dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
               style={{
                 width: '100%',
                 height: '100%',
                 minHeight: '300px',
                 background: '#0C6A35',
-                border: '2px solid #8B4513',
+                border: '4px solid #8B4513',
                 borderRadius: 4,
                 cursor: 'grab',
                 overflow: 'hidden',
-                transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
-                transformOrigin: 'top left',
-                transition: 'transform 0.2s ease-out',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
-              onWheel={handleWheel}
-              onMouseDown={handleMouseDown}
-            />
+            >
+              {svgContent}
+            </div>
           </div>
         )}
       </div>
