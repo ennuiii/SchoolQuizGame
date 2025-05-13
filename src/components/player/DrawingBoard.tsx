@@ -25,9 +25,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         isDrawingMode: true,
         width: 800,
         height: 400,
-        backgroundColor: '#0C6A35', // Classic chalkboard green
-        selection: false, // Disable object selection
-        interactive: true // Enable interaction
+        backgroundColor: '#0C6A35' // Classic chalkboard green
       });
       
       // Set up drawing brush for chalk-like appearance
@@ -52,37 +50,29 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
           onBoardUpdate(svgData);
         }
       });
-
-      // Ensure drawing mode is enabled
-      fabricCanvasRef.current.isDrawingMode = true;
     }
     
     return () => {
-      if (fabricCanvasRef.current) {
-        fabricCanvasRef.current.dispose();
-        fabricCanvasRef.current = null;
-      }
+      fabricCanvasRef.current?.dispose();
+      fabricCanvasRef.current = null;
     };
   }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
 
   // Add effect to disable canvas interaction after submission
   useEffect(() => {
     if (fabricCanvasRef.current) {
-      const canvas = fabricCanvasRef.current as any;
       if (submittedAnswer) {
         // Disable all interactions
-        canvas.isDrawingMode = false;
-        canvas.selection = false;
-        canvas.forEachObject((obj: any) => {
+        fabricCanvasRef.current.isDrawingMode = false;
+        (fabricCanvasRef.current as any).selection = false;
+        (fabricCanvasRef.current as any).forEachObject((obj: any) => {
           obj.selectable = false;
           obj.evented = false;
         });
-        canvas.renderAll();
+        fabricCanvasRef.current.renderAll();
       } else {
         // Enable drawing mode if not submitted
-        canvas.isDrawingMode = true;
-        canvas.selection = false;
-        canvas.renderAll();
+        fabricCanvasRef.current.isDrawingMode = true;
       }
     }
   }, [submittedAnswer]);

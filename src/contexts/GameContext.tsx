@@ -328,9 +328,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       // Remove the evaluated answer from allAnswersThisRound
       setAllAnswersThisRound(prev => {
-        const newAnswers = { ...prev };
-        delete newAnswers[data.playerId];
-        return newAnswers;
+        const { [data.playerId]: removed, ...remaining } = prev;
+        return remaining;
       });
     });
 

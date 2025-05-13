@@ -374,13 +374,13 @@ const Player: React.FC = () => {
                   className="form-control form-control-lg"
                   placeholder="Type your answer here..."
                   onChange={handleAnswerChange}
-                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                  disabled={submittedAnswer || !gameStarted || !currentQuestion}
                 />
                 <button
                   className="btn btn-primary"
                   type="button"
                   onClick={() => handleSubmitAnswer()}
-                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                  disabled={submittedAnswer || !gameStarted || !currentQuestion}
                 >
                   Submit Answer
                 </button>
