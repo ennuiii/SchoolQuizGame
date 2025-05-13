@@ -287,6 +287,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('new_question', (data: { question: Question, timeLimit?: number }) => {
       setCurrentQuestion(data.question);
       setCurrentQuestionIndex(prev => prev + 1);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
       if (data.timeLimit) {
         setTimeLimit(data.timeLimit);
         setTimeRemaining(data.timeLimit);
@@ -362,6 +364,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsTimerRunning(false);
     });
 
+    socketService.on('start_preview_mode', () => {
+      setPreviewMode(prev => ({ ...prev, isActive: true }));
+    });
+
+    socketService.on('stop_preview_mode', () => {
+      setPreviewMode({ isActive: false, focusedPlayerId: null });
+    });
+
+    socketService.on('focus_submission', (data: { playerId: string }) => {
+      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
+    });
+
     return () => {
       socketService.off('game_started');
       socketService.off('new_question');
@@ -375,6 +389,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('timer_update');
       socketService.off('time_up');
       socketService.off('end_round_early');
+      socketService.off('start_preview_mode');
+      socketService.off('stop_preview_mode');
+      socketService.off('focus_submission');
     };
   }, []);
 

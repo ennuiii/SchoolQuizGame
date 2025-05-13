@@ -20,6 +20,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
 
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
+      // Initialize fabric canvas
       fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
         isDrawingMode: true,
         width: 800,
@@ -52,8 +53,10 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
     }
     
     return () => {
-      fabricCanvasRef.current?.dispose();
-      fabricCanvasRef.current = null;
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
     };
   }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
 
