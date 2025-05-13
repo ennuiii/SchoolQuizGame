@@ -678,7 +678,7 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     socket.playerInfo = { roomCode, playerName, isSpectator: player.isSpectator };
     // Send updated info to the client
-    socket.emit('room_joined', { roomCode });
+    socket.emit('room_joined', { roomCode, player });
     socket.emit('players_update', room.players);
     // Notify others in the room
     io.to(roomCode).emit('players_update', room.players);
