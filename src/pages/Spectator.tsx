@@ -57,7 +57,7 @@ const Spectator: React.FC = () => {
       </div>
       <div className="row g-3">
         <div className="col-12 col-md-4">
-          <PlayerList players={players} title="Players" />
+          <PlayerList title="Players" />
           <div className="d-grid gap-2 mt-3">
             <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
             <button
@@ -123,11 +123,6 @@ const Spectator: React.FC = () => {
             </div>
           </div>
           <PreviewOverlay
-            players={players}
-            playerBoards={playerBoards}
-            allAnswersThisRound={allAnswersThisRound}
-            evaluatedAnswers={evaluatedAnswers}
-            previewMode={previewMode}
             onFocus={() => {}}
             onClose={() => {}}
             isGameMaster={false}
