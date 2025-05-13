@@ -183,21 +183,22 @@ const GameMaster: React.FC = () => {
     if (!roomCode) return;
     
     socketService.startPreviewMode(roomCode);
-    setPreviewMode(prev => ({ ...prev, isActive: true }));
-  }, [roomCode]);
+    dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: null } });
+  }, [roomCode, dispatch]);
 
   const handleStopPreviewMode = useCallback(() => {
     if (!roomCode) return;
     
     socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
-  }, [roomCode]);
+    dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
+  }, [roomCode, dispatch]);
 
   const handleFocusSubmission = useCallback((playerId: string) => {
     if (!roomCode) return;
     
     socketService.focusSubmission(roomCode, playerId);
-  }, [roomCode]);
+    dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: playerId } });
+  }, [roomCode, dispatch]);
 
   const handleBoardScale = useCallback((playerId: string, scale: number) => {
     updateBoardTransform(playerId, transform => ({
@@ -273,11 +274,11 @@ const GameMaster: React.FC = () => {
     });
 
     socketService.on('preview_mode_started', () => {
-      dispatch({ type: 'SET_PREVIEW_MODE', payload: true });
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: null } });
     });
 
     socketService.on('preview_mode_ended', () => {
-      dispatch({ type: 'SET_PREVIEW_MODE', payload: false });
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
     socketService.on('submission_focused', (playerId: string) => {
@@ -350,8 +351,8 @@ const GameMaster: React.FC = () => {
   }, [isRestarting]);
 
   // Add a function to check if preview can be started
-  const canStartPreview = gameStarted && (
-    (players.length > 0 && pendingAnswers.length === 0) ||
+  const canStartPreview = state.gameStarted && (
+    (state.players.length > 0 && pendingAnswers.length === 0) ||
     (timeLimit !== null && timeRemaining === 0 && pendingAnswers.length > 0)
   );
 
@@ -622,7 +623,7 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
-      {previewMode.isActive && (
+      {state.previewMode.isActive && (
         <div className="preview-mode-controls mt-3" style={{
           display: 'flex',
           gap: '10px',
@@ -646,7 +647,7 @@ const GameMaster: React.FC = () => {
           >
             Stop Preview Mode
           </button>
-          {previewMode.focusedPlayerId && (
+          {state.previewMode.focusedPlayerId && (
             <button
               className="btn btn-outline-primary w-100"
               onClick={() => handleFocusSubmission('')}
@@ -659,11 +660,11 @@ const GameMaster: React.FC = () => {
 
       {/* Preview Mode Overlay */}
       <PreviewOverlay
-        players={players}
-        playerBoards={playerBoards}
+        players={state.players}
+        playerBoards={state.playerBoards}
         allAnswersThisRound={allAnswersThisRound}
         evaluatedAnswers={evaluatedAnswers}
-        previewMode={previewMode}
+        previewMode={state.previewMode}
         onFocus={handleFocusSubmission}
         onClose={handleStopPreviewMode}
         isGameMaster={true}
