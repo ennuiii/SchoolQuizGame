@@ -196,6 +196,11 @@ io.on('connection', (socket) => {
     room.started = true;
     room.timeLimit = timeLimit || 99999; // Set to 99999 if no time limit provided
     
+    // Start the timer if timeLimit is set
+    if (timeLimit && timeLimit < 99999) {
+      startQuestionTimer(roomCode);
+    }
+    
     // Notify all players that the game has started
     io.to(roomCode).emit('game_started', {
       question: questions[0],
