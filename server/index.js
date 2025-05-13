@@ -655,6 +655,34 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Failed to switch to player mode');
     }
   });
+
+  // Rejoin as player or spectator after reload
+  socket.on('rejoin_player', ({ roomCode, playerName }) => {
+    const room = gameRooms[roomCode];
+    if (!room) {
+      socket.emit('error', 'Room not found');
+      return;
+    }
+    if (!playerName) {
+      socket.emit('error', 'No player name found for rejoin');
+      return;
+    }
+    // Find the player in the room by name
+    const player = room.players.find(p => p.name === playerName);
+    if (!player) {
+      socket.emit('error', 'Player not found in room');
+      return;
+    }
+    // Update the player's socket ID to the new one
+    player.id = socket.id;
+    socket.join(roomCode);
+    socket.playerInfo = { roomCode, playerName, isSpectator: player.isSpectator };
+    // Send updated info to the client
+    socket.emit('room_joined', { roomCode });
+    socket.emit('players_update', room.players);
+    // Notify others in the room
+    io.to(roomCode).emit('players_update', room.players);
+  });
 });
 
 // Helper function to get player name from room
