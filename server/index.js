@@ -153,6 +153,13 @@ io.on('connection', (socket) => {
       socket.emit('room_joined', { roomCode });
       // Send the current player list directly to the joining player
       socket.emit('players_update', room.players);
+      // If the game has already started, send the current game state to the joining player
+      if (room.started && room.currentQuestion) {
+        socket.emit('game_started', {
+          question: room.currentQuestion,
+          timeLimit: room.timeLimit
+        });
+      }
       console.log(`Player ${playerName} joined room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
     } catch (error) {
       console.error('Error in join_room:', error);

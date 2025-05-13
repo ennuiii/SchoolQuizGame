@@ -430,10 +430,9 @@ body {
   background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
 }
 
-.game-master-container .list-group-item {
-  background: #fffbe7;
-  color: #2d4739;
-  border-bottom: 1px dashed #ffe066;
+.game-master-container .list-group-item,
+.question-selector .list-group-item {
+  color: #222 !important;
 }
 
 .game-master-container .btn {
@@ -537,4 +536,9 @@ body {
   margin: 0;
   border: 3px dashed #ffd166;
   box-shadow: 0 2px 8px #00000022;
+}
+
+.bg-highlight {
+  background-color: #ffe066 !important;
+  color: #2d4739 !important;
 } 

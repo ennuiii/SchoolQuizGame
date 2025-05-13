@@ -13,6 +13,7 @@ import RoomCode from '../components/shared/RoomCode';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import { useAudio } from '../contexts/AudioContext';
+import RoomSettings from '../components/game-master/RoomSettings';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -20,6 +21,7 @@ const GameMaster: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
   const [isConnecting, setIsConnecting] = useState(false);
+  const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   
   // Get context values
   const {
@@ -118,8 +120,8 @@ const GameMaster: React.FC = () => {
       return;
     }
     
-    startGame(roomCode, questions, 30);
-  }, [roomCode, questions, players, startGame, isConnecting]);
+    startGame(roomCode, questions, customTimeLimit ?? 30);
+  }, [roomCode, questions, players, startGame, isConnecting, customTimeLimit]);
 
   const handleNextQuestion = useCallback(() => {
     if (!roomCode) return;
@@ -276,6 +278,7 @@ const GameMaster: React.FC = () => {
 
       <div className="row g-3">
         <div className="col-12 col-md-4">
+          <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
           <RoomCode />
           {!previewMode.isActive && (
             <div className="mb-3">
