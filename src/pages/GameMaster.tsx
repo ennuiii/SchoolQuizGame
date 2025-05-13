@@ -22,9 +22,15 @@ const GameMaster: React.FC = () => {
   
   // Get context values
   const {
+    roomCode,
+    createRoom,
+    leaveRoom,
+    players
+  } = useRoom();
+
+  const {
     gameStarted,
     currentQuestion,
-    players,
     playerBoards,
     visibleBoards,
     allAnswersThisRound,
@@ -46,12 +52,6 @@ const GameMaster: React.FC = () => {
     isTimerRunning,
     questionErrorMsg
   } = useGame();
-
-  const {
-    roomCode,
-    createRoom,
-    leaveRoom
-  } = useRoom();
 
   const {
     isMuted,
