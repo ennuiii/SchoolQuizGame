@@ -9,6 +9,7 @@ import QuestionCard from '../components/player/QuestionCard';
 import Timer from '../components/shared/Timer';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
+import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 
 interface Question {
   id: number;
@@ -651,10 +652,15 @@ const Player: React.FC = () => {
               <div className="card-body">
                 <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
                   {playerBoards.map(board => (
-                    <div key={board.playerId} className="spectator-board-container mb-3" style={{ minWidth: 320, maxWidth: 400, width: '100%' }}>
-                      <div className="mb-2 fw-bold text-center">{board.playerName}</div>
-                      <div className="drawing-board" dangerouslySetInnerHTML={{ __html: board.boardData }} style={{ border: '2px solid #8B4513', borderRadius: 4, background: '#0C6A35', minHeight: 200, minWidth: 300, maxWidth: 400, width: '100%' }} />
-                    </div>
+                    <PlayerBoardDisplay
+                      key={board.playerId}
+                      board={board}
+                      isVisible={true}
+                      onToggleVisibility={() => {}}
+                      transform={{ scale: 1, x: 0, y: 0 }}
+                      onScale={() => {}}
+                      onReset={() => {}}
+                    />
                   ))}
                 </div>
               </div>

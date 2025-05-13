@@ -9,7 +9,7 @@ import GameControls from '../components/game-master/GameControls';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
 import AnswerList from '../components/game-master/AnswerList';
 import Timer from '../components/shared/Timer';
-import PlayerBoardDisplay from '../components/game-master/PlayerBoardDisplay';
+import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
 
