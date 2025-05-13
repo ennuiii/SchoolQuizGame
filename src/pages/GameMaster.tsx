@@ -62,6 +62,9 @@ const GameMaster: React.FC = () => {
 
   // Create a room if one doesn't exist
   useEffect(() => {
+    // Ensure socket is connected
+    socketService.connect();
+
     if (!roomCode) {
       const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
       createRoom(newRoomCode);

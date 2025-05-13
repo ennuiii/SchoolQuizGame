@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
 
 const RoomCode: React.FC = () => {
@@ -6,17 +6,24 @@ const RoomCode: React.FC = () => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyCode = () => {
+    if (!roomCode) return;
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   const handleCopyInviteLink = () => {
+    if (!roomCode) return;
     const inviteLink = `${window.location.origin}/join?room=${roomCode}`;
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Reset copied state when room code changes
+  useEffect(() => {
+    setCopied(false);
+  }, [roomCode]);
 
   if (!roomCode) return null;
 
@@ -34,12 +41,14 @@ const RoomCode: React.FC = () => {
             <button 
               className="btn btn-primary flex-grow-1"
               onClick={handleCopyCode}
+              disabled={!roomCode}
             >
               {copied ? 'Copied!' : 'Copy Code'}
             </button>
             <button 
               className="btn btn-outline-primary flex-grow-1"
               onClick={handleCopyInviteLink}
+              disabled={!roomCode}
             >
               {copied ? 'Copied!' : 'Copy Invite Link'}
             </button>
