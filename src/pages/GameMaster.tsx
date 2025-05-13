@@ -299,7 +299,7 @@ const GameMaster: React.FC = () => {
     socketService.joinRoom(roomCode, 'Game Master');
 
     // Set up socket listeners
-    socketService.on('player_update', (players: Player[]) => {
+    socketService.on('players_update', (players: Player[]) => {
       dispatch({ type: 'SET_PLAYERS', payload: players });
     });
 
