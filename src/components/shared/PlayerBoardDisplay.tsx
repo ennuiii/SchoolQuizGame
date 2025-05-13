@@ -125,7 +125,9 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
                 transformOrigin: 'top left',
                 transition: 'transform 0.2s ease-out',
-                background: 'transparent',
+                background: '#0C6A35',
+                border: '2px solid #8B4513',
+                borderRadius: 4,
                 cursor: 'grab'
               }}
               onWheel={handleWheel}
