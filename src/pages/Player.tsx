@@ -613,33 +613,63 @@ const Player: React.FC = () => {
 
   if (isSpectator) {
     return (
-      <div className="container py-4">
-        <div className="row justify-content-center">
-          <div className="col-md-8">
-            <div className="card">
-              <div className="card-header">
-                <h2 className="mb-0">Spectator View</h2>
+      <div className="container-fluid px-2 px-md-4">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+          <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
+            <span className="bi bi-eye section-icon" aria-label="Spectator"></span>
+            Spectator View
+          </div>
+        </div>
+        <div className="row g-3">
+          <div className="col-12 col-md-4">
+            <PlayerList
+              players={players}
+              title="Players"
+            />
+            <div className="d-grid gap-2 mt-3">
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => navigate('/')}
+              >
+                Leave Game
+              </button>
+            </div>
+          </div>
+          <div className="col-12 col-md-8">
+            {currentQuestion && (
+              <div className="card mb-4">
+                <div className="card-body">
+                  <h3>Current Question:</h3>
+                  <p className="lead">{currentQuestion.text}</p>
+                </div>
+              </div>
+            )}
+            <div className="card mb-4">
+              <div className="card-header bg-light">
+                <h5 className="mb-0">Player Boards</h5>
               </div>
               <div className="card-body">
-                <p className="lead">
-                  You are watching the game as a spectator. You can see all players' answers and drawings in real-time.
-                </p>
-                {currentQuestion && (
-                  <div className="mb-4">
-                    <h3>Current Question:</h3>
-                    <p className="lead">{currentQuestion.text}</p>
-                  </div>
-                )}
-                <div className="d-grid gap-2">
-                  <button 
-                    className="btn btn-outline-secondary"
-                    onClick={() => navigate('/')}
-                  >
-                    Leave Game
-                  </button>
+                <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
+                  {playerBoards.map(board => (
+                    <div key={board.playerId} className="spectator-board-container mb-3" style={{ minWidth: 320, maxWidth: 400, width: '100%' }}>
+                      <div className="mb-2 fw-bold text-center">{board.playerName}</div>
+                      <div className="drawing-board" dangerouslySetInnerHTML={{ __html: board.boardData }} style={{ border: '2px solid #8B4513', borderRadius: 4, background: '#0C6A35', minHeight: 200, minWidth: 300, maxWidth: 400, width: '100%' }} />
+                    </div>
+                  ))}
                 </div>
               </div>
             </div>
+            {/* Preview Overlay for Spectators */}
+            <PreviewOverlay
+              players={players}
+              playerBoards={playerBoards}
+              allAnswersThisRound={allAnswersThisRound}
+              evaluatedAnswers={evaluatedAnswers}
+              previewMode={previewMode}
+              onFocus={() => {}}
+              onClose={() => {}}
+              isGameMaster={false}
+            />
           </div>
         </div>
       </div>
