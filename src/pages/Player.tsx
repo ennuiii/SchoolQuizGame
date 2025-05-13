@@ -431,6 +431,7 @@ const Player: React.FC = () => {
         setPlayerName(player.name || savedPlayerName || '');
         sessionStorage.setItem('roomCode', savedRoomCode || '');
         sessionStorage.setItem('playerName', player.name || savedPlayerName || '');
+        sessionStorage.setItem('playerId', player.id);
       }
     });
 
