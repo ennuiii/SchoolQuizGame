@@ -84,6 +84,9 @@ const Spectator: React.FC = () => {
       setGameStarted(false);
     });
     socketService.on('game_over', () => setGameStarted(false));
+    socketService.on('become_spectator', () => {
+      setGameStarted(false);
+    });
     return () => {
       socketService.off('players_update');
       socketService.off('board_update');
@@ -96,6 +99,7 @@ const Spectator: React.FC = () => {
       socketService.off('game_started');
       socketService.off('game_restarted');
       socketService.off('game_over');
+      socketService.off('become_spectator');
     };
   }, []);
 
