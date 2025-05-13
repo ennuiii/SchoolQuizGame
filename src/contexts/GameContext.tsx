@@ -93,6 +93,13 @@ interface GameContextType {
   setRandomCount: (count: number) => void;
   loadQuestions: () => Promise<void>;
   loadRandomQuestions: () => Promise<void>;
+  
+  // Question Management
+  addQuestionToSelected: (question: Question) => void;
+  removeSelectedQuestion: (questionId: number) => void;
+  clearAllSelectedQuestions: () => void;
+  organizeSelectedQuestions: () => void;
+  addCustomQuestion: () => void;
 }
 
 const GameContext = createContext<GameContextType | undefined>(undefined);
@@ -142,8 +149,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Actions
   const startGame = useCallback((roomCode: string, questions: Question[], timeLimit: number) => {
+    if (players.length === 0) {
+      setQuestionErrorMsg('Cannot start game: No players in the room');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+      return;
+    }
     socketService.startGame(roomCode, questions, timeLimit);
-  }, []);
+  }, [players]);
 
   const nextQuestion = useCallback((roomCode: string) => {
     socketService.nextQuestion(roomCode);
@@ -360,6 +372,94 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // Question Management Functions
+  const addQuestionToSelected = useCallback((question: Question) => {
+    if (questions.some(q => q.id === question.id)) {
+      setQuestionErrorMsg('This question is already selected');
+      return;
+    }
+    const newQuestions = [...questions, question].sort((a, b) => a.grade - b.grade);
+    setQuestions(newQuestions);
+    setAvailableQuestions(prev => prev.filter(q => q.id !== question.id));
+  }, [questions]);
+
+  const removeSelectedQuestion = useCallback((questionId: number) => {
+    const questionToRemove = questions.find(q => q.id === questionId);
+    if (questionToRemove) {
+      const newQuestions = questions.filter(q => q.id !== questionId);
+      setQuestions(newQuestions);
+      setAvailableQuestions(prev => [...prev, questionToRemove].sort((a, b) => a.grade - b.grade));
+    }
+  }, [questions]);
+
+  const clearAllSelectedQuestions = useCallback(() => {
+    if (questions.length === 0) {
+      setQuestionErrorMsg('No questions to clear');
+      return;
+    }
+    
+    // Add all selected questions back to available questions
+    const updatedAvailableQuestions = [...availableQuestions, ...questions].sort((a, b) => a.grade - b.grade);
+    setAvailableQuestions(updatedAvailableQuestions);
+    
+    // Clear selected questions
+    setQuestions([]);
+    setQuestionErrorMsg('All questions cleared');
+    setTimeout(() => setQuestionErrorMsg(''), 3000);
+  }, [questions, availableQuestions]);
+
+  const organizeSelectedQuestions = useCallback(() => {
+    const organized = [...questions].sort((a, b) => a.grade - b.grade);
+    setQuestions(organized);
+  }, [questions]);
+
+  const addCustomQuestion = useCallback(() => {
+    const text = prompt('Enter the question:');
+    if (!text) return;
+    
+    const answerInput = prompt('Enter the answer:');
+    const answer = answerInput || undefined;
+    const subject = prompt('Enter the subject:') || 'General';
+    const grade = parseInt(prompt('Enter the grade level (1-13):') || '5', 10);
+    const language = prompt('Enter the language (e.g., de, en):') || 'de';
+    
+    // Validate inputs
+    if (!text.trim()) {
+      setQuestionErrorMsg('Question text cannot be empty');
+      return;
+    }
+    
+    if (isNaN(grade) || grade < 1 || grade > 13) {
+      setQuestionErrorMsg('Grade must be between 1 and 13');
+      return;
+    }
+    
+    const newQuestion: Question = {
+      id: Date.now(), // Use timestamp as temporary ID
+      text: text.trim(),
+      answer: answer?.trim(),
+      subject: subject.trim(),
+      grade: Math.min(13, Math.max(1, grade)),
+      language: language.trim()
+    };
+    
+    // Check for duplicate custom questions
+    const isDuplicate = questions.some(
+      q => q.text.toLowerCase() === newQuestion.text.toLowerCase() &&
+           q.subject.toLowerCase() === newQuestion.subject.toLowerCase()
+    );
+    
+    if (isDuplicate) {
+      setQuestionErrorMsg('A similar question already exists in the selection');
+      return;
+    }
+    
+    const newQuestions = [...questions, newQuestion].sort((a, b) => a.grade - b.grade);
+    setQuestions(newQuestions);
+    setQuestionErrorMsg('Custom question added to selection');
+    setTimeout(() => setQuestionErrorMsg(''), 3000);
+  }, [questions]);
+
   const value = {
     gameStarted,
     gameOver,
@@ -403,7 +503,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     toggleBoardVisibility,
     startPreviewMode,
     stopPreviewMode,
-    focusSubmission
+    focusSubmission,
+    addQuestionToSelected,
+    removeSelectedQuestion,
+    clearAllSelectedQuestions,
+    organizeSelectedQuestions,
+    addCustomQuestion
   };
 
   return (

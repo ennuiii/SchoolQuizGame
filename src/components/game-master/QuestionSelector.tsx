@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect } from 'react';
 import { useGame } from '../../contexts/GameContext';
-import { supabaseService } from '../../services/supabaseService';
 
 interface Question {
   id: number;
@@ -22,245 +21,43 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   selectedQuestions,
   onSelectedQuestionsChange
 }) => {
-  const [subjects, setSubjects] = useState<string[]>([]);
-  const [languages, setLanguages] = useState<string[]>([]);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('de');
-  const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
-  const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [randomCount, setRandomCount] = useState<number>(5);
-  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const {
+    subjects,
+    languages,
+    selectedSubject,
+    selectedGrade,
+    selectedLanguage,
+    isLoadingQuestions,
+    availableQuestions,
+    questionErrorMsg,
+    randomCount,
+    isLoadingRandom,
+    setSelectedSubject,
+    setSelectedGrade,
+    setSelectedLanguage,
+    setRandomCount,
+    loadQuestions,
+    loadRandomQuestions,
+    addQuestionToSelected,
+    removeSelectedQuestion,
+    clearAllSelectedQuestions,
+    organizeSelectedQuestions,
+    addCustomQuestion
+  } = useGame();
 
-  // Fetch available subjects and languages when component mounts
+  // Load questions when filters change
   useEffect(() => {
-    const fetchData = async () => {
-      const subjectList = await supabaseService.getSubjects();
-      setSubjects(subjectList);
-      
-      const languageList = await supabaseService.getLanguages();
-      setLanguages(languageList);
-    };
-
-    fetchData();
-  }, []);
-
-  const loadQuestionsFromSupabase = async () => {
-    setIsLoadingQuestions(true);
-    
-    try {
-      const options: {
-        subject?: string;
-        grade?: number;
-        language?: string;
-        limit?: number;
-      } = {};
-      
-      if (selectedSubject) {
-        options.subject = selectedSubject;
-      }
-      
-      if (selectedGrade !== '') {
-        options.grade = Number(selectedGrade);
-      }
-      
-      if (selectedLanguage) {
-        options.language = selectedLanguage;
-      }
-      
-      const loadedQuestions = await supabaseService.getQuestions(options);
-      
-      if (loadedQuestions && loadedQuestions.length > 0) {
-        // Filter out questions that are already selected
-        const filteredQuestions = loadedQuestions.filter(
-          question => !selectedQuestions.some(selected => selected.id === question.id)
-        );
-        
-        if (filteredQuestions.length === 0) {
-          setErrorMsg('All available questions are already selected');
-        } else {
-          setAvailableQuestions(filteredQuestions);
-          setErrorMsg('');
-        }
-      } else {
-        setErrorMsg('No questions found with the selected filters');
-      }
-    } catch (error) {
-      console.error('Error loading questions:', error);
-      setErrorMsg('Failed to load questions. Please try again.');
-    } finally {
-      setIsLoadingQuestions(false);
-    }
-  };
-
-  const loadRandomQuestions = async () => {
-    setIsLoadingRandom(true);
-    setErrorMsg('');
-    
-    try {
-      const options: {
-        subject?: string;
-        grade?: number;
-        language?: string;
-        limit?: number;
-      } = {};
-      
-      if (selectedSubject) {
-        options.subject = selectedSubject;
-      }
-      
-      if (selectedGrade !== '') {
-        options.grade = Number(selectedGrade);
-      }
-      
-      if (selectedLanguage) {
-        options.language = selectedLanguage;
-      }
-      
-      // Get all questions matching the filters
-      const allQuestions = await supabaseService.getQuestions(options);
-      
-      if (allQuestions && allQuestions.length > 0) {
-        // Filter out questions that are already selected
-        const availableQuestions = allQuestions.filter(
-          question => !selectedQuestions.some(selected => selected.id === question.id)
-        );
-        
-        if (availableQuestions.length === 0) {
-          setErrorMsg('All available questions are already selected');
-          return;
-        }
-        
-        // Shuffle the questions and take the requested number
-        const shuffled = [...availableQuestions].sort(() => Math.random() - 0.5);
-        const selectedCount = Math.min(randomCount, shuffled.length);
-        const randomQuestions = shuffled.slice(0, selectedCount);
-        
-        // Combine existing and new questions, then sort by grade
-        const newSelectedQuestions = [...selectedQuestions, ...randomQuestions].sort((a, b) => a.grade - b.grade);
-        
-        // Update both the selected questions and notify parent
-        onSelectedQuestionsChange(newSelectedQuestions);
-        onQuestionsSelected(newSelectedQuestions);
-        
-        // Update available questions list, removing the selected ones
-        setAvailableQuestions(prev => 
-          prev.filter(q => !randomQuestions.some(rq => rq.id === q.id))
-        );
-        
-        setErrorMsg(`Added ${selectedCount} random questions to selection`);
-      } else {
-        setErrorMsg('No questions found with the selected filters');
-      }
-    } catch (error) {
-      console.error('Error loading random questions:', error);
-      setErrorMsg('Failed to load random questions. Please try again.');
-    } finally {
-      setIsLoadingRandom(false);
-    }
-  };
-
-  const addQuestionToSelected = (question: Question) => {
-    if (selectedQuestions.some(q => q.id === question.id)) {
-      setErrorMsg('This question is already selected');
-      return;
-    }
-    const newSelectedQuestions = [...selectedQuestions, question].sort((a, b) => a.grade - b.grade);
-    onSelectedQuestionsChange(newSelectedQuestions);
-    onQuestionsSelected(newSelectedQuestions);
-    setAvailableQuestions(prev => prev.filter(q => q.id !== question.id));
-  };
-
-  const removeSelectedQuestion = (questionId: number) => {
-    const questionToRemove = selectedQuestions.find(q => q.id === questionId);
-    if (questionToRemove) {
-      const newSelectedQuestions = selectedQuestions.filter(q => q.id !== questionId);
-      onSelectedQuestionsChange(newSelectedQuestions);
-      onQuestionsSelected(newSelectedQuestions);
-      setAvailableQuestions(prev => [...prev, questionToRemove].sort((a, b) => a.grade - b.grade));
-    }
-  };
-
-  const clearAllSelectedQuestions = () => {
-    if (selectedQuestions.length === 0) {
-      setErrorMsg('No questions to clear');
-      return;
-    }
-    
-    // Add all selected questions back to available questions
-    const updatedAvailableQuestions = [...availableQuestions, ...selectedQuestions].sort((a, b) => a.grade - b.grade);
-    setAvailableQuestions(updatedAvailableQuestions);
-    
-    // Clear selected questions
-    onSelectedQuestionsChange([]);
-    onQuestionsSelected([]);
-    setErrorMsg('All questions cleared');
-    setTimeout(() => setErrorMsg(''), 3000);
-  };
-
-  const organizeSelectedQuestions = () => {
-    const organized = [...selectedQuestions].sort((a, b) => a.grade - b.grade);
-    onSelectedQuestionsChange(organized);
-    onQuestionsSelected(organized);
-  };
-
-  const addCustomQuestion = () => {
-    const text = prompt('Enter the question:');
-    if (!text) return;
-    
-    const answerInput = prompt('Enter the answer:');
-    const answer = answerInput || undefined;
-    const subject = prompt('Enter the subject:') || 'General';
-    const grade = parseInt(prompt('Enter the grade level (1-13):') || '5', 10);
-    const language = prompt('Enter the language (e.g., de, en):') || 'de';
-    
-    // Validate inputs
-    if (!text.trim()) {
-      setErrorMsg('Question text cannot be empty');
-      return;
-    }
-    
-    if (isNaN(grade) || grade < 1 || grade > 13) {
-      setErrorMsg('Grade must be between 1 and 13');
-      return;
-    }
-    
-    const newQuestion: Question = {
-      id: Date.now(), // Use timestamp as temporary ID
-      text: text.trim(),
-      answer: answer?.trim(),
-      subject: subject.trim(),
-      grade: Math.min(13, Math.max(1, grade)),
-      language: language.trim()
-    };
-    
-    // Check for duplicate custom questions
-    const isDuplicate = selectedQuestions.some(
-      q => q.text.toLowerCase() === newQuestion.text.toLowerCase() &&
-           q.subject.toLowerCase() === newQuestion.subject.toLowerCase()
-    );
-    
-    if (isDuplicate) {
-      setErrorMsg('A similar question already exists in the selection');
-      return;
-    }
-    
-    const newSelectedQuestions = [...selectedQuestions, newQuestion].sort((a, b) => a.grade - b.grade);
-    onSelectedQuestionsChange(newSelectedQuestions);
-    onQuestionsSelected(newSelectedQuestions);
-    setErrorMsg('Custom question added to selection');
-    setTimeout(() => setErrorMsg(''), 3000);
-  };
+    loadQuestions();
+  }, [selectedSubject, selectedGrade, selectedLanguage, loadQuestions]);
 
   // Always sort availableQuestions before rendering
   const sortedAvailableQuestions = [...availableQuestions].sort((a, b) => a.grade - b.grade);
 
   return (
     <div className="question-selector">
-      {errorMsg && (
+      {questionErrorMsg && (
         <div className="alert alert-info mb-3" role="alert">
-          {errorMsg}
+          {questionErrorMsg}
         </div>
       )}
 
@@ -317,7 +114,7 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
             <div className="d-flex gap-2">
               <button 
                 className="btn btn-primary flex-grow-1"
-                onClick={loadQuestionsFromSupabase}
+                onClick={loadQuestions}
                 disabled={isLoadingQuestions}
               >
                 {isLoadingQuestions ? 'Loading...' : 'Search Questions'}
