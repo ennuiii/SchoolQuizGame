@@ -18,26 +18,28 @@ const RoomCode: React.FC = () => {
   };
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <h5 className="mb-0">Room Code</h5>
+    <div className="card mb-3">
+      <div className="card-header bg-light">
+        <h6 className="mb-0">Room Code</h6>
       </div>
       <div className="card-body">
-        <div className="d-flex align-items-center mb-3">
-          <code className="fs-4 me-3">{roomCode}</code>
+        <div className="room-code-display mb-3">
+          {roomCode}
+        </div>
+        <div className="d-flex gap-2">
           <button
-            className="btn btn-outline-primary"
+            className="btn btn-outline-primary flex-grow-1"
             onClick={handleCopyCode}
           >
             {copied ? 'Copied!' : 'Copy Code'}
           </button>
+          <button
+            className="btn btn-outline-secondary flex-grow-1"
+            onClick={handleCopyInviteLink}
+          >
+            {copied ? 'Copied!' : 'Copy Invite Link'}
+          </button>
         </div>
-        <button
-          className="btn btn-outline-secondary"
-          onClick={handleCopyInviteLink}
-        >
-          {copied ? 'Copied!' : 'Copy Invite Link'}
-        </button>
       </div>
     </div>
   );
