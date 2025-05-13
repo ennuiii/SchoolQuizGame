@@ -428,6 +428,8 @@ const Player: React.FC = () => {
         sessionStorage.setItem('isSpectator', player.isSpectator ? 'true' : 'false');
         setRoomCode(savedRoomCode || '');
         setPlayerName(player.name || savedPlayerName || '');
+        sessionStorage.setItem('roomCode', savedRoomCode || '');
+        sessionStorage.setItem('playerName', player.name || savedPlayerName || '');
       }
     });
 
