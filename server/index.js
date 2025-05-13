@@ -683,6 +683,16 @@ io.on('connection', (socket) => {
     // Notify others in the room
     io.to(roomCode).emit('players_update', room.players);
   });
+
+  // Get current game state for a room
+  socket.on('get_game_state', ({ roomCode }) => {
+    const room = gameRooms[roomCode];
+    if (!room) {
+      socket.emit('game_state', { started: false });
+      return;
+    }
+    socket.emit('game_state', { started: !!room.started });
+  });
 });
 
 // Helper function to get player name from room
