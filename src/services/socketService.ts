@@ -105,6 +105,15 @@ class SocketService {
   createRoom(roomCode?: string) {
     if (!this.socket?.connected) {
       console.error('Cannot create room: Socket not connected');
+      this.connect();
+      // Wait for connection before emitting
+      setTimeout(() => {
+        if (this.socket?.connected) {
+          this.emit('create_room', { roomCode });
+        } else {
+          console.error('Failed to connect to socket server');
+        }
+      }, 1000);
       return;
     }
     this.emit('create_room', { roomCode });

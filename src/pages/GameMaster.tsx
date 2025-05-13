@@ -79,13 +79,32 @@ const GameMaster: React.FC = () => {
     setErrorMsg('');
     
     try {
+      // Connect to socket first
+      const socket = socketService.connect();
+      
+      // Set up room creation handler
+      socket.on('room_created', ({ roomCode }) => {
+        console.log('Room created:', roomCode);
+        dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
+        navigate(`/gamemaster/${roomCode}`);
+        setIsLoading(false);
+      });
+
+      // Set up error handler
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        setErrorMsg('Failed to create room. Please try again.');
+        setIsLoading(false);
+      });
+
+      // Create the room
       socketService.createRoom(roomCodeInput);
     } catch (error) {
       console.error('Error creating room:', error);
       setErrorMsg('Failed to create room. Please try again.');
       setIsLoading(false);
     }
-  }, [roomCodeInput]);
+  }, [roomCodeInput, navigate, dispatch]);
 
   const startGame = useCallback(() => {
     if (!roomCode) {

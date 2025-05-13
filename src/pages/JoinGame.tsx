@@ -26,16 +26,33 @@ const JoinGame: React.FC = () => {
     setErrorMsg('');
 
     try {
-      const roomCode = await supabaseService.createRoom();
-      dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
-      dispatch({ type: 'SET_PLAYER_NAME', payload: playerNameInput.trim() });
-      sessionStorage.setItem('roomCode', roomCode);
-      sessionStorage.setItem('playerName', playerNameInput.trim());
-      sessionStorage.setItem('isGameMaster', 'true');
-      navigate('/gamemaster');
+      // Connect to socket first
+      const socket = socketService.connect();
+      
+      // Set up room creation handler
+      socket.on('room_created', ({ roomCode }) => {
+        console.log('Room created:', roomCode);
+        dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
+        dispatch({ type: 'SET_PLAYER_NAME', payload: playerNameInput.trim() });
+        sessionStorage.setItem('roomCode', roomCode);
+        sessionStorage.setItem('playerName', playerNameInput.trim());
+        sessionStorage.setItem('isGameMaster', 'true');
+        navigate('/gamemaster');
+        setIsLoading(false);
+      });
+
+      // Set up error handler
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        setErrorMsg('Failed to create room. Please try again.');
+        setIsLoading(false);
+      });
+
+      // Create the room
+      socketService.createRoom();
     } catch (error) {
+      console.error('Error creating room:', error);
       setErrorMsg('Failed to create room. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   }, [playerNameInput, navigate, dispatch]);
