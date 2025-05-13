@@ -249,9 +249,9 @@ const Player: React.FC = () => {
                       isVisible={visibleBoards.has(board.playerId)}
                       onToggleVisibility={id => toggleBoardVisibility(id)}
                       transform={{ scale: 1, x: 0, y: 0 }}
-                      onScale={() => {}}
-                      onPan={() => {}}
-                      onReset={() => {}}
+                      onScale={(playerId, scale) => {}}
+                      onPan={(playerId, dx, dy) => {}}
+                      onReset={(playerId) => {}}
                     />
                   ))}
                 </div>
@@ -354,12 +354,10 @@ const Player: React.FC = () => {
             </div>
           ) : (
             <>
-              <QuestionCard currentQuestion={currentQuestion} />
+              <QuestionCard />
               
               {timeLimit !== null && timeRemaining !== null && (
                 <Timer
-                  timeLimit={timeLimit}
-                  timeRemaining={timeRemaining}
                   isActive={isTimerRunning}
                   showSeconds={true}
                 />
@@ -423,20 +421,14 @@ const Player: React.FC = () => {
             </>
           )}
           <PreviewOverlay
-            players={players}
-            playerBoards={playerBoards}
-            allAnswersThisRound={allAnswersThisRound}
-            evaluatedAnswers={evaluatedAnswers}
-            previewMode={previewMode}
             onFocus={handleFocusSubmission}
             onClose={handleClosePreviewMode}
             isGameMaster={false}
           />
         </div>
         <div className="col-12 col-md-4">
-          <RoomCode roomCode={roomCode} />
+          <RoomCode />
           <PlayerList 
-            players={players} 
             currentPlayerId={socketService.connect().id || ''}
             title="Other Players"
           />

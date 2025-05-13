@@ -166,9 +166,13 @@ const GameMaster: React.FC = () => {
                     }).map(board => (
                       <PlayerBoardDisplay
                         key={board.playerId}
-                        playerId={board.playerId}
-                        playerName={board.playerName}
+                        board={board}
+                        isVisible={visibleBoards.has(board.playerId)}
                         onToggleVisibility={id => toggleBoardVisibility(id)}
+                        transform={{ scale: 1, x: 0, y: 0 }}
+                        onScale={(playerId, scale) => {}}
+                        onPan={(playerId, dx, dy) => {}}
+                        onReset={(playerId) => {}}
                       />
                     ))}
                   </div>

@@ -114,9 +114,9 @@ const Spectator: React.FC = () => {
                     isVisible={visibleBoards.has(board.playerId)}
                     onToggleVisibility={id => toggleBoardVisibility(id)}
                     transform={{ scale: 1, x: 0, y: 0 }}
-                    onScale={() => {}}
-                    onPan={() => {}}
-                    onReset={() => {}}
+                    onScale={(playerId, scale) => {}}
+                    onPan={(playerId, dx, dy) => {}}
+                    onReset={(playerId) => {}}
                   />
                 ))}
               </div>
