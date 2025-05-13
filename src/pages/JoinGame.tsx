@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import socketService from '../services/socketService';
-import { supabaseService } from '../services/supabaseService';
 import audioService from '../services/audioService';
 import { useGame } from '../context/GameContext';
 import PlayerList from '../components/shared/PlayerList';
@@ -67,21 +66,33 @@ const JoinGame: React.FC = () => {
     setErrorMsg('');
 
     try {
-      const exists = await supabaseService.checkRoomExists(roomCodeInput.trim());
-      if (!exists) {
-        setErrorMsg('Room not found');
-        return;
-      }
+      // Connect to socket first
+      const socket = socketService.connect();
+      
+      // Set up room joined handler
+      socket.on('room_joined', ({ roomCode }) => {
+        console.log('Joined room:', roomCode);
+        dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
+        dispatch({ type: 'SET_PLAYER_NAME', payload: playerNameInput.trim() });
+        sessionStorage.setItem('roomCode', roomCode);
+        sessionStorage.setItem('playerName', playerNameInput.trim());
+        sessionStorage.setItem('isGameMaster', 'false');
+        navigate('/player');
+        setIsLoading(false);
+      });
 
-      dispatch({ type: 'SET_ROOM_CODE', payload: roomCodeInput.trim() });
-      dispatch({ type: 'SET_PLAYER_NAME', payload: playerNameInput.trim() });
-      sessionStorage.setItem('roomCode', roomCodeInput.trim());
-      sessionStorage.setItem('playerName', playerNameInput.trim());
-      sessionStorage.setItem('isGameMaster', 'false');
-      navigate('/player');
+      // Set up error handler
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        setErrorMsg('Failed to join room. Please try again.');
+        setIsLoading(false);
+      });
+
+      // Join the room
+      socketService.joinRoom(roomCodeInput.trim(), playerNameInput.trim(), false);
     } catch (error) {
+      console.error('Error joining room:', error);
       setErrorMsg('Failed to join room. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   }, [roomCodeInput, playerNameInput, navigate, dispatch]);
@@ -96,20 +107,32 @@ const JoinGame: React.FC = () => {
     setErrorMsg('');
 
     try {
-      const exists = await supabaseService.checkRoomExists(roomCodeInput.trim());
-      if (!exists) {
-        setErrorMsg('Room not found');
-        return;
-      }
+      // Connect to socket first
+      const socket = socketService.connect();
+      
+      // Set up room joined handler
+      socket.on('room_joined', ({ roomCode }) => {
+        console.log('Joined room as spectator:', roomCode);
+        dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
+        dispatch({ type: 'SET_SPECTATOR', payload: true });
+        sessionStorage.setItem('roomCode', roomCode);
+        sessionStorage.setItem('isSpectator', 'true');
+        navigate('/spectator');
+        setIsLoading(false);
+      });
 
-      dispatch({ type: 'SET_ROOM_CODE', payload: roomCodeInput.trim() });
-      dispatch({ type: 'SET_SPECTATOR', payload: true });
-      sessionStorage.setItem('roomCode', roomCodeInput.trim());
-      sessionStorage.setItem('isSpectator', 'true');
-      navigate('/spectator');
+      // Set up error handler
+      socket.on('error', (error) => {
+        console.error('Socket error:', error);
+        setErrorMsg('Failed to join as spectator. Please try again.');
+        setIsLoading(false);
+      });
+
+      // Join the room as spectator
+      socketService.joinRoom(roomCodeInput.trim(), 'Spectator', true);
     } catch (error) {
+      console.error('Error joining as spectator:', error);
       setErrorMsg('Failed to join as spectator. Please try again.');
-    } finally {
       setIsLoading(false);
     }
   }, [roomCodeInput, navigate, dispatch]);

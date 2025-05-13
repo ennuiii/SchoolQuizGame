@@ -144,27 +144,5 @@ export const supabaseService = {
       .insert(questions);
 
     if (error) throw error;
-  },
-
-  async createRoom(): Promise<string> {
-    const { data, error } = await supabase
-      .from('rooms')
-      .insert([{ created_at: new Date() }])
-      .select('id')
-      .single();
-      
-    if (error) throw error;
-    return data.id;
-  },
-
-  async checkRoomExists(roomCode: string): Promise<boolean> {
-    const { data, error } = await supabase
-      .from('rooms')
-      .select('id')
-      .eq('id', roomCode)
-      .single();
-      
-    if (error) return false;
-    return !!data;
   }
 }; 
