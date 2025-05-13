@@ -63,6 +63,13 @@ const JoinGame: React.FC = () => {
     } else {
       socketService.joinRoom(roomCodeInput, playerName);
     }
+
+    // Fallback navigation after 5 seconds if 'room_joined' is not received
+    setTimeout(() => {
+      if (!roomCode) {
+        navigate(isSpectator ? '/spectator' : '/player');
+      }
+    }, 5000);
   };
 
   useEffect(() => {
