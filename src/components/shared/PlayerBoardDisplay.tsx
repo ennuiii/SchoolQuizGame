@@ -70,7 +70,7 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
         dangerouslySetInnerHTML={{ __html: svg.innerHTML }}
       />
     );
-  }, [board.boardData]);
+  }, [board.boardData, viewBox]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.altKey) return;
