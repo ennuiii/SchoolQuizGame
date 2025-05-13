@@ -155,15 +155,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
 
-    if (players.length === 0) {
-      setQuestionErrorMsg('Cannot start game: No players in the room');
-      setTimeout(() => setQuestionErrorMsg(''), 3000);
-      return;
-    }
-
     const activePlayers = players.filter(player => !player.isSpectator);
-    if (activePlayers.length === 0) {
-      setQuestionErrorMsg('Cannot start game: No active players in the room');
+    if (activePlayers.length < 2) {
+      setQuestionErrorMsg('Cannot start game: Need at least 2 active players');
       setTimeout(() => setQuestionErrorMsg(''), 3000);
       return;
     }

@@ -256,7 +256,8 @@ const GameMaster: React.FC = () => {
               <button 
                 className="btn btn-success" 
                 onClick={handleStartGame}
-                disabled={questions.length === 0}
+                disabled={questions.length === 0 || players.filter(p => !p.isSpectator).length < 2}
+                title={players.filter(p => !p.isSpectator).length < 2 ? "Need at least 2 active players to start" : ""}
               >
                 Start Game
               </button>
