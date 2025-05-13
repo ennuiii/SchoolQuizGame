@@ -552,8 +552,8 @@ const GameMaster: React.FC = () => {
                             isVisible={visibleBoards.has(board.playerId)}
                             onToggleVisibility={() => toggleBoardVisibility(board.playerId)}
                             transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                            onScale={(scale) => handleBoardScale(board.playerId, scale)}
-                            onPan={(dx, dy) => handleBoardPan(board.playerId, dx, dy)}
+                            onScale={(playerId, scale) => handleBoardScale(playerId, scale)}
+                            onPan={(playerId, dx, dy) => handleBoardPan(playerId, dx, dy)}
                             onReset={() => handleBoardReset(board.playerId)}
                           />
                         ))}
