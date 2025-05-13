@@ -315,8 +315,10 @@ io.on('connection', (socket) => {
       player.lives--;
       
       if (player.lives <= 0) {
+        // Instead of marking as inactive, transition to spectator mode
+        player.isSpectator = true;
         player.isActive = false;
-        io.to(playerId).emit('game_over');
+        io.to(playerId).emit('become_spectator');
       }
     }
     

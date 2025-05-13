@@ -197,29 +197,34 @@ const Player: React.FC = () => {
     // Get room code and player name from sessionStorage
     const savedRoomCode = sessionStorage.getItem('roomCode');
     const savedPlayerName = sessionStorage.getItem('playerName');
-    const isSpectator = sessionStorage.getItem('isSpectator') === 'true';
-
+    
     if (!savedRoomCode || !savedPlayerName) {
       navigate('/');
       return;
     }
-
+    
     setRoomCode(savedRoomCode);
     setPlayerName(savedPlayerName);
-    setIsSpectator(isSpectator);
-
+    
     // Connect to socket server
     socketService.connect();
+    
+    // Join the room
+    socketService.joinRoom(savedRoomCode, savedPlayerName);
+    
+    // Set up event listeners
+    socketService.on('error', (msg: string) => {
+      setErrorMsg(msg);
+    });
+    
+    socketService.on('become_spectator', () => {
+      setIsSpectator(true);
+      showFlashMessage('You have become a spectator', 'info');
+    });
 
-    // Set up listeners
     socketService.on('question', (question: Question) => {
       setCurrentQuestion(question);
       setAnswer('');
-    });
-
-    socketService.on('error', (errorMsg: string) => {
-      setErrorMsg(errorMsg);
-      setSubmittedAnswer(false);
     });
 
     socketService.on('game_started', (data: { question: Question, timeLimit?: number }) => {
