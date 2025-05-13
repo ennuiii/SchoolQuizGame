@@ -110,10 +110,12 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
             className="board-container d-flex justify-content-center align-items-center"
             style={{
               width: '100%',
-              minHeight: '250px',
+              minWidth: '400px',
+              minHeight: '300px',
               margin: '0 auto',
-              maxWidth: '800px',
-              position: 'relative'
+              maxWidth: '100%',
+              position: 'relative',
+              overflow: 'hidden',
             }}
           >
             <div
@@ -122,13 +124,18 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
               style={{
                 width: '100%',
                 height: '100%',
-                transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
-                transformOrigin: 'top left',
-                transition: 'transform 0.2s ease-out',
+                minHeight: '300px',
                 background: '#0C6A35',
                 border: '2px solid #8B4513',
                 borderRadius: 4,
-                cursor: 'grab'
+                cursor: 'grab',
+                overflow: 'hidden',
+                transform: `scale(${transform.scale}) translate(${transform.x}px, ${transform.y}px)`,
+                transformOrigin: 'top left',
+                transition: 'transform 0.2s ease-out',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
               onWheel={handleWheel}
               onMouseDown={handleMouseDown}
