@@ -150,7 +150,7 @@ io.on('connection', (socket) => {
       io.to(roomCode).emit('player_joined', player);
       io.to(roomCode).emit('players_update', room.players);
       // Always emit joined_room to the joining socket
-      socket.emit('joined_room', roomCode);
+      socket.emit('room_joined', { roomCode });
       console.log(`Player ${playerName} joined room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
     } catch (error) {
       console.error('Error in join_room:', error);
@@ -563,7 +563,7 @@ io.on('connection', (socket) => {
     gameRooms[roomCode].players.push(spectator);
 
     // Notify spectator they joined successfully
-    socket.emit('joined_room', roomCode);
+    socket.emit('room_joined', { roomCode });
 
     // Notify gamemaster about new spectator
     if (gameRooms[roomCode].gamemaster) {
