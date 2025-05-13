@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { useRoom } from '../contexts/RoomContext';
@@ -16,6 +16,7 @@ interface Player {
 
 const JoinGame: React.FC = () => {
   const navigate = useNavigate();
+  const [isSpectator, setIsSpectator] = useState(false);
   
   // Get context values
   const {
@@ -35,8 +36,8 @@ const JoinGame: React.FC = () => {
       setErrorMsg('Please enter both room code and player name!');
       return;
     }
-    joinRoom(roomCode, playerName, false);
-  }, [roomCode, playerName, joinRoom, setErrorMsg]);
+    joinRoom(roomCode, playerName, isSpectator);
+  }, [roomCode, playerName, isSpectator, joinRoom, setErrorMsg]);
 
   return (
     <div className="container-fluid px-2 px-md-4">
@@ -74,6 +75,18 @@ const JoinGame: React.FC = () => {
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
                 />
+              </div>
+              <div className="form-check mb-3">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="spectatorCheckbox"
+                  checked={isSpectator}
+                  onChange={(e) => setIsSpectator(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="spectatorCheckbox">
+                  Join as Spectator
+                </label>
               </div>
               {errorMsg && (
                 <div className="alert alert-danger" role="alert">

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
@@ -6,12 +6,19 @@ import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionSelector from '../components/game-master/QuestionSelector';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
+import GameControls from '../components/game-master/GameControls';
+import AnswerList from '../components/game-master/AnswerList';
+import Timer from '../components/shared/Timer';
+import RoomCode from '../components/shared/RoomCode';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import { useAudio } from '../contexts/AudioContext';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
+  const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
+  const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
   
   // Get context values
   const {
@@ -33,7 +40,11 @@ const GameMaster: React.FC = () => {
     toggleBoardVisibility,
     startPreviewMode,
     stopPreviewMode,
-    focusSubmission
+    focusSubmission,
+    timeLimit,
+    timeRemaining,
+    isTimerRunning,
+    questionErrorMsg
   } = useGame();
 
   const {
@@ -78,9 +89,18 @@ const GameMaster: React.FC = () => {
   }, [roomCode, restartGame]);
 
   const handleEndRoundEarly = useCallback(() => {
+    setShowEndRoundConfirm(true);
+  }, []);
+
+  const confirmEndRoundEarly = useCallback(() => {
     if (!roomCode) return;
     endRoundEarly(roomCode);
+    setShowEndRoundConfirm(false);
   }, [roomCode, endRoundEarly]);
+
+  const cancelEndRoundEarly = useCallback(() => {
+    setShowEndRoundConfirm(false);
+  }, []);
 
   const handleStartPreviewMode = useCallback(() => {
     if (!roomCode) return;
@@ -97,6 +117,36 @@ const GameMaster: React.FC = () => {
     focusSubmission(roomCode, playerId);
   }, [roomCode, focusSubmission]);
 
+  const handlePlayerSelect = useCallback((playerId: string) => {
+    setSelectedPlayerId(playerId);
+    toggleBoardVisibility(playerId);
+  }, [toggleBoardVisibility]);
+
+  const handleBoardScale = useCallback((playerId: string, scale: number) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: { ...prev[playerId], scale }
+    }));
+  }, []);
+
+  const handleBoardPan = useCallback((playerId: string, dx: number, dy: number) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {
+        ...prev[playerId],
+        x: (prev[playerId]?.x || 0) + dx,
+        y: (prev[playerId]?.y || 0) + dy
+      }
+    }));
+  }, []);
+
+  const handleBoardReset = useCallback((playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: { scale: 1, x: 0, y: 0 }
+    }));
+  }, []);
+
   const showAllBoards = useCallback(() => {
     toggleBoardVisibility(new Set(playerBoards.filter(b => {
       const player = players.find(p => p.id === b.playerId);
@@ -108,6 +158,15 @@ const GameMaster: React.FC = () => {
     toggleBoardVisibility(new Set());
   }, [toggleBoardVisibility]);
 
+  // Initialize board transforms
+  useEffect(() => {
+    const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
+    players.forEach(player => {
+      initialTransforms[player.id] = { scale: 1, x: 0, y: 0 };
+    });
+    setBoardTransforms(initialTransforms);
+  }, [players]);
+
   return (
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
@@ -115,10 +174,77 @@ const GameMaster: React.FC = () => {
           <span className="bi bi-controller section-icon" aria-label="Game Master"></span>
           Game Master View
         </div>
+        <div className="d-flex align-items-center gap-2">
+          <input
+            type="range"
+            className="form-range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            style={{ width: '100px' }}
+            title="Volume"
+          />
+          <button
+            className="btn btn-outline-secondary"
+            onClick={toggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <i className="bi bi-volume-mute-fill"></i>
+            ) : (
+              <i className="bi bi-volume-up-fill"></i>
+            )}
+          </button>
+        </div>
       </div>
+
+      {questionErrorMsg && (
+        <div className="alert alert-danger" role="alert">
+          {questionErrorMsg}
+        </div>
+      )}
+
+      {showEndRoundConfirm && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">End Round Early?</h5>
+                <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to end this round early? All players' current answers will be submitted automatically.</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
+                <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="row g-3">
         <div className="col-12 col-md-4">
-          <PlayerList title="Players" />
+          <RoomCode />
+          {!previewMode.isActive && (
+            <div className="mb-3">
+              <button
+                className="btn btn-primary w-100"
+                onClick={handleStartPreviewMode}
+                disabled={!gameStarted}
+              >
+                Start Preview Mode
+              </button>
+            </div>
+          )}
+          <PlayerList 
+            title="Players"
+            onPlayerSelect={handlePlayerSelect}
+            selectedPlayerId={selectedPlayerId}
+          />
           <div className="d-grid gap-2 mt-3">
             <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
             {!gameStarted && (
@@ -149,6 +275,12 @@ const GameMaster: React.FC = () => {
           ) : (
             <>
               <QuestionDisplay question={currentQuestion} />
+              {timeLimit !== null && timeRemaining !== null && (
+                <Timer
+                  isActive={isTimerRunning}
+                  showSeconds={true}
+                />
+              )}
               <div className="card mb-4">
                 <div className="card-header bg-light d-flex justify-content-between align-items-center">
                   <h5 className="mb-0">Player Boards</h5>
@@ -178,15 +310,18 @@ const GameMaster: React.FC = () => {
                         board={board}
                         isVisible={visibleBoards.has(board.playerId)}
                         onToggleVisibility={id => toggleBoardVisibility(id)}
-                        transform={{ scale: 1, x: 0, y: 0 }}
-                        onScale={(playerId, scale) => {}}
-                        onPan={(playerId, dx, dy) => {}}
-                        onReset={(playerId) => {}}
+                        transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                        onScale={handleBoardScale}
+                        onPan={handleBoardPan}
+                        onReset={handleBoardReset}
                       />
                     ))}
                   </div>
                 </div>
               </div>
+              <AnswerList
+                onEvaluate={handleEvaluateAnswer}
+              />
               <PreviewOverlay
                 onFocus={handleFocusSubmission}
                 onClose={handleStopPreviewMode}
@@ -196,6 +331,41 @@ const GameMaster: React.FC = () => {
           )}
         </div>
       </div>
+
+      {previewMode.isActive && (
+        <div className="preview-mode-controls mt-3" style={{
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          background: 'rgba(255, 255, 255, 0.9)',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          width: '90%',
+          maxWidth: '500px'
+        }}>
+          <button
+            className="btn btn-secondary w-100"
+            onClick={handleStopPreviewMode}
+          >
+            Stop Preview Mode
+          </button>
+          {previewMode.focusedPlayerId && (
+            <button
+              className="btn btn-outline-primary w-100"
+              onClick={() => handleFocusSubmission('')}
+            >
+              Back to Gallery
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };
