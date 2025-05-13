@@ -317,10 +317,14 @@ const GameMaster: React.FC = () => {
 
     socketService.on('game_started', () => {
       dispatch({ type: 'SET_GAME_STARTED', payload: true });
+      // Ensure preview mode is off when game starts
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
     socketService.on('game_ended', () => {
       dispatch({ type: 'SET_GAME_STARTED', payload: false });
+      // Ensure preview mode is off when game ends
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
     socketService.on('preview_mode_started', () => {
@@ -410,8 +414,10 @@ const GameMaster: React.FC = () => {
     if (gameStarted) {
       // Show all boards of active players (non-spectators) when game starts
       setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+      // Remove automatic preview mode activation
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     }
-  }, [gameStarted, players]);
+  }, [gameStarted, players, dispatch]);
 
   return (
     <div className="container-fluid px-2 px-md-4">
