@@ -35,12 +35,18 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   const panState = useRef<{panning: boolean; lastX: number; lastY: number}>({ panning: false, lastX: 0, lastY: 0 });
 
   useEffect(() => {
-    if (!board.boardData) return;
+    if (!board.boardData) {
+      setSvgContent(null);
+      return;
+    }
     // Parse SVG string
     const parser = new DOMParser();
     const doc = parser.parseFromString(board.boardData, 'image/svg+xml');
     const svg = doc.querySelector('svg');
-    if (!svg) return;
+    if (!svg || !svg.innerHTML) {
+      setSvgContent(<div style={{color: 'red'}}>Invalid SVG</div>);
+      return;
+    }
     // Get initial viewBox
     const vb = svg.getAttribute('viewBox');
     if (vb) {
