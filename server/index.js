@@ -254,26 +254,15 @@ io.on('connection', (socket) => {
 
   // Handle board updates
   socket.on('update_board', ({ roomCode, boardData }) => {
-    const room = gameRooms[roomCode];
-    if (!room) {
-      socket.emit('error', 'Room not found');
+    if (!socket.roomCode || socket.roomCode !== roomCode) {
+      console.log('Invalid room code for board update');
       return;
     }
 
-    const player = room.players.find(p => p.id === socket.id);
-    if (!player || player.isSpectator) {
-      socket.emit('error', 'Only players can update the board');
-      return;
-    }
-
-    // Store the board data
-    room.boards.set(socket.id, boardData);
-    
-    // Broadcast the board update to all clients in the room
-    io.to(roomCode).emit('board_update', {
-      playerId: socket.id,
-      playerName: player.name,
-      boardData: boardData
+    // Broadcast to all clients in the room except the sender
+    socket.to(roomCode).emit('board_update', {
+      boardData,
+      playerId: socket.id
     });
   });
 
@@ -328,15 +317,14 @@ io.on('connection', (socket) => {
       player.lives--;
       
       if (player.lives <= 0) {
-        // Instead of marking as inactive, transition to spectator mode
         player.isSpectator = true;
         player.isActive = false;
         io.to(playerId).emit('become_spectator');
       }
     }
     
-    // Send evaluation to the specific player
-    io.to(playerId).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
+    // Send evaluation to all clients in the room
+    io.to(roomCode).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
     io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
     
     // Check if only one player is left

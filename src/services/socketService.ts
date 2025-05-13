@@ -175,7 +175,15 @@ class SocketService {
   
   // Board update function
   updateBoard(roomCode: string, boardData: string) {
-    this.emit('update_board', { roomCode, boardData });
+    if (!this.socket?.connected) {
+      console.log('Socket not connected, attempting to connect before updating board...');
+      this.connect();
+      this.socket?.once('connect', () => {
+        this.emit('update_board', { roomCode, boardData });
+      });
+    } else {
+      this.emit('update_board', { roomCode, boardData });
+    }
   }
 
   switchToSpectator(roomCode: string, playerId: string) {
@@ -188,6 +196,10 @@ class SocketService {
     if (this.socket) {
       this.socket.emit('switch_to_player', { roomCode, playerName });
     }
+  }
+
+  getSocketId(): string | undefined {
+    return this.socket?.id;
   }
 }
 

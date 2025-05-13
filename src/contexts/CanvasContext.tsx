@@ -3,6 +3,20 @@ import { fabric } from 'fabric';
 import socketService from '../services/socketService';
 import { throttle } from '../utils/throttle';
 
+// Add type declarations for fabric.js methods
+declare module 'fabric' {
+  namespace fabric {
+    interface IUtilMixin {
+      groupSVGElements(objects: any[], options: any): any;
+    }
+    interface ICanvas extends Canvas {
+      // Additional properties if needed
+    }
+    function loadSVGFromString(string: string, callback: (objects: any[], options: any) => void): void;
+    const util: IUtilMixin;
+  }
+}
+
 interface CanvasContextType {
   // Canvas State
   canvasKey: number;
@@ -79,16 +93,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Add drawing event listeners
     canvas.on('path:created', () => {
-      const svgData = canvas.toSVG();
-      const roomCode = sessionStorage.getItem('roomCode');
-      if (roomCode) {
-        sendBoardUpdate(roomCode, svgData);
-      }
-    });
-
-    // Also send updates during mouse movement for real-time drawing
-    canvas.on('mouse:move', () => {
-      if (canvas.isDrawingMode) {
+      if (!submittedAnswer) {
         const svgData = canvas.toSVG();
         const roomCode = sessionStorage.getItem('roomCode');
         if (roomCode) {
@@ -96,7 +101,34 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
     });
-  }, [canvasSize, sendBoardUpdate]);
+
+    // Also send updates during mouse movement for real-time drawing
+    canvas.on('mouse:move', () => {
+      if (canvas.isDrawingMode && !submittedAnswer) {
+        const svgData = canvas.toSVG();
+        const roomCode = sessionStorage.getItem('roomCode');
+        if (roomCode) {
+          sendBoardUpdate(roomCode, svgData);
+        }
+      }
+    });
+
+    // Listen for board updates from other players
+    socketService.on('board_update', ({ boardData, playerId }) => {
+      if (playerId !== socketService.getSocketId()) {
+        const canvas = fabricCanvasRef.current as unknown as { add: (obj: any) => void; clear: () => void; renderAll: () => void; backgroundColor: string };
+        if (canvas) {
+          canvas.clear();
+          canvas.backgroundColor = '#0C6A35';
+          fabric.loadSVGFromString(boardData, (objects: any[], options: any) => {
+            const loadedObjects = fabric.util.groupSVGElements(objects, options);
+            canvas.add(loadedObjects);
+            canvas.renderAll();
+          });
+        }
+      }
+    });
+  }, [canvasSize, sendBoardUpdate, submittedAnswer]);
 
   const resetCanvas = useCallback(() => {
     setCanvasKey(prev => prev + 1);
