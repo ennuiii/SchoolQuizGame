@@ -93,6 +93,10 @@ const Player: React.FC = () => {
   });
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
   const [visibleBoards, setVisibleBoards] = useState(new Set<string>());
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [playerNameInput, setPlayerNameInput] = useState('');
+  const [showSpectatorConfirm, setShowSpectatorConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -605,6 +609,32 @@ const Player: React.FC = () => {
     }
   }, [isSpectator, playerBoards, players]);
 
+  const handleJoinRoom = useCallback(() => {
+    if (!roomCodeInput || !playerNameInput) {
+      setErrorMsg('Please enter both room code and player name');
+      return;
+    }
+    setIsLoading(true);
+    socketService.joinRoom(roomCodeInput, playerNameInput, isSpectator);
+  }, [roomCodeInput, playerNameInput, isSpectator]);
+
+  const handleSwitchToSpectator = useCallback(() => {
+    setShowSpectatorConfirm(true);
+  }, []);
+
+  const confirmSwitchToSpectator = useCallback(() => {
+    const roomCode = sessionStorage.getItem('roomCode');
+    const playerId = sessionStorage.getItem('playerId');
+    if (roomCode && playerId) {
+      socketService.switchToSpectator(roomCode, playerId);
+    }
+    setShowSpectatorConfirm(false);
+  }, []);
+
+  const cancelSwitchToSpectator = useCallback(() => {
+    setShowSpectatorConfirm(false);
+  }, []);
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
@@ -915,6 +945,25 @@ const Player: React.FC = () => {
           />
         </div>
       </div>
+      {showSpectatorConfirm && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Switch to Spectator Mode?</h5>
+                <button type="button" className="btn-close" onClick={cancelSwitchToSpectator}></button>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to switch to spectator mode? You will no longer be able to participate in the game.</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={cancelSwitchToSpectator}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={confirmSwitchToSpectator}>Switch to Spectator</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

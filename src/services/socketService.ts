@@ -109,9 +109,10 @@ class SocketService {
   }
 
   // Player actions
-  joinRoom(roomCode: string, playerName: string) {
-    console.log(`Joining room ${roomCode} as ${playerName}`);
-    this.emit('join_room', { roomCode, playerName });
+  joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
+    if (this.socket) {
+      this.socket.emit('join_room', { roomCode, playerName, isSpectator });
+    }
   }
 
   joinAsSpectator(roomCode: string, playerName: string) {
@@ -126,6 +127,12 @@ class SocketService {
   // Board update function
   updateBoard(roomCode: string, boardData: string) {
     this.emit('update_board', { roomCode, boardData });
+  }
+
+  switchToSpectator(roomCode: string, playerId: string) {
+    if (this.socket) {
+      this.socket.emit('switch_to_spectator', { roomCode, playerId });
+    }
   }
 }
 
