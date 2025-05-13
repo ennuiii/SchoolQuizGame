@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
@@ -27,6 +27,7 @@ const JoinGame: React.FC = () => {
   const [errorMsg, setErrorMsg] = useState('');
   const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
   const [volume, setVolume] = useState(audioService.getVolume());
+  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Read room query parameter from URL and pre-fill room code input
   useEffect(() => {
@@ -65,8 +66,8 @@ const JoinGame: React.FC = () => {
     }
 
     // Fallback navigation after 5 seconds if 'room_joined' is not received
-    setTimeout(() => {
-      if (!roomCode) {
+    fallbackTimeoutRef.current = setTimeout(() => {
+      if (isLoading && !roomCode) {
         navigate(isSpectator ? '/spectator' : '/player');
       }
     }, 5000);
@@ -76,14 +77,16 @@ const JoinGame: React.FC = () => {
     socketService.connect();
 
     socketService.on('room_joined', (data: { roomCode: string }) => {
-      console.log('Room joined:', data.roomCode);
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+      }
       setRoomCode(data.roomCode);
       // Store player info in sessionStorage
       sessionStorage.setItem('roomCode', data.roomCode);
       sessionStorage.setItem('playerName', playerName);
       sessionStorage.setItem('isGameMaster', 'false');
       sessionStorage.setItem('isSpectator', isSpectator.toString());
-      
+      setIsLoading(false);
       // Navigate to appropriate view
       navigate(isSpectator ? '/spectator' : '/player');
     });
@@ -108,6 +111,9 @@ const JoinGame: React.FC = () => {
     });
 
     socketService.on('error', (msg: string) => {
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+      }
       setErrorMsg(msg);
       setIsLoading(false);
     });
@@ -125,6 +131,9 @@ const JoinGame: React.FC = () => {
       socketService.off('player_joined');
       socketService.off('players_update');
       socketService.off('error');
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+      }
     };
   }, [navigate, playerName, isSpectator]);
 
