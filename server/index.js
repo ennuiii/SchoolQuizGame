@@ -149,8 +149,10 @@ io.on('connection', (socket) => {
       // Notify everyone in the room
       io.to(roomCode).emit('player_joined', player);
       io.to(roomCode).emit('players_update', room.players);
-      // Always emit joined_room to the joining socket
+      // Always emit room_joined to the joining socket
       socket.emit('room_joined', { roomCode });
+      // Send the current player list directly to the joining player
+      socket.emit('players_update', room.players);
       console.log(`Player ${playerName} joined room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
     } catch (error) {
       console.error('Error in join_room:', error);
@@ -577,6 +579,8 @@ io.on('connection', (socket) => {
 
     // Broadcast player update to all clients in room
     io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
+    // Send the current player list directly to the joining spectator
+    socket.emit('players_update', gameRooms[roomCode].players);
     
     console.log(`Spectator ${playerName} (${socket.id}) joined room: ${roomCode}`);
     console.log(`Current players in room ${roomCode}:`, gameRooms[roomCode].players);
