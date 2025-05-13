@@ -17,6 +17,7 @@ interface Player {
 const JoinGame: React.FC = () => {
   const navigate = useNavigate();
   const [isSpectator, setIsSpectator] = useState(false);
+  const [hasJoined, setHasJoined] = useState(false);
   
   // Get context values
   const {
@@ -37,7 +38,13 @@ const JoinGame: React.FC = () => {
       return;
     }
     joinRoom(roomCode, playerName, isSpectator);
+    setHasJoined(true);
   }, [roomCode, playerName, isSpectator, joinRoom, setErrorMsg]);
+
+  // Reset hasJoined when roomCode or playerName changes
+  React.useEffect(() => {
+    setHasJoined(false);
+  }, [roomCode, playerName]);
 
   return (
     <div className="container-fluid px-2 px-md-4">
@@ -48,7 +55,7 @@ const JoinGame: React.FC = () => {
         </div>
       </div>
       
-      {!roomCode ? (
+      {!hasJoined ? (
         <div className="row justify-content-center">
           <div className="col-12 col-md-6">
             <div className="card p-4 text-center">
