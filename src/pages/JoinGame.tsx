@@ -68,6 +68,11 @@ const JoinGame: React.FC = () => {
     // Fallback navigation after 5 seconds if 'room_joined' is not received
     fallbackTimeoutRef.current = setTimeout(() => {
       if (isLoading && !roomCode) {
+        // Store player info in sessionStorage before navigation
+        sessionStorage.setItem('roomCode', roomCodeInput);
+        sessionStorage.setItem('playerName', playerName);
+        sessionStorage.setItem('isGameMaster', 'false');
+        sessionStorage.setItem('isSpectator', isSpectator.toString());
         navigate(isSpectator ? '/spectator' : '/player');
       }
     }, 5000);
@@ -87,8 +92,10 @@ const JoinGame: React.FC = () => {
       sessionStorage.setItem('isGameMaster', 'false');
       sessionStorage.setItem('isSpectator', isSpectator.toString());
       setIsLoading(false);
-      // Navigate to appropriate view
-      navigate(isSpectator ? '/spectator' : '/player');
+      // Navigate to appropriate view after sessionStorage is set
+      setTimeout(() => {
+        navigate(isSpectator ? '/spectator' : '/player');
+      }, 0);
     });
 
     socketService.on('player_joined', (player: Player) => {
