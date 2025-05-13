@@ -33,6 +33,12 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
         fabricCanvasRef.current.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
         fabricCanvasRef.current.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
+        fabricCanvasRef.current.freeDrawingBrush.shadow = {
+          color: 'rgba(0,0,0,0.3)',
+          blur: 5,
+          offsetX: 2,
+          offsetY: 2
+        };
       }
       
       // Send canvas updates
