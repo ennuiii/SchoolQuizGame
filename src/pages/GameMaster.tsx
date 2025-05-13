@@ -218,13 +218,16 @@ const GameMaster: React.FC = () => {
     }));
   }, [updateBoardTransform]);
 
-  const handleBoardPan = useCallback((playerId: string, x: number, y: number) => {
-    updateBoardTransform(playerId, transform => ({
-      ...transform,
-      x: transform.x + x,
-      y: transform.y + y
+  const handleBoardPan = useCallback((playerId: string, dx: number, dy: number) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {
+        ...prev[playerId],
+        x: (prev[playerId]?.x || 0) + dx,
+        y: (prev[playerId]?.y || 0) + dy
+      }
     }));
-  }, [updateBoardTransform]);
+  }, []);
 
   const handleBoardReset = useCallback((playerId: string) => {
     setBoardTransforms(prev => ({
@@ -236,6 +239,14 @@ const GameMaster: React.FC = () => {
   const handlePlayerSelect = useCallback((playerId: string) => {
     setSelectedPlayerId(playerId);
     toggleBoardVisibility(playerId);
+  }, []);
+
+  // Add state for show/hide all
+  const showAllBoards = useCallback(() => {
+    setVisibleBoards(new Set(players.map(p => p.id)));
+  }, [players]);
+  const hideAllBoards = useCallback(() => {
+    setVisibleBoards(new Set());
   }, []);
 
   useEffect(() => {
@@ -726,11 +737,25 @@ const GameMaster: React.FC = () => {
                   )}
 
                   <div className="card mb-4">
-                    <div className="card-header bg-light">
+                    <div className="card-header bg-light d-flex justify-content-between align-items-center">
                       <h5 className="mb-0">Player Boards</h5>
+                      <div className="d-flex gap-2">
+                        <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+                      </div>
                     </div>
                     <div className="card-body">
-                      <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
+                      <div
+                        className="board-row"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                          gap: '20px',
+                          width: '100%',
+                          overflowX: 'auto',
+                          alignItems: 'stretch',
+                        }}
+                      >
                         {playerBoards.map(board => (
                           <PlayerBoardDisplay
                             key={board.playerId}
@@ -739,6 +764,7 @@ const GameMaster: React.FC = () => {
                             onToggleVisibility={toggleBoardVisibility}
                             transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
                             onScale={handleBoardScale}
+                            onPan={handleBoardPan}
                             onReset={handleBoardReset}
                           />
                         ))}

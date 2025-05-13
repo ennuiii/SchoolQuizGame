@@ -613,6 +613,10 @@ const Player: React.FC = () => {
   }
 
   if (isSpectator) {
+    // Local state for visible boards
+    const [visibleBoards, setVisibleBoards] = useState(new Set(playerBoards.map(b => b.playerId)));
+    const showAllBoards = () => setVisibleBoards(new Set(playerBoards.map(b => b.playerId)));
+    const hideAllBoards = () => setVisibleBoards(new Set());
     return (
       <div className="container-fluid px-2 px-md-4">
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
@@ -646,19 +650,38 @@ const Player: React.FC = () => {
               </div>
             )}
             <div className="card mb-4">
-              <div className="card-header bg-light">
+              <div className="card-header bg-light d-flex justify-content-between align-items-center">
                 <h5 className="mb-0">Player Boards</h5>
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+                </div>
               </div>
               <div className="card-body">
-                <div className="d-flex flex-wrap justify-content-center gap-3 board-row">
+                <div
+                  className="board-row"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                    gap: '20px',
+                    width: '100%',
+                    overflowX: 'auto',
+                    alignItems: 'stretch',
+                  }}
+                >
                   {playerBoards.map(board => (
                     <PlayerBoardDisplay
                       key={board.playerId}
                       board={board}
-                      isVisible={true}
-                      onToggleVisibility={() => {}}
+                      isVisible={visibleBoards.has(board.playerId)}
+                      onToggleVisibility={id => setVisibleBoards(prev => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+                        return newSet;
+                      })}
                       transform={{ scale: 1, x: 0, y: 0 }}
                       onScale={() => {}}
+                      onPan={() => {}}
                       onReset={() => {}}
                     />
                   ))}
