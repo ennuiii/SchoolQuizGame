@@ -1,5 +1,5 @@
 import React from 'react';
-import { useGame } from '../../contexts/GameContext';
+import { useRoom } from '../../contexts/RoomContext';
 
 interface Player {
   id: string;
@@ -13,7 +13,7 @@ interface Player {
 interface PlayerListProps {
   currentPlayerId?: string;
   onPlayerSelect?: (playerId: string) => void;
-  selectedPlayerId?: string | null;
+  selectedPlayerId?: string;
   title?: string;
 }
 
@@ -23,7 +23,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
   selectedPlayerId,
   title = "Players"
 }) => {
-  const { players } = useGame();
+  const { players } = useRoom();
 
   return (
     <div className="card mb-3">

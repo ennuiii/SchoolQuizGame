@@ -89,6 +89,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     });
 
+    socketService.on('players_update', (updatedPlayers: Player[]) => {
+      setPlayers(updatedPlayers);
+    });
+
     // Check for existing room session
     const savedRoomCode = sessionStorage.getItem('roomCode');
     const savedPlayerName = sessionStorage.getItem('playerName');
@@ -117,6 +121,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('room_created');
       socketService.off('room_joined');
       socketService.off('error');
+      socketService.off('players_update');
     };
   }, [navigate, playerName, isSpectator]);
 
