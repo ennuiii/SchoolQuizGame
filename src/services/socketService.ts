@@ -24,6 +24,10 @@ class SocketService {
     return SocketService.instance;
   }
 
+  getSocket(): Socket | null {
+    return this.socket;
+  }
+
   connect(): Socket {
     if (!this.socket) {
       console.log(`Connecting to socket server at: ${SOCKET_URL}`);

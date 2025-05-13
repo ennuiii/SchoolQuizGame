@@ -15,6 +15,16 @@ const JoinGame: React.FC = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
+  // Clean up socket listeners
+  useEffect(() => {
+    const socket = socketService.getSocket();
+    if (socket) {
+      socket.off('room_created');
+      socket.off('room_joined');
+      socket.off('error');
+    }
+  }, []);
+
   const handleCreateRoom = useCallback(async () => {
     if (!playerNameInput.trim()) {
       setErrorMsg('Please enter a name');
@@ -27,6 +37,10 @@ const JoinGame: React.FC = () => {
     try {
       // Connect to socket first
       const socket = socketService.connect();
+      
+      // Clean up any existing listeners
+      socket.off('room_created');
+      socket.off('error');
       
       // Set up room creation handler
       socket.on('room_created', ({ roomCode }) => {
@@ -69,6 +83,10 @@ const JoinGame: React.FC = () => {
       // Connect to socket first
       const socket = socketService.connect();
       
+      // Clean up any existing listeners
+      socket.off('room_joined');
+      socket.off('error');
+      
       // Set up room joined handler
       socket.on('room_joined', ({ roomCode }) => {
         console.log('Joined room:', roomCode);
@@ -110,6 +128,10 @@ const JoinGame: React.FC = () => {
       // Connect to socket first
       const socket = socketService.connect();
       
+      // Clean up any existing listeners
+      socket.off('room_joined');
+      socket.off('error');
+      
       // Set up room joined handler
       socket.on('room_joined', ({ roomCode }) => {
         console.log('Joined room as spectator:', roomCode);
@@ -144,6 +166,12 @@ const JoinGame: React.FC = () => {
     // Cleanup when component unmounts
     return () => {
       audioService.pauseBackgroundMusic();
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.off('room_created');
+        socket.off('room_joined');
+        socket.off('error');
+      }
     };
   }, []);
 
