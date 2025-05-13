@@ -281,22 +281,25 @@ const Player: React.FC = () => {
     });
     
     socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number, playerId: string }) => {
-      setLives(data.lives);
-      // Set review notification
-      setReviewNotification({
-        isCorrect: data.isCorrect,
-        message: 'Reviewed by Game Master',
-        timestamp: Date.now()
-      });
+      // Only update lives and show notification if this is for the current player
+      if (socketService.connect().id === data.playerId) {
+        setLives(data.lives);
+        // Set review notification
+        setReviewNotification({
+          isCorrect: data.isCorrect,
+          message: 'Reviewed by Game Master',
+          timestamp: Date.now()
+        });
+        // Clear the notification after 5 seconds
+        setTimeout(() => {
+          setReviewNotification(null);
+        }, 5000);
+      }
       // Update evaluatedAnswers for preview mode
       setEvaluatedAnswers(prev => ({
         ...prev,
-        [data.playerId]: data.isCorrect  // Use the playerId from the data
+        [data.playerId]: data.isCorrect
       }));
-      // Clear the notification after 5 seconds
-      setTimeout(() => {
-        setReviewNotification(null);
-      }, 5000);
     });
     
     socketService.on('game_over', () => {
@@ -652,9 +655,33 @@ const Player: React.FC = () => {
     const playerId = sessionStorage.getItem('playerId');
     if (roomCode && playerId) {
       socketService.switchToSpectator(roomCode, playerId);
+      sessionStorage.setItem('isSpectator', 'true');
+      // Clean up socket listeners before navigating
+      socketService.off('error');
+      socketService.off('become_spectator');
+      socketService.off('question');
+      socketService.off('game_started');
+      socketService.off('new_question');
+      socketService.off('answer_evaluation');
+      socketService.off('game_over');
+      socketService.off('game_winner');
+      socketService.off('gamemaster_left');
+      socketService.off('timer_update');
+      socketService.off('time_up');
+      socketService.off('end_round_early');
+      socketService.off('game_restarted');
+      socketService.off('answer_received');
+      socketService.off('start_preview_mode');
+      socketService.off('stop_preview_mode');
+      socketService.off('focus_submission');
+      socketService.off('players_update');
+      socketService.off('board_update');
+      socketService.off('answer_submitted');
+      socketService.off('player_joined');
+      navigate('/spectator');
     }
     setShowSpectatorConfirm(false);
-  }, []);
+  }, [navigate]);
 
   const cancelSwitchToSpectator = useCallback(() => {
     setShowSpectatorConfirm(false);
@@ -709,20 +736,6 @@ const Player: React.FC = () => {
           </div>
         </div>
         <div className="row g-3">
-          <div className="col-12 col-md-4">
-            <PlayerList
-              players={players}
-              title="Players"
-            />
-            <div className="d-grid gap-2 mt-3">
-              <button
-                className="btn btn-outline-secondary"
-                onClick={() => navigate('/')}
-              >
-                Leave Game
-              </button>
-            </div>
-          </div>
           <div className="col-12 col-md-8">
             {currentQuestion && (
               <div className="card mb-4">
@@ -786,6 +799,20 @@ const Player: React.FC = () => {
               isGameMaster={false}
             />
           </div>
+          <div className="col-12 col-md-4">
+            <PlayerList
+              players={players}
+              title="Players"
+            />
+            <div className="d-grid gap-2 mt-3">
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => navigate('/')}
+              >
+                Leave Game
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -827,12 +854,7 @@ const Player: React.FC = () => {
         <div className="col-12 col-md-8">
           <div className="row g-3 mb-4">
             <div className="col-12 col-md-6 d-flex flex-column gap-2 align-items-start">
-              <div className="lives-display">
-                <span className="me-2">Lives:</span>
-                {[...Array(lives)].map((_, i) => (
-                  <span key={i} className="life" role="img" aria-label="heart">❤</span>
-                ))}
-              </div>
+              {/* Remove lives display from here */}
             </div>
             <div className="col-6 col-md-3">
               {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
