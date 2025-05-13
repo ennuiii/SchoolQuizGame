@@ -36,6 +36,10 @@ const JoinGame: React.FC = () => {
   // Ensure socket is connected when component mounts
   useEffect(() => {
     const socket = socketService.connect();
+    if (!socket) {
+      console.error('Failed to connect to socket server');
+      return;
+    }
     
     socket.on('connect', () => {
       console.log('Socket connected successfully');
@@ -62,6 +66,11 @@ const JoinGame: React.FC = () => {
 
     setIsConnecting(true);
     const socket = socketService.connect();
+    if (!socket) {
+      setErrorMsg('Failed to connect to server. Please try again.');
+      setIsConnecting(false);
+      return;
+    }
     
     if (!socket.connected) {
       setErrorMsg('Not connected to server. Please try again.');

@@ -19,6 +19,7 @@ const GameMaster: React.FC = () => {
   const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
+  const [isConnecting, setIsConnecting] = useState(false);
   
   // Get context values
   const {
@@ -62,19 +63,63 @@ const GameMaster: React.FC = () => {
 
   // Create a room if one doesn't exist
   useEffect(() => {
-    // Ensure socket is connected
-    socketService.connect();
-
-    if (!roomCode) {
-      const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      createRoom(newRoomCode);
+    const socket = socketService.connect();
+    if (!socket) {
+      console.error('Failed to connect to socket server');
+      return;
     }
+    
+    socket.on('connect', () => {
+      console.log('Socket connected successfully');
+      setIsConnecting(false);
+      
+      if (!roomCode) {
+        const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
+        createRoom(newRoomCode);
+      }
+    });
+
+    socket.on('connect_error', (error) => {
+      console.error('Socket connection error:', error);
+      setIsConnecting(false);
+    });
+
+    return () => {
+      if (socket) {
+        socket.off('connect');
+        socket.off('connect_error');
+      }
+    };
   }, [roomCode, createRoom]);
 
   const handleStartGame = useCallback(() => {
-    if (!roomCode || questions.length === 0) return;
+    console.log('Starting game with:', {
+      roomCode,
+      questionsCount: questions.length,
+      activePlayers: players.filter(p => !p.isSpectator).length,
+      isConnecting
+    });
+    
+    if (isConnecting) {
+      console.error('Socket is still connecting');
+      return;
+    }
+    
+    if (!roomCode) {
+      console.error('No room code available');
+      return;
+    }
+    if (questions.length === 0) {
+      console.error('No questions selected');
+      return;
+    }
+    if (players.filter(p => !p.isSpectator).length < 2) {
+      console.error('Not enough active players');
+      return;
+    }
+    
     startGame(roomCode, questions, 30);
-  }, [roomCode, questions, startGame]);
+  }, [roomCode, questions, players, startGame, isConnecting]);
 
   const handleNextQuestion = useCallback(() => {
     if (!roomCode) return;
@@ -259,10 +304,14 @@ const GameMaster: React.FC = () => {
               <button 
                 className="btn btn-success" 
                 onClick={handleStartGame}
-                disabled={questions.length === 0 || players.filter(p => !p.isSpectator).length < 2}
-                title={players.filter(p => !p.isSpectator).length < 2 ? "Need at least 2 active players to start" : ""}
+                disabled={isConnecting || questions.length === 0 || players.filter(p => !p.isSpectator).length < 2}
+                title={
+                  isConnecting ? "Connecting to server..." :
+                  players.filter(p => !p.isSpectator).length < 2 ? "Need at least 2 active players to start" : 
+                  questions.length === 0 ? "Please select questions first" : ""
+                }
               >
-                Start Game
+                {isConnecting ? "Connecting..." : `Start Game (${players.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
               </button>
             )}
             {gameStarted && (

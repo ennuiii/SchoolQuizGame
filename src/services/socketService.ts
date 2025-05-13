@@ -9,10 +9,17 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
 class SocketService {
   private socket: Socket | null = null;
   private listeners: { [event: string]: ((...args: any[]) => void)[] } = {};
+  private isConnecting: boolean = false;
 
   connect() {
+    if (this.isConnecting) {
+      console.log('Socket connection already in progress');
+      return this.socket;
+    }
+
     if (!this.socket) {
       console.log(`Connecting to socket server at: ${SOCKET_URL}`);
+      this.isConnecting = true;
       this.socket = io(SOCKET_URL);
       
       // Re-attach existing listeners
@@ -25,10 +32,12 @@ class SocketService {
       // Add connection event logging
       this.socket.on('connect', () => {
         console.log('Socket connected successfully');
+        this.isConnecting = false;
       });
       
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
+        this.isConnecting = false;
       });
     }
     return this.socket;
@@ -54,16 +63,42 @@ class SocketService {
   }
 
   emit(event: string, ...args: any[]) {
-    this.socket?.emit(event, ...args);
+    if (!this.socket?.connected) {
+      console.log('Socket not connected, attempting to connect...');
+      this.connect();
+      // Wait for connection before emitting
+      this.socket?.once('connect', () => {
+        console.log('Socket connected, emitting event:', event);
+        this.socket?.emit(event, ...args);
+      });
+    } else {
+      this.socket.emit(event, ...args);
+    }
   }
 
   // GameMaster actions
   createRoom(roomCode: string) {
-    this.emit('create_room', { roomCode });
+    if (!this.socket?.connected) {
+      console.log('Socket not connected, attempting to connect before creating room...');
+      this.connect();
+      this.socket?.once('connect', () => {
+        this.emit('create_room', { roomCode });
+      });
+    } else {
+      this.emit('create_room', { roomCode });
+    }
   }
 
   startGame(roomCode: string, questions: any[], timeLimit?: number) {
-    this.emit('start_game', { roomCode, questions, timeLimit });
+    if (!this.socket?.connected) {
+      console.log('Socket not connected, attempting to connect before starting game...');
+      this.connect();
+      this.socket?.once('connect', () => {
+        this.emit('start_game', { roomCode, questions, timeLimit });
+      });
+    } else {
+      this.emit('start_game', { roomCode, questions, timeLimit });
+    }
   }
 
   restartGame(roomCode: string) {
