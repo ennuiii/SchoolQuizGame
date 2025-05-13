@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useReducer, ReactNode } from 'react';
 import socketService from '../services/socketService';
-import { GameState, Player, PlayerBoard, AnswerSubmission } from '../types/game';
+import { GameState, Player, PlayerBoard, AnswerSubmission, PreviewModeState } from '../types/game';
 
 type GameAction =
   | { type: 'SET_ROOM_CODE'; payload: string }
@@ -14,7 +14,7 @@ type GameAction =
   | { type: 'SET_TIME_LEFT'; payload: number }
   | { type: 'SET_TIMER_RUNNING'; payload: boolean }
   | { type: 'SET_ERROR'; payload: string }
-  | { type: 'SET_PREVIEW_MODE'; payload: boolean }
+  | { type: 'SET_PREVIEW_MODE'; payload: PreviewModeState }
   | { type: 'SET_FOCUSED_SUBMISSION'; payload: string }
   | { type: 'RESET_GAME' };
 
@@ -31,7 +31,7 @@ const initialState: GameState = {
   timeLeft: null,
   isTimerRunning: false,
   error: null,
-  previewMode: false,
+  previewMode: { isActive: false, focusedPlayerId: null },
   focusedSubmission: null
 };
 

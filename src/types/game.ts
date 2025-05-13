@@ -85,6 +85,6 @@ export interface GameState {
   timeLeft: number | null;
   isTimerRunning: boolean;
   error: string | null;
-  previewMode: boolean;
+  previewMode: PreviewModeState;
   focusedSubmission: string | null;
 } 

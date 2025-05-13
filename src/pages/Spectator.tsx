@@ -49,11 +49,11 @@ const Spectator: React.FC = () => {
     });
 
     socketService.on('preview_mode_started', () => {
-      dispatch({ type: 'SET_PREVIEW_MODE', payload: true });
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: null } });
     });
 
     socketService.on('preview_mode_ended', () => {
-      dispatch({ type: 'SET_PREVIEW_MODE', payload: false });
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
     socketService.on('submission_focused', (playerId: string) => {
