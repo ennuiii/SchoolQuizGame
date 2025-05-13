@@ -435,6 +435,21 @@ const Player: React.FC = () => {
       }
     });
 
+    socketService.on('game_restarted', () => {
+      setGameStarted(false);
+      setCurrentQuestion(null);
+      setPlayerBoards([]);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setVisibleBoards(new Set());
+      setReviewNotification(null);
+      setTimeRemaining(null);
+      setIsTimerRunning(false);
+      setSubmittedAnswer(false);
+      setAnswer('');
+      setErrorMsg('');
+    });
+
     return () => {
       console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       // Clean up listeners

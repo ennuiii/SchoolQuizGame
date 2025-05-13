@@ -70,6 +70,13 @@ const Spectator: React.FC = () => {
     socketService.on('start_preview_mode', () => setPreviewMode(prev => ({ ...prev, isActive: true })));
     socketService.on('stop_preview_mode', () => setPreviewMode({ isActive: false, focusedPlayerId: null }));
     socketService.on('focus_submission', (data: { playerId: string }) => setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })));
+    socketService.on('game_restarted', () => {
+      setCurrentQuestion('');
+      setPlayerBoards([]);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setVisibleBoards(new Set());
+    });
     return () => {
       socketService.off('players_update');
       socketService.off('board_update');
@@ -79,6 +86,7 @@ const Spectator: React.FC = () => {
       socketService.off('start_preview_mode');
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
+      socketService.off('game_restarted');
     };
   }, []);
 
