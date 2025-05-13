@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { Question } from '../types/game';
 
 // Determine the server URL based on environment
 // In production, use the specific backend URL
@@ -8,12 +9,22 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
 
 class SocketService {
   private socket: Socket | null = null;
+  private static instance: SocketService;
   private listeners: { [event: string]: ((...args: any[]) => void)[] } = {};
 
-  connect() {
+  private constructor() {}
+
+  static getInstance(): SocketService {
+    if (!SocketService.instance) {
+      SocketService.instance = new SocketService();
+    }
+    return SocketService.instance;
+  }
+
+  connect(): Socket {
     if (!this.socket) {
       console.log(`Connecting to socket server at: ${SOCKET_URL}`);
-      this.socket = io(SOCKET_URL);
+      this.socket = io(process.env.REACT_APP_SOCKET_URL || SOCKET_URL);
       
       // Re-attach existing listeners
       Object.entries(this.listeners).forEach(([event, callbacks]) => {
@@ -64,11 +75,11 @@ class SocketService {
   }
 
   // GameMaster actions
-  createRoom(roomCode: string) {
+  createRoom(roomCode?: string) {
     this.emit('create_room', { roomCode });
   }
 
-  startGame(roomCode: string, questions: any[], timeLimit?: number) {
+  startGame(roomCode: string, questions: Question[], timeLimit: number) {
     this.emit('start_game', { roomCode, questions, timeLimit });
   }
 
@@ -115,9 +126,8 @@ class SocketService {
     }
   }
 
-  joinAsSpectator(roomCode: string, playerName: string) {
-    console.log(`Joining room ${roomCode} as spectator ${playerName}`);
-    this.emit('join_as_spectator', { roomCode, playerName });
+  joinAsPlayer(roomCode: string, playerName: string) {
+    this.emit('join_as_player', { roomCode, playerName });
   }
 
   submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false) {
@@ -125,8 +135,8 @@ class SocketService {
   }
   
   // Board update function
-  updateBoard(roomCode: string, boardData: string) {
-    this.emit('update_board', { roomCode, boardData });
+  updateBoard(roomCode: string, svgData: string) {
+    this.emit('update_board', { roomCode, svgData });
   }
 
   switchToSpectator(roomCode: string, playerId: string) {
@@ -143,5 +153,5 @@ class SocketService {
 }
 
 // Create a singleton instance
-const socketService = new SocketService();
+const socketService = SocketService.getInstance();
 export default socketService; 

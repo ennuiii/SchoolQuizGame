@@ -1,227 +1,185 @@
-import React, { useEffect, useState, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
+import { useGame } from '../context/GameContext';
 import socketService from '../services/socketService';
-import PlayerList from '../components/shared/PlayerList';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
-import PreviewOverlay from '../components/shared/PreviewOverlay';
-
-interface Player {
-  id: string;
-  name: string;
-  lives: number;
-  answers: string[];
-  isActive: boolean;
-  isSpectator: boolean;
-}
-
-interface PlayerBoard {
-  playerId: string;
-  playerName: string;
-  boardData: string;
-}
-
-interface AnswerSubmission {
-  playerId: string;
-  playerName: string;
-  answer: string;
-  timestamp?: number;
-}
-
-interface PreviewModeState {
-  isActive: boolean;
-  focusedPlayerId: string | null;
-}
+import PlayerList from '../components/shared/PlayerList';
+import { Player, PlayerBoard } from '../types/game';
 
 const Spectator: React.FC = () => {
   const navigate = useNavigate();
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState<string>('');
-  const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
-  const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, AnswerSubmission>>({});
-  const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
-  const [previewMode, setPreviewMode] = useState<PreviewModeState>({ isActive: false, focusedPlayerId: null });
-  const [gameStarted, setGameStarted] = useState(false);
-  const [showJoinAsPlayer, setShowJoinAsPlayer] = useState(false);
-  const [playerNameInput, setPlayerNameInput] = useState('');
-  const [joinError, setJoinError] = useState('');
+  const { roomCode } = useParams<{ roomCode: string }>();
+  const { state, dispatch } = useGame();
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [playerName, setPlayerName] = useState('');
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    socketService.connect();
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      setPlayers(updatedPlayers);
+    if (!roomCode) {
+      navigate('/');
+      return;
+    }
+
+    // Join room as spectator
+    socketService.joinRoom(roomCode, 'Spectator');
+
+    // Set up socket listeners
+    socketService.on('player_update', (players: Player[]) => {
+      dispatch({ type: 'SET_PLAYERS', payload: players });
     });
-    socketService.on('board_update', (data: PlayerBoard) => {
-      setPlayerBoards(prevBoards => {
-        const index = prevBoards.findIndex(b => b.playerId === data.playerId);
-        if (index >= 0) {
-          const newBoards = [...prevBoards];
-          newBoards[index] = data;
-          return newBoards;
-        }
-        return [...prevBoards, data];
-      });
+
+    socketService.on('board_update', (playerBoards: PlayerBoard[]) => {
+      dispatch({ type: 'SET_PLAYER_BOARDS', payload: playerBoards });
     });
-    socketService.on('question', (question: { text: string }) => {
-      setCurrentQuestion(question.text);
+
+    socketService.on('question_update', (question: string) => {
+      dispatch({ type: 'SET_CURRENT_QUESTION', payload: question });
     });
-    socketService.on('answer_submitted', (submission: AnswerSubmission) => {
-      setAllAnswersThisRound(prev => ({ ...prev, [submission.playerId]: submission }));
+
+    socketService.on('timer_update', (timeLeft: number) => {
+      dispatch({ type: 'SET_TIME_LEFT', payload: timeLeft });
     });
-    socketService.on('answer_evaluation', (data: { isCorrect: boolean, playerId: string }) => {
-      setEvaluatedAnswers(prev => ({ ...prev, [data.playerId]: data.isCorrect }));
+
+    socketService.on('game_started', () => {
+      dispatch({ type: 'SET_GAME_STARTED', payload: true });
     });
-    socketService.on('start_preview_mode', () => setPreviewMode(prev => ({ ...prev, isActive: true })));
-    socketService.on('stop_preview_mode', () => setPreviewMode({ isActive: false, focusedPlayerId: null }));
-    socketService.on('focus_submission', (data: { playerId: string }) => setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })));
-    socketService.on('game_started', () => setGameStarted(true));
-    socketService.on('game_restarted', () => {
-      setCurrentQuestion('');
-      setPlayerBoards([]);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-      setVisibleBoards(new Set());
-      setGameStarted(false);
+
+    socketService.on('game_ended', () => {
+      dispatch({ type: 'SET_GAME_STARTED', payload: false });
     });
-    socketService.on('game_over', () => setGameStarted(false));
-    socketService.on('become_spectator', () => {
-      // Request current game state from the server
-      const roomCode = sessionStorage.getItem('roomCode');
-      if (roomCode) {
-        socketService.emit('get_game_state', { roomCode });
-      }
+
+    socketService.on('preview_mode_started', () => {
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: true });
     });
-    socketService.on('game_state', (data: { started: boolean }) => {
-      setGameStarted(data.started);
+
+    socketService.on('preview_mode_ended', () => {
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: false });
     });
+
+    socketService.on('submission_focused', (playerId: string) => {
+      dispatch({ type: 'SET_FOCUSED_SUBMISSION', payload: playerId });
+    });
+
     return () => {
-      socketService.off('players_update');
-      socketService.off('board_update');
-      socketService.off('question');
-      socketService.off('answer_submitted');
-      socketService.off('answer_evaluation');
-      socketService.off('start_preview_mode');
-      socketService.off('stop_preview_mode');
-      socketService.off('focus_submission');
-      socketService.off('game_started');
-      socketService.off('game_restarted');
-      socketService.off('game_over');
-      socketService.off('become_spectator');
-      socketService.off('game_state');
+      socketService.disconnect();
     };
-  }, []);
-
-  const showAllBoards = useCallback(() => {
-    setVisibleBoards(new Set(playerBoards.filter(b => {
-      const player = players.find(p => p.id === b.playerId);
-      return player && !player.isSpectator;
-    }).map(b => b.playerId)));
-  }, [playerBoards, players]);
-
-  const hideAllBoards = useCallback(() => {
-    setVisibleBoards(new Set());
-  }, []);
+  }, [roomCode, navigate, dispatch]);
 
   const handleJoinAsPlayer = () => {
-    const roomCode = sessionStorage.getItem('roomCode');
-    const playerName = sessionStorage.getItem('playerName');
-    if (!roomCode || !playerName) return;
-    sessionStorage.setItem('isSpectator', 'false');
-    socketService.switchToPlayer(roomCode, playerName);
-    navigate('/player');
+    if (!playerName.trim()) {
+      setError('Please enter your name');
+      return;
+    }
+
+    if (!roomCode) return;
+
+    socketService.joinAsPlayer(roomCode, playerName);
+    setShowJoinModal(false);
+    navigate(`/player/${roomCode}`);
+  };
+
+  const handlePlayerSelect = (playerId: string) => {
+    if (!roomCode) return;
+    socketService.focusSubmission(roomCode, playerId);
   };
 
   return (
-    <div className="container-fluid px-2 px-md-4">
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-          <span className="bi bi-eye section-icon" aria-label="Spectator"></span>
-          Spectator View
-        </div>
-      </div>
-      <div className="row g-3">
-        <div className="col-12 col-md-4">
-          <PlayerList players={players} title="Players" />
-          <div className="d-grid gap-2 mt-3">
-            <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
+    <div className="container-fluid">
+      <div className="row">
+        <div className="col-md-9">
+          <div className="d-flex justify-content-between align-items-center mb-4">
+            <h2>Room: {roomCode}</h2>
             <button
-              className="btn btn-success"
-              onClick={handleJoinAsPlayer}
-              disabled={gameStarted}
-              title={gameStarted ? "You can only join as a player when a round is not in progress." : ""}
+              className="btn btn-primary"
+              onClick={() => setShowJoinModal(true)}
             >
               Join as Player
             </button>
-            {gameStarted && (
-              <div className="text-muted small mt-1">
-                You can only join as a player when a round is not in progress.
-              </div>
-            )}
           </div>
-        </div>
-        <div className="col-12 col-md-8">
-          {currentQuestion && (
-            <div className="card mb-4">
-              <div className="card-body">
-                <h3>Current Question:</h3>
-                <p className="lead">{currentQuestion}</p>
-              </div>
+
+          {state.currentQuestion && (
+            <div className="alert alert-info mb-4">
+              Current Question: {state.currentQuestion}
             </div>
           )}
-          <div className="card mb-4">
-            <div className="card-header bg-light d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Player Boards</h5>
-              <div className="d-flex gap-2">
-                <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
-                <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
-              </div>
+
+          {state.timeLeft !== null && (
+            <div className="alert alert-warning mb-4">
+              Time Left: {state.timeLeft} seconds
             </div>
-            <div className="card-body">
-              <div
-                className="board-row"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                  gap: '20px',
-                  width: '100%',
-                  overflowX: 'auto',
-                  alignItems: 'stretch',
-                }}
-              >
-                {playerBoards.filter(board => {
-                  const player = players.find(p => p.id === board.playerId);
-                  return player && !player.isSpectator;
-                }).map(board => (
-                  <PlayerBoardDisplay
-                    key={board.playerId}
-                    board={board}
-                    isVisible={visibleBoards.has(board.playerId)}
-                    onToggleVisibility={id => setVisibleBoards(prev => {
-                      const newSet = new Set(prev);
-                      if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
-                      return newSet;
-                    })}
-                    transform={{ scale: 1, x: 0, y: 0 }}
-                    onScale={() => {}}
-                    onPan={() => {}}
-                    onReset={() => {}}
-                  />
-                ))}
+          )}
+
+          <div className="row">
+            {state.playerBoards.map((board) => (
+              <div key={board.playerId} className="col-md-6 mb-4">
+                <PlayerBoardDisplay
+                  board={board}
+                  isFocused={state.focusedSubmission === board.playerId}
+                />
               </div>
-            </div>
+            ))}
           </div>
-          <PreviewOverlay
-            players={players}
-            playerBoards={playerBoards}
-            allAnswersThisRound={allAnswersThisRound}
-            evaluatedAnswers={evaluatedAnswers}
-            previewMode={previewMode}
-            onFocus={() => {}}
-            onClose={() => {}}
-            isGameMaster={false}
+        </div>
+
+        <div className="col-md-3">
+          <PlayerList
+            players={state.players}
+            onPlayerClick={handlePlayerSelect}
+            selectedPlayerId={state.focusedSubmission}
+            title="Players"
           />
         </div>
       </div>
+
+      {/* Join as Player Modal */}
+      {showJoinModal && (
+        <div className="modal show d-block" tabIndex={-1}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Join as Player</h5>
+                <button
+                  type="button"
+                  className="btn-close"
+                  onClick={() => setShowJoinModal(false)}
+                ></button>
+              </div>
+              <div className="modal-body">
+                {error && <div className="alert alert-danger">{error}</div>}
+                <div className="mb-3">
+                  <label htmlFor="playerName" className="form-label">
+                    Your Name
+                  </label>
+                  <input
+                    type="text"
+                    className="form-control"
+                    id="playerName"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                    placeholder="Enter your name"
+                  />
+                </div>
+              </div>
+              <div className="modal-footer">
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => setShowJoinModal(false)}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  onClick={handleJoinAsPlayer}
+                >
+                  Join
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

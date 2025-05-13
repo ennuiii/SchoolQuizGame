@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 import audioService from '../services/audioService';
+import { useGame } from '../context/GameContext';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
 import QuestionSelector from '../components/game-master/QuestionSelector';
 import GameControls from '../components/game-master/GameControls';
@@ -12,36 +13,7 @@ import Timer from '../components/shared/Timer';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
-
-interface Player {
-  id: string;
-  name: string;
-  lives: number;
-  answers: string[];
-  isActive: boolean;
-  isSpectator: boolean;
-}
-
-interface PlayerBoard {
-  playerId: string;
-  playerName: string;
-  boardData: string;
-}
-
-interface Question {
-  id: number;
-  text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
-}
-
-interface AnswerSubmission {
-  playerId: string;
-  playerName: string;
-  answer: string;
-}
+import { Player, PlayerBoard, AnswerSubmission, Question } from '../types/game';
 
 interface PreviewModeState {
   isActive: boolean;
@@ -50,8 +22,9 @@ interface PreviewModeState {
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
+  const { roomCode } = useParams<{ roomCode: string }>();
+  const { state, dispatch } = useGame();
   const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [roomCode, setRoomCode] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const [players, setPlayers] = useState<Player[]>([]);
@@ -132,6 +105,8 @@ const GameMaster: React.FC = () => {
   }, [roomCode, questions, timeLimit, players]);
 
   const nextQuestion = useCallback(() => {
+    if (!roomCode) return;
+    
     if (currentQuestionIndex < questions.length - 1) {
       // Do NOT update currentQuestionIndex or currentQuestion here!
       setPendingAnswers([]);
@@ -144,12 +119,16 @@ const GameMaster: React.FC = () => {
   }, [currentQuestionIndex, questions.length, roomCode]);
 
   const evaluateAnswer = useCallback((playerId: string, isCorrect: boolean) => {
+    if (!roomCode) return;
+    
     socketService.evaluateAnswer(roomCode, playerId, isCorrect);
     setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
     setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
   }, [roomCode]);
 
   const restartGame = useCallback(() => {
+    if (!roomCode) return;
+    
     setIsRestarting(true);
     socketService.restartGame(roomCode);
   }, [roomCode]);
@@ -159,6 +138,8 @@ const GameMaster: React.FC = () => {
   }, []);
 
   const confirmEndRoundEarly = useCallback(() => {
+    if (!roomCode) return;
+    
     socketService.endRoundEarly(roomCode);
     setShowEndRoundConfirm(false);
   }, [roomCode]);
@@ -199,16 +180,22 @@ const GameMaster: React.FC = () => {
   }, []);
 
   const handleStartPreviewMode = useCallback(() => {
+    if (!roomCode) return;
+    
     socketService.startPreviewMode(roomCode);
     setPreviewMode(prev => ({ ...prev, isActive: true }));
   }, [roomCode]);
 
   const handleStopPreviewMode = useCallback(() => {
+    if (!roomCode) return;
+    
     socketService.stopPreviewMode(roomCode);
     setPreviewMode({ isActive: false, focusedPlayerId: null });
   }, [roomCode]);
 
   const handleFocusSubmission = useCallback((playerId: string) => {
+    if (!roomCode) return;
+    
     socketService.focusSubmission(roomCode, playerId);
   }, [roomCode]);
 
@@ -240,273 +227,67 @@ const GameMaster: React.FC = () => {
   const handlePlayerSelect = useCallback((playerId: string) => {
     setSelectedPlayerId(playerId);
     toggleBoardVisibility(playerId);
-  }, []);
+  }, [toggleBoardVisibility]);
 
   // Add state for show/hide all
   const showAllBoards = useCallback(() => {
     setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
   }, [players]);
+  
   const hideAllBoards = useCallback(() => {
     setVisibleBoards(new Set());
   }, []);
 
   useEffect(() => {
-    // Connect to socket server
-    socketService.connect();
+    if (!roomCode) {
+      navigate('/');
+      return;
+    }
 
-    // Set up listeners
-    socketService.on('room_created', (data: { roomCode: string }) => {
-      console.log('Room created:', data.roomCode);
-      setRoomCode(data.roomCode);
+    // Join room as game master
+    socketService.joinRoom(roomCode, 'Game Master');
+
+    // Set up socket listeners
+    socketService.on('player_update', (players: Player[]) => {
+      dispatch({ type: 'SET_PLAYERS', payload: players });
     });
 
-    socketService.on('player_joined', (player: Player) => {
-      console.log('Player joined:', player);
-      // Update players list when a player joins
-      setPlayers(prevPlayers => {
-        // Check if player already exists
-        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
-        if (existingIndex >= 0) {
-          // Replace the existing player
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingIndex] = player;
-          return updatedPlayers;
-        } else {
-          // Add new player
-          return [...prevPlayers, player];
-        }
-      });
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      console.log('Players updated:', updatedPlayers);
-      setPlayers(updatedPlayers);
-    });
-
-    socketService.on('game_started', (data) => {
-      console.log('Game started event received:', data);
-      if (data && data.question) {
-        // Ensure the question object has the expected structure
-        const questionObj: Question = {
-          id: data.question.id || 0,
-          text: data.question.text || '',
-          answer: data.question.answer,
-          grade: data.question.grade || 0,
-          subject: data.question.subject || '',
-          language: data.question.language || 'de'
-        };
-        
-        console.log('Setting current question:', questionObj);
-        setCurrentQuestion(questionObj);
-        setGameStarted(true);
-        setCurrentQuestionIndex(0);
-        
-        // Initialize timer if timeLimit is set
-        if (data.timeLimit) {
-          setTimeLimit(data.timeLimit);
-          setTimeRemaining(data.timeLimit);
-          
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
-        }
-      }
-    });
-    
-    socketService.on('new_question', (data) => {
-      console.log('New question event received:', data);
-      if (data && data.question) {
-        // Ensure the question object has the expected structure
-        const questionObj: Question = {
-          id: data.question.id || 0,
-          text: data.question.text || '',
-          answer: data.question.answer,
-          grade: data.question.grade || 0,
-          subject: data.question.subject || '',
-          language: data.question.language || 'de'
-        };
-        
-        console.log('Setting next question:', questionObj);
-        setCurrentQuestion(questionObj);
-        setCurrentQuestionIndex(prev => prev + 1);
-        setPendingAnswers([]);
-        setAllAnswersThisRound({});
-        setEvaluatedAnswers({});
-        // Reset timer for new question if time limit is set
-        if (data.timeLimit) {
-          setTimeLimit(data.timeLimit);
-          setTimeRemaining(data.timeLimit);
-          
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
-        }
-      }
-    });
-
-    socketService.on('player_board_update', (data: PlayerBoard) => {
-      console.log(`Received board update from ${data.playerName}`);
-      setPlayerBoards(prevBoards => {
-        const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
-        if (existingIndex >= 0) {
-          const updatedBoards = [...prevBoards];
-          updatedBoards[existingIndex] = data;
-          return updatedBoards;
-        } else {
-          return [...prevBoards, data];
-        }
-      });
-
-      // If this player is currently selected, ensure the DOM is updated
-      if (selectedPlayerId === data.playerId) {
-        setTimeout(() => {
-          const boardElement = document.querySelector('.drawing-board');
-          if (boardElement) {
-            boardElement.innerHTML = data.boardData;
-          }
-        }, 10);
-      }
-    });
-
-    socketService.on('board_update', (data: PlayerBoard) => {
-      setPlayerBoards(prevBoards => {
-        const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
-        if (existingIndex >= 0) {
-          const updatedBoards = [...prevBoards];
-          updatedBoards[existingIndex] = data;
-          return updatedBoards;
-        } else {
-          return [...prevBoards, data];
-        }
-      });
+    socketService.on('board_update', (playerBoards: PlayerBoard[]) => {
+      dispatch({ type: 'SET_PLAYER_BOARDS', payload: playerBoards });
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
-      console.log(`Answer received from ${submission.playerName}:`, submission.answer);
-      
-      setAllAnswersThisRound(prev => ({ ...prev, [submission.playerId]: submission }));
-      setPendingAnswers(prev => {
-        const existingIndex = prev.findIndex(a => a.playerId === submission.playerId);
-        if (existingIndex >= 0) {
-          const updatedAnswers = [...prev];
-          updatedAnswers[existingIndex] = submission;
-          return updatedAnswers;
-        } else {
-          return [...prev, submission];
-        }
-      });
+      dispatch({ type: 'ADD_ANSWER_SUBMISSION', payload: submission });
     });
 
-    socketService.on('error', (msg: string) => {
-      setErrorMsg(msg);
-      setIsLoading(false);
-    });
-    
-    socketService.on('game_restarted', () => {
-      // Reset game state on restart
-      setGameStarted(false);
-      setCurrentQuestion(null);
-      setCurrentQuestionIndex(0);
-      setPlayerBoards([]);
-      setPendingAnswers([]);
-      setTimeRemaining(null);
-      setIsRestarting(false);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-    });
-    
-    socketService.on('timer_update', (data: { timeRemaining: number }) => {
-      const now = performance.now();
-      // Only update if at least 900ms have passed since last update
-      if (now - timerUpdateRef.current >= 900) {
-        // Use requestAnimationFrame for smooth updates
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        
-        animationFrameRef.current = requestAnimationFrame(() => {
-          setTimeRemaining(data.timeRemaining);
-          setIsTimerRunning(true);
-          timerUpdateRef.current = now;
-        });
-      }
+    socketService.on('timer_update', (timeLeft: number) => {
+      dispatch({ type: 'SET_TIME_LEFT', payload: timeLeft });
     });
 
-    socketService.on('time_up', () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      requestAnimationFrame(() => {
-        setTimeRemaining(0);
-        setIsTimerRunning(false);
-        timerUpdateRef.current = performance.now();
-      });
+    socketService.on('game_started', () => {
+      dispatch({ type: 'SET_GAME_STARTED', payload: true });
     });
 
-    socketService.on('end_round_early', () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      requestAnimationFrame(() => {
-        setTimeRemaining(0);
-        setIsTimerRunning(false);
-        timerUpdateRef.current = performance.now();
-      });
+    socketService.on('game_ended', () => {
+      dispatch({ type: 'SET_GAME_STARTED', payload: false });
     });
 
-    // Check if returning from a refresh (restore state)
-    const savedRoomCode = sessionStorage.getItem('roomCode');
-    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-    
-    if (savedRoomCode && isGameMaster) {
-      console.log('Rejoining as gamemaster for room:', savedRoomCode);
-      setRoomCode(savedRoomCode);
-      // Re-join as gamemaster to ensure we get the current state
-      socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
-    }
+    socketService.on('preview_mode_started', () => {
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: true });
+    });
 
-    // Add preview mode event listeners
-    socketService.on('focus_submission', (data: { playerId: string }) => {
-      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
+    socketService.on('preview_mode_ended', () => {
+      dispatch({ type: 'SET_PREVIEW_MODE', payload: false });
+    });
+
+    socketService.on('submission_focused', (playerId: string) => {
+      dispatch({ type: 'SET_FOCUSED_SUBMISSION', payload: playerId });
     });
 
     return () => {
-      // Clean up listeners
-      socketService.off('room_created');
-      socketService.off('player_joined');
-      socketService.off('players_update');
-      socketService.off('game_started');
-      socketService.off('new_question');
-      socketService.off('player_board_update');
-      socketService.off('answer_submitted');
-      socketService.off('error');
-      socketService.off('game_restarted');
-      socketService.off('timer_update');
-      socketService.off('time_up');
-      socketService.off('end_round_early');
-      socketService.off('focus_submission');
-      socketService.off('board_update');
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      socketService.disconnect();
     };
-  }, [navigate]);
+  }, [roomCode, navigate, dispatch]);
 
   useEffect(() => {
     // Start playing background music when component mounts
@@ -705,7 +486,7 @@ const GameMaster: React.FC = () => {
               )}
               <PlayerList 
                 players={players}
-                onPlayerSelect={handlePlayerSelect}
+                onPlayerClick={handlePlayerSelect}
                 selectedPlayerId={selectedPlayerId}
                 title="Players"
               />
@@ -769,11 +550,11 @@ const GameMaster: React.FC = () => {
                             key={board.playerId}
                             board={board}
                             isVisible={visibleBoards.has(board.playerId)}
-                            onToggleVisibility={toggleBoardVisibility}
+                            onToggleVisibility={() => toggleBoardVisibility(board.playerId)}
                             transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                            onScale={handleBoardScale}
-                            onPan={handleBoardPan}
-                            onReset={handleBoardReset}
+                            onScale={(scale) => handleBoardScale(board.playerId, scale)}
+                            onPan={(dx, dy) => handleBoardPan(board.playerId, dx, dy)}
+                            onReset={() => handleBoardReset(board.playerId)}
                           />
                         ))}
                       </div>

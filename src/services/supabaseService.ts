@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import type { Question } from '../types/game';
 
 const supabaseUrl = process.env.REACT_APP_SUPABASE_URL || '';
 const supabaseKey = process.env.REACT_APP_SUPABASE_ANON_KEY || '';
@@ -25,40 +26,34 @@ export interface QuestionUpload {
 
 export const supabaseService = {
   // Get all questions with optional filters
-  async getQuestions(options: {
+  async getQuestions(options?: {
     subject?: string;
     grade?: number;
     language?: string;
     sortByGrade?: boolean;
-  } = {}) {
-    let query = supabase
-      .from('questions')
-      .select('*');
+  }): Promise<Question[]> {
+    let query = supabase.from('questions').select('*');
 
-    if (options.subject) {
+    if (options?.subject) {
       query = query.eq('subject', options.subject);
     }
 
-    if (options.grade) {
+    if (options?.grade) {
       query = query.eq('grade', options.grade);
     }
 
-    if (options.language) {
+    if (options?.language) {
       query = query.eq('language', options.language);
     }
 
-    if (options.sortByGrade) {
+    if (options?.sortByGrade) {
       query = query.order('grade', { ascending: true });
     }
 
     const { data, error } = await query;
-    
-    if (error) {
-      console.error('Error fetching questions:', error);
-      throw error;
-    }
 
-    return data as Question[];
+    if (error) throw error;
+    return data || [];
   },
 
   // Add a new question to the database
@@ -139,17 +134,33 @@ export const supabaseService = {
   },
 
   // Upload multiple questions from JSON
-  async uploadQuestions(questions: QuestionUpload[]) {
-    const { data, error } = await supabase
+  async uploadQuestions(questions: Question[]) {
+    const { error } = await supabase
       .from('questions')
-      .insert(questions)
-      .select();
+      .insert(questions);
 
-    if (error) {
-      console.error('Error uploading questions:', error);
-      throw error;
-    }
+    if (error) throw error;
+  },
 
-    return data as Question[];
+  async createRoom(): Promise<string> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert([{ created_at: new Date() }])
+      .select('id')
+      .single();
+      
+    if (error) throw error;
+    return data.id;
+  },
+
+  async checkRoomExists(roomCode: string): Promise<boolean> {
+    const { data, error } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('id', roomCode)
+      .single();
+      
+    if (error) return false;
+    return !!data;
   }
 }; 

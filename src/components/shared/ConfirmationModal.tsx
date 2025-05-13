@@ -1,6 +1,6 @@
 import React from 'react';
 
-interface ConfirmationModalProps {
+export interface ConfirmationModalProps {
   show: boolean;
   onHide: () => void;
   onConfirm: () => void;
