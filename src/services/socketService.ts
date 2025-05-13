@@ -2,15 +2,18 @@ import { io, Socket } from 'socket.io-client';
 import { Question } from '../types/game';
 
 // Determine the server URL based on environment
-// In production, use the specific backend URL
-const SOCKET_URL = process.env.NODE_ENV === 'production' 
-  ? 'https://schoolquizgame.onrender.com' // The deployed backend URL
-  : 'http://localhost:5000'; // Use port 5000 to match server
+const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || (
+  process.env.NODE_ENV === 'production' 
+    ? 'https://schoolquizgame.onrender.com'
+    : 'http://localhost:5000'
+);
 
 class SocketService {
   private socket: Socket | null = null;
   private static instance: SocketService;
   private listeners: { [event: string]: ((...args: any[]) => void)[] } = {};
+  private connectionAttempts = 0;
+  private maxConnectionAttempts = 3;
 
   private constructor() {}
 
@@ -24,7 +27,11 @@ class SocketService {
   connect(): Socket {
     if (!this.socket) {
       console.log(`Connecting to socket server at: ${SOCKET_URL}`);
-      this.socket = io(process.env.REACT_APP_SOCKET_URL || SOCKET_URL);
+      this.socket = io(SOCKET_URL, {
+        reconnectionAttempts: 3,
+        timeout: 10000,
+        transports: ['websocket', 'polling']
+      });
       
       // Re-attach existing listeners
       Object.entries(this.listeners).forEach(([event, callbacks]) => {
@@ -36,10 +43,21 @@ class SocketService {
       // Add connection event logging
       this.socket.on('connect', () => {
         console.log('Socket connected successfully');
+        this.connectionAttempts = 0;
       });
       
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
+        this.connectionAttempts++;
+        
+        if (this.connectionAttempts >= this.maxConnectionAttempts) {
+          console.error('Max connection attempts reached. Please check your internet connection and try again.');
+          this.disconnect();
+        }
+      });
+
+      this.socket.on('error', (error) => {
+        console.error('Socket error:', error);
       });
     }
     return this.socket;
@@ -71,11 +89,24 @@ class SocketService {
   }
 
   emit(event: string, ...args: any[]) {
-    this.socket?.emit(event, ...args);
+    if (!this.socket?.connected) {
+      console.error('Socket not connected. Attempting to reconnect...');
+      this.connect();
+      // Wait for connection before emitting
+      setTimeout(() => {
+        this.socket?.emit(event, ...args);
+      }, 1000);
+      return;
+    }
+    this.socket.emit(event, ...args);
   }
 
   // GameMaster actions
   createRoom(roomCode?: string) {
+    if (!this.socket?.connected) {
+      console.error('Cannot create room: Socket not connected');
+      return;
+    }
     this.emit('create_room', { roomCode });
   }
 
