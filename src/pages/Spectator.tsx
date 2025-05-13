@@ -111,28 +111,11 @@ const Spectator: React.FC = () => {
   }, []);
 
   const handleJoinAsPlayer = () => {
-    setShowJoinAsPlayer(true);
-    setPlayerNameInput('');
-    setJoinError('');
-  };
-
-  const confirmJoinAsPlayer = () => {
     const roomCode = sessionStorage.getItem('roomCode');
-    if (!roomCode) {
-      setJoinError('Room code missing.');
-      return;
-    }
-    if (!playerNameInput.trim()) {
-      setJoinError('Please enter a name.');
-      return;
-    }
-    // Remove spectator from room (optional: could emit a leave event)
-    // Join as player
-    sessionStorage.setItem('playerName', playerNameInput.trim());
+    const playerName = sessionStorage.getItem('playerName');
+    if (!roomCode || !playerName) return;
     sessionStorage.setItem('isSpectator', 'false');
-    // Optionally: sessionStorage.removeItem('playerId');
-    socketService.joinRoom(roomCode, playerNameInput.trim(), false);
-    setShowJoinAsPlayer(false);
+    socketService.switchToPlayer(roomCode, playerName);
     navigate('/player');
   };
 
@@ -219,33 +202,6 @@ const Spectator: React.FC = () => {
           />
         </div>
       </div>
-      {showJoinAsPlayer && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">Join as Player</h5>
-                <button type="button" className="btn-close" onClick={() => setShowJoinAsPlayer(false)}></button>
-              </div>
-              <div className="modal-body">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Enter your name"
-                  value={playerNameInput}
-                  onChange={e => setPlayerNameInput(e.target.value)}
-                  maxLength={15}
-                />
-                {joinError && <div className="alert alert-danger mt-2">{joinError}</div>}
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowJoinAsPlayer(false)}>Cancel</button>
-                <button type="button" className="btn btn-success" onClick={confirmJoinAsPlayer}>Join as Player</button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

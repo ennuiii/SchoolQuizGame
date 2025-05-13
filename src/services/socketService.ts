@@ -134,6 +134,12 @@ class SocketService {
       this.socket.emit('switch_to_spectator', { roomCode, playerId });
     }
   }
+
+  switchToPlayer(roomCode: string, playerName: string) {
+    if (this.socket) {
+      this.socket.emit('switch_to_player', { roomCode, playerName });
+    }
+  }
 }
 
 // Create a singleton instance

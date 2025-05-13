@@ -616,6 +616,41 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Failed to switch to spectator mode');
     }
   });
+
+  // Add new handler for switching from spectator to player
+  socket.on('switch_to_player', ({ roomCode, playerName }) => {
+    try {
+      const room = gameRooms[roomCode];
+      if (!room) {
+        socket.emit('error', 'Room not found');
+        return;
+      }
+      // Remove the spectator entry
+      const oldIndex = room.players.findIndex(p => p.id === socket.id);
+      if (oldIndex !== -1) {
+        room.players.splice(oldIndex, 1);
+      }
+      // Add as a new player
+      const player = {
+        id: socket.id,
+        name: playerName,
+        lives: 3,
+        answers: [],
+        isActive: true,
+        isSpectator: false
+      };
+      room.players.push(player);
+      // Update session info
+      socket.playerInfo = { roomCode, playerName, isSpectator: false };
+      // Notify everyone in the room
+      io.to(roomCode).emit('players_update', room.players);
+      io.to(roomCode).emit('player_joined', player);
+      console.log(`Spectator ${playerName} switched to player in room ${roomCode}`);
+    } catch (error) {
+      console.error('Error in switch_to_player:', error);
+      socket.emit('error', 'Failed to switch to player mode');
+    }
+  });
 });
 
 // Helper function to get player name from room
