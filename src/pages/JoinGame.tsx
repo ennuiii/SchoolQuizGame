@@ -45,12 +45,18 @@ const JoinGame: React.FC = () => {
       // Set up room creation handler
       socket.on('room_created', ({ roomCode }) => {
         console.log('Room created:', roomCode);
+        if (!roomCode) {
+          setErrorMsg('Failed to create room. No room code received.');
+          setIsLoading(false);
+          return;
+        }
+        
         dispatch({ type: 'SET_ROOM_CODE', payload: roomCode });
         dispatch({ type: 'SET_PLAYER_NAME', payload: playerNameInput.trim() });
         sessionStorage.setItem('roomCode', roomCode);
         sessionStorage.setItem('playerName', playerNameInput.trim());
         sessionStorage.setItem('isGameMaster', 'true');
-        navigate('/gamemaster');
+        navigate(`/gamemaster/${roomCode}`);
         setIsLoading(false);
       });
 
@@ -62,13 +68,13 @@ const JoinGame: React.FC = () => {
       });
 
       // Create the room
-      socketService.createRoom();
+      socketService.createRoom(roomCodeInput.trim() || undefined);
     } catch (error) {
       console.error('Error creating room:', error);
       setErrorMsg('Failed to create room. Please try again.');
       setIsLoading(false);
     }
-  }, [playerNameInput, navigate, dispatch]);
+  }, [playerNameInput, roomCodeInput, navigate, dispatch]);
 
   const handleJoinRoom = useCallback(async () => {
     if (!roomCodeInput.trim() || !playerNameInput.trim()) {

@@ -113,13 +113,16 @@ class SocketService {
       // Wait for connection before emitting
       setTimeout(() => {
         if (this.socket?.connected) {
+          console.log('Socket connected, creating room...');
           this.emit('create_room', { roomCode });
         } else {
           console.error('Failed to connect to socket server');
+          throw new Error('Failed to connect to socket server');
         }
       }, 1000);
       return;
     }
+    console.log('Creating room with code:', roomCode);
     this.emit('create_room', { roomCode });
   }
 
