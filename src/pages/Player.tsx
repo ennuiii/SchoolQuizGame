@@ -32,6 +32,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator: boolean;
 }
 
 interface PlayerBoard {
@@ -585,10 +586,24 @@ const Player: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (isSpectator) {
-      setVisibleBoards(new Set(playerBoards.map(b => b.playerId)));
+    if (gameStarted) {
+      // Show all boards of active players (non-spectators) when game starts
+      setVisibleBoards(new Set(playerBoards.filter(b => {
+        const player = players.find(p => p.id === b.playerId);
+        return player && !player.isSpectator;
+      }).map(b => b.playerId)));
     }
-  }, [isSpectator, playerBoards]);
+  }, [gameStarted, playerBoards, players]);
+
+  useEffect(() => {
+    if (isSpectator) {
+      // Only show boards of active players (non-spectators)
+      setVisibleBoards(new Set(playerBoards.filter(b => {
+        const player = players.find(p => p.id === b.playerId);
+        return player && !player.isSpectator;
+      }).map(b => b.playerId)));
+    }
+  }, [isSpectator, playerBoards, players]);
 
   if (gameOver && !isWinner) {
     return (
@@ -625,7 +640,10 @@ const Player: React.FC = () => {
   }
 
   if (isSpectator) {
-    const showAllBoards = () => setVisibleBoards(new Set(playerBoards.map(b => b.playerId)));
+    const showAllBoards = () => setVisibleBoards(new Set(playerBoards.filter(b => {
+      const player = players.find(p => p.id === b.playerId);
+      return player && !player.isSpectator;
+    }).map(b => b.playerId)));
     const hideAllBoards = () => setVisibleBoards(new Set());
     return (
       <div className="container-fluid px-2 px-md-4">
@@ -679,7 +697,10 @@ const Player: React.FC = () => {
                     alignItems: 'stretch',
                   }}
                 >
-                  {playerBoards.map(board => (
+                  {playerBoards.filter(board => {
+                    const player = players.find(p => p.id === board.playerId);
+                    return player && !player.isSpectator;
+                  }).map(board => (
                     <PlayerBoardDisplay
                       key={board.playerId}
                       board={board}

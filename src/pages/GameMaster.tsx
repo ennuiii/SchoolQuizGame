@@ -19,6 +19,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator: boolean;
 }
 
 interface PlayerBoard {
@@ -243,7 +244,7 @@ const GameMaster: React.FC = () => {
 
   // Add state for show/hide all
   const showAllBoards = useCallback(() => {
-    setVisibleBoards(new Set(players.map(p => p.id)));
+    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
   }, [players]);
   const hideAllBoards = useCallback(() => {
     setVisibleBoards(new Set());
@@ -572,6 +573,13 @@ const GameMaster: React.FC = () => {
     (players.length > 0 && pendingAnswers.length === 0) ||
     (timeLimit !== null && timeRemaining === 0 && pendingAnswers.length > 0)
   );
+
+  useEffect(() => {
+    if (gameStarted) {
+      // Show all boards of active players (non-spectators) when game starts
+      setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+    }
+  }, [gameStarted, players]);
 
   return (
     <div className="container-fluid px-2 px-md-4">
