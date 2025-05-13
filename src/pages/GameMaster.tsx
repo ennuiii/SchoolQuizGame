@@ -1,10 +1,17 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 import audioService from '../services/audioService';
-import PreviewOverlay from '../components/PreviewOverlay';
-import QuestionSelector from '../components/QuestionSelector';
+import PreviewOverlay from '../components/shared/PreviewOverlay';
+import QuestionSelector from '../components/game-master/QuestionSelector';
+import GameControls from '../components/game-master/GameControls';
+import QuestionDisplay from '../components/game-master/QuestionDisplay';
+import AnswerList from '../components/game-master/AnswerList';
+import Timer from '../components/shared/Timer';
+import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
+import PlayerList from '../components/shared/PlayerList';
+import RoomCode from '../components/shared/RoomCode';
 
 interface Player {
   id: string;
@@ -12,6 +19,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator: boolean;
 }
 
 interface PlayerBoard {
@@ -76,48 +84,205 @@ const GameMaster: React.FC = () => {
   });
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
+  const handleToggleMute = useCallback(() => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  }, []);
+
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  }, []);
+
+  const createRoom = useCallback(() => {
+    console.log('Creating new room...');
+    setIsLoading(true);
+    socketService.createRoom(roomCodeInput);
+  }, [roomCodeInput]);
+
+  const startGame = useCallback(() => {
+    if (!roomCode) {
+      setErrorMsg('Please enter a room code!');
+      return;
+    }
+    
+    if (questions.length === 0) {
+      setErrorMsg('Please select at least one question!');
+      return;
+    }
+
+    if (players.length === 0) {
+      setErrorMsg('Please wait for at least one player to join before starting the game!');
+      return;
+    }
+    
+    // Sort questions by grade before starting the game
+    const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
+    setQuestions(gradeSortedQuestions);
+    setCurrentQuestion(gradeSortedQuestions[0]);
+    setCurrentQuestionIndex(0);
+    
+    // Start the game with the existing room
+    setIsLoading(true);
+    // If timeLimit is null or blank, set it to 99999 internally but don't show it
+    const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
+    socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
+    setGameStarted(true);
+  }, [roomCode, questions, timeLimit, players]);
+
+  const nextQuestion = useCallback(() => {
+    if (currentQuestionIndex < questions.length - 1) {
+      // Do NOT update currentQuestionIndex or currentQuestion here!
+      setPendingAnswers([]);
+      setTimeRemaining(null);
+      setIsTimerRunning(false);
+      socketService.nextQuestion(roomCode);
+    } else {
+      alert('No more questions available!');
+    }
+  }, [currentQuestionIndex, questions.length, roomCode]);
+
+  const evaluateAnswer = useCallback((playerId: string, isCorrect: boolean) => {
+    socketService.evaluateAnswer(roomCode, playerId, isCorrect);
+    setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
+    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
+  }, [roomCode]);
+
+  const restartGame = useCallback(() => {
+    setIsRestarting(true);
+    socketService.restartGame(roomCode);
+  }, [roomCode]);
+
+  const handleEndRoundEarly = useCallback(() => {
+    setShowEndRoundConfirm(true);
+  }, []);
+
+  const confirmEndRoundEarly = useCallback(() => {
+    socketService.endRoundEarly(roomCode);
+    setShowEndRoundConfirm(false);
+  }, [roomCode]);
+
+  const cancelEndRoundEarly = useCallback(() => {
+    setShowEndRoundConfirm(false);
+  }, []);
+
+  const toggleBoardVisibility = useCallback((playerId: string) => {
+    setVisibleBoards(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(playerId)) {
+        newSet.delete(playerId);
+      } else {
+        newSet.add(playerId);
+        // Initialize transform for this board if it doesn't exist
+        setBoardTransforms(prevTransforms => ({
+          ...prevTransforms,
+          [playerId]: prevTransforms[playerId] || { scale: 0.4, x: 0, y: 0 }
+        }));
+      }
+      return newSet;
+    });
+  }, []);
+
+  const updateBoardTransform = useCallback((playerId: string, update: (t: {scale: number, x: number, y: number}) => {scale: number, x: number, y: number}) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: update(prev[playerId] || {scale: 1, x: 0, y: 0})
+    }));
+  }, []);
+
+  const fitToScreen = useCallback((playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {scale: 1, x: 0, y: 0}
+    }));
+  }, []);
+
+  const handleStartPreviewMode = useCallback(() => {
+    socketService.startPreviewMode(roomCode);
+    setPreviewMode(prev => ({ ...prev, isActive: true }));
+  }, [roomCode]);
+
+  const handleStopPreviewMode = useCallback(() => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  }, [roomCode]);
+
+  const handleFocusSubmission = useCallback((playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+  }, [roomCode]);
+
+  const handleBoardScale = useCallback((playerId: string, scale: number) => {
+    updateBoardTransform(playerId, transform => ({
+      ...transform,
+      scale: scale
+    }));
+  }, [updateBoardTransform]);
+
+  const handleBoardPan = useCallback((playerId: string, dx: number, dy: number) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {
+        ...prev[playerId],
+        x: (prev[playerId]?.x || 0) + dx,
+        y: (prev[playerId]?.y || 0) + dy
+      }
+    }));
+  }, []);
+
+  const handleBoardReset = useCallback((playerId: string) => {
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: { scale: 1, x: 0, y: 0 }
+    }));
+  }, []);
+
+  const handlePlayerSelect = useCallback((playerId: string) => {
+    setSelectedPlayerId(playerId);
+    toggleBoardVisibility(playerId);
+  }, []);
+
+  // Add state for show/hide all
+  const showAllBoards = useCallback(() => {
+    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+  }, [players]);
+  const hideAllBoards = useCallback(() => {
+    setVisibleBoards(new Set());
+  }, []);
+
   useEffect(() => {
     // Connect to socket server
     socketService.connect();
 
-    // Set up event listeners
-    socketService.on('room_created', (data) => {
-      console.log('Room created:', data);
-      setIsLoading(false);
-      
-      // Set room code received from server
-      if (data && data.roomCode) {
-        setRoomCode(data.roomCode);
-        sessionStorage.setItem('roomCode', data.roomCode);
-        sessionStorage.setItem('isGameMaster', 'true');
-      }
-      
-      // Only start the game immediately if questions are already selected
-      if (questions.length > 0) {
-        setCurrentQuestion(questions[0]);
-        
-        // Start the game with sorted questions
-        socketService.startGame(data.roomCode, questions, timeLimit || undefined);
-        setGameStarted(true);
-        
-        // Initialize timer if timeLimit is set
-        if (timeLimit) {
-          setTimeRemaining(timeLimit);
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
-        }
-      }
+    // Set up listeners
+    socketService.on('room_created', (data: { roomCode: string }) => {
+      console.log('Room created:', data.roomCode);
+      setRoomCode(data.roomCode);
     });
-    
-    // Add game_started event listener
+
+    socketService.on('player_joined', (player: Player) => {
+      console.log('Player joined:', player);
+      // Update players list when a player joins
+      setPlayers(prevPlayers => {
+        // Check if player already exists
+        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
+        if (existingIndex >= 0) {
+          // Replace the existing player
+          const updatedPlayers = [...prevPlayers];
+          updatedPlayers[existingIndex] = player;
+          return updatedPlayers;
+        } else {
+          // Add new player
+          return [...prevPlayers, player];
+        }
+      });
+    });
+
+    socketService.on('players_update', (updatedPlayers: Player[]) => {
+      console.log('Players updated:', updatedPlayers);
+      setPlayers(updatedPlayers);
+    });
+
     socketService.on('game_started', (data) => {
       console.log('Game started event received:', data);
       if (data && data.question) {
@@ -155,7 +320,6 @@ const GameMaster: React.FC = () => {
       }
     });
     
-    // Add event handler for new_question event
     socketService.on('new_question', (data) => {
       console.log('New question event received:', data);
       if (data && data.question) {
@@ -174,7 +338,7 @@ const GameMaster: React.FC = () => {
         setCurrentQuestionIndex(prev => prev + 1);
         setPendingAnswers([]);
         setAllAnswersThisRound({});
-        
+        setEvaluatedAnswers({});
         // Reset timer for new question if time limit is set
         if (data.timeLimit) {
           setTimeLimit(data.timeLimit);
@@ -192,29 +356,6 @@ const GameMaster: React.FC = () => {
           }, 1000);
         }
       }
-    });
-    
-    socketService.on('player_joined', (player: Player) => {
-      console.log('Player joined:', player);
-      // Update players list when a player joins
-      setPlayers(prevPlayers => {
-        // Check if player already exists
-        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
-        if (existingIndex >= 0) {
-          // Replace the existing player
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingIndex] = player;
-          return updatedPlayers;
-        } else {
-          // Add new player
-          return [...prevPlayers, player];
-        }
-      });
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      console.log('Players updated:', updatedPlayers);
-      setPlayers(updatedPlayers);
     });
 
     socketService.on('player_board_update', (data: PlayerBoard) => {
@@ -241,7 +382,6 @@ const GameMaster: React.FC = () => {
       }
     });
 
-    // Listen for board_update events (broadcast to all clients)
     socketService.on('board_update', (data: PlayerBoard) => {
       setPlayerBoards(prevBoards => {
         const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
@@ -286,6 +426,7 @@ const GameMaster: React.FC = () => {
       setTimeRemaining(null);
       setIsRestarting(false);
       setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
@@ -317,7 +458,6 @@ const GameMaster: React.FC = () => {
       });
     });
 
-    // Add handler for end_round_early event
     socketService.on('end_round_early', () => {
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
@@ -349,10 +489,10 @@ const GameMaster: React.FC = () => {
     return () => {
       // Clean up listeners
       socketService.off('room_created');
-      socketService.off('game_started');
-      socketService.off('new_question');
       socketService.off('player_joined');
       socketService.off('players_update');
+      socketService.off('game_started');
+      socketService.off('new_question');
       socketService.off('player_board_update');
       socketService.off('answer_submitted');
       socketService.off('error');
@@ -366,7 +506,7 @@ const GameMaster: React.FC = () => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     // Start playing background music when component mounts
@@ -378,71 +518,6 @@ const GameMaster: React.FC = () => {
     };
   }, []);
 
-  const handleToggleMute = () => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  };
-
-  const createRoom = () => {
-    console.log('Creating new room...');
-    setIsLoading(true);
-    socketService.createRoom(roomCodeInput);
-  };
-
-  const startGame = () => {
-    if (!roomCode) {
-      setErrorMsg('Please enter a room code!');
-      return;
-    }
-    
-    if (questions.length === 0) {
-      setErrorMsg('Please select at least one question!');
-      return;
-    }
-    
-    // Sort questions by grade before starting the game
-    const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
-    setQuestions(gradeSortedQuestions);
-    setCurrentQuestion(gradeSortedQuestions[0]);
-    setCurrentQuestionIndex(0);
-    
-    // Start the game with the existing room
-    setIsLoading(true);
-    // If timeLimit is null or blank, set it to 99999 internally but don't show it
-    const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
-    socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
-    setGameStarted(true);
-  };
-
-  const nextQuestion = () => {
-    if (currentQuestionIndex < questions.length - 1) {
-      // Do NOT update currentQuestionIndex or currentQuestion here!
-      setPendingAnswers([]);
-      setTimeRemaining(null);
-      setIsTimerRunning(false);
-      socketService.nextQuestion(roomCode);
-    } else {
-      alert('No more questions available!');
-    }
-  };
-
-  const evaluateAnswer = (playerId: string, isCorrect: boolean) => {
-    socketService.evaluateAnswer(roomCode, playerId, isCorrect);
-    setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
-    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
-  };
-
-  const restartGame = () => {
-    setIsRestarting(true);
-    socketService.restartGame(roomCode);
-  };
-
   // Format time remaining with smooth transitions
   const formatTime = (seconds: number | null) => {
     if (seconds === null) return '--:--';
@@ -451,62 +526,20 @@ const GameMaster: React.FC = () => {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // Add toggle function for board visibility
-  const toggleBoardVisibility = (playerId: string) => {
-    setVisibleBoards(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(playerId)) {
-        newSet.delete(playerId);
-      } else {
-        newSet.add(playerId);
-      }
-      return newSet;
-    });
-  };
-
-  // Helper to update transform state
-  const updateBoardTransform = (playerId: string, update: (t: {scale: number, x: number, y: number}) => {scale: number, x: number, y: number}) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: update(prev[playerId] || {scale: 1, x: 0, y: 0})
-    }));
-  };
-
-  // Fit to screen handler
-  const fitToScreen = (playerId: string) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: {scale: 1, x: 0, y: 0}
-    }));
-  };
-
-  const handleEndRoundEarly = () => {
-    setShowEndRoundConfirm(true);
-  };
-
-  const confirmEndRoundEarly = () => {
-    socketService.endRoundEarly(roomCode);
-    setShowEndRoundConfirm(false);
-  };
-
-  const cancelEndRoundEarly = () => {
-    setShowEndRoundConfirm(false);
-  };
-
   // Add a function to check if all answers are in
   const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
 
-  // Set initial scale to 0.4 for each board
+  // Set initial scale to 1 for each board
   useEffect(() => {
     const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
     players.forEach(player => {
-      initialTransforms[player.id] = { scale: 0.4, x: 0, y: 0 };
+      initialTransforms[player.id] = { scale: 1, x: 0, y: 0 };
     });
     setBoardTransforms(initialTransforms);
   }, [players]);
 
   // Add toggle scale on click
-  const toggleBoardScale = (playerId: string) => {
+  const toggleBoardScale = useCallback((playerId: string) => {
     setBoardTransforms(prev => {
       const current = prev[playerId] || { scale: 0.4, x: 0, y: 0 };
       const newScale = current.scale === 0.4 ? 1.0 : 0.4;
@@ -515,26 +548,46 @@ const GameMaster: React.FC = () => {
         [playerId]: { ...current, scale: newScale }
       };
     });
-  };
+  }, []);
 
-  const handleStartPreviewMode = () => {
-    socketService.startPreviewMode(roomCode);
-    setPreviewMode(prev => ({ ...prev, isActive: true }));
-  };
+  // Initialize visibleBoards when players join
+  useEffect(() => {
+    const newVisibleBoards = new Set<string>();
+    players.forEach(player => {
+      if (visibleBoards.has(player.id)) {
+        newVisibleBoards.add(player.id);
+      }
+    });
+    setVisibleBoards(newVisibleBoards);
+  }, [players]);
 
-  const handleStopPreviewMode = () => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
-  };
+  // Reset visibleBoards when game restarts
+  useEffect(() => {
+    if (isRestarting) {
+      setVisibleBoards(new Set());
+    }
+  }, [isRestarting]);
 
-  const handleFocusSubmission = (playerId: string) => {
-    socketService.focusSubmission(roomCode, playerId);
-  };
+  // Add a function to check if preview can be started
+  const canStartPreview = gameStarted && (
+    (players.length > 0 && pendingAnswers.length === 0) ||
+    (timeLimit !== null && timeRemaining === 0 && pendingAnswers.length > 0)
+  );
+
+  useEffect(() => {
+    if (gameStarted) {
+      // Show all boards of active players (non-spectators) when game starts
+      setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+    }
+  }, [gameStarted, players]);
 
   return (
-    <div className="container">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="text-center mb-0">Game Master Dashboard</h1>
+    <div className="container-fluid px-2 px-md-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
+          <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
+          Game Master Dashboard
+        </div>
         <div className="d-flex align-items-center gap-2">
           <input
             type="range"
@@ -595,7 +648,7 @@ const GameMaster: React.FC = () => {
       
       {!roomCode ? (
         <div className="row justify-content-center">
-          <div className="col-md-6">
+          <div className="col-12 col-md-6">
             <div className="card p-4 text-center">
               <h3>Create a New Game Room</h3>
               <p>As the Game Master, you'll manage questions and evaluate answers.</p>
@@ -630,323 +683,108 @@ const GameMaster: React.FC = () => {
       ) : (
         <div className="game-master-container" style={{ 
           backgroundImage: 'linear-gradient(to bottom right, #8B4513, #A0522D)', 
-          padding: '20px', 
+          padding: '15px', 
           borderRadius: '12px',
           boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
           backgroundSize: '100% 100%',
           backgroundRepeat: 'no-repeat'
         }}>
-          <div className="row">
-            <div className="col-md-4">
-              <div className="card mb-4">
-                <div className="card-header">
-                  <h3 className="mb-0">Room Information</h3>
-                </div>
-                <div className="card-body text-center">
-                  <h5>Room Code:</h5>
-                  <div className="room-code">{roomCode}</div>
-                  <p className="mb-3">Share this code with players to join</p>
-                  
-                  {!gameStarted && (
-                    <>
-                      <div className="mb-3">
-                        <label htmlFor="timeLimit" className="form-label">Time Limit (seconds):</label>
-                        <input 
-                          type="number"
-                          id="timeLimit"
-                          className="form-control mb-2"
-                          min="0"
-                          value={timeLimit || ''}
-                          onChange={(e) => setTimeLimit(e.target.value ? parseInt(e.target.value, 10) : null)}
-                          placeholder="No time limit"
-                        />
-                        <small className="text-muted">Leave empty for no time limit</small>
-                      </div>
-                      <button 
-                        className="btn btn-success btn-lg w-100"
-                        onClick={startGame}
-                        disabled={players.length < 2}
-                      >
-                        Start Game ({players.length}/2 players)
-                      </button>
-                    </>
-                  )}
-                  
-                  {gameStarted && (
-                    <button 
-                      className="btn btn-warning btn-lg w-100"
-                      onClick={restartGame}
-                      disabled={isRestarting}
-                    >
-                      {isRestarting ? 'Restarting...' : 'Restart Game'}
-                    </button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="card mb-4">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <h3 className="mb-0">Players</h3>
-                  <span className="badge bg-primary">{players.length}</span>
-                </div>
-                <div className="card-body p-0">
-                  <ul className="list-group list-group-flush player-list">
-                    {players.map(player => (
-                      <li 
-                        key={player.id} 
-                        className={`list-group-item d-flex justify-content-between align-items-center ${!player.isActive ? 'text-muted' : ''}`}
-                      >
-                        <div className="d-flex align-items-center">
-                          <span>{player.name} {!player.isActive && '(Eliminated)'}</span>
-                          <button
-                            className={`btn btn-sm ms-2 ${visibleBoards.has(player.id) ? 'btn-primary' : 'btn-outline-primary'}`}
-                            onClick={() => toggleBoardVisibility(player.id)}
-                            title={visibleBoards.has(player.id) ? "Hide board" : "Show board"}
-                          >
-                            {visibleBoards.has(player.id) ? 'Hide Board' : 'Show Board'}
-                          </button>
-                        </div>
-                        <div>
-                          {Array.from({length: player.lives}, (_, i) => (
-                            <span key={i} className="text-danger me-1">❤</span>
-                          ))}
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              
-              {gameStarted && (
-                <div className="card mb-4">
-                  <div className="card-header d-flex justify-content-between align-items-center">
-                    <h3 className="mb-0">Questions</h3>
-                  </div>
-                  <div className="card-body">
-                    <div className="mb-3 text-center">
-                      {timeLimit !== null && timeLimit < 99999 && (
-                        <>
-                          <h5>Time Remaining:</h5>
-                          <div className={`timer ${(timeRemaining !== null && timeRemaining < 10) ? 'text-danger' : ''}`}>
-                            {formatTime(timeRemaining)}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                    
-                    <div className="mb-3">
-                      <h5>Current Question ({currentQuestionIndex + 1}/{questions.length}):</h5>
-                      <div className="question-container">
-                        <p className="mb-1">{currentQuestion?.text}</p>
-                        <small>Grade: {currentQuestion?.grade} | Subject: {currentQuestion?.subject} | Language: {currentQuestion?.language || 'de'}</small>
-                        {currentQuestion?.answer && (
-                          <div className="mt-2 correct-answer">
-                            <strong>Correct Answer:</strong> {currentQuestion.answer}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <button 
-                      className="btn btn-primary w-100"
-                      onClick={nextQuestion}
-                      disabled={currentQuestionIndex >= questions.length - 1 || pendingAnswers.length > 0}
-                    >
-                      Next Question
-                    </button>
-                  </div>
+          <div className="row g-3">
+            <div className="col-12 col-md-4">
+              <RoomCode roomCode={roomCode} />
+              {!previewMode.isActive && (
+                <div className="mb-3">
+                  <button
+                    className="btn btn-primary w-100"
+                    onClick={handleStartPreviewMode}
+                    disabled={!canStartPreview}
+                  >
+                    Start Preview Mode
+                  </button>
                 </div>
               )}
+              <PlayerList 
+                players={players}
+                onPlayerSelect={handlePlayerSelect}
+                selectedPlayerId={selectedPlayerId}
+                title="Players"
+              />
             </div>
             
-            <div className="col-md-8">
+            <div className="col-12 col-md-8">
+              <GameControls
+                gameStarted={gameStarted}
+                currentQuestionIndex={currentQuestionIndex}
+                totalQuestions={questions.length}
+                onStartGame={startGame}
+                onNextQuestion={nextQuestion}
+                onRestartGame={restartGame}
+                onEndRoundEarly={handleEndRoundEarly}
+                isRestarting={isRestarting}
+                showEndRoundConfirm={showEndRoundConfirm}
+                onConfirmEndRound={confirmEndRoundEarly}
+                onCancelEndRound={cancelEndRoundEarly}
+                hasPendingAnswers={pendingAnswers.length > 0}
+              />
+              
               {gameStarted ? (
                 <>
+                  {currentQuestion && (
+                    <div className="card mb-4">
+                      <div className="card-body">
+                        <QuestionDisplay
+                          question={currentQuestion}
+                        />
+                        <Timer
+                          timeLimit={timeLimit}
+                          timeRemaining={timeRemaining}
+                          isActive={isTimerRunning}
+                        />
+                      </div>
+                    </div>
+                  )}
+
                   <div className="card mb-4">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">Pending Answers</h3>
-                      <button 
-                        className="btn btn-warning"
-                        onClick={handleEndRoundEarly}
-                        disabled={!(gameStarted && currentQuestion)}
-                      >
-                        End Round Early
-                      </button>
-                    </div>
-                    <div className="card-body">
-                      {pendingAnswers.length === 0 ? (
-                        <p className="text-center">No pending answers</p>
-                      ) : (
-                        <ul className="list-group">
-                          {pendingAnswers.map((submission, index) => (
-                            <li key={index} className="list-group-item">
-                              <div className="d-flex justify-content-between align-items-center mb-2">
-                                <h5 className="mb-0">{submission.playerName}</h5>
-                                <div>
-                                  <button 
-                                    className="btn btn-success me-2"
-                                    onClick={() => evaluateAnswer(submission.playerId, true)}
-                                  >
-                                    Correct
-                                  </button>
-                                  <button 
-                                    className="btn btn-danger"
-                                    onClick={() => evaluateAnswer(submission.playerId, false)}
-                                  >
-                                    Incorrect
-                                  </button>
-                                </div>
-                              </div>
-                              <div className="answer-container">
-                                <p className="mb-1"><strong>Player's Answer:</strong> {submission.answer}</p>
-                                {currentQuestion?.answer && (
-                                  <p className="mb-0 text-success small">
-                                    <strong>Correct Answer:</strong> {currentQuestion.answer}
-                                  </p>
-                                )}
-                              </div>
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="card">
-                    <div className="card-header d-flex justify-content-between align-items-center">
-                      <h3 className="mb-0">Player Boards</h3>
-                      <div>
-                        <button 
-                          className="btn btn-sm btn-outline-primary me-2"
-                          onClick={() => setVisibleBoards(new Set())}
-                        >
-                          Hide All
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-primary"
-                          onClick={() => setVisibleBoards(new Set(players.map(p => p.id)))}
-                        >
-                          Show All
-                        </button>
+                    <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">Player Boards</h5>
+                      <div className="d-flex gap-2">
+                        <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                        <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
                       </div>
                     </div>
                     <div className="card-body">
-                      {playerBoards.length === 0 ? (
-                        <p className="text-center">No player boards available</p>
-                      ) : (
-                        <div className="row">
-                          {playerBoards
-                            .filter(board => visibleBoards.has(board.playerId))
-                            .map((board) => {
-                              const player = players.find(p => p.id === board.playerId);
-                              return (
-                                <div key={board.playerId} className="col-md-6 mb-4">
-                                  <div className="card h-100">
-                                    <div className="card-header bg-success text-white d-flex justify-content-between align-items-center">
-                                      <h5 className="mb-0">{board.playerName || 'Unknown Player'} {!player?.isActive && '(Eliminated)'}</h5>
-                                      <button
-                                        className="btn btn-sm btn-light"
-                                        onClick={() => toggleBoardVisibility(board.playerId)}
-                                      >
-                                        Hide
-                                      </button>
-                                    </div>
-                                    <div className="card-body p-0" style={{ minHeight: '350px', position: 'relative' }}>
-                                      <div
-                                        className="drawing-board-panzoom"
-                                        style={{
-                                          width: '100%',
-                                          height: '320px',
-                                          position: 'relative',
-                                          overflow: 'hidden',
-                                          cursor: 'grab',
-                                          background: '#0C6A35',
-                                          zIndex: 1
-                                        }}
-                                        onWheel={e => {
-                                          if (!e.altKey) return;
-                                          e.preventDefault();
-                                          const playerId = board.playerId;
-                                          const delta = e.deltaY < 0 ? 0.1 : -0.1;
-                                          updateBoardTransform(playerId, t => {
-                                            let newScale = Math.max(0.2, Math.min(3, t.scale + delta));
-                                            return { ...t, scale: newScale };
-                                          });
-                                        }}
-                                        onMouseDown={e => {
-                                          if (!e.altKey) return;
-                                          e.preventDefault();
-                                          const playerId = board.playerId;
-                                          panState.current[playerId] = { panning: true, lastX: e.clientX, lastY: e.clientY };
-                                        }}
-                                        onMouseMove={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]?.panning) {
-                                            e.preventDefault();
-                                            const dx = e.clientX - panState.current[playerId].lastX;
-                                            const dy = e.clientY - panState.current[playerId].lastY;
-                                            panState.current[playerId].lastX = e.clientX;
-                                            panState.current[playerId].lastY = e.clientY;
-                                            updateBoardTransform(playerId, t => ({ ...t, x: t.x + dx, y: t.y + dy }));
-                                          }
-                                        }}
-                                        onMouseUp={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
-                                        }}
-                                        onMouseLeave={e => {
-                                          const playerId = board.playerId;
-                                          if (panState.current[playerId]) panState.current[playerId].panning = false;
-                                        }}
-                                      >
-                                        <div
-                                          style={{
-                                            width: 400,
-                                            height: 200,
-                                            position: 'absolute',
-                                            top: 0,
-                                            left: 0,
-                                            transformOrigin: 'center center',
-                                            transform: `translate(${(boardTransforms[board.playerId]?.x||0)}px, ${(boardTransforms[board.playerId]?.y||0)}px) scale(${boardTransforms[board.playerId]?.scale||1})`,
-                                            transition: 'transform 0.2s ease-out',
-                                            pointerEvents: 'none',
-                                          }}
-                                          className="drawing-board"
-                                          dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="card-footer d-flex justify-content-between align-items-center">
-                                      <span>
-                                        {Array.from({length: player?.lives || 0}, (_, i) => (
-                                          <span key={i} className="text-danger me-1" role="img" aria-label="heart">❤</span>
-                                        ))}
-                                      </span>
-                                      {pendingAnswers.find(a => a.playerId === board.playerId) && (
-                                        <div>
-                                          <button 
-                                            className="btn btn-sm btn-success me-2"
-                                            onClick={() => evaluateAnswer(board.playerId, true)}
-                                          >
-                                            Correct
-                                          </button>
-                                          <button 
-                                            className="btn btn-sm btn-danger"
-                                            onClick={() => evaluateAnswer(board.playerId, false)}
-                                          >
-                                            Incorrect
-                                          </button>
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </div>
-                              );
-                          })}
-                        </div>
-                      )}
+                      <div
+                        className="board-row"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                          gap: '20px',
+                          width: '100%',
+                          overflowX: 'auto',
+                          alignItems: 'stretch',
+                        }}
+                      >
+                        {playerBoards.map(board => (
+                          <PlayerBoardDisplay
+                            key={board.playerId}
+                            board={board}
+                            isVisible={visibleBoards.has(board.playerId)}
+                            onToggleVisibility={toggleBoardVisibility}
+                            transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                            onScale={handleBoardScale}
+                            onPan={handleBoardPan}
+                            onReset={handleBoardReset}
+                          />
+                        ))}
+                      </div>
                     </div>
                   </div>
+
+                  <AnswerList
+                    answers={pendingAnswers}
+                    onEvaluate={evaluateAnswer}
+                    evaluatedAnswers={evaluatedAnswers}
+                  />
                 </>
               ) : (
                 <div className="card">
@@ -1003,49 +841,40 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
-      {/* Add Preview Mode Controls */}
-      <div className="preview-mode-controls mt-3" style={{
-        display: 'flex',
-        gap: '10px',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'fixed',
-        bottom: '20px',
-        left: '50%',
-        transform: 'translateX(-50%)',
-        zIndex: 1000,
-        background: 'rgba(255, 255, 255, 0.9)',
-        padding: '10px 20px',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0,0,0,0.1)'
-      }}>
-        {!previewMode.isActive ? (
+      {previewMode.isActive && (
+        <div className="preview-mode-controls mt-3" style={{
+          display: 'flex',
+          gap: '10px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'fixed',
+          bottom: '20px',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          zIndex: 1000,
+          background: 'rgba(255, 255, 255, 0.9)',
+          padding: '10px 20px',
+          borderRadius: '8px',
+          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
+          width: '90%',
+          maxWidth: '500px'
+        }}>
           <button
-            className="btn btn-primary"
-            onClick={handleStartPreviewMode}
-            disabled={!allAnswersIn}
+            className="btn btn-secondary w-100"
+            onClick={handleStopPreviewMode}
           >
-            Start Preview Mode
+            Stop Preview Mode
           </button>
-        ) : (
-          <>
+          {previewMode.focusedPlayerId && (
             <button
-              className="btn btn-secondary"
-              onClick={handleStopPreviewMode}
+              className="btn btn-outline-primary w-100"
+              onClick={() => handleFocusSubmission('')}
             >
-              Stop Preview Mode
+              Back to Gallery
             </button>
-            {previewMode.focusedPlayerId && (
-              <button
-                className="btn btn-outline-primary"
-                onClick={() => handleFocusSubmission('')}
-              >
-                Back to Gallery
-              </button>
-            )}
-          </>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Preview Mode Overlay */}
       <PreviewOverlay

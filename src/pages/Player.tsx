@@ -4,7 +4,12 @@ import { fabric } from 'fabric';
 import socketService from '../services/socketService';
 import { throttle } from '../utils/throttle';
 import audioService from '../services/audioService';
-import PreviewOverlay from '../components/PreviewOverlay';
+import PreviewOverlay from '../components/shared/PreviewOverlay';
+import QuestionCard from '../components/player/QuestionCard';
+import Timer from '../components/shared/Timer';
+import PlayerList from '../components/shared/PlayerList';
+import RoomCode from '../components/shared/RoomCode';
+import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 
 interface Question {
   id: number;
@@ -27,6 +32,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator: boolean;
 }
 
 interface PlayerBoard {
@@ -51,6 +57,7 @@ const Player: React.FC = () => {
   const navigate = useNavigate();
   const [roomCode, setRoomCode] = useState('');
   const [playerName, setPlayerName] = useState('');
+  const [isSpectator, setIsSpectator] = useState(false);
   const [lives, setLives] = useState(3);
   const [gameStarted, setGameStarted] = useState(false);
   const [gameOver, setGameOver] = useState(false);
@@ -85,6 +92,11 @@ const Player: React.FC = () => {
     focusedPlayerId: null
   });
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
+  const [visibleBoards, setVisibleBoards] = useState(new Set<string>());
+  const [roomCodeInput, setRoomCodeInput] = useState('');
+  const [playerNameInput, setPlayerNameInput] = useState('');
+  const [showSpectatorConfirm, setShowSpectatorConfirm] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -187,34 +199,37 @@ const Player: React.FC = () => {
 
   // Setup socket connection
   useEffect(() => {
-    // Get data from session
+    // Get room code and player name from sessionStorage
     const savedRoomCode = sessionStorage.getItem('roomCode');
     const savedPlayerName = sessionStorage.getItem('playerName');
+    const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
     
     if (!savedRoomCode || !savedPlayerName) {
-      navigate('/join');
+      navigate('/');
       return;
     }
-    
     setRoomCode(savedRoomCode);
     setPlayerName(savedPlayerName);
+    setIsSpectator(savedIsSpectator);
+    // Connect to socket server
+    socketService.connect();
+    // Do NOT join the room here. Only set up listeners below.
     
-    // Connect to socket
-    const socket = socketService.connect();
-    console.log('Player connected with socket ID:', socket.id);
-    
-    // Add a custom property to store room code with the socket object
-    // This will be available on the server side
-    (socket as any).roomCode = savedRoomCode;
-    
-    // Explicitly re-join the room when reconnecting
-    socketService.joinRoom(savedRoomCode, savedPlayerName);
-    
-    // Setup listeners
-    socketService.on('joined_room', (joinedRoomCode: string) => {
-      console.log('Confirmed joined room:', joinedRoomCode);
+    // Set up event listeners
+    socketService.on('error', (msg: string) => {
+      setErrorMsg(msg);
     });
     
+    socketService.on('become_spectator', () => {
+      setIsSpectator(true);
+      showFlashMessage('You have become a spectator', 'info');
+    });
+
+    socketService.on('question', (question: Question) => {
+      setCurrentQuestion(question);
+      setAnswer('');
+    });
+
     socketService.on('game_started', (data: { question: Question, timeLimit?: number }) => {
       setGameStarted(true);
       setCurrentQuestion(data.question);
@@ -266,22 +281,25 @@ const Player: React.FC = () => {
     });
     
     socketService.on('answer_evaluation', (data: { isCorrect: boolean, lives: number, playerId: string }) => {
-      setLives(data.lives);
-      // Set review notification
-      setReviewNotification({
-        isCorrect: data.isCorrect,
-        message: 'Reviewed by Game Master',
-        timestamp: Date.now()
-      });
+      // Only update lives and show notification if this is for the current player
+      if (socketService.connect().id === data.playerId) {
+        setLives(data.lives);
+        // Set review notification
+        setReviewNotification({
+          isCorrect: data.isCorrect,
+          message: 'Reviewed by Game Master',
+          timestamp: Date.now()
+        });
+        // Clear the notification after 5 seconds
+        setTimeout(() => {
+          setReviewNotification(null);
+        }, 5000);
+      }
       // Update evaluatedAnswers for preview mode
       setEvaluatedAnswers(prev => ({
         ...prev,
-        [data.playerId]: data.isCorrect  // Use the playerId from the data
+        [data.playerId]: data.isCorrect
       }));
-      // Clear the notification after 5 seconds
-      setTimeout(() => {
-        setReviewNotification(null);
-      }, 5000);
     });
     
     socketService.on('game_over', () => {
@@ -297,18 +315,6 @@ const Player: React.FC = () => {
     socketService.on('gamemaster_left', () => {
       setErrorMsg('The Game Master has left the game. Redirecting to home...');
       setTimeout(() => navigate('/'), 3000);
-    });
-    
-    socketService.on('error', (msg: string) => {
-      setErrorMsg(msg);
-      if (msg === 'Room does not exist') {
-        // If room doesn't exist anymore, redirect to join page
-        setTimeout(() => {
-          sessionStorage.removeItem('roomCode');
-          sessionStorage.removeItem('playerName');
-          navigate('/join');
-        }, 3000);
-      }
     });
     
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
@@ -374,23 +380,6 @@ const Player: React.FC = () => {
       }
     });
     
-    socketService.on('game_restarted', () => {
-      // Reset game state
-      setGameStarted(false);
-      setGameOver(false);
-      setIsWinner(false);
-      setCurrentQuestion(null);
-      setAnswer('');
-      setSubmittedAnswer(false);
-      setLives(3);
-      setTimeLimit(null);
-      setTimeRemaining(null);
-      resetCanvas();
-      
-      // Show a message about game restart
-      showFlashMessage('Game has been restarted. Waiting for game master to start a new round.', 'info');
-    });
-    
     // Add preview mode event listeners
     socketService.on('start_preview_mode', () => {
       console.log('Preview mode started');
@@ -413,16 +402,16 @@ const Player: React.FC = () => {
       setPlayers(updatedPlayers);
     });
 
-    socketService.on('board_update', (boardData: PlayerBoard) => {
-      console.log('Board update received:', boardData);
-      setPlayerBoards(prev => {
-        const index = prev.findIndex(b => b.playerId === boardData.playerId);
+    socketService.on('board_update', (data: PlayerBoard) => {
+      console.log('Board update received:', data);
+      setPlayerBoards(prevBoards => {
+        const index = prevBoards.findIndex(b => b.playerId === data.playerId);
         if (index >= 0) {
-          const newBoards = [...prev];
-          newBoards[index] = boardData;
+          const newBoards = [...prevBoards];
+          newBoards[index] = data;
           return newBoards;
         }
-        return [...prev, boardData];
+        return [...prevBoards, data];
       });
     });
 
@@ -437,16 +426,44 @@ const Player: React.FC = () => {
       }));
     });
 
+    socketService.on('player_joined', (player: Player) => {
+      if (player.id === socketService.connect().id) {
+        setIsSpectator(player.isSpectator);
+        sessionStorage.setItem('isSpectator', player.isSpectator ? 'true' : 'false');
+        setRoomCode(savedRoomCode || '');
+        setPlayerName(player.name || savedPlayerName || '');
+        sessionStorage.setItem('roomCode', savedRoomCode || '');
+        sessionStorage.setItem('playerName', player.name || savedPlayerName || '');
+        sessionStorage.setItem('playerId', player.id);
+      }
+    });
+
+    socketService.on('game_restarted', () => {
+      setGameStarted(false);
+      setCurrentQuestion(null);
+      setPlayerBoards([]);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setVisibleBoards(new Set());
+      setReviewNotification(null);
+      setTimeRemaining(null);
+      setIsTimerRunning(false);
+      setSubmittedAnswer(false);
+      setAnswer('');
+      setErrorMsg('');
+    });
+
     return () => {
       console.log('[DEBUG] Player component UNMOUNTED or useEffect cleanup');
       // Clean up listeners
+      socketService.off('question');
+      socketService.off('error');
       socketService.off('game_started');
       socketService.off('new_question');
       socketService.off('answer_evaluation');
       socketService.off('game_over');
       socketService.off('game_winner');
       socketService.off('gamemaster_left');
-      socketService.off('error');
       socketService.off('timer_update');
       socketService.off('time_up');
       socketService.off('end_round_early');
@@ -462,7 +479,7 @@ const Player: React.FC = () => {
       // Disconnect
       socketService.disconnect();
     };
-  }, [navigate, roomCode]);
+  }, [navigate]);
 
   useEffect(() => {
     submittedAnswerRef.current = submittedAnswer;
@@ -472,32 +489,8 @@ const Player: React.FC = () => {
     answerRef.current = answer;
   }, [answer]);
 
-  // Only call resetCanvas on explicit actions
-  const resetCanvas = () => {
-    setCanvasKey(prev => prev + 1);
-  };
-
-  // Update clearCanvas to check for submission
-  const clearCanvas = () => {
-    if (fabricCanvasRef.current && !submittedAnswer) {
-      fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#0C6A35'; // School green board color
-      fabricCanvasRef.current.renderAll();
-      
-      // Send empty canvas to gamemaster
-      const svgData = fabricCanvasRef.current.toSVG();
-      socketService.updateBoard(roomCode, svgData);
-    }
-  };
-
-  const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setAnswer(e.target.value);
-    // Store current answer in socket for auto-submission
-    const socket = socketService.connect();
-    (socket as any).currentAnswer = e.target.value;
-  };
-
-  const handleSubmitAnswer = (force = false) => {
+  // Memoize event handlers
+  const handleSubmitAnswer = useCallback((force = false) => {
     if (!currentQuestion || submittedAnswerRef.current) return;
   
     const room = roomCode || sessionStorage.getItem('roomCode')!;
@@ -521,9 +514,9 @@ const Player: React.FC = () => {
     socketService.submitAnswer(room, finalAnswer, hasDrawing);
     setSubmittedAnswer(true);
     showFlashMessage(force ? 'Answer submitted automatically' : 'Answer submitted!', 'info');
-  };
+  }, [currentQuestion, roomCode]);
 
-  const showFlashMessage = (message: string, type: 'success' | 'danger' | 'warning' | 'info') => {
+  const showFlashMessage = useCallback((message: string, type: 'success' | 'danger' | 'warning' | 'info') => {
     setErrorMsg(message);
     document.getElementById('flash-message')?.classList.add(`alert-${type}`);
     
@@ -531,8 +524,62 @@ const Player: React.FC = () => {
       setErrorMsg('');
       document.getElementById('flash-message')?.classList.remove(`alert-${type}`);
     }, 3000);
-  };
+  }, []);
 
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
+      // When tab becomes visible, check if we need to submit
+      if (timeRemaining <= 0 && !submittedAnswerRef.current && currentQuestion) {
+        handleSubmitAnswer();
+      }
+    }
+  }, [timeRemaining, timeLimit, currentQuestion, handleSubmitAnswer]);
+
+  const handleToggleMute = useCallback(() => {
+    const newMuteState = audioService.toggleMute();
+    setIsMuted(newMuteState);
+  }, []);
+
+  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    audioService.setVolume(newVolume);
+    setVolume(newVolume);
+  }, []);
+
+  const handleClosePreviewMode = useCallback(() => {
+    socketService.stopPreviewMode(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+  }, [roomCode]);
+
+  const handleFocusSubmission = useCallback((playerId: string) => {
+    socketService.focusSubmission(roomCode, playerId);
+    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
+  }, [roomCode]);
+
+  const resetCanvas = useCallback(() => {
+    setCanvasKey(prev => prev + 1);
+  }, []);
+
+  const clearCanvas = useCallback(() => {
+    if (fabricCanvasRef.current && !submittedAnswer) {
+      fabricCanvasRef.current.clear();
+      fabricCanvasRef.current.backgroundColor = '#0C6A35'; // School green board color
+      fabricCanvasRef.current.renderAll();
+      
+      // Send empty canvas to gamemaster
+      const svgData = fabricCanvasRef.current.toSVG();
+      socketService.updateBoard(roomCode, svgData);
+    }
+  }, [roomCode, submittedAnswer]);
+
+  const handleAnswerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setAnswer(e.target.value);
+    // Store current answer in socket for auto-submission
+    const socket = socketService.connect();
+    (socket as any).currentAnswer = e.target.value;
+  }, []);
+
+  // Update useEffect dependencies
   useEffect(() => {
     if (
       !submittedAnswerRef.current &&
@@ -543,24 +590,22 @@ const Player: React.FC = () => {
     ) {
       handleSubmitAnswer();
     }
-  }, [timeRemaining]);
+  }, [timeRemaining, currentQuestion, timeLimit, handleSubmitAnswer]);
 
-  // Add visibility change handler
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
-        // When tab becomes visible, check if we need to submit
-        if (timeRemaining <= 0 && !submittedAnswerRef.current && currentQuestion) {
-          handleSubmitAnswer();
-        }
-      }
-    };
-
     document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [timeRemaining, timeLimit, currentQuestion]);
+  }, [handleVisibilityChange]);
+
+  // Move formatTime outside component since it doesn't depend on any component state
+  const formatTime = (seconds: number | null): string => {
+    if (seconds === null) return '--:--';
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     // Start playing background music when component mounts
@@ -572,26 +617,75 @@ const Player: React.FC = () => {
     };
   }, []);
 
-  const handleToggleMute = () => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  };
+  useEffect(() => {
+    if (gameStarted) {
+      // Show all boards of active players (non-spectators) when game starts
+      setVisibleBoards(new Set(playerBoards.filter(b => {
+        const player = players.find(p => p.id === b.playerId);
+        return player && !player.isSpectator;
+      }).map(b => b.playerId)));
+    }
+  }, [gameStarted, playerBoards, players]);
 
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  };
+  useEffect(() => {
+    if (isSpectator) {
+      // Only show boards of active players (non-spectators)
+      setVisibleBoards(new Set(playerBoards.filter(b => {
+        const player = players.find(p => p.id === b.playerId);
+        return player && !player.isSpectator;
+      }).map(b => b.playerId)));
+    }
+  }, [isSpectator, playerBoards, players]);
 
-  const handleClosePreviewMode = () => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
-  };
+  const handleJoinRoom = useCallback(() => {
+    if (!roomCodeInput || !playerNameInput) {
+      setErrorMsg('Please enter both room code and player name');
+      return;
+    }
+    setIsLoading(true);
+    socketService.joinRoom(roomCodeInput, playerNameInput, isSpectator);
+  }, [roomCodeInput, playerNameInput, isSpectator]);
 
-  const handleFocusSubmission = (playerId: string) => {
-    socketService.focusSubmission(roomCode, playerId);
-    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
-  };
+  const handleSwitchToSpectator = useCallback(() => {
+    setShowSpectatorConfirm(true);
+  }, []);
+
+  const confirmSwitchToSpectator = useCallback(() => {
+    const roomCode = sessionStorage.getItem('roomCode');
+    const playerId = sessionStorage.getItem('playerId');
+    if (roomCode && playerId) {
+      socketService.switchToSpectator(roomCode, playerId);
+      sessionStorage.setItem('isSpectator', 'true');
+      // Clean up socket listeners before navigating
+      socketService.off('error');
+      socketService.off('become_spectator');
+      socketService.off('question');
+      socketService.off('game_started');
+      socketService.off('new_question');
+      socketService.off('answer_evaluation');
+      socketService.off('game_over');
+      socketService.off('game_winner');
+      socketService.off('gamemaster_left');
+      socketService.off('timer_update');
+      socketService.off('time_up');
+      socketService.off('end_round_early');
+      socketService.off('game_restarted');
+      socketService.off('answer_received');
+      socketService.off('start_preview_mode');
+      socketService.off('stop_preview_mode');
+      socketService.off('focus_submission');
+      socketService.off('players_update');
+      socketService.off('board_update');
+      socketService.off('answer_submitted');
+      socketService.off('player_joined');
+      navigate('/spectator');
+    }
+    setShowSpectatorConfirm(false);
+  }, [navigate]);
+
+  const cancelSwitchToSpectator = useCallback(() => {
+    setShowSpectatorConfirm(false);
+  }, []);
 
   if (gameOver && !isWinner) {
     return (
@@ -627,10 +721,110 @@ const Player: React.FC = () => {
     );
   }
 
+  if (isSpectator) {
+    const showAllBoards = () => setVisibleBoards(new Set(playerBoards.filter(b => {
+      const player = players.find(p => p.id === b.playerId);
+      return player && !player.isSpectator;
+    }).map(b => b.playerId)));
+    const hideAllBoards = () => setVisibleBoards(new Set());
+    return (
+      <div className="container-fluid px-2 px-md-4">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+          <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
+            <span className="bi bi-eye section-icon" aria-label="Spectator"></span>
+            Spectator View
+          </div>
+        </div>
+        <div className="row g-3">
+          <div className="col-12 col-md-8">
+            {currentQuestion && (
+              <div className="card mb-4">
+                <div className="card-body">
+                  <h3>Current Question:</h3>
+                  <p className="lead">{currentQuestion.text}</p>
+                </div>
+              </div>
+            )}
+            <div className="card mb-4">
+              <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 className="mb-0">Player Boards</h5>
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+                </div>
+              </div>
+              <div className="card-body">
+                <div
+                  className="board-row"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                    gap: '20px',
+                    width: '100%',
+                    overflowX: 'auto',
+                    alignItems: 'stretch',
+                  }}
+                >
+                  {playerBoards.filter(board => {
+                    const player = players.find(p => p.id === board.playerId);
+                    return player && !player.isSpectator;
+                  }).map(board => (
+                    <PlayerBoardDisplay
+                      key={board.playerId}
+                      board={board}
+                      isVisible={visibleBoards.has(board.playerId)}
+                      onToggleVisibility={id => setVisibleBoards(prev => {
+                        const newSet = new Set(prev);
+                        if (newSet.has(id)) newSet.delete(id); else newSet.add(id);
+                        return newSet;
+                      })}
+                      transform={{ scale: 1, x: 0, y: 0 }}
+                      onScale={() => {}}
+                      onPan={() => {}}
+                      onReset={() => {}}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+            {/* Preview Overlay for Spectators */}
+            <PreviewOverlay
+              players={players}
+              playerBoards={playerBoards}
+              allAnswersThisRound={allAnswersThisRound}
+              evaluatedAnswers={evaluatedAnswers}
+              previewMode={previewMode}
+              onFocus={() => {}}
+              onClose={() => {}}
+              isGameMaster={false}
+            />
+          </div>
+          <div className="col-12 col-md-4">
+            <PlayerList
+              players={players}
+              title="Players"
+            />
+            <div className="d-grid gap-2 mt-3">
+              <button
+                className="btn btn-outline-secondary"
+                onClick={() => navigate('/')}
+              >
+                Leave Game
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="container">
-      <div className="d-flex justify-content-between align-items-center mb-4">
-        <h1 className="text-center mb-0">Player Dashboard</h1>
+    <div className="container-fluid px-2 px-md-4">
+      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
+          <span className="bi bi-person section-icon" aria-label="Player"></span>
+          Player Dashboard
+        </div>
         <div className="d-flex align-items-center gap-2">
           <input
             type="range"
@@ -656,162 +850,178 @@ const Player: React.FC = () => {
           </button>
         </div>
       </div>
-      <div className="row mb-4">
-        <div className="col-md-6">
-          <h1>Player: {playerName}</h1>
-          <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
-        </div>
-        <div className="col-md-3">
-          {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
-            <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
-              <h3>
-                <span className="me-2">Time:</span>
-                <span>{timeRemaining}</span>
-                <span className="ms-1">sec</span>
-              </h3>
+      <div className="row g-3">
+        <div className="col-12 col-md-8">
+          <div className="row g-3 mb-4">
+            <div className="col-12 col-md-6 d-flex flex-column gap-2 align-items-start">
+              {/* Remove lives display from here */}
             </div>
-          )}
-        </div>
-        <div className="col-md-3 text-end">
-          <div className="lives-display">
-            <span className="me-2">Lives:</span>
-            {[...Array(lives)].map((_, i) => (
-              <span key={i} className="life" role="img" aria-label="heart">❤</span>
-            ))}
-          </div>
-        </div>
-      </div>
-      
-      {errorMsg && (
-        <div id="flash-message" className="alert mb-4" role="alert">
-          {errorMsg}
-        </div>
-      )}
-
-      {reviewNotification && (
-        <div className={`alert ${reviewNotification.isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
-          <div className="me-3">
-            {reviewNotification.isCorrect ? (
-              <span role="img" aria-label="thumbs up" style={{ fontSize: '1.5rem' }}>👍</span>
-            ) : (
-              <span role="img" aria-label="thumbs down" style={{ fontSize: '1.5rem' }}>👎</span>
-            )}
-          </div>
-          <div>
-            <strong>{reviewNotification.message}</strong>
-            <div className="small">
-              {reviewNotification.isCorrect ? 'Your answer was correct!' : 'Your answer was incorrect.'}
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {!gameStarted ? (
-        <div className="card p-4 text-center">
-          <h2 className="mb-3">Waiting for Game Master to start the game</h2>
-          <p>Get ready! The game will begin soon.</p>
-          <div className="spinner-border text-primary mx-auto mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
-      ) : (
-        <>
-          <div className="card mb-4">
-            <div className="card-header">
-              <h3 className="mb-0">Question</h3>
-            </div>
-            <div className="card-body">
-              <div className="question-container">
-                <p className="lead mb-1">{currentQuestion?.text}</p>
-                <small>Grade: {currentQuestion?.grade} | Subject: {currentQuestion?.subject} 
-                {currentQuestion?.language && ` | Language: ${currentQuestion.language}`}</small>
-              </div>
+            <div className="col-6 col-md-3">
+              {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
+                <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
+                  <h3 className="h5">
+                    <span className="me-2">Time:</span>
+                    <span>{timeRemaining}</span>
+                    <span className="ms-1">sec</span>
+                  </h3>
+                </div>
+              )}
             </div>
           </div>
           
-          <div className="card mb-4">
-            <div className="card-header d-flex justify-content-between align-items-center">
-              <h3 className="mb-0">Your Answer</h3>
+          {errorMsg && (
+            <div id="flash-message" className="alert mb-4" role="alert">
+              {errorMsg}
+            </div>
+          )}
+
+          {reviewNotification && (
+            <div className={`alert ${reviewNotification.isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
+              <div className="me-3">
+                {reviewNotification.isCorrect ? (
+                  <span role="img" aria-label="thumbs up" style={{ fontSize: '1.5rem' }}>👍</span>
+                ) : (
+                  <span role="img" aria-label="thumbs down" style={{ fontSize: '1.5rem' }}>👎</span>
+                )}
+              </div>
               <div>
-                <button 
-                  className="btn btn-outline-light me-2"
-                  onClick={clearCanvas}
-                  style={{ backgroundColor: '#8B4513', border: 'none' }}
-                >
-                  Erase Board
-                </button>
+                <strong>{reviewNotification.message}</strong>
+                <div className="small">
+                  {reviewNotification.isCorrect ? 'Your answer was correct!' : 'Your answer was incorrect.'}
+                </div>
               </div>
             </div>
-            <div className="card-body">
-              <div className="mb-4 drawing-board-container" style={{ 
-                width: '800px',
-                height: '400px',
-                border: '12px solid #8B4513', 
-                borderRadius: '4px',
-                boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                position: 'relative',
-                overflow: 'hidden',
-                margin: '0 auto',
-                background: '#0C6A35', // fallback in case canvas doesn't fill
-              }}>
-                <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block' }} />
+          )}
+          
+          {!gameStarted ? (
+            <div className="card p-4 text-center">
+              <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
+              <p>Get ready! The game will begin soon.</p>
+              <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                <span className="visually-hidden">Loading...</span>
               </div>
+            </div>
+          ) : (
+            <>
+              <QuestionCard currentQuestion={currentQuestion} />
               
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  className="form-control form-control-lg"
-                  placeholder="Type your answer here..."
-                  value={answer}
-                  onChange={handleAnswerChange}
-                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+              {timeLimit !== null && timeRemaining !== null && (
+                <Timer
+                  timeLimit={timeLimit}
+                  timeRemaining={timeRemaining}
+                  isActive={isTimerRunning}
+                  showSeconds={true}
                 />
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={() => handleSubmitAnswer()}
-                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
-                >
-                  Submit Answer
-                </button>
+              )}
+              
+              <div className="card mb-4">
+                <div className="card-header d-flex justify-content-between align-items-center">
+                  <h3 className="h5 mb-0">Your Answer</h3>
+                  <div>
+                    <button 
+                      className="btn btn-outline-light"
+                      onClick={clearCanvas}
+                      style={{ backgroundColor: '#8B4513', border: 'none' }}
+                    >
+                      Erase Board
+                    </button>
+                  </div>
+                </div>
+                <div className="card-body">
+                  <div className="mb-4 drawing-board-container" style={{ 
+                    width: '100%',
+                    maxWidth: '800px',
+                    height: 'auto',
+                    minHeight: '250px',
+                    border: '12px solid #8B4513', 
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
+                    position: 'relative',
+                    overflow: 'hidden',
+                    margin: '0 auto',
+                    background: '#0C6A35',
+                  }}>
+                    <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block', width: '100%', height: '100%' }} />
+                  </div>
+                  
+                  <div className="input-group mb-3">
+                    <input
+                      type="text"
+                      className="form-control form-control-lg"
+                      placeholder="Type your answer here..."
+                      value={answer}
+                      onChange={handleAnswerChange}
+                      disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => handleSubmitAnswer()}
+                      disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                    >
+                      Submit Answer
+                    </button>
+                  </div>
+                  
+                  {submittedAnswer && (
+                    <div className="alert alert-info">
+                      Your answer has been submitted. Wait for the Game Master to evaluate it.
+                    </div>
+                  )}
+                </div>
               </div>
-              
-              {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
-                <div className={`text-center ${timeRemaining <= 10 ? 'text-danger fw-bold' : ''}`}>
-                  Time remaining: {formatTime(timeRemaining)}
-                  {timeRemaining <= 10 && <span className="ms-1">- Answer will be auto-submitted when time is up!</span>}
-                </div>
-              )}
-              
-              {submittedAnswer && (
-                <div className="alert alert-info">
-                  Your answer has been submitted. Wait for the Game Master to evaluate it.
-                </div>
-              )}
+            </>
+          )}
+          <PreviewOverlay
+            players={players}
+            playerBoards={playerBoards}
+            allAnswersThisRound={allAnswersThisRound}
+            evaluatedAnswers={evaluatedAnswers}
+            previewMode={previewMode}
+            onFocus={handleFocusSubmission}
+            onClose={handleClosePreviewMode}
+            isGameMaster={false}
+          />
+        </div>
+        <div className="col-12 col-md-4">
+          <RoomCode roomCode={roomCode} />
+          <PlayerList 
+            players={players} 
+            currentPlayerId={socketService.connect().id || ''}
+            title="Other Players"
+          />
+        </div>
+      </div>
+      {showSpectatorConfirm && (
+        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+          <div className="modal-dialog">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">Switch to Spectator Mode?</h5>
+                <button type="button" className="btn-close" onClick={cancelSwitchToSpectator}></button>
+              </div>
+              <div className="modal-body">
+                <p>Are you sure you want to switch to spectator mode? You will no longer be able to participate in the game.</p>
+              </div>
+              <div className="modal-footer">
+                <button type="button" className="btn btn-secondary" onClick={cancelSwitchToSpectator}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={confirmSwitchToSpectator}>Switch to Spectator</button>
+              </div>
             </div>
           </div>
-        </>
+        </div>
       )}
-      <PreviewOverlay
-        players={players}
-        playerBoards={playerBoards}
-        allAnswersThisRound={allAnswersThisRound}
-        evaluatedAnswers={evaluatedAnswers}
-        previewMode={previewMode}
-        onFocus={handleFocusSubmission}
-        onClose={handleClosePreviewMode}
-        isGameMaster={false}
-      />
+      {!isSpectator && !gameOver && !isWinner && roomCode && (
+        <button
+          className="btn btn-outline-warning position-fixed"
+          style={{ bottom: '20px', right: '20px', zIndex: 1000 }}
+          onClick={handleSwitchToSpectator}
+        >
+          Switch to Spectator Mode
+        </button>
+      )}
     </div>
   );
-};
-
-// Helper function to format time
-const formatTime = (seconds: number | null): string => {
-  if (seconds === null) return '--:--';
-  const mins = Math.floor(seconds / 60);
-  const secs = seconds % 60;
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 };
 
 export default Player; 

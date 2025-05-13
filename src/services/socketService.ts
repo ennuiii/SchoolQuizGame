@@ -109,18 +109,36 @@ class SocketService {
   }
 
   // Player actions
-  joinRoom(roomCode: string, playerName: string) {
-    console.log(`Joining room ${roomCode} as ${playerName}`);
-    this.emit('join_room', { roomCode, playerName });
+  joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
+    if (this.socket) {
+      this.socket.emit('join_room', { roomCode, playerName, isSpectator });
+    }
+  }
+
+  joinAsSpectator(roomCode: string, playerName: string) {
+    console.log(`Joining room ${roomCode} as spectator ${playerName}`);
+    this.emit('join_as_spectator', { roomCode, playerName });
   }
 
   submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false) {
     this.emit('submit_answer', { roomCode, answer, hasDrawing });
   }
   
-  // Board update function - missing function that was causing the build error
+  // Board update function
   updateBoard(roomCode: string, boardData: string) {
-    this.emit('board_update', { roomCode, boardData });
+    this.emit('update_board', { roomCode, boardData });
+  }
+
+  switchToSpectator(roomCode: string, playerId: string) {
+    if (this.socket) {
+      this.socket.emit('switch_to_spectator', { roomCode, playerId });
+    }
+  }
+
+  switchToPlayer(roomCode: string, playerName: string) {
+    if (this.socket) {
+      this.socket.emit('switch_to_player', { roomCode, playerName });
+    }
   }
 }
 
