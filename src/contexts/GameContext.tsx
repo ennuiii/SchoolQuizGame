@@ -292,6 +292,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     });
 
+    socketService.onError((error: string) => {
+      setQuestionErrorMsg(error);
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+    });
+
     socketService.on('new_question', (data: { question: Question, timeLimit?: number }) => {
       setCurrentQuestion(data.question);
       setCurrentQuestionIndex(prev => prev + 1);

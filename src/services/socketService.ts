@@ -41,22 +41,16 @@ class SocketService {
     }
   }
 
-  on(event: string, callback: (...args: any[]) => void) {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
-    }
-    this.listeners[event].push(callback);
+  on(event: string, callback: (data: any) => void) {
     this.socket?.on(event, callback);
   }
 
-  off(event: string, callback?: (...args: any[]) => void) {
-    if (callback && this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(c => c !== callback);
-      this.socket?.off(event, callback);
-    } else {
-      delete this.listeners[event];
-      this.socket?.off(event);
-    }
+  off(event: string) {
+    this.socket?.off(event);
+  }
+
+  onError(callback: (error: string) => void) {
+    this.socket?.on('error', callback);
   }
 
   emit(event: string, ...args: any[]) {

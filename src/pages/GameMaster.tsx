@@ -229,6 +229,11 @@ const GameMaster: React.FC = () => {
       <div className="row g-3">
         <div className="col-12 col-md-4">
           <RoomCode />
+          {questionErrorMsg && (
+            <div className="alert alert-danger mb-3" role="alert">
+              {questionErrorMsg}
+            </div>
+          )}
           {!previewMode.isActive && (
             <div className="mb-3">
               <button
