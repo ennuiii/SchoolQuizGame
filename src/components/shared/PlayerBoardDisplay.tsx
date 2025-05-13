@@ -29,37 +29,35 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   onPan,
   onReset
 }) => {
-  // Parse SVG and extract initial viewBox
   const [svgContent, setSvgContent] = useState<React.ReactNode>(null);
   const [viewBox, setViewBox] = useState<[number, number, number, number]>([0, 0, 800, 400]);
-  const panState = useRef<{panning: boolean; lastX: number; lastY: number}>({ panning: false, lastX: 0, lastY: 0 });
+  const containerRef = useRef<HTMLDivElement>(null);
+  const isPanning = useRef(false);
+  const lastMousePos = useRef({ x: 0, y: 0 });
 
   useEffect(() => {
     if (!board.boardData) {
       setSvgContent(null);
       return;
     }
-    // Parse SVG string
+
     const parser = new DOMParser();
     const doc = parser.parseFromString(board.boardData, 'image/svg+xml');
     const svg = doc.querySelector('svg');
+    
     if (!svg || !svg.innerHTML) {
       setSvgContent(<div style={{color: 'red'}}>Invalid SVG</div>);
       return;
     }
-    // Get initial viewBox
+
     const vb = svg.getAttribute('viewBox');
     if (typeof vb === 'string' && vb.trim().length > 0) {
       const parts = vb.split(' ').map(Number);
       if (parts.length === 4 && parts.every(n => !isNaN(n))) {
-        setViewBox([parts[0], parts[1], parts[2], parts[3]]);
-      } else {
-        setViewBox([0, 0, 800, 400]); // fallback
+        setViewBox(parts as [number, number, number, number]);
       }
-    } else {
-      setViewBox([0, 0, 800, 400]); // fallback
     }
-    // Convert SVG element to React
+
     setSvgContent(
       <svg
         width="100%"
@@ -71,65 +69,90 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
         dangerouslySetInnerHTML={{ __html: svg.innerHTML }}
       />
     );
-    // eslint-disable-next-line
-  }, [board.boardData, viewBox.join(' ')]);
+  }, [board.boardData]);
 
-  // Mouse wheel for zoom (Alt+Wheel)
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
-    if (e.altKey) {
-      e.preventDefault();
-      const [x, y, w, h] = viewBox;
-      const scaleFactor = e.deltaY < 0 ? 0.9 : 1.1;
-      // Zoom centered on mouse position
-      const rect = (e.target as HTMLDivElement).getBoundingClientRect();
-      const mx = ((e.clientX - rect.left) / rect.width) * w + x;
-      const my = ((e.clientY - rect.top) / rect.height) * h + y;
-      const newW = w * scaleFactor;
-      const newH = h * scaleFactor;
-      const newX = mx - ((mx - x) * newW) / w;
-      const newY = my - ((my - y) * newH) / h;
-      setViewBox([newX, newY, newW, newH]);
-    }
+    if (!e.altKey) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
+
+    // Calculate mouse position in SVG coordinates
+    const svgX = (mouseX / rect.width) * viewBox[2] + viewBox[0];
+    const svgY = (mouseY / rect.height) * viewBox[3] + viewBox[1];
+
+    // Calculate zoom factor
+    const zoomFactor = e.deltaY < 0 ? 0.9 : 1.1;
+    const newWidth = viewBox[2] * zoomFactor;
+    const newHeight = viewBox[3] * zoomFactor;
+
+    // Calculate new viewBox to zoom towards mouse position
+    const newX = svgX - (mouseX / rect.width) * newWidth;
+    const newY = svgY - (mouseY / rect.height) * newHeight;
+
+    setViewBox([newX, newY, newWidth, newHeight]);
   };
 
-  // Mouse down for pan (Alt+Drag)
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (e.altKey && e.button === 0) {
-      panState.current.panning = true;
-      panState.current.lastX = e.clientX;
-      panState.current.lastY = e.clientY;
-      window.addEventListener('mousemove', handleMouseMove);
-      window.addEventListener('mouseup', handleMouseUp);
+    if (!e.altKey || e.button !== 0) return;
+    
+    e.preventDefault();
+    e.stopPropagation();
+
+    isPanning.current = true;
+    lastMousePos.current = { x: e.clientX, y: e.clientY };
+    
+    const container = containerRef.current;
+    if (container) {
+      container.style.cursor = 'grabbing';
     }
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Mouse move for pan
   const handleMouseMove = (e: MouseEvent) => {
-    if (panState.current.panning) {
-      const dx = e.clientX - panState.current.lastX;
-      const dy = e.clientY - panState.current.lastY;
-      panState.current.lastX = e.clientX;
-      panState.current.lastY = e.clientY;
-      // Convert pixel movement to SVG units
-      const [, , w, h] = viewBox;
-      const container = containerRef.current;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        const svgDx = (dx / rect.width) * w;
-        const svgDy = (dy / rect.height) * h;
-        setViewBox(([x, y, w, h]) => [x - svgDx, y - svgDy, w, h]);
-      }
-    }
+    if (!isPanning.current) return;
+
+    const container = containerRef.current;
+    if (!container) return;
+
+    const rect = container.getBoundingClientRect();
+    const dx = e.clientX - lastMousePos.current.x;
+    const dy = e.clientY - lastMousePos.current.y;
+
+    // Convert pixel movement to SVG coordinates
+    const svgDx = (dx / rect.width) * viewBox[2];
+    const svgDy = (dy / rect.height) * viewBox[3];
+
+    setViewBox(prev => [
+      prev[0] - svgDx,
+      prev[1] - svgDy,
+      prev[2],
+      prev[3]
+    ]);
+
+    lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
-  // Mouse up to stop pan
   const handleMouseUp = () => {
-    panState.current.panning = false;
+    isPanning.current = false;
+    
+    const container = containerRef.current;
+    if (container) {
+      container.style.cursor = 'grab';
+    }
+
     window.removeEventListener('mousemove', handleMouseMove);
     window.removeEventListener('mouseup', handleMouseUp);
   };
-
-  const containerRef = useRef<HTMLDivElement>(null);
 
   return (
     <div className="mb-4">
@@ -157,6 +180,8 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
               maxWidth: '100%',
               position: 'relative',
               overflow: 'hidden',
+              cursor: 'grab',
+              userSelect: 'none'
             }}
             onWheel={handleWheel}
             onMouseDown={handleMouseDown}
@@ -171,7 +196,6 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 background: '#0C6A35',
                 border: '4px solid #8B4513',
                 borderRadius: 4,
-                cursor: 'grab',
                 overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
