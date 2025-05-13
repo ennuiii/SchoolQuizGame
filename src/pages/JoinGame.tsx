@@ -196,12 +196,14 @@ const JoinGame: React.FC = () => {
   }, []);
 
   return (
-    <div className="container">
+    <div className="join-container">
       <div className="row justify-content-center">
         <div className="col-md-8">
           <div className="card">
+            <div className="card-header">
+              <h1 className="text-center mb-0">Join a Game</h1>
+            </div>
             <div className="card-body">
-              <h1 className="text-center mb-4">Join a Game</h1>
               <div className="mb-3">
                 <label htmlFor="roomCode" className="form-label">Room Code</label>
                 <input
@@ -225,7 +227,8 @@ const JoinGame: React.FC = () => {
                 />
               </div>
               {errorMsg && <div className="alert alert-danger">{errorMsg}</div>}
-              <div className="d-grid gap-2">
+              
+              <div className="d-flex flex-column gap-2">
                 <button
                   className="btn btn-primary"
                   onClick={handleCreateRoom}

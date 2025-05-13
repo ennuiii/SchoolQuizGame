@@ -13,12 +13,7 @@ import Timer from '../components/shared/Timer';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
-import { Player, PlayerBoard, AnswerSubmission, Question } from '../types/game';
-
-interface PreviewModeState {
-  isActive: boolean;
-  focusedPlayerId: string | null;
-}
+import type { Player, PlayerBoard, AnswerSubmission, Question, PreviewModeState } from '../types/game';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -45,16 +40,15 @@ const GameMaster: React.FC = () => {
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
   const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
+  const [isPreviewMode, setIsPreviewMode] = useState<PreviewModeState>({ isActive: false, focusedPlayerId: null });
   const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
   const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
   const [volume, setVolume] = useState(audioService.getVolume());
-  const [previewMode, setPreviewMode] = useState<PreviewModeState>({
-    isActive: false,
-    focusedPlayerId: null
-  });
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [confirmationAction, setConfirmationAction] = useState<(() => void) | null>(null);
+  const [confirmationMessage, setConfirmationMessage] = useState('');
   const [isTimerRunning, setIsTimerRunning] = useState(false);
 
   const handleToggleMute = useCallback(() => {
@@ -300,48 +294,65 @@ const GameMaster: React.FC = () => {
 
     // Set up socket listeners
     socketService.on('players_update', (players: Player[]) => {
+      console.log('Players update received:', players);
       dispatch({ type: 'SET_PLAYERS', payload: players });
+      setPlayers(players); // Update local state as well
     });
 
     socketService.on('player_joined', (player: Player) => {
+      console.log('Player joined:', player);
       dispatch({ type: 'ADD_PLAYER', payload: player });
+      setPlayers(prev => [...prev, player]); // Update local state as well
     });
 
     socketService.on('board_update', (playerBoards: PlayerBoard[]) => {
+      console.log('Board update received:', playerBoards);
       dispatch({ type: 'SET_PLAYER_BOARDS', payload: playerBoards });
+      setPlayerBoards(playerBoards); // Update local state as well
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
+      console.log('Answer submitted:', submission);
       dispatch({ type: 'ADD_ANSWER_SUBMISSION', payload: submission });
+      setPendingAnswers(prev => [...prev, submission]); // Update local state as well
     });
 
     socketService.on('timer_update', (timeLeft: number) => {
       dispatch({ type: 'SET_TIME_LEFT', payload: timeLeft });
+      setTimeRemaining(timeLeft); // Update local state as well
     });
 
     socketService.on('game_started', () => {
       dispatch({ type: 'SET_GAME_STARTED', payload: true });
+      setGameStarted(true); // Update local state as well
       // Ensure preview mode is off when game starts
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
     socketService.on('game_ended', () => {
       dispatch({ type: 'SET_GAME_STARTED', payload: false });
+      setGameStarted(false); // Update local state as well
       // Ensure preview mode is off when game ends
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
     socketService.on('preview_mode_started', () => {
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: null } });
+      setIsPreviewMode({ isActive: true, focusedPlayerId: null }); // Update local state as well
     });
 
     socketService.on('preview_mode_ended', () => {
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
+      setIsPreviewMode({ isActive: false, focusedPlayerId: null }); // Update local state as well
     });
 
     socketService.on('submission_focused', (playerId: string) => {
       dispatch({ type: 'SET_FOCUSED_SUBMISSION', payload: playerId });
+      setSelectedPlayerId(playerId); // Update local state as well
     });
+
+    // Request current game state
+    socketService.getGameState(roomCode);
 
     return () => {
       socketService.disconnect();
@@ -534,7 +545,7 @@ const GameMaster: React.FC = () => {
           <div className="row g-3">
             <div className="col-12 col-md-4">
               <RoomCode roomCode={roomCode} />
-              {!previewMode.isActive && (
+              {!isPreviewMode.isActive && (
                 <div className="mb-3">
                   <button
                     className="btn btn-primary w-100"
@@ -683,7 +694,7 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
-      {state.previewMode.isActive && (
+      {isPreviewMode.isActive && (
         <div className="preview-mode-controls mt-3" style={{
           display: 'flex',
           gap: '10px',
@@ -707,7 +718,7 @@ const GameMaster: React.FC = () => {
           >
             Stop Preview Mode
           </button>
-          {state.previewMode.focusedPlayerId && (
+          {isPreviewMode.focusedPlayerId && (
             <button
               className="btn btn-outline-primary w-100"
               onClick={() => handleFocusSubmission('')}
@@ -724,7 +735,7 @@ const GameMaster: React.FC = () => {
         playerBoards={state.playerBoards}
         allAnswersThisRound={allAnswersThisRound}
         evaluatedAnswers={evaluatedAnswers}
-        previewMode={state.previewMode}
+        previewMode={isPreviewMode}
         onFocus={handleFocusSubmission}
         onClose={handleStopPreviewMode}
         isGameMaster={true}

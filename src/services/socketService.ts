@@ -211,6 +211,13 @@ class SocketService {
       this.socket.emit('switch_to_player', { roomCode, playerName });
     }
   }
+
+  // Get current game state
+  getGameState(roomCode: string) {
+    if (this.socket) {
+      this.socket.emit('get_game_state', { roomCode });
+    }
+  }
 }
 
 // Create a singleton instance

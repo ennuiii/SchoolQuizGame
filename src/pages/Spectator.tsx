@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
-import { useGame } from '../context/GameContext';
+import { useParams, useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
+import { useGame } from '../context/GameContext';
 import PlayerList from '../components/shared/PlayerList';
-import { Player, PlayerBoard } from '../types/game';
+import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
+import PreviewOverlay from '../components/shared/PreviewOverlay';
+import type { PreviewModeState, Player, PlayerBoard } from '../types/game';
 
 const Spectator: React.FC = () => {
   const navigate = useNavigate();
@@ -20,15 +21,31 @@ const Spectator: React.FC = () => {
       return;
     }
 
+    // Connect to socket first
+    const socket = socketService.connect();
+    
+    // Set up error handler
+    socket.on('error', (error) => {
+      console.error('Socket error:', error);
+      setError('Connection error. Please try again.');
+    });
+
     // Join room as spectator
-    socketService.joinRoom(roomCode, 'Spectator');
+    socketService.joinRoom(roomCode, 'Spectator', true);
 
     // Set up socket listeners
     socketService.on('players_update', (players: Player[]) => {
+      console.log('Players update received:', players);
       dispatch({ type: 'SET_PLAYERS', payload: players });
     });
 
+    socketService.on('player_joined', (player: Player) => {
+      console.log('Player joined:', player);
+      dispatch({ type: 'ADD_PLAYER', payload: player });
+    });
+
     socketService.on('board_update', (playerBoards: PlayerBoard[]) => {
+      console.log('Board update received:', playerBoards);
       dispatch({ type: 'SET_PLAYER_BOARDS', payload: playerBoards });
     });
 
@@ -60,6 +77,9 @@ const Spectator: React.FC = () => {
       dispatch({ type: 'SET_FOCUSED_SUBMISSION', payload: playerId });
     });
 
+    // Request current game state
+    socketService.getGameState(roomCode);
+
     return () => {
       socketService.disconnect();
     };
@@ -84,50 +104,62 @@ const Spectator: React.FC = () => {
   };
 
   return (
-    <div className="container-fluid">
+    <div className="spectator-container">
       <div className="row">
         <div className="col-md-9">
-          <div className="d-flex justify-content-between align-items-center mb-4">
-            <h2>Room: {roomCode}</h2>
-            <button
-              className="btn btn-primary"
-              onClick={() => setShowJoinModal(true)}
-            >
-              Join as Player
-            </button>
-          </div>
-
-          {state.currentQuestion && (
-            <div className="alert alert-info mb-4">
-              Current Question: {state.currentQuestion}
-            </div>
-          )}
-
-          {state.timeLeft !== null && (
-            <div className="alert alert-warning mb-4">
-              Time Left: {state.timeLeft} seconds
-            </div>
-          )}
-
-          <div className="row">
-            {state.playerBoards.map((board) => (
-              <div key={board.playerId} className="col-md-6 mb-4">
-                <PlayerBoardDisplay
-                  board={board}
-                  isFocused={state.focusedSubmission === board.playerId}
-                />
+          <div className="card mb-4">
+            <div className="card-header">
+              <div className="d-flex justify-content-between align-items-center">
+                <h2 className="mb-0">Room: {roomCode}</h2>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => setShowJoinModal(true)}
+                >
+                  Join as Player
+                </button>
               </div>
-            ))}
+            </div>
+            <div className="card-body">
+              {state.currentQuestion && (
+                <div className="alert alert-info mb-4">
+                  Current Question: {state.currentQuestion}
+                </div>
+              )}
+
+              {state.timeLeft !== null && (
+                <div className="alert alert-warning mb-4">
+                  Time Left: {state.timeLeft} seconds
+                </div>
+              )}
+
+              <div className="row">
+                {state.playerBoards.map((board) => (
+                  <div key={board.playerId} className="col-md-6 mb-4">
+                    <PlayerBoardDisplay
+                      board={board}
+                      isFocused={state.focusedSubmission === board.playerId}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 
         <div className="col-md-3">
-          <PlayerList
-            players={state.players}
-            onPlayerClick={handlePlayerSelect}
-            selectedPlayerId={state.focusedSubmission}
-            title="Players"
-          />
+          <div className="card">
+            <div className="card-header">
+              <h3 className="mb-0">Players</h3>
+            </div>
+            <div className="card-body">
+              <PlayerList
+                players={state.players}
+                onPlayerClick={handlePlayerSelect}
+                selectedPlayerId={state.focusedSubmission}
+                title="Players"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

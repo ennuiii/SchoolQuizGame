@@ -58,18 +58,18 @@ body {
 
 /* Card Styles */
 .card {
-  background: var(--background-color) url('https://www.transparenttextures.com/patterns/old-mathematics.png');
-  border: 3px dashed var(--border-color);
-  border-radius: 15px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  background: var(--background-color);
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
   margin-bottom: 20px;
   overflow: hidden;
 }
 
 .card-header {
-  background: linear-gradient(90deg, var(--secondary-color) 80%, var(--border-color) 100%);
-  color: var(--text-color);
+  background: var(--secondary-color);
   border-bottom: 2px dashed var(--border-color);
+  border-radius: 10px 10px 0 0 !important;
   padding: 15px 20px;
   font-size: 1.4rem;
   font-weight: bold;
@@ -88,36 +88,31 @@ body {
   font-size: 1.2rem;
   padding: 10px 20px;
   border-radius: 12px;
-  border: 2px solid;
+  border: 2px dashed var(--border-color);
   transition: all 0.3s ease;
   cursor: pointer;
   margin: 5px;
   box-shadow: 0 2px 6px #00000022;
 }
 
-.btn:hover, .btn:focus {
-  transform: scale(1.05) rotate(-2deg);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+.btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
 }
 
 .btn-primary {
   background: var(--primary-color);
-  color: var(--background-color);
-  border-color: var(--primary-color);
+  color: white;
 }
 
-.btn-primary:hover {
-  background: #38b2ac;
+.btn-success {
+  background: var(--accent-color);
+  color: white;
 }
 
 .btn-secondary {
   background: var(--secondary-color);
   color: var(--text-color);
-  border-color: var(--border-color);
-}
-
-.btn-secondary:hover {
-  background: var(--border-color);
 }
 
 .btn-danger {
@@ -134,18 +129,17 @@ body {
 .form-control {
   font-family: 'Patrick Hand', 'Schoolbell', cursive;
   font-size: 1.2rem;
-  padding: 10px 15px;
+  padding: 10px;
   border: 2px dashed var(--border-color);
-  border-radius: 10px;
-  background: var(--background-color);
+  border-radius: 8px;
+  background: white;
   color: var(--text-color);
   transition: all 0.3s ease;
 }
 
 .form-control:focus {
   border-color: var(--primary-color);
-  box-shadow: 0 0 0 3px rgba(78, 205, 196, 0.2);
-  outline: none;
+  box-shadow: 0 0 0 0.2rem rgba(139, 69, 19, 0.25);
 }
 
 /* Game Board Styles */
@@ -291,13 +285,14 @@ body {
 /* Modal Styles */
 .modal-content {
   background: var(--background-color);
-  border: 3px dashed var(--border-color);
-  border-radius: 15px;
+  border: 2px dashed var(--border-color);
+  border-radius: 12px;
 }
 
 .modal-header {
   background: var(--secondary-color);
   border-bottom: 2px dashed var(--border-color);
+  border-radius: 10px 10px 0 0;
   padding: 15px 20px;
 }
 
@@ -308,22 +303,21 @@ body {
 
 .modal-footer {
   border-top: 2px dashed var(--border-color);
-  padding: 15px 20px;
 }
 
 /* Alert Styles */
 .alert {
   font-size: 1.2rem;
   padding: 15px 20px;
-  border-radius: 10px;
+  border-radius: 8px;
   margin: 10px 0;
-  border: 2px dashed;
+  border: 2px dashed var(--border-color);
+  background: white;
 }
 
 .alert-danger {
-  background: #ffebee;
-  border-color: var(--accent-color);
-  color: #c62828;
+  background: #f8d7da;
+  color: #721c24;
 }
 
 .alert-success {
@@ -333,19 +327,27 @@ body {
 }
 
 .alert-info {
-  background: #e3f2fd;
-  border-color: #2196f3;
-  color: #1565c0;
+  background: var(--secondary-color);
+  color: var(--text-color);
+}
+
+.alert-warning {
+  background: #fff3cd;
+  color: #856404;
 }
 
 /* Game Master Container */
-.game-master-container {
-  background: var(--background-color) url('https://www.transparenttextures.com/patterns/squared-paper.png');
-  color: var(--text-color);
-  border-radius: 24px;
-  box-shadow: 0 8px 24px #00000044;
-  border: 4px dashed var(--secondary-color);
-  padding: 28px;
+.game-master-container,
+.player-container,
+.spectator-container,
+.join-container {
+  background-image: linear-gradient(to bottom right, #8B4513, #A0522D);
+  padding: 15px;
+  border-radius: 12px;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+  background-size: 100% 100%;
+  background-repeat: no-repeat;
+  margin: 20px 0;
 }
 
 /* Preview Mode Controls */
@@ -450,6 +452,7 @@ body {
 
 .section-icon {
   font-size: 1.5rem;
+  margin-right: 8px;
   color: var(--primary-color);
 }
 
