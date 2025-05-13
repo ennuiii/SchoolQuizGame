@@ -1,39 +1,32 @@
 import React from 'react';
-import { PlayerBoard } from '../../types/game';
-
-interface PlayerBoardDisplayProps {
-  board: PlayerBoard;
-  isVisible: boolean;
-  onToggleVisibility: () => void;
-  transform: {
-    scale: number;
-    x: number;
-    y: number;
-  };
-  onScale: (scale: number) => void;
-  onPan: (x: number, y: number) => void;
-  onReset: () => void;
-}
+import { PlayerBoard, PlayerBoardDisplayProps } from '../../types/game';
 
 const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   board,
-  isVisible,
+  isVisible = true,
+  isFocused = false,
   onToggleVisibility,
-  transform,
+  transform = { scale: 1, x: 0, y: 0 },
   onScale,
   onPan,
   onReset
 }) => {
   return (
-    <div className="player-board-display">
-      <div className="board-controls">
-        <button onClick={onToggleVisibility}>
-          {isVisible ? 'Hide' : 'Show'} Board
-        </button>
-        <button onClick={() => onScale(transform.scale + 0.1)}>Zoom In</button>
-        <button onClick={() => onScale(transform.scale - 0.1)}>Zoom Out</button>
-        <button onClick={onReset}>Reset View</button>
-      </div>
+    <div className={`player-board-display ${isFocused ? 'focused' : ''}`}>
+      {onToggleVisibility && (
+        <div className="board-controls">
+          <button onClick={() => onToggleVisibility(board.playerId)}>
+            {isVisible ? 'Hide' : 'Show'} Board
+          </button>
+          {onScale && (
+            <>
+              <button onClick={() => onScale(board.playerId, transform.scale + 0.1)}>Zoom In</button>
+              <button onClick={() => onScale(board.playerId, transform.scale - 0.1)}>Zoom Out</button>
+            </>
+          )}
+          {onReset && <button onClick={() => onReset(board.playerId)}>Reset View</button>}
+        </div>
+      )}
       {isVisible && (
         <div
           className="board-container"
