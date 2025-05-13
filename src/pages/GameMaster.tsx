@@ -528,11 +528,11 @@ const GameMaster: React.FC = () => {
   // Add a function to check if all answers are in
   const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
 
-  // Set initial scale to 0.4 for each board
+  // Set initial scale to 1 for each board
   useEffect(() => {
     const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
     players.forEach(player => {
-      initialTransforms[player.id] = { scale: 0.4, x: 0, y: 0 };
+      initialTransforms[player.id] = { scale: 1, x: 0, y: 0 };
     });
     setBoardTransforms(initialTransforms);
   }, [players]);
