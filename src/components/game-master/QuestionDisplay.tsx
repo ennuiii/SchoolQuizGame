@@ -10,7 +10,7 @@ interface Question {
 }
 
 interface QuestionDisplayProps {
-  question: Question;
+  question: Question | null;
 }
 
 const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question }) => {

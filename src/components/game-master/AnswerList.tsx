@@ -1,22 +1,14 @@
 import React from 'react';
-
-interface AnswerSubmission {
-  playerId: string;
-  playerName: string;
-  answer: string;
-}
+import { useGame } from '../../contexts/GameContext';
 
 interface AnswerListProps {
-  answers: AnswerSubmission[];
   onEvaluate: (playerId: string, isCorrect: boolean) => void;
-  evaluatedAnswers: { [playerId: string]: boolean | null };
 }
 
-const AnswerList: React.FC<AnswerListProps> = ({
-  answers,
-  onEvaluate,
-  evaluatedAnswers
-}) => {
+const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
+  const { allAnswersThisRound, evaluatedAnswers } = useGame();
+  const answers = Object.values(allAnswersThisRound);
+
   if (answers.length === 0) return null;
 
   return (

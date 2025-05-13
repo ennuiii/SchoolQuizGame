@@ -1,12 +1,14 @@
 import React from 'react';
+import { useRoom } from '../../contexts/RoomContext';
 
 interface RoomSettingsProps {
   timeLimit: number | null;
   onTimeLimitChange: (timeLimit: number | null) => void;
-  roomCode: string;
 }
 
-const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange, roomCode }) => {
+const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange }) => {
+  const { roomCode } = useRoom();
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">

@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import { supabaseService } from '../services/supabaseService';
-import audioService from '../services/audioService';
+import { useRoom } from '../contexts/RoomContext';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
 
@@ -17,140 +16,27 @@ interface Player {
 
 const JoinGame: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [roomCode, setRoomCode] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [isSpectator, setIsSpectator] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
-  const [volume, setVolume] = useState(audioService.getVolume());
-  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
+  // Get context values
+  const {
+    roomCode,
+    playerName,
+    isLoading,
+    errorMsg,
+    setRoomCode,
+    setPlayerName,
+    setErrorMsg,
+    joinRoom,
+    players
+  } = useRoom();
 
-  // Read room query parameter from URL and pre-fill room code input
-  useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const roomParam = searchParams.get('room');
-    if (roomParam) {
-      setRoomCodeInput(roomParam);
-    }
-  }, [location]);
-
-  const handleToggleMute = () => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  };
-
-  const joinRoom = () => {
-    if (!roomCodeInput) {
-      setErrorMsg('Please enter a room code!');
+  const handleJoinGame = useCallback(() => {
+    if (!roomCode || !playerName) {
+      setErrorMsg('Please enter both room code and player name!');
       return;
     }
-    if (!playerName.trim()) {
-      setErrorMsg('Please enter your name!');
-      return;
-    }
-    setIsLoading(true);
-    if (isSpectator) {
-      socketService.joinAsSpectator(roomCodeInput, playerName);
-    } else {
-      socketService.joinRoom(roomCodeInput, playerName);
-    }
-
-    // Fallback navigation after 5 seconds if 'room_joined' is not received
-    fallbackTimeoutRef.current = setTimeout(() => {
-      if (isLoading && !roomCode) {
-        // Store player info in sessionStorage before navigation
-        sessionStorage.setItem('roomCode', roomCodeInput);
-        sessionStorage.setItem('playerName', playerName);
-        sessionStorage.setItem('isGameMaster', 'false');
-        sessionStorage.setItem('isSpectator', isSpectator.toString());
-        navigate(isSpectator ? '/spectator' : '/player');
-      }
-    }, 5000);
-  };
-
-  useEffect(() => {
-    socketService.connect();
-
-    socketService.on('room_joined', (data: { roomCode: string }) => {
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
-      }
-      setRoomCode(data.roomCode);
-      // Store player info in sessionStorage
-      sessionStorage.setItem('roomCode', data.roomCode);
-      sessionStorage.setItem('playerName', playerName);
-      sessionStorage.setItem('isGameMaster', 'false');
-      sessionStorage.setItem('isSpectator', isSpectator.toString());
-      setIsLoading(false);
-      // Navigate to appropriate view after sessionStorage is set
-      setTimeout(() => {
-        navigate(isSpectator ? '/spectator' : '/player');
-      }, 0);
-    });
-
-    socketService.on('player_joined', (player: Player) => {
-      console.log('Player joined:', player);
-      setPlayers(prevPlayers => {
-        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
-        if (existingIndex >= 0) {
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingIndex] = player;
-          return updatedPlayers;
-        } else {
-          return [...prevPlayers, player];
-        }
-      });
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      console.log('Players updated:', updatedPlayers);
-      setPlayers(updatedPlayers);
-    });
-
-    socketService.on('error', (msg: string) => {
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
-      }
-      setErrorMsg(msg);
-      setIsLoading(false);
-    });
-
-    const savedRoomCode = sessionStorage.getItem('roomCode');
-    const savedPlayerName = sessionStorage.getItem('playerName');
-    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-    if (savedRoomCode && savedPlayerName && !isGameMaster) {
-      console.log('Rejoining as player for room:', savedRoomCode);
-      setRoomCode(savedRoomCode);
-      socketService.emit('rejoin_player', { roomCode: savedRoomCode, playerName: savedPlayerName });
-    }
-
-    return () => {
-      socketService.off('room_joined');
-      socketService.off('player_joined');
-      socketService.off('players_update');
-      socketService.off('error');
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
-      }
-    };
-  }, [navigate, playerName, isSpectator]);
-
-  useEffect(() => {
-    audioService.playBackgroundMusic();
-    return () => {
-      audioService.pauseBackgroundMusic();
-    };
-  }, []);
+    joinRoom(roomCode, playerName, false);
+  }, [roomCode, playerName, joinRoom, setErrorMsg]);
 
   return (
     <div className="container-fluid px-2 px-md-4">
@@ -159,50 +45,14 @@ const JoinGame: React.FC = () => {
           <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
           Join Game
         </div>
-        <div className="d-flex align-items-center gap-2">
-          <input
-            type="range"
-            className="form-range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume}
-            onChange={handleVolumeChange}
-            style={{ width: '100px' }}
-            title="Volume"
-          />
-          <button
-            className="btn btn-outline-secondary"
-            onClick={handleToggleMute}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <i className="bi bi-volume-mute-fill"></i>
-            ) : (
-              <i className="bi bi-volume-up-fill"></i>
-            )}
-          </button>
-        </div>
       </div>
-      
-      {errorMsg && (
-        <div className="alert alert-danger" role="alert">
-          {errorMsg}
-          <button 
-            type="button" 
-            className="btn-close float-end" 
-            onClick={() => setErrorMsg('')}
-            aria-label="Close"
-          ></button>
-        </div>
-      )}
       
       {!roomCode ? (
         <div className="row justify-content-center">
           <div className="col-12 col-md-6">
             <div className="card p-4 text-center">
-              <h3>Join a Game Room</h3>
-              <p>Enter the room code provided by the Game Master.</p>
+              <h3>Join a Game</h3>
+              <p>Enter the room code and your name to join the game.</p>
               <div className="form-group mb-3">
                 <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
                 <input
@@ -210,43 +60,38 @@ const JoinGame: React.FC = () => {
                   id="roomCodeInput"
                   className="form-control"
                   placeholder="Enter room code"
-                  value={roomCodeInput}
-                  onChange={(e) => setRoomCodeInput(e.target.value)}
+                  value={roomCode}
+                  onChange={(e) => setRoomCode(e.target.value)}
                 />
               </div>
               <div className="form-group mb-3">
-                <label htmlFor="playerName" className="form-label">Your Name:</label>
+                <label htmlFor="playerNameInput" className="form-label">Your Name:</label>
                 <input
                   type="text"
-                  id="playerName"
+                  id="playerNameInput"
                   className="form-control"
                   placeholder="Enter your name"
                   value={playerName}
                   onChange={(e) => setPlayerName(e.target.value)}
-                  maxLength={15}
                 />
               </div>
-              <div className="form-check mb-3">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="spectatorCheck"
-                  checked={isSpectator}
-                  onChange={(e) => setIsSpectator(e.target.checked)}
-                />
-                <label className="form-check-label" htmlFor="spectatorCheck">
-                  Join as Spectator
-                </label>
-                <small className="form-text text-muted d-block mt-1">
-                  Spectators can watch the game without participating. You'll be able to see all players' answers and drawings.
-                </small>
-              </div>
+              {errorMsg && (
+                <div className="alert alert-danger" role="alert">
+                  {errorMsg}
+                  <button 
+                    type="button" 
+                    className="btn-close float-end" 
+                    onClick={() => setErrorMsg('')}
+                    aria-label="Close"
+                  ></button>
+                </div>
+              )}
               <button 
                 className="btn btn-primary btn-lg mt-3"
-                onClick={joinRoom}
+                onClick={handleJoinGame}
                 disabled={isLoading}
               >
-                {isLoading ? 'Joining...' : 'Join Room'}
+                {isLoading ? 'Joining...' : 'Join Game'}
               </button>
               <button 
                 className="btn btn-outline-secondary mt-3"
@@ -268,11 +113,8 @@ const JoinGame: React.FC = () => {
         }}>
           <div className="row g-3">
             <div className="col-12 col-md-4">
-              <RoomCode roomCode={roomCode} />
+              <RoomCode />
               <PlayerList 
-                players={players}
-                onPlayerSelect={() => {}}
-                selectedPlayerId={null}
                 title="Players"
               />
             </div>

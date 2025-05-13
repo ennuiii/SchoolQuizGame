@@ -1,28 +1,18 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
+import { useRoom } from '../../contexts/RoomContext';
+import { useAudio } from '../../contexts/AudioContext';
 
 interface PlayerHeaderProps {
   playerName: string;
-  roomCode: string;
   lives: number;
-  timeLimit: number | null;
-  timeRemaining: number | null;
-  volume: number;
-  isMuted: boolean;
-  onVolumeChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-  onToggleMute: () => void;
 }
 
-const PlayerHeader: React.FC<PlayerHeaderProps> = ({
-  playerName,
-  roomCode,
-  lives,
-  timeLimit,
-  timeRemaining,
-  volume,
-  isMuted,
-  onVolumeChange,
-  onToggleMute
-}) => {
+const PlayerHeader: React.FC<PlayerHeaderProps> = ({ playerName, lives }) => {
+  const { timeLimit, timeRemaining } = useGame();
+  const { roomCode } = useRoom();
+  const { volume, isMuted, setVolume, toggleMute } = useAudio();
+
   return (
     <div className="row mb-4">
       <div className="col-md-6">
@@ -56,13 +46,13 @@ const PlayerHeader: React.FC<PlayerHeaderProps> = ({
           max="1"
           step="0.01"
           value={volume}
-          onChange={onVolumeChange}
+          onChange={(e) => setVolume(parseFloat(e.target.value))}
           style={{ width: '100px' }}
           title="Volume"
         />
         <button
           className="btn btn-outline-secondary"
-          onClick={onToggleMute}
+          onClick={toggleMute}
           title={isMuted ? "Unmute" : "Mute"}
         >
           {isMuted ? (

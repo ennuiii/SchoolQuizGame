@@ -1,63 +1,43 @@
-import React, { useState } from 'react';
+import React from 'react';
+import { useRoom } from '../../contexts/RoomContext';
 
-interface RoomCodeProps {
-  roomCode: string;
-}
+const RoomCode: React.FC = () => {
+  const { roomCode, copied, setCopied } = useRoom();
 
-const RoomCode: React.FC<RoomCodeProps> = ({ roomCode }) => {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
+  const handleCopyCode = () => {
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyLink = () => {
-    const inviteLink = `${window.location.origin}/join?room=${roomCode}`;
+  const handleCopyInviteLink = () => {
+    const inviteLink = `${window.location.origin}/join?code=${roomCode}`;
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="card mb-3">
-      <div className="card-header bg-light">
-        <h6 className="mb-0">Room Code</h6>
+    <div className="card">
+      <div className="card-header">
+        <h5 className="mb-0">Room Code</h5>
       </div>
       <div className="card-body">
-        <div className="d-flex align-items-center justify-content-between">
-          <div className="room-code-display">
-            <span className="h4 mb-0">{roomCode}</span>
-          </div>
-          <div className="d-flex gap-2">
-            <button
-              className="btn btn-outline-primary"
-              onClick={handleCopy}
-              title="Copy room code"
-            >
-              {copied ? (
-                <>
-                  <i className="bi bi-check2 me-1"></i>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-clipboard me-1"></i>
-                  Copy
-                </>
-              )}
-            </button>
-            <button
-              className="btn btn-outline-success"
-              onClick={handleCopyLink}
-              title="Copy invite link"
-            >
-              <i className="bi bi-link-45deg me-1"></i>
-              Invite Link
-            </button>
-          </div>
+        <div className="d-flex align-items-center mb-3">
+          <code className="fs-4 me-3">{roomCode}</code>
+          <button
+            className="btn btn-outline-primary"
+            onClick={handleCopyCode}
+          >
+            {copied ? 'Copied!' : 'Copy Code'}
+          </button>
         </div>
+        <button
+          className="btn btn-outline-secondary"
+          onClick={handleCopyInviteLink}
+        >
+          {copied ? 'Copied!' : 'Copy Invite Link'}
+        </button>
       </div>
     </div>
   );

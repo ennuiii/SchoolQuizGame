@@ -1,4 +1,5 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
 
 interface Player {
   id: string;
@@ -27,26 +28,18 @@ interface PreviewModeState {
 }
 
 interface PreviewOverlayProps {
-  players: Player[];
-  playerBoards: PlayerBoard[];
-  allAnswersThisRound: Record<string, AnswerSubmission>;
-  evaluatedAnswers: Record<string, boolean | null>;
-  previewMode: PreviewModeState;
   onFocus: (playerId: string) => void;
   onClose: () => void;
   isGameMaster: boolean;
 }
 
 const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
-  players,
-  playerBoards,
-  allAnswersThisRound,
-  evaluatedAnswers,
-  previewMode,
   onFocus,
   onClose,
   isGameMaster
 }) => {
+  const { players, playerBoards, allAnswersThisRound, evaluatedAnswers, previewMode } = useGame();
+
   if (!previewMode.isActive) return null;
 
   const currentIndex = previewMode.focusedPlayerId 

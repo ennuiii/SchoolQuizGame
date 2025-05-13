@@ -1,4 +1,5 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
 
 interface Player {
   id: string;
@@ -10,7 +11,6 @@ interface Player {
 }
 
 interface PlayerListProps {
-  players: Player[];
   currentPlayerId?: string;
   onPlayerSelect?: (playerId: string) => void;
   selectedPlayerId?: string | null;
@@ -18,12 +18,13 @@ interface PlayerListProps {
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({
-  players,
   currentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
   title = "Players"
 }) => {
+  const { players } = useGame();
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">

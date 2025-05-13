@@ -1,18 +1,17 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
 
 interface TimerProps {
-  timeLimit: number | null;
-  timeRemaining: number | null;
   isActive: boolean;
   showSeconds?: boolean;
 }
 
 const Timer: React.FC<TimerProps> = ({
-  timeLimit,
-  timeRemaining,
   isActive,
   showSeconds = false
 }) => {
+  const { timeLimit, timeRemaining } = useGame();
+
   if (timeLimit === null || timeRemaining === null || timeLimit >= 99999) {
     return null;
   }
