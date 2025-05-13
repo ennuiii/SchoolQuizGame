@@ -51,6 +51,16 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
       return;
     }
 
+    // Create a wrapper group for transformations
+    const wrapperGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    wrapperGroup.setAttribute('transform', `matrix(${scale} 0 0 ${scale} ${position.x} ${position.y})`);
+    
+    // Move all SVG content into the wrapper group
+    while (svg.firstChild) {
+      wrapperGroup.appendChild(svg.firstChild);
+    }
+    svg.appendChild(wrapperGroup);
+
     setSvgContent(
       <svg
         width="100%"
@@ -61,7 +71,7 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
         dangerouslySetInnerHTML={{ __html: svg.innerHTML }}
       />
     );
-  }, [board.boardData]);
+  }, [board.boardData, scale, position]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.altKey) return;
@@ -177,10 +187,7 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center',
-                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-                transformOrigin: 'center center',
-                transition: 'transform 0.1s ease-out'
+                justifyContent: 'center'
               }}
             >
               {svgContent}
