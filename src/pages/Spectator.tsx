@@ -85,7 +85,14 @@ const Spectator: React.FC = () => {
     });
     socketService.on('game_over', () => setGameStarted(false));
     socketService.on('become_spectator', () => {
-      setGameStarted(false);
+      // Request current game state from the server
+      const roomCode = sessionStorage.getItem('roomCode');
+      if (roomCode) {
+        socketService.emit('get_game_state', { roomCode });
+      }
+    });
+    socketService.on('game_state', (data: { started: boolean }) => {
+      setGameStarted(data.started);
     });
     return () => {
       socketService.off('players_update');
@@ -100,6 +107,7 @@ const Spectator: React.FC = () => {
       socketService.off('game_restarted');
       socketService.off('game_over');
       socketService.off('become_spectator');
+      socketService.off('game_state');
     };
   }, []);
 
