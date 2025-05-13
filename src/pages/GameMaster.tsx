@@ -171,8 +171,8 @@ const GameMaster: React.FC = () => {
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
         <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-          <span className="bi bi-controller section-icon" aria-label="Game Master"></span>
-          Game Master View
+          <span className="bi bi-person-workspace section-icon" aria-label="Game Master"></span>
+          Game Master Dashboard
         </div>
         <div className="d-flex align-items-center gap-2">
           <input
@@ -201,7 +201,7 @@ const GameMaster: React.FC = () => {
       </div>
 
       {questionErrorMsg && (
-        <div className="alert alert-danger" role="alert">
+        <div className="alert alert-info mb-4" role="alert">
           {questionErrorMsg}
         </div>
       )}

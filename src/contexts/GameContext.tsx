@@ -149,11 +149,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Actions
   const startGame = useCallback((roomCode: string, questions: Question[], timeLimit: number) => {
+    if (!questions || questions.length === 0) {
+      setQuestionErrorMsg('Cannot start game: No questions selected');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+      return;
+    }
+
     if (players.length === 0) {
       setQuestionErrorMsg('Cannot start game: No players in the room');
       setTimeout(() => setQuestionErrorMsg(''), 3000);
       return;
     }
+
+    const activePlayers = players.filter(player => !player.isSpectator);
+    if (activePlayers.length === 0) {
+      setQuestionErrorMsg('Cannot start game: No active players in the room');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+      return;
+    }
+
     socketService.startGame(roomCode, questions, timeLimit);
   }, [players]);
 
