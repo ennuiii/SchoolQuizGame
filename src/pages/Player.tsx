@@ -91,6 +91,7 @@ const Player: React.FC = () => {
     focusedPlayerId: null
   });
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
+  const [visibleBoards, setVisibleBoards] = useState(new Set<string>());
 
   console.log('[DEBUG] Player component MOUNTED');
 
@@ -578,6 +579,12 @@ const Player: React.FC = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (isSpectator) {
+      setVisibleBoards(new Set(playerBoards.map(b => b.playerId)));
+    }
+  }, [isSpectator, playerBoards]);
+
   if (gameOver && !isWinner) {
     return (
       <div className="container text-center">
@@ -613,8 +620,6 @@ const Player: React.FC = () => {
   }
 
   if (isSpectator) {
-    // Local state for visible boards
-    const [visibleBoards, setVisibleBoards] = useState(new Set(playerBoards.map(b => b.playerId)));
     const showAllBoards = () => setVisibleBoards(new Set(playerBoards.map(b => b.playerId)));
     const hideAllBoards = () => setVisibleBoards(new Set());
     return (
