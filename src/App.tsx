@@ -21,6 +21,7 @@ const App: React.FC = () => {
               ? <Spectator />
               : <Player />
           } />
+          <Route path="/spectator" element={<Spectator />} />
         </Routes>
       </Container>
     </Router>
