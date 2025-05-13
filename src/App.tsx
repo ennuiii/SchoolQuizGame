@@ -15,9 +15,9 @@ const App: React.FC = () => {
           <Routes>
             <Route path="/" element={<Navigate to="/join" />} />
             <Route path="/join" element={<JoinGame />} />
-            <Route path="/gamemaster" element={<GameMaster />} />
-            <Route path="/player" element={<Player />} />
-            <Route path="/spectator" element={<Spectator />} />
+            <Route path="/gamemaster/:roomCode" element={<GameMaster />} />
+            <Route path="/player/:roomCode" element={<Player />} />
+            <Route path="/spectator/:roomCode" element={<Spectator />} />
           </Routes>
         </div>
       </Router>
