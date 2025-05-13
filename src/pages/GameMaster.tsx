@@ -21,12 +21,9 @@ const GameMaster: React.FC = () => {
   const { state, dispatch } = useGame();
   const [roomCodeInput, setRoomCodeInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
   const [pendingAnswers, setPendingAnswers] = useState<AnswerSubmission[]>([]);
   const [errorMsg, setErrorMsg] = useState('');
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
@@ -40,7 +37,6 @@ const GameMaster: React.FC = () => {
   const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
   const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
-  const [isPreviewMode, setIsPreviewMode] = useState<PreviewModeState>({ isActive: false, focusedPlayerId: null });
   const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
@@ -100,35 +96,26 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCodeInput, navigate, dispatch]);
 
-  const startGame = useCallback(() => {
-    if (!roomCode) {
-      setErrorMsg('Please enter a room code!');
-      return;
-    }
-    
-    if (questions.length === 0) {
-      setErrorMsg('Please select at least one question!');
-      return;
-    }
+  const handleStartGame = useCallback(async () => {
+    if (!roomCode) return;
 
-    if (players.length === 0) {
+    // Check if there are any players
+    if (state.players.length === 0) {
       setErrorMsg('Please wait for at least one player to join before starting the game!');
       return;
     }
-    
-    // Sort questions by grade before starting the game
+
+    // Check if there are any questions
+    if (questions.length === 0) {
+      setErrorMsg('Please select at least one question before starting the game!');
+      return;
+    }
+
+    // Sort questions by grade level
     const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
-    setQuestions(gradeSortedQuestions);
-    setCurrentQuestion(gradeSortedQuestions[0]);
-    setCurrentQuestionIndex(0);
-    
-    // Start the game with the existing room
-    setIsLoading(true);
-    // If timeLimit is null or blank, set it to 99999 internally but don't show it
     const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
     socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
-    setGameStarted(true);
-  }, [roomCode, questions, timeLimit, players]);
+  }, [roomCode, questions, timeLimit, state.players]);
 
   const nextQuestion = useCallback(() => {
     if (!roomCode) return;
@@ -223,7 +210,7 @@ const GameMaster: React.FC = () => {
     if (!roomCode) return;
     
     socketService.focusSubmission(roomCode, playerId);
-    dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: playerId } });
+    dispatch({ type: 'SET_FOCUSED_SUBMISSION', payload: playerId });
   }, [roomCode, dispatch]);
 
   const handleBoardScale = useCallback((playerId: string, scale: number) => {
@@ -258,11 +245,49 @@ const GameMaster: React.FC = () => {
 
   // Add state for show/hide all
   const showAllBoards = useCallback(() => {
-    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
-  }, [players]);
+    setVisibleBoards(new Set(state.players.filter(p => !p.isSpectator).map(p => p.id)));
+  }, [state.players]);
   
   const hideAllBoards = useCallback(() => {
     setVisibleBoards(new Set());
+  }, []);
+
+  // Add mouse event handlers for board manipulation
+  const handleMouseDown = useCallback((e: React.MouseEvent, playerId: string) => {
+    e.preventDefault();
+    panState.current[playerId] = {
+      panning: true,
+      lastX: e.clientX,
+      lastY: e.clientY
+    };
+  }, []);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent, playerId: string) => {
+    if (!panState.current[playerId]?.panning) return;
+    
+    const dx = e.clientX - panState.current[playerId].lastX;
+    const dy = e.clientY - panState.current[playerId].lastY;
+    
+    setBoardTransforms(prev => ({
+      ...prev,
+      [playerId]: {
+        ...prev[playerId],
+        x: (prev[playerId]?.x || 0) + dx,
+        y: (prev[playerId]?.y || 0) + dy
+      }
+    }));
+    
+    panState.current[playerId] = {
+      ...panState.current[playerId],
+      lastX: e.clientX,
+      lastY: e.clientY
+    };
+  }, []);
+
+  const handleMouseUp = useCallback((playerId: string) => {
+    if (panState.current[playerId]) {
+      panState.current[playerId].panning = false;
+    }
   }, []);
 
   useEffect(() => {
@@ -293,62 +318,55 @@ const GameMaster: React.FC = () => {
     socketService.joinRoom(roomCode, 'Game Master');
 
     // Set up socket listeners
-    socketService.on('players_update', (players: Player[]) => {
+    socket.on('players_update', (players: Player[]) => {
       console.log('Players update received:', players);
       dispatch({ type: 'SET_PLAYERS', payload: players });
-      setPlayers(players); // Update local state as well
     });
 
-    socketService.on('player_joined', (player: Player) => {
+    socket.on('player_joined', (player: Player) => {
       console.log('Player joined:', player);
       dispatch({ type: 'ADD_PLAYER', payload: player });
-      setPlayers(prev => [...prev, player]); // Update local state as well
     });
 
-    socketService.on('board_update', (playerBoards: PlayerBoard[]) => {
+    socket.on('board_update', (playerBoards: PlayerBoard[]) => {
       console.log('Board update received:', playerBoards);
       dispatch({ type: 'SET_PLAYER_BOARDS', payload: playerBoards });
-      setPlayerBoards(playerBoards); // Update local state as well
     });
 
-    socketService.on('answer_submitted', (submission: AnswerSubmission) => {
+    socket.on('answer_submitted', (submission: AnswerSubmission) => {
       console.log('Answer submitted:', submission);
       dispatch({ type: 'ADD_ANSWER_SUBMISSION', payload: submission });
-      setPendingAnswers(prev => [...prev, submission]); // Update local state as well
+      setPendingAnswers(prev => [...prev, submission]);
     });
 
-    socketService.on('timer_update', (timeLeft: number) => {
+    socket.on('timer_update', (timeLeft: number) => {
       dispatch({ type: 'SET_TIME_LEFT', payload: timeLeft });
-      setTimeRemaining(timeLeft); // Update local state as well
+      setTimeRemaining(timeLeft);
     });
 
-    socketService.on('game_started', () => {
+    socket.on('game_started', () => {
       dispatch({ type: 'SET_GAME_STARTED', payload: true });
-      setGameStarted(true); // Update local state as well
       // Ensure preview mode is off when game starts
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
-    socketService.on('game_ended', () => {
+    socket.on('game_ended', () => {
       dispatch({ type: 'SET_GAME_STARTED', payload: false });
-      setGameStarted(false); // Update local state as well
       // Ensure preview mode is off when game ends
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     });
 
-    socketService.on('preview_mode_started', () => {
+    socket.on('preview_mode_started', () => {
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: true, focusedPlayerId: null } });
-      setIsPreviewMode({ isActive: true, focusedPlayerId: null }); // Update local state as well
     });
 
-    socketService.on('preview_mode_ended', () => {
+    socket.on('preview_mode_ended', () => {
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
-      setIsPreviewMode({ isActive: false, focusedPlayerId: null }); // Update local state as well
     });
 
-    socketService.on('submission_focused', (playerId: string) => {
+    socket.on('submission_focused', (playerId: string) => {
       dispatch({ type: 'SET_FOCUSED_SUBMISSION', payload: playerId });
-      setSelectedPlayerId(playerId); // Update local state as well
+      setSelectedPlayerId(playerId);
     });
 
     // Request current game state
@@ -378,61 +396,53 @@ const GameMaster: React.FC = () => {
   };
 
   // Add a function to check if all answers are in
-  const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
+  const allAnswersIn = state.players.length > 0 && pendingAnswers.length === 0 && state.gameStarted;
 
   // Set initial scale to 1 for each board
   useEffect(() => {
     const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
-    players.forEach(player => {
+    state.players.forEach(player => {
       initialTransforms[player.id] = { scale: 1, x: 0, y: 0 };
     });
     setBoardTransforms(initialTransforms);
-  }, [players]);
+  }, [state.players]);
 
   // Add toggle scale on click
-  const toggleBoardScale = useCallback((playerId: string) => {
+  const toggleScale = useCallback((playerId: string) => {
     setBoardTransforms(prev => {
-      const current = prev[playerId] || { scale: 0.4, x: 0, y: 0 };
-      const newScale = current.scale === 0.4 ? 1.0 : 0.4;
+      const current = prev[playerId] || { scale: 1, x: 0, y: 0 };
       return {
         ...prev,
-        [playerId]: { ...current, scale: newScale }
+        [playerId]: {
+          ...current,
+          scale: current.scale === 1 ? 1.5 : 1,
+          x: 0,
+          y: 0
+        }
       };
     });
   }, []);
 
-  // Initialize visibleBoards when players join
+  // Update visibleBoards when players change
   useEffect(() => {
     const newVisibleBoards = new Set<string>();
-    players.forEach(player => {
+    state.players.forEach(player => {
       if (visibleBoards.has(player.id)) {
         newVisibleBoards.add(player.id);
       }
     });
     setVisibleBoards(newVisibleBoards);
-  }, [players]);
+  }, [state.players]);
 
   // Reset visibleBoards when game restarts
   useEffect(() => {
-    if (isRestarting) {
-      setVisibleBoards(new Set());
-    }
-  }, [isRestarting]);
-
-  // Add a function to check if preview can be started
-  const canStartPreview = state.gameStarted && (
-    (state.players.length > 0 && pendingAnswers.length === 0) ||
-    (timeLimit !== null && timeRemaining === 0 && pendingAnswers.length > 0)
-  );
-
-  useEffect(() => {
-    if (gameStarted) {
+    if (state.gameStarted) {
       // Show all boards of active players (non-spectators) when game starts
-      setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+      setVisibleBoards(new Set(state.players.filter(p => !p.isSpectator).map(p => p.id)));
       // Remove automatic preview mode activation
       dispatch({ type: 'SET_PREVIEW_MODE', payload: { isActive: false, focusedPlayerId: null } });
     }
-  }, [gameStarted, players, dispatch]);
+  }, [state.gameStarted, state.players, dispatch]);
 
   return (
     <div className="container-fluid px-2 px-md-4">
@@ -545,19 +555,19 @@ const GameMaster: React.FC = () => {
           <div className="row g-3">
             <div className="col-12 col-md-4">
               <RoomCode roomCode={roomCode} />
-              {!isPreviewMode.isActive && (
+              {!state.previewMode.isActive && (
                 <div className="mb-3">
                   <button
                     className="btn btn-primary w-100"
-                    onClick={handleStartPreviewMode}
-                    disabled={!canStartPreview}
+                    onClick={handleStartGame}
+                    disabled={state.gameStarted || isLoading}
                   >
-                    Start Preview Mode
+                    Start Game
                   </button>
                 </div>
               )}
               <PlayerList 
-                players={players}
+                players={state.players}
                 onPlayerClick={handlePlayerSelect}
                 selectedPlayerId={selectedPlayerId}
                 title="Players"
@@ -566,10 +576,10 @@ const GameMaster: React.FC = () => {
             
             <div className="col-12 col-md-8">
               <GameControls
-                gameStarted={gameStarted}
+                gameStarted={state.gameStarted}
                 currentQuestionIndex={currentQuestionIndex}
                 totalQuestions={questions.length}
-                onStartGame={startGame}
+                onStartGame={handleStartGame}
                 onNextQuestion={nextQuestion}
                 onRestartGame={restartGame}
                 onEndRoundEarly={handleEndRoundEarly}
@@ -580,7 +590,7 @@ const GameMaster: React.FC = () => {
                 hasPendingAnswers={pendingAnswers.length > 0}
               />
               
-              {gameStarted ? (
+              {state.gameStarted ? (
                 <>
                   {currentQuestion && (
                     <div className="card mb-4">
@@ -617,17 +627,29 @@ const GameMaster: React.FC = () => {
                           alignItems: 'stretch',
                         }}
                       >
-                        {playerBoards.map(board => (
-                          <PlayerBoardDisplay
+                        {state.playerBoards.map(board => (
+                          <div
                             key={board.playerId}
-                            board={board}
-                            isVisible={visibleBoards.has(board.playerId)}
-                            onToggleVisibility={() => toggleBoardVisibility(board.playerId)}
-                            transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
-                            onScale={(playerId, scale) => handleBoardScale(playerId, scale)}
-                            onPan={(playerId, dx, dy) => handleBoardPan(playerId, dx, dy)}
-                            onReset={() => handleBoardReset(board.playerId)}
-                          />
+                            className={`board-wrapper ${visibleBoards.has(board.playerId) ? 'visible' : ''} ${enlargedPlayerId === board.playerId ? 'enlarged' : ''}`}
+                            style={{
+                              transform: `scale(${boardTransforms[board.playerId]?.scale || 1}) translate(${boardTransforms[board.playerId]?.x || 0}px, ${boardTransforms[board.playerId]?.y || 0}px)`,
+                              cursor: panState.current[board.playerId]?.panning ? 'grabbing' : 'grab'
+                            }}
+                            onMouseDown={(e) => handleMouseDown(e, board.playerId)}
+                            onMouseMove={(e) => handleMouseMove(e, board.playerId)}
+                            onMouseUp={() => handleMouseUp(board.playerId)}
+                            onMouseLeave={() => handleMouseUp(board.playerId)}
+                          >
+                            <PlayerBoardDisplay
+                              board={board}
+                              isVisible={visibleBoards.has(board.playerId)}
+                              onToggleVisibility={() => toggleBoardVisibility(board.playerId)}
+                              transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                              onScale={(playerId, scale) => handleBoardScale(playerId, scale)}
+                              onPan={(playerId, dx, dy) => handleBoardPan(playerId, dx, dy)}
+                              onReset={() => handleBoardReset(board.playerId)}
+                            />
+                          </div>
                         ))}
                       </div>
                     </div>
@@ -651,11 +673,11 @@ const GameMaster: React.FC = () => {
                     
                     <div className="mb-4">
                       <h5>Current Players:</h5>
-                      {players.length === 0 ? (
+                      {state.players.length === 0 ? (
                         <p className="text-center text-muted">No players have joined yet</p>
                       ) : (
                         <ul className="list-group">
-                          {players.map(player => (
+                          {state.players.map(player => (
                             <li key={player.id} className="list-group-item">
                               {player.name}
                             </li>
@@ -694,7 +716,7 @@ const GameMaster: React.FC = () => {
         </div>
       )}
 
-      {isPreviewMode.isActive && (
+      {state.previewMode.isActive && (
         <div className="preview-mode-controls mt-3" style={{
           display: 'flex',
           gap: '10px',
@@ -718,7 +740,7 @@ const GameMaster: React.FC = () => {
           >
             Stop Preview Mode
           </button>
-          {isPreviewMode.focusedPlayerId && (
+          {state.previewMode.focusedPlayerId && (
             <button
               className="btn btn-outline-primary w-100"
               onClick={() => handleFocusSubmission('')}
@@ -735,7 +757,7 @@ const GameMaster: React.FC = () => {
         playerBoards={state.playerBoards}
         allAnswersThisRound={allAnswersThisRound}
         evaluatedAnswers={evaluatedAnswers}
-        previewMode={isPreviewMode}
+        previewMode={state.previewMode}
         onFocus={handleFocusSubmission}
         onClose={handleStopPreviewMode}
         isGameMaster={true}
