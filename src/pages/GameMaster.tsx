@@ -303,6 +303,10 @@ const GameMaster: React.FC = () => {
       dispatch({ type: 'SET_PLAYERS', payload: players });
     });
 
+    socketService.on('player_joined', (player: Player) => {
+      dispatch({ type: 'ADD_PLAYER', payload: player });
+    });
+
     socketService.on('board_update', (playerBoards: PlayerBoard[]) => {
       dispatch({ type: 'SET_PLAYER_BOARDS', payload: playerBoards });
     });

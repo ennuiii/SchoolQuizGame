@@ -9,6 +9,7 @@ type GameAction =
   | { type: 'SET_GAME_STARTED'; payload: boolean }
   | { type: 'SET_CURRENT_QUESTION'; payload: string }
   | { type: 'SET_PLAYERS'; payload: Player[] }
+  | { type: 'ADD_PLAYER'; payload: Player }
   | { type: 'SET_PLAYER_BOARDS'; payload: PlayerBoard[] }
   | { type: 'ADD_ANSWER_SUBMISSION'; payload: AnswerSubmission }
   | { type: 'SET_TIME_LEFT'; payload: number }
@@ -49,6 +50,8 @@ const gameReducer = (state: GameState, action: GameAction): GameState => {
       return { ...state, currentQuestion: action.payload };
     case 'SET_PLAYERS':
       return { ...state, players: action.payload };
+    case 'ADD_PLAYER':
+      return { ...state, players: [...state.players, action.payload] };
     case 'SET_PLAYER_BOARDS':
       return { ...state, playerBoards: action.payload };
     case 'ADD_ANSWER_SUBMISSION':
