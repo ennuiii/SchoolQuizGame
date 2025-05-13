@@ -55,12 +55,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
 
   return (
     <div className="question-selector">
-      {questionErrorMsg && (
-        <div className="alert alert-info mb-3" role="alert">
-          {questionErrorMsg}
-        </div>
-      )}
-
       <div className="mb-4">
         <h5>Load Questions from Database:</h5>
         <div className="row g-3 mb-3">
