@@ -7,9 +7,13 @@ interface AnswerListProps {
 
 const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
   const { allAnswersThisRound, evaluatedAnswers } = useGame();
-  const answers = Object.values(allAnswersThisRound);
+  
+  // Filter out evaluated answers
+  const pendingAnswers = Object.values(allAnswersThisRound).filter(
+    answer => evaluatedAnswers[answer.playerId] === undefined
+  );
 
-  if (answers.length === 0) return null;
+  if (pendingAnswers.length === 0) return null;
 
   return (
     <div className="card">
@@ -18,42 +22,32 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
       </div>
       <div className="card-body p-0">
         <div className="list-group list-group-flush">
-          {answers.map((answer) => {
-            const evaluation = evaluatedAnswers[answer.playerId];
-            return (
-              <div key={answer.playerId} className="list-group-item">
-                <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
-                  <div>
-                    <h4 className="h6 mb-1">{answer.playerName}</h4>
-                    <p className="mb-0">{answer.answer}</p>
-                  </div>
-                  {evaluation === undefined && (
-                    <div className="d-flex gap-2">
-                      <button
-                        className="btn btn-success btn-sm"
-                        onClick={() => onEvaluate(answer.playerId, true)}
-                      >
-                        <i className="bi bi-check-lg me-1"></i>
-                        Correct
-                      </button>
-                      <button
-                        className="btn btn-danger btn-sm"
-                        onClick={() => onEvaluate(answer.playerId, false)}
-                      >
-                        <i className="bi bi-x-lg me-1"></i>
-                        Incorrect
-                      </button>
-                    </div>
-                  )}
-                  {evaluation !== undefined && (
-                    <div className={`badge ${evaluation ? 'bg-success' : 'bg-danger'}`}>
-                      {evaluation ? 'Correct' : 'Incorrect'}
-                    </div>
-                  )}
+          {pendingAnswers.map((answer) => (
+            <div key={answer.playerId} className="list-group-item">
+              <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-2">
+                <div>
+                  <h4 className="h6 mb-1">{answer.playerName}</h4>
+                  <p className="mb-0">{answer.answer}</p>
+                </div>
+                <div className="d-flex gap-2">
+                  <button
+                    className="btn btn-success btn-sm"
+                    onClick={() => onEvaluate(answer.playerId, true)}
+                  >
+                    <i className="bi bi-check-lg me-1"></i>
+                    Correct
+                  </button>
+                  <button
+                    className="btn btn-danger btn-sm"
+                    onClick={() => onEvaluate(answer.playerId, false)}
+                  >
+                    <i className="bi bi-x-lg me-1"></i>
+                    Incorrect
+                  </button>
                 </div>
               </div>
-            );
-          })}
+            </div>
+          ))}
         </div>
       </div>
     </div>

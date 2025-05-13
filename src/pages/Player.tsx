@@ -12,6 +12,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
 import { useCanvas } from '../contexts/CanvasContext';
 import fabric from 'fabric';
+import DrawingBoard from '../components/player/DrawingBoard';
 
 const Player: React.FC = () => {
   const navigate = useNavigate();
@@ -356,61 +357,40 @@ const Player: React.FC = () => {
                 />
               )}
               
-              <div className="card mb-4">
-                <div className="card-header d-flex justify-content-between align-items-center">
-                  <h3 className="h5 mb-0">Your Answer</h3>
-                  <div>
-                    <button 
-                      className="btn btn-outline-light"
-                      onClick={clearCanvas}
-                      style={{ backgroundColor: '#8B4513', border: 'none' }}
-                    >
-                      Erase Board
-                    </button>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <div className="mb-4 drawing-board-container" style={{ 
-                    width: '100%',
-                    maxWidth: '800px',
-                    height: 'auto',
-                    minHeight: '250px',
-                    border: '12px solid #8B4513', 
-                    borderRadius: '4px',
-                    boxShadow: '0 4px 8px rgba(0, 0, 0, 0.2)',
-                    position: 'relative',
-                    overflow: 'hidden',
-                    margin: '0 auto',
-                    background: '#0C6A35',
-                  }}>
-                    <canvas ref={canvasRef} id={`canvas-${canvasKey}`} width="800" height="400" style={{ display: 'block', width: '100%', height: '100%' }} />
-                  </div>
-                  
-                  <div className="input-group mb-3">
-                    <input
-                      type="text"
-                      className="form-control form-control-lg"
-                      placeholder="Type your answer here..."
-                      onChange={handleAnswerChange}
-                      disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
-                    />
-                    <button
-                      className="btn btn-primary"
-                      type="button"
-                      onClick={() => handleSubmitAnswer()}
-                      disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
-                    >
-                      Submit Answer
-                    </button>
-                  </div>
-                  
-                  {submittedAnswer && (
-                    <div className="alert alert-info">
-                      Your answer has been submitted. Wait for the Game Master to evaluate it.
-                    </div>
-                  )}
-                </div>
+              <DrawingBoard
+                canvasKey={canvasKey}
+                roomCode={roomCode}
+                submittedAnswer={submittedAnswer}
+                onBoardUpdate={(svgData) => {
+                  if (roomCode && !submittedAnswer) {
+                    socketService.updateBoard(roomCode, svgData);
+                  }
+                }}
+              />
+              
+              <div className="input-group mb-3">
+                <input
+                  type="text"
+                  className="form-control form-control-lg"
+                  placeholder="Type your answer here..."
+                  onChange={handleAnswerChange}
+                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                />
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => handleSubmitAnswer()}
+                  disabled={submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0))}
+                >
+                  Submit Answer
+                </button>
               </div>
+              
+              {submittedAnswer && (
+                <div className="alert alert-info">
+                  Your answer has been submitted. Wait for the Game Master to evaluate it.
+                </div>
+              )}
             </>
           )}
           <PreviewOverlay

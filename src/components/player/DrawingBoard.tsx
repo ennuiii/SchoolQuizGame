@@ -25,7 +25,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         isDrawingMode: true,
         width: 800,
         height: 400,
-        backgroundColor: '#0C6A35' // Classic chalkboard green
+        backgroundColor: '#0C6A35', // Classic chalkboard green
+        selection: false, // Disable object selection
+        interactive: true // Enable interaction
       });
       
       // Set up drawing brush for chalk-like appearance
@@ -50,6 +52,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
           onBoardUpdate(svgData);
         }
       });
+
+      // Ensure drawing mode is enabled
+      fabricCanvasRef.current.isDrawingMode = true;
     }
     
     return () => {
@@ -63,18 +68,21 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   // Add effect to disable canvas interaction after submission
   useEffect(() => {
     if (fabricCanvasRef.current) {
+      const canvas = fabricCanvasRef.current as any;
       if (submittedAnswer) {
         // Disable all interactions
-        fabricCanvasRef.current.isDrawingMode = false;
-        (fabricCanvasRef.current as any).selection = false;
-        (fabricCanvasRef.current as any).forEachObject((obj: any) => {
+        canvas.isDrawingMode = false;
+        canvas.selection = false;
+        canvas.forEachObject((obj: any) => {
           obj.selectable = false;
           obj.evented = false;
         });
-        fabricCanvasRef.current.renderAll();
+        canvas.renderAll();
       } else {
         // Enable drawing mode if not submitted
-        fabricCanvasRef.current.isDrawingMode = true;
+        canvas.isDrawingMode = true;
+        canvas.selection = false;
+        canvas.renderAll();
       }
     }
   }, [submittedAnswer]);
@@ -121,6 +129,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
             position: 'relative',
             overflow: 'hidden',
             margin: '0 auto',
+            cursor: 'crosshair' // Show crosshair cursor for drawing
           }}
         >
           <canvas 
