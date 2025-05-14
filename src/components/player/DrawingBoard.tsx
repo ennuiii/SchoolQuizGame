@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useCallback } from 'react';
 import { fabric } from 'fabric';
 
 interface DrawingBoardProps {
@@ -19,119 +19,119 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const lastSvgData = useRef<string | null>(null);
   const isDrawing = useRef(false);
+  const updateQueued = useRef(false);
+  const lastUpdateTime = useRef(Date.now());
 
-  useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
-      const canvas = new fabric.Canvas(canvasRef.current, {
-        isDrawingMode: !submittedAnswer,
-        width: 800,
-        height: 400,
-        backgroundColor: '#0C6A35',
-        enableRetinaScaling: true,
-        renderOnAddRemove: true,
-        skipTargetFind: true,
-        selection: false,
-        perPixelTargetFind: true,
-        targetFindTolerance: 4
-      });
-      
-      fabricCanvasRef.current = canvas;
-      
-      // Set up drawing brush for chalk-like appearance with optimized settings
-      if (canvas.freeDrawingBrush) {
-        canvas.freeDrawingBrush.color = '#FFFFFF';
-        canvas.freeDrawingBrush.width = 4;
-        canvas.freeDrawingBrush.opacity = 0.9;
-        canvas.freeDrawingBrush.decimate = 4; // Reduced for better line quality
-        (canvas.freeDrawingBrush as any).strokeLineCap = 'round';
-        (canvas.freeDrawingBrush as any).strokeLineJoin = 'round';
-      }
+  // Initialize canvas with settings
+  const initializeCanvas = useCallback(() => {
+    if (!canvasRef.current || fabricCanvasRef.current) return;
 
-      // Only send updates when we're not actively drawing
-      let updateTimeout: NodeJS.Timeout | null = null;
-      let pendingUpdate = false;
+    const canvas = new fabric.Canvas(canvasRef.current, {
+      isDrawingMode: !submittedAnswer,
+      width: 800,
+      height: 400,
+      backgroundColor: '#0C6A35',
+      enableRetinaScaling: true,
+      renderOnAddRemove: true,
+      skipTargetFind: true,
+      selection: false,
+      perPixelTargetFind: true,
+      targetFindTolerance: 4
+    });
 
-      const sendUpdate = () => {
-        if (!fabricCanvasRef.current || submittedAnswer) return;
-        
-        const svgData = fabricCanvasRef.current.toSVG();
-        if (svgData !== lastSvgData.current) {
-          lastSvgData.current = svgData;
-          onBoardUpdate(svgData);
-        }
-      };
+    fabricCanvasRef.current = canvas;
 
-      const queueUpdate = () => {
-        if (updateTimeout) {
-          clearTimeout(updateTimeout);
-        }
-        if (!isDrawing.current) {
-          updateTimeout = setTimeout(sendUpdate, 100);
-        } else {
-          pendingUpdate = true;
-        }
-      };
-
-      canvas.on('mouse:down', () => {
-        if (canvas.isDrawingMode && !submittedAnswer) {
-          isDrawing.current = true;
-          pendingUpdate = false;
-        }
-      });
-
-      canvas.on('mouse:move', () => {
-        if (isDrawing.current && !submittedAnswer) {
-          // Just keep track that we're drawing, don't send updates
-          isDrawing.current = true;
-        }
-      });
-
-      canvas.on('mouse:up', () => {
-        if (isDrawing.current && !submittedAnswer) {
-          isDrawing.current = false;
-          // Now that we're done drawing, send the update
-          sendUpdate();
-        }
-      });
-
-      canvas.on('path:created', () => {
-        if (!submittedAnswer) {
-          queueUpdate();
-        }
-      });
-
-      canvas.on('mouse:out', () => {
-        if (isDrawing.current && !submittedAnswer) {
-          isDrawing.current = false;
-          sendUpdate();
-        }
-      });
-
-      // If there was previous SVG data, restore it
-      if (lastSvgData.current) {
-        fabric.loadSVGFromString(lastSvgData.current, (objects, options) => {
-          objects.forEach(obj => {
-            canvas.add(obj);
-          });
-          canvas.renderAll();
-        });
-      }
-
-      // Clean up function
-      return () => {
-        if (updateTimeout) {
-          clearTimeout(updateTimeout);
-        }
-        if (fabricCanvasRef.current) {
-          lastSvgData.current = fabricCanvasRef.current.toSVG();
-          fabricCanvasRef.current.dispose();
-          fabricCanvasRef.current = null;
-        }
-      };
+    // Set up drawing brush
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = '#FFFFFF';
+      canvas.freeDrawingBrush.width = 4;
+      canvas.freeDrawingBrush.opacity = 0.9;
+      canvas.freeDrawingBrush.decimate = 4;
+      (canvas.freeDrawingBrush as any).strokeLineCap = 'round';
+      (canvas.freeDrawingBrush as any).strokeLineJoin = 'round';
     }
-  }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
 
-  // Add effect to disable canvas interaction after submission
+    return canvas;
+  }, [submittedAnswer]);
+
+  // Handle board updates
+  const handleBoardUpdate = useCallback(() => {
+    if (!fabricCanvasRef.current || submittedAnswer || !updateQueued.current) return;
+    
+    const now = Date.now();
+    // Ensure minimum time between updates to prevent rapid updates
+    if (now - lastUpdateTime.current < 100) return;
+    
+    const svgData = fabricCanvasRef.current.toSVG();
+    if (svgData !== lastSvgData.current) {
+      lastSvgData.current = svgData;
+      onBoardUpdate(svgData);
+      lastUpdateTime.current = now;
+    }
+    updateQueued.current = false;
+  }, [submittedAnswer, onBoardUpdate]);
+
+  // Queue an update
+  const queueUpdate = useCallback(() => {
+    if (!isDrawing.current) {
+      updateQueued.current = true;
+      handleBoardUpdate();
+    }
+  }, [handleBoardUpdate]);
+
+  // Set up canvas event handlers
+  const setupCanvasHandlers = useCallback((canvas: fabric.Canvas) => {
+    canvas.on('mouse:down', () => {
+      if (canvas.isDrawingMode && !submittedAnswer) {
+        isDrawing.current = true;
+        updateQueued.current = false;
+      }
+    });
+
+    canvas.on('mouse:move', () => {
+      if (isDrawing.current && !submittedAnswer) {
+        // Just track that we're drawing, don't update yet
+        isDrawing.current = true;
+      }
+    });
+
+    canvas.on('mouse:up', () => {
+      if (!submittedAnswer) {
+        isDrawing.current = false;
+        queueUpdate();
+      }
+    });
+
+    canvas.on('path:created', () => {
+      if (!submittedAnswer) {
+        queueUpdate();
+      }
+    });
+
+    canvas.on('mouse:out', () => {
+      if (isDrawing.current && !submittedAnswer) {
+        isDrawing.current = false;
+        queueUpdate();
+      }
+    });
+  }, [submittedAnswer, queueUpdate]);
+
+  // Initialize canvas and set up handlers
+  useEffect(() => {
+    const canvas = initializeCanvas();
+    if (canvas) {
+      setupCanvasHandlers(canvas);
+    }
+
+    return () => {
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
+    };
+  }, [canvasKey, initializeCanvas, setupCanvasHandlers]);
+
+  // Handle submission state changes
   useEffect(() => {
     if (fabricCanvasRef.current) {
       fabricCanvasRef.current.isDrawingMode = !submittedAnswer;
@@ -144,7 +144,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
     }
   }, [submittedAnswer]);
 
-  const clearCanvas = () => {
+  const clearCanvas = useCallback(() => {
     if (fabricCanvasRef.current && !submittedAnswer) {
       const canvas = fabricCanvasRef.current;
       canvas.getObjects().forEach((obj) => {
@@ -155,12 +155,11 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
       canvas.backgroundColor = '#0C6A35';
       canvas.renderAll();
       
-      // Update the last SVG data and send the cleared state
       const svgData = canvas.toSVG();
       lastSvgData.current = svgData;
       onBoardUpdate(svgData);
     }
-  };
+  }, [submittedAnswer, onBoardUpdate]);
 
   return (
     <div className="card mb-4">
@@ -193,7 +192,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
             position: 'relative',
             overflow: 'hidden',
             margin: '0 auto',
-            cursor: submittedAnswer ? 'default' : 'crosshair'
+            cursor: submittedAnswer ? 'default' : 'crosshair',
+            border: '4px solid #8B4513',
+            borderRadius: '4px'
           }}
         >
           <canvas 
