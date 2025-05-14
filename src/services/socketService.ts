@@ -26,7 +26,7 @@ export class SocketService {
   private connectionStateListeners: ((state: string) => void)[] = [];
 
   constructor() {
-    console.log('[SocketService] Initializing');
+    console.log('[SocketService] Initializing with URL:', SOCKET_URL);
   }
 
   // Add method to listen for connection state changes
@@ -43,7 +43,17 @@ export class SocketService {
 
   connect(): Socket | null {
     if (!this.socket) {
-      this.socket = io(SOCKET_URL);
+      console.log('[SocketService] Attempting to connect to:', SOCKET_URL);
+      this.updateConnectionState('connecting');
+      
+      this.socket = io(SOCKET_URL, {
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: this.maxReconnectAttempts,
+        timeout: 10000,
+        forceNew: true,
+        withCredentials: true
+      });
+      
       this.setupEventHandlers();
     }
     return this.socket;
@@ -55,6 +65,7 @@ export class SocketService {
     this.socket.on('connect', () => {
       console.log('[SocketService] Connected successfully:', {
         socketId: this.socket?.id,
+        url: SOCKET_URL,
         timestamp: new Date().toISOString()
       });
       this.updateConnectionState('connected');
@@ -65,6 +76,7 @@ export class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('[SocketService] Connection error:', {
         error: error.message,
+        url: SOCKET_URL,
         attempt: this.reconnectAttempts + 1,
         maxAttempts: this.maxReconnectAttempts,
         timestamp: new Date().toISOString()

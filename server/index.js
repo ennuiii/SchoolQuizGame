@@ -9,7 +9,28 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 
 const app = express();
-app.use(cors());
+
+// Configure CORS for both development and production
+const allowedOrigins = [
+  'http://localhost:3000',
+  'https://schoolquizgame-1.onrender.com',
+  'https://schoolquizgame.onrender.com'
+];
+
+app.use(cors({
+  origin: function(origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    if (allowedOrigins.indexOf(origin) === -1) {
+      console.log('CORS blocked origin:', origin);
+      return callback(null, false);
+    }
+    return callback(null, true);
+  },
+  methods: ['GET', 'POST'],
+  credentials: true
+}));
 
 // Store active game rooms and game recaps
 const gameRooms = {};
@@ -217,9 +238,11 @@ if (process.env.NODE_ENV === 'production') {
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*',
-    methods: ['GET', 'POST']
+    origin: allowedOrigins,
+    methods: ['GET', 'POST'],
+    credentials: true
   },
+  transports: ['websocket', 'polling'],
   // Increase maximum allowed payload size for larger SVG content
   maxHttpBufferSize: 5e6, // 5MB
   pingTimeout: 60000
