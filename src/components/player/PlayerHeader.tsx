@@ -20,17 +20,6 @@ const PlayerHeader: React.FC<PlayerHeaderProps> = ({ playerName, lives }) => {
         <div className="mb-3">Room Code: <strong>{roomCode}</strong></div>
       </div>
       <div className="col-md-3">
-        {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
-          <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
-            <h3>
-              <span className="me-2">Time:</span>
-              <span>{timeRemaining}</span>
-              <span className="ms-1">sec</span>
-            </h3>
-          </div>
-        )}
-      </div>
-      <div className="col-md-3 text-end">
         <div className="lives-display">
           <span className="me-2">Lives:</span>
           {[...Array(lives)].map((_, i) => (
@@ -38,29 +27,31 @@ const PlayerHeader: React.FC<PlayerHeaderProps> = ({ playerName, lives }) => {
           ))}
         </div>
       </div>
-      <div className="d-flex justify-content-end align-items-center gap-2">
-        <input
-          type="range"
-          className="form-range"
-          min="0"
-          max="1"
-          step="0.01"
-          value={volume}
-          onChange={(e) => setVolume(parseFloat(e.target.value))}
-          style={{ width: '100px' }}
-          title="Volume"
-        />
-        <button
-          className="btn btn-outline-secondary"
-          onClick={toggleMute}
-          title={isMuted ? "Unmute" : "Mute"}
-        >
-          {isMuted ? (
-            <i className="bi bi-volume-mute-fill"></i>
-          ) : (
-            <i className="bi bi-volume-up-fill"></i>
-          )}
-        </button>
+      <div className="col-md-3 text-end">
+        <div className="d-flex justify-content-end align-items-center gap-2">
+          <input
+            type="range"
+            className="form-control-range"
+            min="0"
+            max="1"
+            step="0.01"
+            value={volume}
+            onChange={(e) => setVolume(parseFloat(e.target.value))}
+            style={{ width: '100px' }}
+            title="Volume"
+          />
+          <button
+            className="btn btn-outline-secondary"
+            onClick={toggleMute}
+            title={isMuted ? "Unmute" : "Mute"}
+          >
+            {isMuted ? (
+              <i className="bi bi-volume-mute-fill"></i>
+            ) : (
+              <i className="bi bi-volume-up-fill"></i>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   );

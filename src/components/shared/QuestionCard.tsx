@@ -29,11 +29,6 @@ const QuestionCard: React.FC<QuestionCardProps> = ({ question, timeRemaining, on
             Type: {question.type}
           </small>
         </div>
-        {timeRemaining !== null && (
-          <div className="alert alert-info mt-3 mb-0">
-            Time Remaining: {timeRemaining} seconds
-          </div>
-        )}
       </div>
     </div>
   );

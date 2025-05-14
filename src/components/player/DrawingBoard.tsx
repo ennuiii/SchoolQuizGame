@@ -8,11 +8,10 @@ interface BoardData {
 
 interface DrawingBoardProps {
   onUpdate: (boardData: BoardData) => Promise<void>;
-  onSubmit: () => Promise<void>;
   disabled: boolean;
 }
 
-const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, onSubmit, disabled }) => {
+const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [key, setKey] = useState(0);
 
@@ -64,12 +63,6 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, onSubmit, disable
     };
   }, [onUpdate, updateBoard]);
 
-  // Reset canvas
-  const handleReset = () => {
-    clearCanvas();
-    setKey(prev => prev + 1);
-  };
-
   return (
     <div className="drawing-board mb-4" key={key}>
       <div className="drawing-board-controls mb-2 d-flex justify-content-between">
@@ -86,26 +79,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, onSubmit, disable
           >
             Clear Canvas
           </button>
-          <button
-            className="btn btn-outline-light me-2"
-            onClick={handleReset}
-            disabled={disabled}
-            style={{ 
-              backgroundColor: '#8B4513', 
-              borderColor: '#8B4513',
-              color: 'white'
-            }}
-          >
-            Reset
-          </button>
         </div>
-        <button
-          className="btn btn-primary"
-          onClick={onSubmit}
-          disabled={disabled}
-        >
-          Submit Drawing
-        </button>
       </div>
       <div
         style={{

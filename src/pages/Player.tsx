@@ -65,6 +65,7 @@ const Player: React.FC = () => {
   const [canvasKey, setCanvasKey] = useState(0);
   const [showRecap, setShowRecap] = useState(false);
   const [recapData, setRecapData] = useState<RecapData | null>(null);
+  const [answer, setAnswer] = useState('');
   
   // Get context values
   const {
@@ -197,7 +198,7 @@ const Player: React.FC = () => {
         handleAnswerSubmit('Drawing submitted', true);
       }
     }
-  }, [timeRemaining, timeLimit, currentQuestion, submittedAnswer, handleAnswerSubmit]);
+  }, [timeRemaining, timeLimit, currentQuestion, submittedAnswer]);
 
   // Handle volume change
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -214,10 +215,10 @@ const Player: React.FC = () => {
   }, [roomCode, focusSubmission]);
 
   // Handle answer change
-  const handleAnswerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (submittedAnswer) return;
-    socketService.connect();
-  }, [submittedAnswer]);
+    setAnswer(e.target.value);
+  };
 
   // Handle visibility change
   useEffect(() => {
@@ -387,106 +388,78 @@ const Player: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-4">
+    <div className="container py-4">
+      <LoadingOverlay isVisible={isLoading} />
       <ConnectionStatus />
-      <div className="container-fluid px-2 px-md-4">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-          <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-            <span className="bi bi-person section-icon" aria-label="Player"></span>
-            Player Dashboard
-          </div>
-          <div className="d-flex align-items-center gap-2">
-            <input
-              type="range"
-              className="form-range"
-              min="0"
-              max="1"
-              step="0.01"
-              value={volume}
-              onChange={handleVolumeChange}
-              style={{ width: '100px' }}
-              title="Volume"
-            />
-            <button
-              className="btn btn-outline-secondary"
-              onClick={toggleMute}
-              title={isMuted ? "Unmute" : "Mute"}
-            >
-              {isMuted ? (
-                <i className="bi bi-volume-mute-fill"></i>
-              ) : (
-                <i className="bi bi-volume-up-fill"></i>
-              )}
-            </button>
-          </div>
-        </div>
-        <div className="row g-3">
-          <div className="col-12 col-md-8">
-            {!gameStarted ? (
-              <div className="card p-4 text-center">
-                <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
-                <p>Get ready! The game will begin soon.</p>
-                <div className="spinner-border text-primary mx-auto mt-3" role="status">
-                  <span className="visually-hidden">Loading...</span>
-                </div>
+      {errorMsg && (
+        <div className="alert alert-danger">{errorMsg}</div>
+      )}
+      <div className="row g-3">
+        <div className="col-12 col-md-8">
+          {!gameStarted ? (
+            <div className="card p-4 text-center">
+              <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
+              <p>Get ready! The game will begin soon.</p>
+              <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                <span className="visually-hidden">Loading...</span>
               </div>
-            ) : (
-              <>
-                <QuestionCard
-                  question={currentQuestion}
-                  timeRemaining={timeRemaining}
-                  onSubmit={handleAnswerSubmit}
-                  submitted={submittedAnswer}
+            </div>
+          ) : (
+            <>
+              <QuestionCard
+                question={currentQuestion}
+                timeRemaining={timeRemaining}
+                onSubmit={handleAnswerSubmit}
+                submitted={submittedAnswer}
+              />
+              
+              {timeLimit !== null && timeRemaining !== null && (
+                <Timer
+                  isActive={isTimerRunning}
+                  showSeconds={true}
                 />
-                
-                {timeLimit !== null && timeRemaining !== null && (
-                  <Timer
-                    isActive={isTimerRunning}
-                    showSeconds={true}
-                  />
-                )}
-                
-                <DrawingBoard
-                  onUpdate={handleBoardUpdate}
-                  onSubmit={() => handleAnswerSubmit('Drawing submitted', true)}
-                  disabled={submittedAnswer}
+              )}
+              
+              <DrawingBoard
+                onUpdate={handleBoardUpdate}
+                disabled={submittedAnswer}
+              />
+              
+              <div className="input-group mb-3">
+                <input
+                  type="text"
+                  className="form-control form-control-lg"
+                  placeholder="Type your answer here..."
+                  value={answer}
+                  onChange={handleAnswerChange}
+                  disabled={submittedAnswer || !gameStarted || !currentQuestion}
                 />
-                
-                <div className="input-group mb-3">
-                  <input
-                    type="text"
-                    className="form-control form-control-lg"
-                    placeholder="Type your answer here..."
-                    onChange={handleAnswerChange}
-                    disabled={submittedAnswer || !gameStarted || !currentQuestion}
-                  />
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => handleAnswerSubmit('', false)}
-                    disabled={submittedAnswer || !gameStarted || !currentQuestion}
-                  >
-                    Submit Answer
-                  </button>
+                <button
+                  className="btn btn-primary"
+                  type="button"
+                  onClick={() => handleAnswerSubmit(answer, false)}
+                  disabled={submittedAnswer || !gameStarted || !currentQuestion}
+                >
+                  Submit Answer
+                </button>
+              </div>
+              
+              {submittedAnswer && (
+                <div className="alert alert-info">
+                  Your answer has been submitted. Wait for the Game Master to evaluate it.
                 </div>
-                
-                {submittedAnswer && (
-                  <div className="alert alert-info">
-                    Your answer has been submitted. Wait for the Game Master to evaluate it.
-                  </div>
-                )}
-              </>
-            )}
-            <PreviewOverlay
-              onFocus={handleFocusSubmission}
-              onClose={handleClosePreviewMode}
-              isGameMaster={false}
-            />
-          </div>
-          <div className="col-12 col-md-4">
-            <RoomCode />
-            <PlayerList title="Other Players" />
-          </div>
+              )}
+            </>
+          )}
+          <PreviewOverlay
+            onFocus={handleFocusSubmission}
+            onClose={handleClosePreviewMode}
+            isGameMaster={false}
+          />
+        </div>
+        <div className="col-12 col-md-4">
+          <RoomCode />
+          <PlayerList title="Other Players" />
         </div>
       </div>
       
