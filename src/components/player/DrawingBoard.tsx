@@ -23,7 +23,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
       const canvas = new fabric.Canvas(canvasRef.current, {
-        isDrawingMode: true,
+        isDrawingMode: !submittedAnswer,
         width: 800,
         height: 400,
         backgroundColor: '#0C6A35',
@@ -42,31 +42,46 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         canvas.freeDrawingBrush.color = '#FFFFFF';
         canvas.freeDrawingBrush.width = 4;
         canvas.freeDrawingBrush.opacity = 0.9;
-        canvas.freeDrawingBrush.decimate = 8; // Increase point decimation for better performance
-        (canvas.freeDrawingBrush as any).strokeLineCap = 'round'; // Smoother line endings
-        (canvas.freeDrawingBrush as any).strokeLineJoin = 'round'; // Smoother line joins
+        canvas.freeDrawingBrush.decimate = 4; // Reduced for better line quality
+        (canvas.freeDrawingBrush as any).strokeLineCap = 'round';
+        (canvas.freeDrawingBrush as any).strokeLineJoin = 'round';
       }
 
-      // Track when drawing starts with debounced update
-      let updateTimeout: NodeJS.Timeout;
-      const debouncedUpdate = (svgData: string) => {
-        if (updateTimeout) clearTimeout(updateTimeout);
-        updateTimeout = setTimeout(() => {
-          if (svgData !== lastSvgData.current) {
-            lastSvgData.current = svgData;
-            onBoardUpdate(svgData);
-          }
-        }, 50); // 50ms debounce
+      // Only send updates when we're not actively drawing
+      let updateTimeout: NodeJS.Timeout | null = null;
+      let pendingUpdate = false;
+
+      const sendUpdate = () => {
+        if (!fabricCanvasRef.current || submittedAnswer) return;
+        
+        const svgData = fabricCanvasRef.current.toSVG();
+        if (svgData !== lastSvgData.current) {
+          lastSvgData.current = svgData;
+          onBoardUpdate(svgData);
+        }
+      };
+
+      const queueUpdate = () => {
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
+        if (!isDrawing.current) {
+          updateTimeout = setTimeout(sendUpdate, 100);
+        } else {
+          pendingUpdate = true;
+        }
       };
 
       canvas.on('mouse:down', () => {
         if (canvas.isDrawingMode && !submittedAnswer) {
           isDrawing.current = true;
+          pendingUpdate = false;
         }
       });
 
       canvas.on('mouse:move', () => {
         if (isDrawing.current && !submittedAnswer) {
+          // Just keep track that we're drawing, don't send updates
           isDrawing.current = true;
         }
       });
@@ -74,23 +89,21 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
       canvas.on('mouse:up', () => {
         if (isDrawing.current && !submittedAnswer) {
           isDrawing.current = false;
-          const svgData = canvas.toSVG();
-          debouncedUpdate(svgData);
+          // Now that we're done drawing, send the update
+          sendUpdate();
         }
       });
 
       canvas.on('path:created', () => {
         if (!submittedAnswer) {
-          const svgData = canvas.toSVG();
-          debouncedUpdate(svgData);
+          queueUpdate();
         }
       });
 
       canvas.on('mouse:out', () => {
         if (isDrawing.current && !submittedAnswer) {
           isDrawing.current = false;
-          const svgData = canvas.toSVG();
-          debouncedUpdate(svgData);
+          sendUpdate();
         }
       });
 
@@ -106,7 +119,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
 
       // Clean up function
       return () => {
-        if (updateTimeout) clearTimeout(updateTimeout);
+        if (updateTimeout) {
+          clearTimeout(updateTimeout);
+        }
         if (fabricCanvasRef.current) {
           lastSvgData.current = fabricCanvasRef.current.toSVG();
           fabricCanvasRef.current.dispose();
