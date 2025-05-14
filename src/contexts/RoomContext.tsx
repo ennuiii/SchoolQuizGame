@@ -83,11 +83,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Socket event handlers
   useEffect(() => {
     socketService.on('room_created', (data: { roomCode: string }) => {
+      console.log('[RoomContext] room_created event received:', data);
       setRoomCode(data.roomCode);
       sessionStorage.setItem('roomCode', data.roomCode);
       sessionStorage.setItem('isGameMaster', 'true');
       setIsLoading(false);
-      navigate('/gamemaster');
+      if (window.location.pathname !== '/gamemaster') {
+        navigate('/gamemaster');
+      }
     });
 
     socketService.on('room_joined', (data: { roomCode: string }) => {
