@@ -996,7 +996,7 @@ io.on('connection', (socket) => {
   });
 
   // Handle player rejoining
-  socket.on('rejoin_player', ({ roomCode, playerName }) => {
+  socket.on('rejoin_player', ({ roomCode, playerName, isSpectator }) => {
     console.log(`Player ${playerName} (${socket.id}) rejoining room ${roomCode}`);
     
     if (!gameRooms[roomCode]) {
@@ -1006,35 +1006,74 @@ io.on('connection', (socket) => {
 
     // Add player back to room
     socket.join(roomCode);
-    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.name === playerName);
+    socket.roomCode = roomCode; // Store room code in socket for cleanup
+
+    const room = gameRooms[roomCode];
+    const playerIndex = room.players.findIndex(p => p.name === playerName);
+    
     if (playerIndex >= 0) {
-      gameRooms[roomCode].players[playerIndex].id = socket.id;
+      // Update existing player's socket ID and maintain their state
+      const player = room.players[playerIndex];
+      const oldId = player.id;
+      player.id = socket.id;
+      
+      // Transfer any existing board data to new socket ID
+      if (room.playerBoards[oldId]) {
+        room.playerBoards[socket.id] = room.playerBoards[oldId];
+        delete room.playerBoards[oldId];
+      }
+
+      // Transfer any existing round answers
+      if (room.roundAnswers[oldId]) {
+        room.roundAnswers[socket.id] = room.roundAnswers[oldId];
+        delete room.roundAnswers[oldId];
+      }
+
+      // Transfer any existing evaluated answers
+      if (room.evaluatedAnswers[oldId]) {
+        room.evaluatedAnswers[socket.id] = room.evaluatedAnswers[oldId];
+        delete room.evaluatedAnswers[oldId];
+      }
+    } else {
+      // If player not found, add them as a new player
+      const player = {
+        id: socket.id,
+        name: playerName,
+        lives: 3,
+        answers: [],
+        isActive: true,
+        isSpectator: isSpectator || false
+      };
+      room.players.push(player);
     }
 
     // Send current game state to the rejoining player
-    if (gameRooms[roomCode].started) {
+    socket.emit('room_joined', { roomCode });
+    
+    if (room.started) {
       socket.emit('game_started', {
-        question: gameRooms[roomCode].currentQuestion,
-        timeLimit: gameRooms[roomCode].timeLimit
+        question: room.currentQuestion,
+        timeLimit: room.timeLimit
       });
     }
 
     // Send all existing board data to the rejoining player
-    if (gameRooms[roomCode].playerBoards) {
-      Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
-        const boardPlayer = gameRooms[roomCode].players.find(p => p.id === playerId);
+    if (room.playerBoards) {
+      Object.keys(room.playerBoards).forEach(playerId => {
+        const boardPlayer = room.players.find(p => p.id === playerId);
         if (boardPlayer) {
           socket.emit('board_update', {
             playerId,
             playerName: boardPlayer.name,
-            boardData: gameRooms[roomCode].playerBoards[playerId].boardData
+            boardData: room.playerBoards[playerId].boardData
           });
         }
       });
     }
 
     // Broadcast updated player list to all clients in the room
-    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
+    io.to(roomCode).emit('players_update', room.players);
+    console.log(`Player ${playerName} successfully rejoined room ${roomCode}`);
   });
 
   // Get current game state for a room
