@@ -43,6 +43,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
   const { players, playerBoards, allAnswersThisRound, evaluatedAnswers, previewMode } = useGame();
   const { setDrawingEnabled } = useCanvas();
 
+  // Only show preview mode when active
   if (!previewMode.isActive) return null;
 
   // Get all active player boards (excluding spectators)
@@ -50,6 +51,39 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
     const player = players.find(p => p.id === board.playerId);
     return player && !player.isSpectator;
   });
+
+  // Disable drawing when in preview mode
+  useEffect(() => {
+    setDrawingEnabled(false);
+    return () => setDrawingEnabled(true);
+  }, [setDrawingEnabled]);
+
+  // If no active boards, show a message
+  if (activePlayerBoards.length === 0) {
+    return (
+      <div className="preview-overlay" style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        zIndex: 1000,
+        padding: '20px',
+        overflow: 'auto'
+      }}>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h2 className="mb-0">Preview Mode</h2>
+          <button className="btn btn-primary" onClick={onClose}>
+            Close Preview
+          </button>
+        </div>
+        <div className="alert alert-info">
+          No player boards available to display.
+        </div>
+      </div>
+    );
+  }
 
   const currentIndex = previewMode.focusedPlayerId 
     ? activePlayerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
@@ -66,12 +100,6 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
       onFocus(activePlayerBoards[currentIndex + 1].playerId);
     }
   };
-
-  // Disable drawing when in preview mode
-  useEffect(() => {
-    setDrawingEnabled(false);
-    return () => setDrawingEnabled(true);
-  }, [setDrawingEnabled]);
 
   return (
     <div className="preview-overlay" style={{

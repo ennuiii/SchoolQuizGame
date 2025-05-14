@@ -200,7 +200,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const startPreviewMode = useCallback((roomCode: string) => {
     socketService.startPreviewMode(roomCode);
     setPreviewMode(prev => ({ ...prev, isActive: true }));
-  }, []);
+    // Make all non-spectator player boards visible when entering preview mode
+    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+  }, [players]);
 
   const stopPreviewMode = useCallback((roomCode: string) => {
     socketService.stopPreviewMode(roomCode);
@@ -330,12 +332,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [...prevBoards, { playerId, boardData, playerName: name }];
       });
 
-      // Always make the board visible when it's updated
-      setVisibleBoards(prev => {
-        const newSet = new Set(prev);
-        newSet.add(playerId);
-        return newSet;
-      });
+      // Make sure the board is visible
+      setVisibleBoards(prev => new Set(Array.from(prev).concat([playerId])));
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
@@ -416,6 +414,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     socketService.on('start_preview_mode', () => {
       setPreviewMode(prev => ({ ...prev, isActive: true }));
+      // Make all non-spectator player boards visible when entering preview mode
+      setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
     });
 
     socketService.on('stop_preview_mode', () => {
