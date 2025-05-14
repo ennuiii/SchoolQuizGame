@@ -9,6 +9,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator: boolean;
 }
 
 interface PlayerBoard {
@@ -40,15 +41,15 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
   onClose,
   isGameMaster
 }) => {
-  const { players, playerBoards, allAnswersThisRound, evaluatedAnswers, previewMode } = useGame();
+  const context = useGame();
   const { setDrawingEnabled } = useCanvas();
 
   // Only show preview mode when active
-  if (!previewMode.isActive) return null;
+  if (!context.previewMode.isActive) return null;
 
   // Get all active player boards (excluding spectators)
-  const activePlayerBoards = playerBoards.filter(board => {
-    const player = players.find(p => p.id === board.playerId);
+  const activePlayerBoards = context.playerBoards.filter(board => {
+    const player = context.players.find(p => p.id === board.playerId);
     return player && !player.isSpectator;
   });
 
@@ -85,8 +86,8 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
     );
   }
 
-  const currentIndex = previewMode.focusedPlayerId 
-    ? activePlayerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
+  const currentIndex = context.previewMode.focusedPlayerId 
+    ? activePlayerBoards.findIndex(board => board.playerId === context.previewMode.focusedPlayerId)
     : -1;
 
   const handlePrevious = () => {
@@ -120,15 +121,15 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
         </button>
       </div>
 
-      {previewMode.focusedPlayerId ? (
+      {context.previewMode.focusedPlayerId ? (
         // Focused view of a single board
         <div className="focused-submission">
           {activePlayerBoards
-            .filter(board => board.playerId === previewMode.focusedPlayerId)
+            .filter(board => board.playerId === context.previewMode.focusedPlayerId)
             .map(board => {
-              const player = players.find(p => p.id === board.playerId);
-              const answer = allAnswersThisRound[board.playerId];
-              const evaluation = evaluatedAnswers[board.playerId];
+              const player = context.players.find(p => p.id === board.playerId);
+              const answer = context.allAnswersThisRound[board.playerId];
+              const evaluation = context.evaluatedAnswers[board.playerId];
               
               return (
                 <div key={board.playerId} className="card">
@@ -212,9 +213,9 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
         // Grid view of all boards
         <div className="row">
           {activePlayerBoards.map(board => {
-            const player = players.find(p => p.id === board.playerId);
-            const answer = allAnswersThisRound[board.playerId];
-            const evaluation = evaluatedAnswers[board.playerId];
+            const player = context.players.find(p => p.id === board.playerId);
+            const answer = context.allAnswersThisRound[board.playerId];
+            const evaluation = context.evaluatedAnswers[board.playerId];
             
             return (
               <div key={board.playerId} className="col-md-6 mb-4">

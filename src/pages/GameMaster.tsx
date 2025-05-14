@@ -15,6 +15,46 @@ import { useRoom } from '../contexts/RoomContext';
 import { useAudio } from '../contexts/AudioContext';
 import RoomSettings from '../components/game-master/RoomSettings';
 import RecapModal from '../components/shared/RecapModal';
+import { toast } from 'react-toastify';
+import { LoadingOverlay } from '../components/shared/LoadingOverlay';
+import { ConnectionStatus } from '../components/shared/ConnectionStatus';
+import type { Question } from '../contexts/GameContext';
+
+interface Round {
+  roundNumber: number;
+  question: {
+    text: string;
+    answer: string;
+    grade: string;
+    subject: string;
+    type: 'text' | 'drawing';
+  };
+  correctAnswers: number;
+  totalAnswers: number;
+  submissions: Array<{
+    playerId: string;
+    answer: string;
+    isCorrect: boolean;
+  }>;
+}
+
+interface GameRecap {
+  roomCode: string;
+  startTime: Date;
+  endTime: Date;
+  players: Array<{
+    id: string;
+    name: string;
+    score: number;
+    finalLives: number;
+    isSpectator: boolean;
+    isWinner: boolean;
+  }>;
+  rounds: Round[];
+  correctAnswers: number;
+  totalQuestions: number;
+  score: number;
+}
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -24,7 +64,8 @@ const GameMaster: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [showRecap, setShowRecap] = useState(false);
-  const [gameRecap, setGameRecap] = useState(null);
+  const [recapData, setRecapData] = useState<GameRecap | null>(null);
+  const [timeLimit, setTimeLimit] = useState(30);
   
   // Get context values
   const {
@@ -53,7 +94,7 @@ const GameMaster: React.FC = () => {
     startPreviewMode,
     stopPreviewMode,
     focusSubmission,
-    timeLimit,
+    timeLimit: gameTimeLimit,
     timeRemaining,
     isTimerRunning,
     questionErrorMsg
@@ -68,13 +109,9 @@ const GameMaster: React.FC = () => {
 
   // Create a room if one doesn't exist
   useEffect(() => {
-    const socket = socketService.connect();
-    if (!socket) {
-      console.error('Failed to connect to socket server');
-      return;
-    }
+    socketService.connect();
     
-    socket.on('connect', () => {
+    socketService.on('connect', () => {
       console.log('Socket connected successfully');
       setIsConnecting(false);
       
@@ -84,23 +121,20 @@ const GameMaster: React.FC = () => {
       }
     });
 
-    socket.on('connect_error', (error) => {
+    socketService.on('connect_error', (error: Error) => {
       console.error('Socket connection error:', error);
       setIsConnecting(false);
     });
 
     return () => {
-      if (socket) {
-        socket.off('connect');
-        socket.off('connect_error');
-      }
+      socketService.off('connect');
+      socketService.off('connect_error');
     };
   }, [roomCode, createRoom]);
 
   useEffect(() => {
-    // Listen for game recap
-    socketService.on('game_recap', (recap) => {
-      setGameRecap(recap);
+    socketService.on('game_recap', (recap: GameRecap) => {
+      setRecapData(recap);
       setShowRecap(true);
     });
 
@@ -109,49 +143,132 @@ const GameMaster: React.FC = () => {
     };
   }, []);
 
-  const handleStartGame = useCallback(() => {
-    console.log('Starting game with:', {
-      roomCode,
-      questionsCount: questions.length,
-      activePlayers: players.filter(p => !p.isSpectator).length,
-      isConnecting
+  // Effect for handling game state changes
+  useEffect(() => {
+    console.log('[GameMaster] Game state changed:', {
+      started: gameStarted,
+      questionIndex: currentQuestion,
+      timeRemaining,
+      playerCount: players.length,
+      timestamp: new Date().toISOString()
     });
-    
-    if (isConnecting) {
-      console.error('Socket is still connecting');
-      return;
-    }
-    
+  }, [gameStarted, currentQuestion, timeRemaining, players]);
+
+  // Handle game start
+  const handleStartGame = async () => {
     if (!roomCode) {
-      console.error('No room code available');
+      console.error('[GameMaster] Cannot start game - No room code found');
       return;
     }
-    if (questions.length === 0) {
-      console.error('No questions selected');
+
+    try {
+      console.log('[GameMaster] Starting game:', {
+        roomCode,
+        questionCount: questions.length,
+        timeLimit,
+        timestamp: new Date().toISOString()
+      });
+
+      await startGame(roomCode, questions, customTimeLimit ?? 30);
+      console.log('[GameMaster] Game started successfully');
+    } catch (error) {
+      console.error('[GameMaster] Failed to start game:', error);
+      toast.error('Failed to start game. Please try again.');
+    }
+  };
+
+  // Handle next question
+  const handleNextQuestion = async () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot proceed to next question - No room code found');
       return;
     }
-    if (players.filter(p => !p.isSpectator).length < 2) {
-      console.error('Not enough active players');
+
+    try {
+      console.log('[GameMaster] Moving to next question:', {
+        roomCode,
+        currentIndex: currentQuestion,
+        timestamp: new Date().toISOString()
+      });
+
+      await nextQuestion(roomCode);
+      console.log('[GameMaster] Moved to next question successfully');
+    } catch (error) {
+      console.error('[GameMaster] Failed to move to next question:', error);
+      toast.error('Failed to proceed to next question. Please try again.');
+    }
+  };
+
+  // Handle preview mode
+  const handleStartPreview = () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot start preview - No room code found');
       return;
     }
-    
-    startGame(roomCode, questions, customTimeLimit ?? 30);
-  }, [roomCode, questions, players, startGame, isConnecting, customTimeLimit]);
 
-  const handleNextQuestion = useCallback(() => {
-    if (!roomCode) return;
-    nextQuestion(roomCode);
-  }, [roomCode, nextQuestion]);
+    console.log('[GameMaster] Starting preview mode:', {
+      roomCode,
+      timestamp: new Date().toISOString()
+    });
+    socketService.startPreviewMode(roomCode);
+  };
 
-  const handleEvaluateAnswer = useCallback((playerId: string, isCorrect: boolean) => {
-    if (!roomCode) return;
-    evaluateAnswer(roomCode, playerId, isCorrect);
-  }, [roomCode, evaluateAnswer]);
+  const handleStopPreview = () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot stop preview - No room code found');
+      return;
+    }
 
-  const handleRestartGame = useCallback(() => {
-    if (!roomCode) return;
-    restartGame(roomCode);
-  }, [roomCode, restartGame]);
+    console.log('[GameMaster] Stopping preview mode:', {
+      roomCode,
+      timestamp: new Date().toISOString()
+    });
+    socketService.stopPreviewMode(roomCode);
+  };
+
+  // Handle answer evaluation
+  const handleEvaluateAnswer = async (playerId: string, isCorrect: boolean) => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot evaluate answer - No room code found');
+      return;
+    }
+
+    try {
+      console.log('[GameMaster] Evaluating answer:', {
+        roomCode,
+        playerId,
+        isCorrect,
+        timestamp: new Date().toISOString()
+      });
+
+      await evaluateAnswer(roomCode, playerId, isCorrect);
+      console.log('[GameMaster] Answer evaluated successfully');
+    } catch (error) {
+      console.error('[GameMaster] Failed to evaluate answer:', error);
+      toast.error('Failed to evaluate answer. Please try again.');
+    }
+  };
+
+  // Handle end game
+  const handleEndGame = async () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot end game - No room code found');
+      return;
+    }
+
+    try {
+      console.log('[GameMaster] Ending game:', {
+        roomCode,
+        timestamp: new Date().toISOString()
+      });
+
+      await socketService.endGame(roomCode);
+      console.log('[GameMaster] Game ended successfully');
+    } catch (error) {
+      console.error('[GameMaster] Failed to end game:', error);
+      toast.error('Failed to end game. Please try again.');
+    }
+  };
 
   const handleEndRoundEarly = useCallback(() => {
     setShowEndRoundConfirm(true);
@@ -166,16 +283,6 @@ const GameMaster: React.FC = () => {
   const cancelEndRoundEarly = useCallback(() => {
     setShowEndRoundConfirm(false);
   }, []);
-
-  const handleStartPreviewMode = useCallback(() => {
-    if (!roomCode) return;
-    startPreviewMode(roomCode);
-  }, [roomCode, startPreviewMode]);
-
-  const handleStopPreviewMode = useCallback(() => {
-    if (!roomCode) return;
-    stopPreviewMode(roomCode);
-  }, [roomCode, stopPreviewMode]);
 
   const handleFocusSubmission = useCallback((playerId: string) => {
     if (!roomCode) return;
@@ -231,6 +338,19 @@ const GameMaster: React.FC = () => {
     });
     setBoardTransforms(initialTransforms);
   }, [players]);
+
+  // Handle game recap
+  const handleGameRecap = (recap: GameRecap) => {
+    console.log('[GameMaster] Received game recap:', recap);
+    setRecapData(recap);
+    setShowRecap(true);
+  };
+
+  if (!roomCode) {
+    console.log('[GameMaster] No room code found, redirecting to home');
+    navigate('/');
+    return null;
+  }
 
   return (
     <div className="container-fluid px-2 px-md-4">
@@ -299,7 +419,7 @@ const GameMaster: React.FC = () => {
             <div className="mb-3">
               <button
                 className="btn btn-primary w-100"
-                onClick={handleStartPreviewMode}
+                onClick={handleStartPreview}
                 disabled={!gameStarted}
               >
                 Start Preview Mode
@@ -331,7 +451,7 @@ const GameMaster: React.FC = () => {
               <>
                 <button className="btn btn-primary" onClick={handleNextQuestion}>Next Question</button>
                 <button className="btn btn-warning" onClick={handleEndRoundEarly}>End Round Early</button>
-                <button className="btn btn-danger" onClick={handleRestartGame}>Restart Game</button>
+                <button className="btn btn-danger" onClick={handleEndGame}>End Game</button>
               </>
             )}
           </div>
@@ -395,7 +515,7 @@ const GameMaster: React.FC = () => {
               />
               <PreviewOverlay
                 onFocus={handleFocusSubmission}
-                onClose={handleStopPreviewMode}
+                onClose={handleStopPreview}
                 isGameMaster={true}
               />
             </>
@@ -423,7 +543,7 @@ const GameMaster: React.FC = () => {
         }}>
           <button
             className="btn btn-secondary w-100"
-            onClick={handleStopPreviewMode}
+            onClick={handleStopPreview}
           >
             Stop Preview Mode
           </button>
@@ -441,7 +561,7 @@ const GameMaster: React.FC = () => {
       <RecapModal
         show={showRecap}
         onHide={() => setShowRecap(false)}
-        recap={gameRecap}
+        recap={recapData}
       />
     </div>
   );

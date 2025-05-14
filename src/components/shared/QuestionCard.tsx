@@ -1,50 +1,37 @@
 import React from 'react';
 
 interface Question {
-  id: number;
+  id: string;
   text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
+  type: 'text' | 'drawing';
+  timeLimit?: number;
 }
 
 interface QuestionCardProps {
-  currentQuestion: Question | null;
-  currentQuestionIndex?: number;
-  totalQuestions?: number;
-  showAnswer?: boolean;
+  question: Question | null;
+  timeRemaining: number | null;
+  onSubmit: (answer: string, hasDrawing?: boolean) => Promise<void>;
+  submitted: boolean;
 }
 
-const QuestionCard: React.FC<QuestionCardProps> = ({
-  currentQuestion,
-  currentQuestionIndex,
-  totalQuestions,
-  showAnswer = false
-}) => {
-  if (!currentQuestion) return null;
+const QuestionCard: React.FC<QuestionCardProps> = ({ question, timeRemaining, onSubmit, submitted }) => {
+  if (!question) return null;
 
   return (
     <div className="card mb-4">
       <div className="card-header d-flex justify-content-between align-items-center">
         <h3 className="mb-0">Question</h3>
-        {currentQuestionIndex !== undefined && totalQuestions !== undefined && (
-          <span className="badge bg-primary">
-            Question {currentQuestionIndex + 1} of {totalQuestions}
-          </span>
-        )}
       </div>
       <div className="card-body">
         <div className="question-container">
-          <p className="lead mb-1">{currentQuestion.text}</p>
+          <p className="lead mb-1">{question.text}</p>
           <small>
-            Grade: {currentQuestion.grade} | Subject: {currentQuestion.subject}
-            {currentQuestion.language && ` | Language: ${currentQuestion.language}`}
+            Type: {question.type}
           </small>
         </div>
-        {showAnswer && currentQuestion.answer && (
+        {timeRemaining !== null && (
           <div className="alert alert-info mt-3 mb-0">
-            <strong>Answer:</strong> {currentQuestion.answer}
+            Time Remaining: {timeRemaining} seconds
           </div>
         )}
       </div>

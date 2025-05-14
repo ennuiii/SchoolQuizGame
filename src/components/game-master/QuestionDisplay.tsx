@@ -1,13 +1,5 @@
 import React from 'react';
-
-interface Question {
-  id: number;
-  text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
-}
+import type { Question } from '../../contexts/GameContext';
 
 interface QuestionDisplayProps {
   question: Question | null;

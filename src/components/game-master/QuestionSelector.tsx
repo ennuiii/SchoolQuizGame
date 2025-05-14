@@ -1,14 +1,6 @@
 import React, { useEffect } from 'react';
 import { useGame } from '../../contexts/GameContext';
-
-interface Question {
-  id: number;
-  text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
-}
+import type { Question } from '../../contexts/GameContext';
 
 interface QuestionSelectorProps {
   onQuestionsSelected: (questions: Question[]) => void;

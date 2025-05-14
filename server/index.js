@@ -115,6 +115,7 @@ function getGameState(roomCode) {
   return {
     started: room.started,
     currentQuestion: room.currentQuestion,
+    currentQuestionIndex: room.currentQuestionIndex,
     timeLimit: room.timeLimit,
     players: room.players,
     playerBoards: room.playerBoards,
@@ -284,24 +285,45 @@ app.get('/api/recaps/:recapId/round/:roundNumber', (req, res) => {
 const timers = new Map();
 
 io.on('connection', (socket) => {
-  console.log(`User connected: ${socket.id}`);
+  console.log(`[Server] User connected: ${socket.id}`);
 
   // Create a new game room (Gamemaster)
   socket.on('create_room', ({ roomCode } = {}) => {
     const finalRoomCode = roomCode || generateRoomCode();
+    console.log(`[Server] Creating room:`, {
+      roomCode: finalRoomCode,
+      gamemaster: socket.id,
+      timestamp: new Date().toISOString()
+    });
+    
     gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, socket.id);
 
     socket.join(finalRoomCode);
     socket.roomCode = finalRoomCode;
     socket.emit('room_created', { roomCode: finalRoomCode });
-    console.log(`Room created: ${finalRoomCode} by ${socket.id}`);
+    console.log(`[Server] Room created successfully:`, {
+      roomCode: finalRoomCode,
+      gamemaster: socket.id,
+      timestamp: new Date().toISOString()
+    });
   });
 
   // Handle player joining
   socket.on('join_room', ({ roomCode, playerName, isSpectator }) => {
-    console.log(`Player ${playerName} (${socket.id}) joining room ${roomCode}`);
+    console.log(`[Server] Player joining room:`, {
+      roomCode,
+      playerName,
+      playerId: socket.id,
+      isSpectator,
+      timestamp: new Date().toISOString()
+    });
     
     if (!gameRooms[roomCode]) {
+      console.error(`[Server] Join room failed - Invalid room code:`, {
+        roomCode,
+        playerName,
+        playerId: socket.id
+      });
       socket.emit('error', 'Invalid room code');
       return;
     }
@@ -320,11 +342,25 @@ io.on('connection', (socket) => {
     };
     room.players.push(player);
 
+    console.log(`[Server] Player joined successfully:`, {
+      roomCode,
+      playerName,
+      playerId: socket.id,
+      totalPlayers: room.players.length,
+      timestamp: new Date().toISOString()
+    });
+
     // Send full game state to the joining player
     socket.emit('room_joined', { roomCode });
     const gameState = getGameState(roomCode);
     if (gameState) {
       socket.emit('game_state_update', gameState);
+      console.log(`[Server] Sent initial game state to player:`, {
+        roomCode,
+        playerId: socket.id,
+        gameStarted: gameState.started,
+        currentQuestionIndex: gameState.currentQuestionIndex
+      });
     }
 
     // Broadcast updated player list
@@ -361,6 +397,7 @@ io.on('connection', (socket) => {
     room.currentQuestionIndex = 0;
     room.started = true;
     room.timeLimit = timeLimit || 99999;
+    room.questionStartTime = Date.now();
     
     // Initialize playerBoards with round tracking
     if (!room.playerBoards) {
@@ -429,16 +466,24 @@ io.on('connection', (socket) => {
 
   // Handle board updates
   socket.on('update_board', ({ roomCode, boardData }) => {
-    console.log(`Received board update from ${socket.id} in room ${roomCode}`);
+    console.log(`[Server] Received board update:`, {
+      roomCode,
+      playerId: socket.id,
+      dataSize: boardData?.length || 0,
+      timestamp: new Date().toISOString()
+    });
     
     if (!gameRooms[roomCode]) {
-      console.log('Invalid room code for board update:', roomCode);
+      console.error('[Server] Board update failed - Invalid room:', roomCode);
       return;
     }
 
     // Check if the socket is in the room
     if (!socket.rooms.has(roomCode)) {
-      console.log('Socket not in room for board update:', roomCode);
+      console.error('[Server] Board update failed - Socket not in room:', {
+        roomCode,
+        playerId: socket.id
+      });
       return;
     }
 
@@ -457,7 +502,13 @@ io.on('connection', (socket) => {
     const player = gameRooms[roomCode].players.find(p => p.id === socket.id);
     const playerName = player ? player.name : 'Unknown Player';
 
-    console.log(`Broadcasting board update from ${playerName} to room ${roomCode}`);
+    console.log(`[Server] Broadcasting board update:`, {
+      roomCode,
+      playerId: socket.id,
+      playerName,
+      roundIndex: room.currentQuestionIndex,
+      timestamp: new Date().toISOString()
+    });
 
     // Broadcast to all clients in the room including the sender
     io.to(roomCode).emit('board_update', {
@@ -470,16 +521,27 @@ io.on('connection', (socket) => {
   // Handle answer submission
   socket.on('submit_answer', (data) => {
     const { roomCode, answer, hasDrawing } = data;
-    console.log(`Player ${socket.id} submitting answer in room ${roomCode}`);
+    console.log(`[Server] Answer submission:`, {
+      roomCode,
+      playerId: socket.id,
+      hasDrawing,
+      answerLength: answer?.length || 0,
+      timestamp: new Date().toISOString()
+    });
     
     const room = gameRooms[roomCode];
     if (!room) {
+      console.error('[Server] Answer submission failed - Room not found:', roomCode);
       socket.emit('error', 'Room not found');
       return;
     }
 
     const player = room.players.find(p => p.id === socket.id);
     if (!player) {
+      console.error('[Server] Answer submission failed - Player not found:', {
+        roomCode,
+        playerId: socket.id
+      });
       socket.emit('error', 'Player not found');
       return;
     }
@@ -499,6 +561,14 @@ io.on('connection', (socket) => {
       player.answers[room.currentQuestionIndex] = answerData;
       room.roundAnswers[socket.id] = answerData;
 
+      console.log(`[Server] Answer stored successfully:`, {
+        roomCode,
+        playerId: socket.id,
+        playerName: player.name,
+        questionIndex: room.currentQuestionIndex,
+        timestamp: new Date().toISOString()
+      });
+
       // Notify the player
       socket.emit('answer_received', { 
         status: 'success',
@@ -512,7 +582,11 @@ io.on('connection', (socket) => {
       gameAnalytics.recordAnswer(roomCode, socket.id, answer, null, responseTime);
       
     } catch (error) {
-      console.error('Error storing answer:', error);
+      console.error('[Server] Error storing answer:', {
+        error,
+        roomCode,
+        playerId: socket.id
+      });
       socket.emit('error', 'Failed to submit answer');
     }
   });
@@ -585,6 +659,7 @@ io.on('connection', (socket) => {
     if (room.currentQuestionIndex < room.questions.length - 1) {
       room.currentQuestionIndex += 1;
       room.currentQuestion = room.questions[room.currentQuestionIndex];
+      room.questionStartTime = Date.now();
 
       // Reset answer for the new question index for all players
       room.players.forEach(player => {
@@ -946,7 +1021,21 @@ io.on('connection', (socket) => {
       socket.emit('game_state', { started: false });
       return;
     }
-    socket.emit('game_state', { started: !!room.started });
+
+    // Send complete game state
+    const state = {
+      started: room.started,
+      currentQuestion: room.currentQuestion,
+      currentQuestionIndex: room.currentQuestionIndex,
+      timeLimit: room.timeLimit,
+      questionStartTime: room.questionStartTime,
+      players: room.players,
+      playerBoards: room.playerBoards,
+      roundAnswers: room.roundAnswers,
+      evaluatedAnswers: room.evaluatedAnswers
+    };
+    
+    socket.emit('game_state', state);
   });
 
   // Add new event for requesting recap

@@ -2,6 +2,17 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 
+export interface Question {
+  id: string;
+  text: string;
+  type: 'text' | 'drawing';
+  timeLimit?: number;
+  answer?: string;
+  grade: number;
+  subject: string;
+  language?: string;
+}
+
 interface Player {
   id: string;
   name: string;
@@ -11,16 +22,7 @@ interface Player {
   isSpectator: boolean;
 }
 
-interface Question {
-  id: number;
-  text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
-}
-
-interface PlayerBoard {
+export interface PlayerBoard {
   playerId: string;
   playerName: string;
   boardData: string;
@@ -96,13 +98,13 @@ interface GameContextType {
   
   // Question Management
   addQuestionToSelected: (question: Question) => void;
-  removeSelectedQuestion: (questionId: number) => void;
+  removeSelectedQuestion: (questionId: string) => void;
   clearAllSelectedQuestions: () => void;
   organizeSelectedQuestions: () => void;
   addCustomQuestion: () => void;
 }
 
-const GameContext = createContext<GameContextType | undefined>(undefined);
+const GameContext = createContext<GameContextType | null>(null);
 
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Game State
@@ -110,11 +112,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [gameOver, setGameOver] = useState(false);
   const [isWinner, setIsWinner] = useState(false);
   const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState<number>(0);
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
-  const [submittedAnswer, setSubmittedAnswer] = useState(false);
+  const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
+  const [submittedAnswer, setSubmittedAnswer] = useState<boolean>(false);
   
   // Players and Boards
   const [players, setPlayers] = useState<Player[]>([]);
@@ -140,12 +142,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [languages, setLanguages] = useState<string[]>([]);
   const [selectedSubject, setSelectedSubject] = useState<string>('');
   const [selectedGrade, setSelectedGrade] = useState<number | ''>('');
-  const [selectedLanguage, setSelectedLanguage] = useState<string>('de');
+  const [selectedLanguage, setSelectedLanguage] = useState<string>('');
   const [isLoadingQuestions, setIsLoadingQuestions] = useState(false);
   const [availableQuestions, setAvailableQuestions] = useState<Question[]>([]);
-  const [questionErrorMsg, setQuestionErrorMsg] = useState('');
+  const [questionErrorMsg, setQuestionErrorMsg] = useState<string>('');
   const [randomCount, setRandomCount] = useState<number>(5);
-  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
+  const [isLoadingRandom, setIsLoadingRandom] = useState<boolean>(false);
 
   // Helper function to get player name
   const getPlayerName = useCallback((playerId: string) => {
@@ -154,6 +156,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [players]);
 
   // Actions
+  const handleStartGame = (roomCode: string, questions: Question[], timeLimit: number) => {
+    socketService.emit('start_game', { roomCode, questions, timeLimit });
+  };
+
+  const handleNextQuestion = (roomCode: string) => {
+    socketService.emit('next_question', { roomCode });
+  };
+
+  const handleEvaluateAnswer = (roomCode: string, playerId: string, isCorrect: boolean) => {
+    socketService.emit('evaluate_answer', { roomCode, playerId, isCorrect });
+  };
+
+  const handleRestartGame = (roomCode: string) => {
+    socketService.emit('restart_game', { roomCode });
+  };
+
   const startGame = useCallback((roomCode: string, questions: Question[], timeLimit: number) => {
     if (!questions || questions.length === 0) {
       setQuestionErrorMsg('Cannot start game: No questions selected');
@@ -219,12 +237,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoadingQuestions(true);
     setQuestionErrorMsg('');
     try {
-      const data = await supabaseService.getQuestions({
+      const questions = await supabaseService.getQuestions({
         subject: selectedSubject,
         grade: selectedGrade === '' ? undefined : selectedGrade,
         language: selectedLanguage
       });
-      setAvailableQuestions(data);
+
+      setAvailableQuestions(questions.map(convertSupabaseQuestion));
     } catch (error) {
       console.error('Error loading questions:', error);
       setQuestionErrorMsg('Failed to load questions');
@@ -235,26 +254,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load random questions
   const loadRandomQuestions = useCallback(async () => {
-    setIsLoadingRandom(true);
-    setQuestionErrorMsg('');
     try {
-      const data = await supabaseService.getQuestions({
+      const questions = await supabaseService.getQuestions({
         subject: selectedSubject,
-        grade: selectedGrade === '' ? undefined : selectedGrade,
-        language: selectedLanguage
+        grade: selectedGrade === '' ? undefined : Number(selectedGrade),
+        language: selectedLanguage,
+        sortByGrade: true
       });
 
-      // Shuffle and take randomCount questions
-      const shuffled = data.sort(() => 0.5 - Math.random());
+      const shuffled = questions.sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, randomCount);
-      
-      setQuestions(prev => [...prev, ...selected]);
-      setAvailableQuestions(prev => [...prev, ...selected]);
+      setAvailableQuestions(selected.map(convertSupabaseQuestion));
     } catch (error) {
       console.error('Error loading random questions:', error);
       setQuestionErrorMsg('Failed to load random questions');
-    } finally {
-      setIsLoadingRandom(false);
     }
   }, [selectedSubject, selectedGrade, selectedLanguage, randomCount]);
 
@@ -278,10 +291,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   React.useEffect(() => {
     // Handle complete game state updates
     socketService.on('game_state_update', (state: any) => {
-      console.log('Received game state update:', state);
+      console.log('[GameContext] Received game state update:', {
+        started: state.started,
+        currentQuestionIndex: state.currentQuestionIndex,
+        timeLimit: state.timeLimit,
+        playerCount: state.players?.length,
+        boardCount: state.playerBoards ? Object.keys(state.playerBoards).length : 0,
+        answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0
+      });
+      
       try {
         setGameStarted(state.started);
         setCurrentQuestion(state.currentQuestion);
+        setCurrentQuestionIndex(state.currentQuestionIndex);
         setTimeLimit(state.timeLimit);
         setPlayers(state.players);
         
@@ -293,16 +315,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             playerName: state.players.find((p: any) => p.id === playerId)?.name || 'Unknown'
           }));
           setPlayerBoards(boardsArray);
+          console.log('[GameContext] Updated player boards:', {
+            count: boardsArray.length,
+            players: boardsArray.map(b => b.playerName)
+          });
         }
 
         // Update answers
         if (state.roundAnswers) {
           setAllAnswersThisRound(state.roundAnswers);
+          console.log('[GameContext] Updated round answers:', {
+            count: Object.keys(state.roundAnswers).length,
+            answers: Object.entries(state.roundAnswers).map(([pid, data]: [string, any]) => ({
+              player: state.players.find((p: any) => p.id === pid)?.name,
+              hasDrawing: data.hasDrawing
+            }))
+          });
         }
 
         // Update evaluations
         if (state.evaluatedAnswers) {
           setEvaluatedAnswers(state.evaluatedAnswers);
+          console.log('[GameContext] Updated answer evaluations:', {
+            count: Object.keys(state.evaluatedAnswers).length,
+            results: Object.entries(state.evaluatedAnswers).map(([pid, isCorrect]) => ({
+              player: state.players.find((p: any) => p.id === pid)?.name,
+              isCorrect
+            }))
+          });
         }
 
         // Make all boards visible by default
@@ -312,12 +352,51 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setVisibleBoards(new Set(playerIds));
 
       } catch (error) {
-        console.error('Error processing game state update:', error);
+        console.error('[GameContext] Error processing game state update:', error);
       }
     });
 
+    // Handle game started event
+    socketService.on('game_started', (data: { question: Question, timeLimit: number }) => {
+      console.log('[GameContext] Game started:', {
+        questionText: data.question.text,
+        timeLimit: data.timeLimit,
+        timestamp: new Date().toISOString()
+      });
+      
+      setGameStarted(true);
+      setCurrentQuestion(data.question);
+      setTimeLimit(data.timeLimit);
+      setCurrentQuestionIndex(0);
+      setSubmittedAnswer(false);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setPlayerBoards([]);
+    });
+
+    // Handle new question event
+    socketService.on('new_question', (data: { question: Question, timeLimit: number }) => {
+      console.log('[GameContext] New question:', {
+        questionText: data.question.text,
+        timeLimit: data.timeLimit,
+        timestamp: new Date().toISOString()
+      });
+      
+      setCurrentQuestion(data.question);
+      setTimeLimit(data.timeLimit);
+      setCurrentQuestionIndex(prev => {
+        const newIndex = prev + 1;
+        console.log('[GameContext] Updated question index:', { prev, new: newIndex });
+        return newIndex;
+      });
+      setSubmittedAnswer(false);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setPlayerBoards([]);
+    });
+
     // Handle errors
-    socketService.onError((error: string) => {
+    socketService.on('error', (error: string) => {
       setQuestionErrorMsg(error);
       setTimeout(() => setQuestionErrorMsg(''), 3000);
     });
@@ -337,12 +416,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Handle timer updates
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
+      console.log('[GameContext] Timer update:', {
+        timeRemaining: data.timeRemaining,
+        timestamp: new Date().toISOString()
+      });
       setTimeRemaining(data.timeRemaining);
       setIsTimerRunning(data.timeRemaining > 0);
     });
 
     // Handle time up
     socketService.on('time_up', () => {
+      console.log('[GameContext] Time up event received');
       setTimeRemaining(0);
       setIsTimerRunning(false);
       
@@ -350,6 +434,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!submittedAnswer && currentQuestion) {
         const roomCode = sessionStorage.getItem('roomCode');
         if (roomCode) {
+          console.log('[GameContext] Auto-submitting answer due to time up');
           const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
           const currentAnswer = answerInput?.value?.trim() || '';
           const canvas = document.querySelector('canvas');
@@ -363,6 +448,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Handle preview mode
     socketService.on('start_preview_mode', () => {
+      console.log('[GameContext] Starting preview mode');
       setPreviewMode(prev => ({ ...prev, isActive: true }));
       // Show all non-spectator boards
       const nonSpectatorIds = players
@@ -372,16 +458,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     socketService.on('stop_preview_mode', () => {
+      console.log('[GameContext] Stopping preview mode');
       setPreviewMode({ isActive: false, focusedPlayerId: null });
     });
 
     socketService.on('focus_submission', (data: { playerId: string }) => {
+      console.log('[GameContext] Focusing submission:', {
+        playerId: data.playerId,
+        playerName: players.find(p => p.id === data.playerId)?.name
+      });
       setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
     });
 
     // Cleanup
     return () => {
+      console.log('[GameContext] Cleaning up event listeners');
       socketService.off('game_state_update');
+      socketService.off('game_started');
+      socketService.off('new_question');
       socketService.off('error');
       socketService.off('game_over');
       socketService.off('game_winner');
@@ -404,7 +498,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAvailableQuestions(prev => prev.filter(q => q.id !== question.id));
   }, [questions]);
 
-  const removeSelectedQuestion = useCallback((questionId: number) => {
+  const removeSelectedQuestion = useCallback((questionId: string) => {
     const questionToRemove = questions.find(q => q.id === questionId);
     if (questionToRemove) {
       const newQuestions = questions.filter(q => q.id !== questionId);
@@ -456,8 +550,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     
     const newQuestion: Question = {
-      id: Date.now(), // Use timestamp as temporary ID
+      id: Date.now().toString(), // Convert timestamp to string
       text: text.trim(),
+      type: 'text',
       answer: answer?.trim(),
       subject: subject.trim(),
       grade: Math.min(13, Math.max(1, grade)),
@@ -541,8 +636,27 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
 export const useGame = () => {
   const context = useContext(GameContext);
-  if (context === undefined) {
+  if (!context) {
     throw new Error('useGame must be used within a GameProvider');
   }
   return context;
-}; 
+};
+
+// Helper function for grade comparison
+const sortByGrade = (a: Question, b: Question) => {
+  const gradeA = Number(a.grade) || 0;
+  const gradeB = Number(b.grade) || 0;
+  return gradeA - gradeB;
+};
+
+// Helper function for question type conversion
+const convertSupabaseQuestion = (q: any): Question => ({
+  id: q.id.toString(),
+  text: q.text,
+  type: q.type || 'text',
+  timeLimit: q.timeLimit,
+  answer: q.answer,
+  grade: parseInt(q.grade, 10) || 0,
+  subject: q.subject,
+  language: q.language
+}); 
