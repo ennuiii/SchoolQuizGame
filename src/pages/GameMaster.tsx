@@ -158,6 +158,7 @@ const GameMaster: React.FC = () => {
   useEffect(() => {
     console.log('[GameMaster] Game state changed:', {
       started: gameStarted,
+      hasCurrentQuestion: !!currentQuestion,
       questionIndex: currentQuestion,
       timeRemaining,
       playerCount: players.length,
@@ -169,6 +170,12 @@ const GameMaster: React.FC = () => {
   const handleStartGame = async () => {
     if (!roomCode) {
       console.error('[GameMaster] Cannot start game - No room code found');
+      return;
+    }
+
+    if (!questions || questions.length === 0) {
+      console.error('[GameMaster] Cannot start game - No questions selected');
+      toast.error('Please select questions before starting the game');
       return;
     }
 
@@ -485,9 +492,27 @@ const GameMaster: React.FC = () => {
               </button>
             ) : (
               <>
-                <button className="btn btn-primary" onClick={handleNextQuestion}>Next Question</button>
-                <button className="btn btn-warning" onClick={handleEndRoundEarly}>End Round Early</button>
-                <button className="btn btn-danger" onClick={handleEndGame}>End Game</button>
+                <button 
+                  className="btn btn-primary" 
+                  onClick={handleNextQuestion}
+                  disabled={!currentQuestion}
+                >
+                  Next Question
+                </button>
+                <button 
+                  className="btn btn-warning" 
+                  onClick={handleEndRoundEarly}
+                  disabled={!currentQuestion}
+                >
+                  End Round Early
+                </button>
+                <button 
+                  className="btn btn-danger" 
+                  onClick={handleEndGame}
+                  disabled={!currentQuestion}
+                >
+                  End Game
+                </button>
               </>
             )}
           </div>

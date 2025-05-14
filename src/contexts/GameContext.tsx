@@ -317,7 +317,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       try {
-        // Only update gameStarted if it's different from current state
+        // Update state in a specific order
+        setTimeLimit(state.timeLimit);
+        setCurrentQuestion(state.currentQuestion);
+        setCurrentQuestionIndex(state.currentQuestionIndex);
+        setPlayers(state.players);
+        setPlayerBoards(state.playerBoards ? Object.entries(state.playerBoards).map(([playerId, data]: [string, any]) => ({
+          playerId,
+          boardData: data.boardData,
+          playerName: state.players.find((p: any) => p.id === playerId)?.name || 'Unknown'
+        })) : []);
+        setAllAnswersThisRound(state.roundAnswers || {});
+        setEvaluatedAnswers(state.evaluatedAnswers || {});
+        
+        // Update gameStarted last to ensure all other state is ready
         if (state.started !== gameStarted) {
           console.log('[GameContext] Updating game started state:', {
             from: gameStarted,
@@ -326,68 +339,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
           setGameStarted(state.started);
         }
-
-        // Only update current question if it's different
-        if (state.currentQuestion?.id !== currentQuestion?.id) {
-          console.log('[GameContext] Updating current question:', {
-            from: currentQuestion?.text,
-            to: state.currentQuestion?.text,
-            timestamp: new Date().toISOString()
-          });
-          setCurrentQuestion(state.currentQuestion);
-        }
-
-        setCurrentQuestionIndex(state.currentQuestionIndex);
-        setTimeLimit(state.timeLimit);
-        setPlayers(state.players);
-        
-        // Update player boards
-        if (state.playerBoards) {
-          const boardsArray = Object.entries(state.playerBoards).map(([playerId, data]: [string, any]) => ({
-            playerId,
-            boardData: data.boardData,
-            playerName: state.players.find((p: any) => p.id === playerId)?.name || 'Unknown'
-          }));
-          setPlayerBoards(boardsArray);
-          console.log('[GameContext] Updated player boards:', {
-            count: boardsArray.length,
-            players: boardsArray.map(b => b.playerName),
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        // Update answers
-        if (state.roundAnswers) {
-          setAllAnswersThisRound(state.roundAnswers);
-          console.log('[GameContext] Updated round answers:', {
-            count: Object.keys(state.roundAnswers).length,
-            answers: Object.entries(state.roundAnswers).map(([pid, data]: [string, any]) => ({
-              player: state.players.find((p: any) => p.id === pid)?.name,
-              hasDrawing: data.hasDrawing
-            })),
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        // Update evaluations
-        if (state.evaluatedAnswers) {
-          setEvaluatedAnswers(state.evaluatedAnswers);
-          console.log('[GameContext] Updated answer evaluations:', {
-            count: Object.keys(state.evaluatedAnswers).length,
-            results: Object.entries(state.evaluatedAnswers).map(([pid, isCorrect]) => ({
-              player: state.players.find((p: any) => p.id === pid)?.name,
-              isCorrect
-            })),
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        // Make all boards visible by default for non-spectator players
-        const playerIds = state.players
-          .filter((p: any) => !p.isSpectator)
-          .map((p: any) => p.id);
-        setVisibleBoards(new Set(playerIds));
-
       } catch (error) {
         console.error('[GameContext] Error processing game state update:', error);
       }
@@ -402,23 +353,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         timestamp: new Date().toISOString()
       });
       
-      // Set initial game state
-      setGameStarted(true);
-      setCurrentQuestion(data.question);
-      setTimeLimit(data.timeLimit);
-      setCurrentQuestionIndex(0);
-      setSubmittedAnswer(false);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-      setPlayerBoards([]);
+      try {
+        // Set initial game state in a specific order
+        setTimeLimit(data.timeLimit);
+        setCurrentQuestion(data.question);
+        setCurrentQuestionIndex(0);
+        setSubmittedAnswer(false);
+        setAllAnswersThisRound({});
+        setEvaluatedAnswers({});
+        setPlayerBoards([]);
+        
+        // Set gameStarted last to ensure all other state is ready
+        setGameStarted(true);
 
-      // Log state update
-      console.log('[GameContext] Updated game state after game_started event:', {
-        gameStarted: true,
-        questionText: data.question.text,
-        timeLimit: data.timeLimit,
-        timestamp: new Date().toISOString()
-      });
+        console.log('[GameContext] Updated game state after game_started event:', {
+          gameStarted: true,
+          questionText: data.question.text,
+          timeLimit: data.timeLimit,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error) {
+        console.error('[GameContext] Error processing game started event:', error);
+      }
     });
 
     // Handle new question event
@@ -532,7 +488,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
     };
-  }, [players, currentQuestion, submittedAnswer]);
+  }, []); // Remove dependencies to ensure event handlers are always registered
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
