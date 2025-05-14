@@ -136,7 +136,10 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         margin: '0 auto',
                         cursor: 'pointer',
                         transition: 'box-shadow 0.2s, border-color 0.2s',
-                        position: 'relative'
+                        position: 'relative',
+                        border: '4px solid #8B4513',
+                        borderRadius: '4px',
+                        backgroundColor: '#0C6A35'
                       }}
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
@@ -202,7 +205,10 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         margin: '0 auto',
                         cursor: 'pointer',
                         transition: 'box-shadow 0.2s, border-color 0.2s',
-                        position: 'relative'
+                        position: 'relative',
+                        border: '4px solid #8B4513',
+                        borderRadius: '4px',
+                        backgroundColor: '#0C6A35'
                       }}
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
