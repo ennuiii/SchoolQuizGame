@@ -72,6 +72,7 @@ const GameMaster: React.FC = () => {
   const {
     roomCode,
     isLoading,
+    setIsLoading,
     createRoom,
     leaveRoom,
     players

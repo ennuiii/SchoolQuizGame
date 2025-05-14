@@ -26,6 +26,7 @@ interface RoomContextType {
   // Actions
   setRoomCode: (code: string) => void;
   setPlayerName: (name: string) => void;
+  setIsLoading: (loading: boolean) => void;
   setErrorMsg: (msg: string) => void;
   setCopied: (copied: boolean) => void;
   joinRoom: (roomCode: string, playerName: string, isSpectator?: boolean) => void;
@@ -183,6 +184,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     createRoom,
     setRoomCode,
     setPlayerName,
+    setIsLoading,
     setErrorMsg,
     setCopied,
     joinRoom,
