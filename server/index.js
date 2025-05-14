@@ -254,8 +254,14 @@ io.on('connection', (socket) => {
 
   // Handle board updates
   socket.on('update_board', ({ roomCode, boardData }) => {
-    if (!socket.roomCode || socket.roomCode !== roomCode) {
+    if (!gameRooms[roomCode]) {
       console.log('Invalid room code for board update');
+      return;
+    }
+
+    // Check if the socket is in the room
+    if (!socket.rooms.has(roomCode)) {
+      console.log('Socket not in room for board update');
       return;
     }
 
