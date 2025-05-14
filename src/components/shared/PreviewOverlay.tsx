@@ -58,6 +58,12 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
     }
   };
 
+  // Filter out spectators from the boards
+  const activePlayerBoards = playerBoards.filter(board => {
+    const player = players.find(p => p.id === board.playerId);
+    return player && !player.isSpectator;
+  });
+
   return (
     <div className="preview-overlay" style={{
       position: 'fixed',
@@ -79,7 +85,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
 
       {previewMode.focusedPlayerId ? (
         <div className="focused-submission">
-          {playerBoards
+          {activePlayerBoards
             .filter(board => board.playerId === previewMode.focusedPlayerId)
             .map(board => {
               const player = players.find(p => p.id === board.playerId);
@@ -101,7 +107,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                       <button 
                         className="btn btn-outline-primary ms-3"
                         onClick={handleNext}
-                        disabled={currentIndex >= playerBoards.length - 1}
+                        disabled={currentIndex >= activePlayerBoards.length - 1}
                       >
                         Next →
                       </button>
@@ -166,7 +172,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
         </div>
       ) : (
         <div className="row">
-          {playerBoards.map(board => {
+          {activePlayerBoards.map(board => {
             const player = players.find(p => p.id === board.playerId);
             const answer = allAnswersThisRound[board.playerId];
             const evaluation = evaluatedAnswers[board.playerId];
