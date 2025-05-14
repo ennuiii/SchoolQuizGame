@@ -309,24 +309,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Handle board updates
     socketService.on('board_update', ({ boardData, playerId, playerName }) => {
-      if (playerId !== socketService.getSocketId()) {
-        setPlayerBoards(prevBoards => {
-          const index = prevBoards.findIndex(b => b.playerId === playerId);
-          const player = players.find(p => p.id === playerId);
-          const name = playerName || player?.name || 'Unknown Player';
-          
-          if (index >= 0) {
-            const newBoards = [...prevBoards];
-            newBoards[index] = {
-              ...newBoards[index],
-              boardData,
-              playerName: name
-            };
-            return newBoards;
-          }
-          return [...prevBoards, { playerId, boardData, playerName: name }];
-        });
-      }
+      setPlayerBoards(prevBoards => {
+        const index = prevBoards.findIndex(b => b.playerId === playerId);
+        const player = players.find(p => p.id === playerId);
+        const name = playerName || player?.name || 'Unknown Player';
+        
+        if (index >= 0) {
+          const newBoards = [...prevBoards];
+          newBoards[index] = {
+            ...newBoards[index],
+            boardData,
+            playerName: name
+          };
+          return newBoards;
+        }
+        return [...prevBoards, { playerId, boardData, playerName: name }];
+      });
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {

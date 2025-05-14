@@ -42,19 +42,25 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
 
   if (!previewMode.isActive) return null;
 
+  // Get all active player boards (excluding spectators)
+  const activePlayerBoards = playerBoards.filter(board => {
+    const player = players.find(p => p.id === board.playerId);
+    return player && !player.isSpectator;
+  });
+
   const currentIndex = previewMode.focusedPlayerId 
-    ? playerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
+    ? activePlayerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
     : -1;
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      onFocus(playerBoards[currentIndex - 1].playerId);
+      onFocus(activePlayerBoards[currentIndex - 1].playerId);
     }
   };
 
   const handleNext = () => {
-    if (currentIndex < playerBoards.length - 1) {
-      onFocus(playerBoards[currentIndex + 1].playerId);
+    if (currentIndex < activePlayerBoards.length - 1) {
+      onFocus(activePlayerBoards[currentIndex + 1].playerId);
     }
   };
 
@@ -78,8 +84,9 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
       </div>
 
       {previewMode.focusedPlayerId ? (
+        // Focused view of a single board
         <div className="focused-submission">
-          {playerBoards
+          {activePlayerBoards
             .filter(board => board.playerId === previewMode.focusedPlayerId)
             .map(board => {
               const player = players.find(p => p.id === board.playerId);
@@ -101,7 +108,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                       <button 
                         className="btn btn-outline-primary ms-3"
                         onClick={handleNext}
-                        disabled={currentIndex >= playerBoards.length - 1}
+                        disabled={currentIndex >= activePlayerBoards.length - 1}
                       >
                         Next →
                       </button>
@@ -165,8 +172,9 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
             })}
         </div>
       ) : (
+        // Grid view of all boards
         <div className="row">
-          {playerBoards.map(board => {
+          {activePlayerBoards.map(board => {
             const player = players.find(p => p.id === board.playerId);
             const answer = allAnswersThisRound[board.playerId];
             const evaluation = evaluatedAnswers[board.playerId];
