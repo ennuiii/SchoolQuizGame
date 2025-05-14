@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useCanvas } from '../../contexts/CanvasContext';
+import { fabric } from 'fabric';
 
 interface Player {
   id: string;
@@ -39,30 +41,37 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
   isGameMaster
 }) => {
   const { players, playerBoards, allAnswersThisRound, evaluatedAnswers, previewMode } = useGame();
+  const { setDrawingEnabled } = useCanvas();
 
   if (!previewMode.isActive) return null;
 
-  const currentIndex = previewMode.focusedPlayerId 
-    ? playerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
-    : -1;
-
-  const handlePrevious = () => {
-    if (currentIndex > 0) {
-      onFocus(playerBoards[currentIndex - 1].playerId);
-    }
-  };
-
-  const handleNext = () => {
-    if (currentIndex < playerBoards.length - 1) {
-      onFocus(playerBoards[currentIndex + 1].playerId);
-    }
-  };
-
-  // Filter out spectators from the boards
+  // Get all active player boards (excluding spectators)
   const activePlayerBoards = playerBoards.filter(board => {
     const player = players.find(p => p.id === board.playerId);
     return player && !player.isSpectator;
   });
+
+  const currentIndex = previewMode.focusedPlayerId 
+    ? activePlayerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
+    : -1;
+
+  const handlePrevious = () => {
+    if (currentIndex > 0) {
+      onFocus(activePlayerBoards[currentIndex - 1].playerId);
+    }
+  };
+
+  const handleNext = () => {
+    if (currentIndex < activePlayerBoards.length - 1) {
+      onFocus(activePlayerBoards[currentIndex + 1].playerId);
+    }
+  };
+
+  // Disable drawing when in preview mode
+  useEffect(() => {
+    setDrawingEnabled(false);
+    return () => setDrawingEnabled(true);
+  }, [setDrawingEnabled]);
 
   return (
     <div className="preview-overlay" style={{
@@ -84,6 +93,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
       </div>
 
       {previewMode.focusedPlayerId ? (
+        // Focused view of a single board
         <div className="focused-submission">
           {activePlayerBoards
             .filter(board => board.playerId === previewMode.focusedPlayerId)
@@ -171,6 +181,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
             })}
         </div>
       ) : (
+        // Grid view of all boards
         <div className="row">
           {activePlayerBoards.map(board => {
             const player = players.find(p => p.id === board.playerId);

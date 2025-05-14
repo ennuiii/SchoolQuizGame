@@ -283,6 +283,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTimeRemaining(data.timeLimit);
         setIsTimerRunning(true);
       }
+
+      // Make all active player boards visible
+      const activePlayers = players.filter(p => !p.isSpectator).map(p => p.id);
+      setVisibleBoards(new Set(activePlayers));
     });
 
     socketService.onError((error: string) => {
@@ -309,24 +313,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Handle board updates
     socketService.on('board_update', ({ boardData, playerId, playerName }) => {
-      if (playerId !== socketService.getSocketId()) {
-        setPlayerBoards(prevBoards => {
-          const index = prevBoards.findIndex(b => b.playerId === playerId);
-          const player = players.find(p => p.id === playerId);
-          const name = playerName || player?.name || 'Unknown Player';
-          
-          if (index >= 0) {
-            const newBoards = [...prevBoards];
-            newBoards[index] = {
-              ...newBoards[index],
-              boardData,
-              playerName: name
-            };
-            return newBoards;
-          }
-          return [...prevBoards, { playerId, boardData, playerName: name }];
-        });
-      }
+      setPlayerBoards(prevBoards => {
+        const index = prevBoards.findIndex(b => b.playerId === playerId);
+        const player = players.find(p => p.id === playerId);
+        const name = playerName || player?.name || 'Unknown Player';
+        
+        if (index >= 0) {
+          const newBoards = [...prevBoards];
+          newBoards[index] = {
+            ...newBoards[index],
+            boardData,
+            playerName: name
+          };
+          return newBoards;
+        }
+        return [...prevBoards, { playerId, boardData, playerName: name }];
+      });
+
+      // Make sure the board is visible
+      setVisibleBoards(prev => {
+        const newSet = new Set(prev);
+        newSet.add(playerId);
+        return newSet;
+      });
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
