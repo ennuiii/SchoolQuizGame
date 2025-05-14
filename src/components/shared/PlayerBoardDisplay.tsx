@@ -1,5 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
-import { fabric } from 'fabric';
+import React, { useRef, useState } from 'react';
 
 interface PlayerBoard {
   playerId: string;
@@ -30,61 +29,11 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   onPan,
   onReset
 }) => {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
-
-  // Initialize fabric canvas
-  useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
-      fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
-        isDrawingMode: false,
-        width: 800,
-        height: 400,
-        backgroundColor: '#0C6A35'
-      });
-    }
-
-    return () => {
-      if (fabricCanvasRef.current) {
-        fabricCanvasRef.current.dispose();
-        fabricCanvasRef.current = null;
-      }
-    };
-  }, []);
-
-  // Handle board data updates
-  useEffect(() => {
-    if (!fabricCanvasRef.current || !board.boardData) return;
-
-    const canvas = fabricCanvasRef.current;
-    
-    // Load the SVG data
-    fabric.loadSVGFromString(board.boardData, (objects, options) => {
-      // Keep the background color
-      const currentBgColor = canvas.backgroundColor;
-      
-      // Clear existing objects but keep background
-      canvas.getObjects().forEach((obj) => {
-        if (obj !== canvas.backgroundImage) {
-          canvas.remove(obj);
-        }
-      });
-      
-      // Add new objects
-      objects.forEach(obj => {
-        canvas.add(obj);
-      });
-      
-      // Restore background color
-      canvas.backgroundColor = currentBgColor;
-      canvas.renderAll();
-    });
-  }, [board.boardData]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.altKey) return;
@@ -200,15 +149,19 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 overflow: 'hidden',
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'center'
+                justifyContent: 'center',
+                transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`
               }}
             >
-              <canvas 
-                ref={canvasRef}
+              <div
+                dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
                 style={{
                   width: '100%',
                   height: '100%',
-                  transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`
+                  minHeight: 0,
+                  minWidth: 0,
+                  objectFit: 'contain',
+                  background: 'transparent'
                 }}
               />
             </div>
