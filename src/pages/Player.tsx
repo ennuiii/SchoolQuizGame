@@ -141,22 +141,18 @@ const Player: React.FC = () => {
   // Handle game start
   useEffect(() => {
     if (gameStarted) {
-      toggleBoardVisibility(new Set(playerBoards.filter(b => {
-        const player = players.find(p => p.id === b.playerId);
-        return player && !player.isSpectator;
-      }).map(b => b.playerId)));
+      // Show all boards by default
+      toggleBoardVisibility(new Set(playerBoards.map(b => b.playerId)));
     }
-  }, [gameStarted, playerBoards, players, toggleBoardVisibility]);
+  }, [gameStarted, playerBoards, toggleBoardVisibility]);
 
   // Handle spectator mode
   useEffect(() => {
     if (isSpectator) {
-      toggleBoardVisibility(new Set(playerBoards.filter(b => {
-        const player = players.find(p => p.id === b.playerId);
-        return player && !player.isSpectator;
-      }).map(b => b.playerId)));
+      // Show all boards by default
+      toggleBoardVisibility(new Set(playerBoards.map(b => b.playerId)));
     }
-  }, [isSpectator, playerBoards, players, toggleBoardVisibility]);
+  }, [isSpectator, playerBoards, toggleBoardVisibility]);
 
   if (gameOver && !isWinner) {
     return (
@@ -231,10 +227,7 @@ const Player: React.FC = () => {
                     alignItems: 'stretch',
                   }}
                 >
-                  {playerBoards.filter(board => {
-                    const player = players.find(p => p.id === board.playerId);
-                    return player && !player.isSpectator;
-                  }).map(board => (
+                  {playerBoards.map(board => (
                     <PlayerBoardDisplay
                       key={board.playerId}
                       board={board}

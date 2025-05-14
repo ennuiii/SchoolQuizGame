@@ -101,70 +101,51 @@ io.on('connection', (socket) => {
     console.log('Available rooms now:', Object.keys(gameRooms));
   });
 
-  // Join a game room (Player)
-  socket.on('join_room', async ({ roomCode, playerName, isSpectator }) => {
-    try {
-      console.log(`Player ${playerName} attempting to join room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
-      
-      // Check if room exists
-      const room = gameRooms[roomCode];
-      if (!room) {
-        socket.emit('error', 'Room not found');
-        return;
-      }
-
-      // Check if game has already started
-      if (room.started) {
-        socket.emit('error', 'Game has already started');
-        return;
-      }
-
-      // Check if player name is already taken
-      if (room.players.some(p => p.name === playerName)) {
-        socket.emit('error', 'Player name already taken');
-        return;
-      }
-
-      // Create new player
-      const player = {
-        id: socket.id,
-        name: playerName,
-        lives: 3,
-        answers: [],
-        isActive: true,
-        isSpectator: isSpectator || false
-      };
-
-      // Add player to room
-      room.players.push(player);
-      socket.join(roomCode);
-
-      // Save player info to session
-      socket.playerInfo = {
-        roomCode,
-        playerName,
-        isSpectator: isSpectator || false
-      };
-
-      // Notify everyone in the room
-      io.to(roomCode).emit('player_joined', player);
-      io.to(roomCode).emit('players_update', room.players);
-      // Always emit room_joined to the joining socket
-      socket.emit('room_joined', { roomCode });
-      // Send the current player list directly to the joining player
-      socket.emit('players_update', room.players);
-      // If the game has already started, send the current game state to the joining player
-      if (room.started && room.currentQuestion) {
-        socket.emit('game_started', {
-          question: room.currentQuestion,
-          timeLimit: room.timeLimit
-        });
-      }
-      console.log(`Player ${playerName} joined room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
-    } catch (error) {
-      console.error('Error in join_room:', error);
-      socket.emit('error', 'Failed to join room');
+  // Handle player joining
+  socket.on('join_room', ({ roomCode, playerName, isSpectator }) => {
+    console.log(`Player ${playerName} (${socket.id}) joining room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
+    
+    if (!gameRooms[roomCode]) {
+      socket.emit('error', 'Invalid room code');
+      return;
     }
+
+    // Add player to room
+    socket.join(roomCode);
+    const player = {
+      id: socket.id,
+      name: playerName,
+      lives: 3,
+      answers: [],
+      isActive: true,
+      isSpectator
+    };
+    gameRooms[roomCode].players.push(player);
+
+    // Send current game state to the joining player
+    if (gameRooms[roomCode].started) {
+      socket.emit('game_started', {
+        question: gameRooms[roomCode].currentQuestion,
+        timeLimit: gameRooms[roomCode].timeLimit
+      });
+    }
+
+    // Send all existing board data to the joining player
+    if (gameRooms[roomCode].playerBoards) {
+      Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
+        const boardPlayer = gameRooms[roomCode].players.find(p => p.id === playerId);
+        if (boardPlayer) {
+          socket.emit('board_update', {
+            playerId,
+            playerName: boardPlayer.name,
+            boardData: gameRooms[roomCode].playerBoards[playerId].boardData
+          });
+        }
+      });
+    }
+
+    // Broadcast updated player list to all clients in the room
+    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
   });
 
   // Start the game (Gamemaster only)
@@ -682,32 +663,46 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Rejoin as player or spectator after reload
+  // Handle player rejoining
   socket.on('rejoin_player', ({ roomCode, playerName }) => {
-    const room = gameRooms[roomCode];
-    if (!room) {
-      socket.emit('error', 'Room not found');
+    console.log(`Player ${playerName} (${socket.id}) rejoining room ${roomCode}`);
+    
+    if (!gameRooms[roomCode]) {
+      socket.emit('error', 'Invalid room code');
       return;
     }
-    if (!playerName) {
-      socket.emit('error', 'No player name found for rejoin');
-      return;
-    }
-    // Find the player in the room by name
-    const player = room.players.find(p => p.name === playerName);
-    if (!player) {
-      socket.emit('error', 'Player not found in room');
-      return;
-    }
-    // Update the player's socket ID to the new one
-    player.id = socket.id;
+
+    // Add player back to room
     socket.join(roomCode);
-    socket.playerInfo = { roomCode, playerName, isSpectator: player.isSpectator };
-    // Send updated info to the client
-    socket.emit('room_joined', { roomCode, player });
-    socket.emit('players_update', room.players);
-    // Notify others in the room
-    io.to(roomCode).emit('players_update', room.players);
+    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.name === playerName);
+    if (playerIndex >= 0) {
+      gameRooms[roomCode].players[playerIndex].id = socket.id;
+    }
+
+    // Send current game state to the rejoining player
+    if (gameRooms[roomCode].started) {
+      socket.emit('game_started', {
+        question: gameRooms[roomCode].currentQuestion,
+        timeLimit: gameRooms[roomCode].timeLimit
+      });
+    }
+
+    // Send all existing board data to the rejoining player
+    if (gameRooms[roomCode].playerBoards) {
+      Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
+        const boardPlayer = gameRooms[roomCode].players.find(p => p.id === playerId);
+        if (boardPlayer) {
+          socket.emit('board_update', {
+            playerId,
+            playerName: boardPlayer.name,
+            boardData: gameRooms[roomCode].playerBoards[playerId].boardData
+          });
+        }
+      });
+    }
+
+    // Broadcast updated player list to all clients in the room
+    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
   });
 
   // Get current game state for a room

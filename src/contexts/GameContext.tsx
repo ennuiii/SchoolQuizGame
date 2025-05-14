@@ -286,9 +286,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsTimerRunning(true);
       }
 
-      // Make all active player boards visible
-      const activePlayers = players.filter(p => !p.isSpectator).map(p => p.id);
-      setVisibleBoards(new Set(activePlayers));
+      // Make all player boards visible by default
+      setVisibleBoards(new Set(players.map(p => p.id)));
     });
 
     socketService.onError((error: string) => {
@@ -311,6 +310,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     socketService.on('players_update', (updatedPlayers: Player[]) => {
       setPlayers(updatedPlayers);
+      // Make new players' boards visible by default
+      setVisibleBoards(prev => new Set(Array.from(prev).concat(updatedPlayers.map(p => p.id))));
     });
 
     // Handle board updates
@@ -332,7 +333,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [...prevBoards, { playerId, boardData, playerName: name }];
       });
 
-      // Make sure the board is visible
+      // Always make boards visible by default
       setVisibleBoards(prev => new Set(Array.from(prev).concat([playerId])));
     });
 
