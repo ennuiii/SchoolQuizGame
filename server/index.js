@@ -352,6 +352,21 @@ io.on('connection', (socket) => {
     }
 
     const room = gameRooms[roomCode];
+
+    // Check for duplicate names
+    const isDuplicateName = room.players.some(player => 
+      player.name.toLowerCase() === playerName.toLowerCase()
+    );
+
+    if (isDuplicateName) {
+      console.error(`[Server] Join room failed - Name already taken:`, {
+        roomCode,
+        playerName,
+        playerId: socket.id
+      });
+      socket.emit('error', 'This name is already taken in the room. Please choose a different name.');
+      return;
+    }
     
     // Add player to room
     socket.join(roomCode);
@@ -905,6 +920,21 @@ io.on('connection', (socket) => {
     if (!gameRooms[roomCode]) {
       console.log(`Room ${roomCode} not found!`);
       socket.emit('error', 'Room not found');
+      return;
+    }
+
+    // Check for duplicate names
+    const isDuplicateName = gameRooms[roomCode].players.some(player => 
+      player.name.toLowerCase() === playerName.toLowerCase()
+    );
+
+    if (isDuplicateName) {
+      console.error(`[Server] Spectator join failed - Name already taken:`, {
+        roomCode,
+        playerName,
+        playerId: socket.id
+      });
+      socket.emit('error', 'This name is already taken in the room. Please choose a different name.');
       return;
     }
 
