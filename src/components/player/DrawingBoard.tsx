@@ -26,63 +26,71 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         isDrawingMode: true,
         width: 800,
         height: 400,
-        backgroundColor: '#0C6A35', // Classic chalkboard green
+        backgroundColor: '#0C6A35',
         enableRetinaScaling: true,
         renderOnAddRemove: true,
         skipTargetFind: true,
-        selection: false
+        selection: false,
+        perPixelTargetFind: true,
+        targetFindTolerance: 4
       });
       
       fabricCanvasRef.current = canvas;
       
-      // Set up drawing brush for chalk-like appearance
+      // Set up drawing brush for chalk-like appearance with optimized settings
       if (canvas.freeDrawingBrush) {
-        canvas.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
-        canvas.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
-        canvas.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
-        canvas.freeDrawingBrush.decimate = 2; // Optimize performance by reducing points
+        canvas.freeDrawingBrush.color = '#FFFFFF';
+        canvas.freeDrawingBrush.width = 4;
+        canvas.freeDrawingBrush.opacity = 0.9;
+        canvas.freeDrawingBrush.decimate = 8; // Increase point decimation for better performance
+        (canvas.freeDrawingBrush as any).strokeLineCap = 'round'; // Smoother line endings
+        (canvas.freeDrawingBrush as any).strokeLineJoin = 'round'; // Smoother line joins
       }
 
-      // Track when drawing starts
+      // Track when drawing starts with debounced update
+      let updateTimeout: NodeJS.Timeout;
+      const debouncedUpdate = (svgData: string) => {
+        if (updateTimeout) clearTimeout(updateTimeout);
+        updateTimeout = setTimeout(() => {
+          if (svgData !== lastSvgData.current) {
+            lastSvgData.current = svgData;
+            onBoardUpdate(svgData);
+          }
+        }, 50); // 50ms debounce
+      };
+
       canvas.on('mouse:down', () => {
         if (canvas.isDrawingMode && !submittedAnswer) {
           isDrawing.current = true;
         }
       });
 
-      // Track mouse movement during drawing
       canvas.on('mouse:move', () => {
         if (isDrawing.current && !submittedAnswer) {
-          // The actual drawing is handled by Fabric.js
-          // We just need to ensure isDrawing stays true
           isDrawing.current = true;
         }
       });
 
-      // Track when drawing ends
       canvas.on('mouse:up', () => {
         if (isDrawing.current && !submittedAnswer) {
           isDrawing.current = false;
           const svgData = canvas.toSVG();
-          // Only send if data has changed
-          if (svgData !== lastSvgData.current) {
-            console.log('Sending board update on mouse up');
-            lastSvgData.current = svgData;
-            onBoardUpdate(svgData);
-          }
+          debouncedUpdate(svgData);
         }
       });
 
-      // Send canvas updates when path is created
       canvas.on('path:created', () => {
         if (!submittedAnswer) {
           const svgData = canvas.toSVG();
-          // Only send if data has changed
-          if (svgData !== lastSvgData.current) {
-            console.log('Sending board update on path created');
-            lastSvgData.current = svgData;
-            onBoardUpdate(svgData);
-          }
+          debouncedUpdate(svgData);
+        }
+      });
+
+      canvas.on('mouse:out', () => {
+        if (isDrawing.current && !submittedAnswer) {
+          isDrawing.current = false;
+          const svgData = canvas.toSVG();
+          debouncedUpdate(svgData);
         }
       });
 
@@ -96,28 +104,16 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         });
       }
 
-      // Handle mouse out of canvas
-      canvas.on('mouse:out', () => {
-        if (isDrawing.current && !submittedAnswer) {
-          isDrawing.current = false;
-          const svgData = canvas.toSVG();
-          if (svgData !== lastSvgData.current) {
-            console.log('Sending board update on mouse out');
-            lastSvgData.current = svgData;
-            onBoardUpdate(svgData);
-          }
+      // Clean up function
+      return () => {
+        if (updateTimeout) clearTimeout(updateTimeout);
+        if (fabricCanvasRef.current) {
+          lastSvgData.current = fabricCanvasRef.current.toSVG();
+          fabricCanvasRef.current.dispose();
+          fabricCanvasRef.current = null;
         }
-      });
+      };
     }
-    
-    return () => {
-      if (fabricCanvasRef.current) {
-        // Save the current state before disposing
-        lastSvgData.current = fabricCanvasRef.current.toSVG();
-        fabricCanvasRef.current.dispose();
-        fabricCanvasRef.current = null;
-      }
-    };
   }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
 
   // Add effect to disable canvas interaction after submission
