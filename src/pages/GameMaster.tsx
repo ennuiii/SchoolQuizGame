@@ -508,6 +508,10 @@ const GameMaster: React.FC = () => {
                   )}
                 </div>
               </div>
+
+              <AnswerList
+                onEvaluate={handleEvaluateAnswer}
+              />
               
               <div className="card mb-3">
                 <div className="card-header bg-light d-flex justify-content-between align-items-center">
@@ -547,10 +551,6 @@ const GameMaster: React.FC = () => {
                   </div>
                 </div>
               </div>
-              
-              <AnswerList
-                onEvaluate={handleEvaluateAnswer}
-              />
             </>
           )}
         </div>
