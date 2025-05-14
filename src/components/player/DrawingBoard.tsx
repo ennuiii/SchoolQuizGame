@@ -1,3 +1,4 @@
+
 import React, { useEffect, useRef } from 'react';
 import { fabric } from 'fabric';
 
@@ -86,16 +87,6 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         }
       });
 
-      // If there was previous SVG data, restore it
-      if (lastSvgData.current) {
-        fabric.loadSVGFromString(lastSvgData.current, (objects, options) => {
-          objects.forEach(obj => {
-            canvas.add(obj);
-          });
-          canvas.renderAll();
-        });
-      }
-
       // Handle mouse out of canvas
       canvas.on('mouse:out', () => {
         if (isDrawing.current && !submittedAnswer) {
@@ -119,6 +110,18 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
       }
     };
   }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
+
+  // Add effect to clear canvas when canvasKey changes (new question starts)
+  useEffect(() => {
+    if (fabricCanvasRef.current) {
+      const canvas = fabricCanvasRef.current;
+      canvas.clear();
+      canvas.backgroundColor = '#0C6A35';
+      canvas.renderAll();
+      lastSvgData.current = null;
+      isDrawing.current = false;
+    }
+  }, [canvasKey]);
 
   // Add effect to disable canvas interaction after submission
   useEffect(() => {
@@ -182,7 +185,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
             position: 'relative',
             overflow: 'hidden',
             margin: '0 auto',
-            cursor: submittedAnswer ? 'default' : 'crosshair'
+            cursor: submittedAnswer ? 'default' : 'crosshair',
+            border: '4px solid #8B4513',
+            borderRadius: '4px'
           }}
         >
           <canvas 
@@ -198,4 +203,4 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   );
 };
 
-export default DrawingBoard; 
+export default DrawingBoard;
