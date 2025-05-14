@@ -14,6 +14,123 @@ app.use(cors());
 // Store active game rooms and game recaps
 const gameRooms = {};
 
+// Game Analytics
+const gameAnalytics = {
+  games: {},
+  addGame(roomCode) {
+    this.games[roomCode] = {
+      startTime: new Date(),
+      players: [],
+      rounds: [],
+      totalQuestions: 0,
+      averageResponseTime: 0,
+      correctAnswers: 0,
+      totalAnswers: 0
+    };
+  },
+  
+  addPlayer(roomCode, player) {
+    if (this.games[roomCode]) {
+      this.games[roomCode].players.push({
+        id: player.id,
+        name: player.name,
+        joinTime: new Date(),
+        answers: [],
+        correctAnswers: 0,
+        averageResponseTime: 0
+      });
+    }
+  },
+  
+  recordAnswer(roomCode, playerId, answer, isCorrect, responseTime) {
+    const game = this.games[roomCode];
+    if (!game) return;
+    
+    const player = game.players.find(p => p.id === playerId);
+    if (!player) return;
+    
+    player.answers.push({ answer, isCorrect, responseTime });
+    if (isCorrect) player.correctAnswers++;
+    
+    // Update player average response time
+    const totalTime = player.answers.reduce((sum, a) => sum + a.responseTime, 0);
+    player.averageResponseTime = totalTime / player.answers.length;
+    
+    // Update game stats
+    game.totalAnswers++;
+    if (isCorrect) game.correctAnswers++;
+    game.averageResponseTime = (game.averageResponseTime * (game.totalAnswers - 1) + responseTime) / game.totalAnswers;
+  },
+  
+  endGame(roomCode) {
+    const game = this.games[roomCode];
+    if (!game) return;
+    
+    game.endTime = new Date();
+    game.duration = (game.endTime - game.startTime) / 1000; // in seconds
+    
+    // Calculate final statistics
+    const stats = {
+      totalPlayers: game.players.length,
+      averageScore: game.players.reduce((sum, p) => sum + (p.correctAnswers / game.totalQuestions), 0) / game.players.length,
+      fastestPlayer: game.players.reduce((fastest, p) => 
+        p.averageResponseTime < (fastest?.averageResponseTime ?? Infinity) ? p : fastest, null),
+      mostAccuratePlayer: game.players.reduce((most, p) => 
+        (p.correctAnswers / game.totalQuestions) > (most?.accuracy ?? 0) ? 
+          { ...p, accuracy: p.correctAnswers / game.totalQuestions } : most, null)
+    };
+    
+    game.finalStats = stats;
+    return stats;
+  },
+  
+  getGameStats(roomCode) {
+    return this.games[roomCode];
+  }
+};
+
+// Helper function to create a new game room with consistent structure
+function createGameRoom(roomCode, gamemasterId) {
+  return {
+    roomCode,
+    gamemaster: gamemasterId,
+    players: [],
+    started: false,
+    startTime: null,
+    questions: [],
+    currentQuestionIndex: 0,
+    currentQuestion: null,
+    timeLimit: null,
+    playerBoards: {},
+    roundAnswers: {}, // Store current round answers separately
+    evaluatedAnswers: {} // Store evaluated answers
+  };
+}
+
+// Helper function to get full game state for a room
+function getGameState(roomCode) {
+  const room = gameRooms[roomCode];
+  if (!room) return null;
+
+  return {
+    started: room.started,
+    currentQuestion: room.currentQuestion,
+    timeLimit: room.timeLimit,
+    players: room.players,
+    playerBoards: room.playerBoards,
+    roundAnswers: room.roundAnswers,
+    evaluatedAnswers: room.evaluatedAnswers
+  };
+}
+
+// Helper function to broadcast game state to all players in a room
+function broadcastGameState(roomCode) {
+  const state = getGameState(roomCode);
+  if (state) {
+    io.to(roomCode).emit('game_state_update', state);
+  }
+}
+
 // Helper function to generate game recap data
 function generateGameRecap(roomCode) {
   const room = gameRooms[roomCode];
@@ -171,37 +288,26 @@ io.on('connection', (socket) => {
 
   // Create a new game room (Gamemaster)
   socket.on('create_room', ({ roomCode } = {}) => {
-    // If no roomCode provided, generate one
     const finalRoomCode = roomCode || generateRoomCode();
-    
-    gameRooms[finalRoomCode] = {
-      gamemaster: socket.id,
-      players: [],
-      started: false,
-      questions: [],
-      currentQuestion: null,
-      playerBoards: {},
-      boards: new Map(),
-      timeLimit: null,
-      timers: {}
-    };
+    gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, socket.id);
 
     socket.join(finalRoomCode);
-    socket.roomCode = finalRoomCode; // Store room code in socket for reference
+    socket.roomCode = finalRoomCode;
     socket.emit('room_created', { roomCode: finalRoomCode });
     console.log(`Room created: ${finalRoomCode} by ${socket.id}`);
-    console.log('Available rooms now:', Object.keys(gameRooms));
   });
 
   // Handle player joining
   socket.on('join_room', ({ roomCode, playerName, isSpectator }) => {
-    console.log(`Player ${playerName} (${socket.id}) joining room ${roomCode} as ${isSpectator ? 'spectator' : 'player'}`);
+    console.log(`Player ${playerName} (${socket.id}) joining room ${roomCode}`);
     
     if (!gameRooms[roomCode]) {
       socket.emit('error', 'Invalid room code');
       return;
     }
 
+    const room = gameRooms[roomCode];
+    
     // Add player to room
     socket.join(roomCode);
     const player = {
@@ -212,35 +318,17 @@ io.on('connection', (socket) => {
       isActive: true,
       isSpectator
     };
-    gameRooms[roomCode].players.push(player);
+    room.players.push(player);
 
-    // Emit room_joined event to the joining player
+    // Send full game state to the joining player
     socket.emit('room_joined', { roomCode });
-
-    // Send current game state to the joining player
-    if (gameRooms[roomCode].started) {
-      socket.emit('game_started', {
-        question: gameRooms[roomCode].currentQuestion,
-        timeLimit: gameRooms[roomCode].timeLimit
-      });
+    const gameState = getGameState(roomCode);
+    if (gameState) {
+      socket.emit('game_state_update', gameState);
     }
 
-    // Send all existing board data to the joining player
-    if (gameRooms[roomCode].playerBoards) {
-      Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
-        const boardPlayer = gameRooms[roomCode].players.find(p => p.id === playerId);
-        if (boardPlayer) {
-          socket.emit('board_update', {
-            playerId,
-            playerName: boardPlayer.name,
-            boardData: gameRooms[roomCode].playerBoards[playerId].boardData
-          });
-        }
-      });
-    }
-
-    // Broadcast updated player list to all clients in the room
-    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
+    // Broadcast updated player list
+    broadcastGameState(roomCode);
   });
 
   // Start the game (Gamemaster only)
@@ -251,7 +339,8 @@ io.on('connection', (socket) => {
       roomCode,
       fromSocket: socket.id,
       currentGamemaster: room ? room.gamemaster : undefined,
-      hasRoom: !!room
+      hasRoom: !!room,
+      timeLimit
     });
     if (!room) {
       console.log('[SERVER] Start game failed - Room not found:', { roomCode, timestamp: new Date().toISOString() });
@@ -283,6 +372,15 @@ io.on('connection', (socket) => {
       question: questions[0],
       timeLimit: room.timeLimit
     });
+
+    // Start the timer for the first question if time limit is set and not infinite
+    if (room.timeLimit && room.timeLimit < 99999) {
+      console.log(`[SERVER] Starting timer for room ${roomCode} with limit ${room.timeLimit}`);
+      startQuestionTimer(roomCode);
+    }
+
+    gameAnalytics.addGame(roomCode);
+    gameAnalytics.games[roomCode].totalQuestions = questions.length;
   });
 
   // Restart the game (Gamemaster only)
@@ -372,52 +470,51 @@ io.on('connection', (socket) => {
   // Handle answer submission
   socket.on('submit_answer', (data) => {
     const { roomCode, answer, hasDrawing } = data;
-    console.log(`Player ${socket.id} submitting answer in room ${roomCode}: "${answer}" ${hasDrawing ? '(with drawing)' : ''}`);
+    console.log(`Player ${socket.id} submitting answer in room ${roomCode}`);
     
-    if (!gameRooms[roomCode]) {
-      console.log(`Room ${roomCode} not found for answer submission. Available rooms: ${Object.keys(gameRooms).join(', ')}`);
-      return;
-    }
-
     const room = gameRooms[roomCode];
-    const playerIndex = room.players.findIndex(p => p.id === socket.id);
-    if (playerIndex === -1) {
-      console.log(`Player ${socket.id} not found in room ${roomCode}`);
+    if (!room) {
+      socket.emit('error', 'Room not found');
       return;
     }
 
-    // Store the answer with more details
-    room.players[playerIndex].answers[room.currentQuestionIndex] = {
-      answer,
-      hasDrawing,
-      timestamp: Date.now(),
-      isCorrect: null,
-      livesAfterRound: null
-    };
-
-    // Add submission to recap
-    if (gameRecaps[roomCode]) {
-      const currentRoundIndex = room.currentQuestionIndex;
-      const boardData = room.playerBoards[socket.id]?.boardData || '';
-      
-      gameRecaps[roomCode].addSubmission(currentRoundIndex, {
-        playerId: socket.id,
-        playerName: room.players[playerIndex].name,
-        answer,
-        drawingData: hasDrawing ? boardData : null
-      });
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player) {
+      socket.emit('error', 'Player not found');
+      return;
     }
 
-    // Broadcast the answer submission to all clients in the room
-    io.to(roomCode).emit('answer_submitted', {
-      playerId: socket.id,
-      playerName: room.players[playerIndex].name,
-      answer,
-      hasDrawing
-    });
+    try {
+      // Store the answer
+      const answerData = {
+        playerId: socket.id,
+        playerName: player.name,
+        answer,
+        hasDrawing,
+        timestamp: Date.now(),
+        isCorrect: null
+      };
 
-    // Notify the player that their answer was received
-    socket.emit('answer_received', { status: 'success', message: 'Answer received!' });
+      // Store in both places for consistency
+      player.answers[room.currentQuestionIndex] = answerData;
+      room.roundAnswers[socket.id] = answerData;
+
+      // Notify the player
+      socket.emit('answer_received', { 
+        status: 'success',
+        message: 'Answer received!'
+      });
+
+      // Broadcast the new game state
+      broadcastGameState(roomCode);
+      
+      const responseTime = Date.now() - room.questionStartTime;
+      gameAnalytics.recordAnswer(roomCode, socket.id, answer, null, responseTime);
+      
+    } catch (error) {
+      console.error('Error storing answer:', error);
+      socket.emit('error', 'Failed to submit answer');
+    }
   });
 
   // Gamemaster evaluates an answer
@@ -427,46 +524,53 @@ io.on('connection', (socket) => {
       socket.emit('error', 'Not authorized to evaluate answers');
       return;
     }
-    
-    const playerIndex = room.players.findIndex(p => p.id === playerId);
-    if (playerIndex === -1) return;
-    
-    const player = room.players[playerIndex];
-    const currentAnswer = player.answers[room.currentQuestionIndex];
-    
-    if (!isCorrect) {
-      player.lives--;
-      if (player.lives <= 0) {
-        player.isSpectator = true;
-        player.isActive = false;
-        io.to(playerId).emit('become_spectator');
+
+    try {
+      const player = room.players.find(p => p.id === playerId);
+      if (!player) return;
+
+      // Update both answer storages
+      const answer = player.answers[room.currentQuestionIndex];
+      const roundAnswer = room.roundAnswers[playerId];
+
+      if (answer) answer.isCorrect = isCorrect;
+      if (roundAnswer) roundAnswer.isCorrect = isCorrect;
+
+      // Update player state
+      if (!isCorrect) {
+        player.lives--;
+        if (player.lives <= 0) {
+          player.isActive = false;
+          player.isSpectator = true;
+          io.to(playerId).emit('become_spectator');
+        }
       }
+
+      // Store evaluation
+      room.evaluatedAnswers[playerId] = isCorrect;
+
+      // Check for game over
+      const activePlayers = room.players.filter(p => p.isActive);
+      if (activePlayers.length === 1) {
+        const winner = activePlayers[0];
+        const gameRecap = generateGameRecap(roomCode);
+        io.to(roomCode).emit('game_recap', gameRecap);
+        io.to(roomCode).emit('game_winner', {
+          playerId: winner.id,
+          playerName: winner.name
+        });
+      }
+
+      // Broadcast updated game state
+      broadcastGameState(roomCode);
+
+      const responseTime = Date.now() - room.questionStartTime;
+      gameAnalytics.recordAnswer(roomCode, playerId, answer.answer, isCorrect, responseTime);
+
+    } catch (error) {
+      console.error('Error evaluating answer:', error);
+      socket.emit('error', 'Failed to evaluate answer');
     }
-    
-    // Store evaluation result
-    if (currentAnswer) {
-      currentAnswer.isCorrect = isCorrect;
-      currentAnswer.livesAfterRound = player.lives;
-    }
-    
-    // Check if game is over
-    const activePlayers = room.players.filter(p => p.isActive);
-    if (activePlayers.length === 1) {
-      const winner = activePlayers[0];
-      
-      // Generate and send game recap
-      const gameRecap = generateGameRecap(roomCode);
-      io.to(roomCode).emit('game_recap', gameRecap);
-      
-      io.to(roomCode).emit('game_winner', {
-        playerId: winner.id,
-        playerName: winner.name
-      });
-    }
-    
-    // Send evaluation to all clients in the room
-    io.to(roomCode).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
-    io.to(roomCode).emit('players_update', room.players);
   });
 
   // Next question from gamemaster
@@ -496,8 +600,10 @@ io.on('connection', (socket) => {
         });
       }
 
-      // Clear existing timer and start a new one if time limit is set
-      if (room.timeLimit) {
+      // Clear existing timer and start a new one if time limit is set and not infinite
+      clearRoomTimer(roomCode);
+      if (room.timeLimit && room.timeLimit < 99999) {
+        console.log(`[SERVER] Starting timer for next question in room ${roomCode} with limit ${room.timeLimit}`);
         startQuestionTimer(roomCode);
       }
 
@@ -566,7 +672,8 @@ io.on('connection', (socket) => {
         currentQuestion: null,
         playerBoards: {},
         timeLimit: null,
-        timers: {}
+        roundAnswers: {},
+        evaluatedAnswers: {}
       };
       
       console.log(`Created new room ${roomCode} for gamemaster ${socket.id}`);
@@ -868,13 +975,18 @@ function generateRoomCode() {
 // Helper function to start question timer
 function startQuestionTimer(roomCode) {
   const room = gameRooms[roomCode];
-  if (!room || !room.timeLimit) return;
+  if (!room || !room.timeLimit) {
+    console.log(`[TIMER] Cannot start timer for room ${roomCode}: ${!room ? 'room not found' : 'no time limit'}`);
+    return;
+  }
 
   // Clear any existing timer for this room
   clearRoomTimer(roomCode);
 
   let timeRemaining = room.timeLimit;
   const startTime = Date.now();
+  
+  console.log(`[TIMER] Starting timer for room ${roomCode} with ${timeRemaining} seconds`);
   
   // Create a new timer that uses absolute time
   const timer = setInterval(() => {
@@ -883,18 +995,21 @@ function startQuestionTimer(roomCode) {
     
     // Broadcast the remaining time to all clients
     io.to(roomCode).emit('timer_update', { timeRemaining });
+    console.log(`[TIMER] Room ${roomCode}: ${timeRemaining} seconds remaining`);
     
     if (timeRemaining <= 0) {
+      console.log(`[TIMER] Time's up for room ${roomCode}`);
       clearInterval(timer);
+      timers.delete(roomCode);
       io.to(roomCode).emit('time_up');
       
       // Auto-submit answers for players who haven't submitted yet
-      const room = gameRooms[roomCode];
-      if (room) {
-        room.players.forEach(player => {
-          if (player.isActive && !player.answers[room.currentQuestionIndex]) {
+      const currentRoom = gameRooms[roomCode];
+      if (currentRoom) {
+        currentRoom.players.forEach(player => {
+          if (player.isActive && !player.answers[currentRoom.currentQuestionIndex]) {
             // Auto-submit empty answer
-            player.answers[room.currentQuestionIndex] = {
+            player.answers[currentRoom.currentQuestionIndex] = {
               answer: '',
               timestamp: Date.now()
             };
@@ -906,13 +1021,17 @@ function startQuestionTimer(roomCode) {
 
   // Store the timer reference
   timers.set(roomCode, timer);
+  console.log(`[TIMER] Timer started and stored for room ${roomCode}`);
 }
 
 function clearRoomTimer(roomCode) {
   const timer = timers.get(roomCode);
   if (timer) {
+    console.log(`[TIMER] Clearing timer for room ${roomCode}`);
     clearInterval(timer);
     timers.delete(roomCode);
+  } else {
+    console.log(`[TIMER] No timer found to clear for room ${roomCode}`);
   }
 }
 
@@ -944,6 +1063,16 @@ io.on('disconnect', (socket) => {
       }
     }
   }
+});
+
+// Add analytics endpoints
+app.get('/api/analytics/game/:roomCode', (req, res) => {
+  const stats = gameAnalytics.getGameStats(req.params.roomCode);
+  if (!stats) {
+    res.status(404).json({ error: 'Game not found' });
+    return;
+  }
+  res.json(stats);
 });
 
 // Set up the port

@@ -276,147 +276,99 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   React.useEffect(() => {
-    socketService.on('game_started', (data: { question: Question, timeLimit?: number }) => {
-      setGameStarted(true);
-      setCurrentQuestion(data.question);
-      setCurrentQuestionIndex(0);
-      if (data.timeLimit) {
-        setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit);
-        setIsTimerRunning(true);
-      }
+    // Handle complete game state updates
+    socketService.on('game_state_update', (state: any) => {
+      console.log('Received game state update:', state);
+      try {
+        setGameStarted(state.started);
+        setCurrentQuestion(state.currentQuestion);
+        setTimeLimit(state.timeLimit);
+        setPlayers(state.players);
+        
+        // Update player boards
+        if (state.playerBoards) {
+          const boardsArray = Object.entries(state.playerBoards).map(([playerId, data]: [string, any]) => ({
+            playerId,
+            boardData: data.boardData,
+            playerName: state.players.find((p: any) => p.id === playerId)?.name || 'Unknown'
+          }));
+          setPlayerBoards(boardsArray);
+        }
 
-      // Make all player boards visible by default
-      setVisibleBoards(new Set(players.map(p => p.id)));
+        // Update answers
+        if (state.roundAnswers) {
+          setAllAnswersThisRound(state.roundAnswers);
+        }
+
+        // Update evaluations
+        if (state.evaluatedAnswers) {
+          setEvaluatedAnswers(state.evaluatedAnswers);
+        }
+
+        // Make all boards visible by default
+        const playerIds = state.players
+          .filter((p: any) => !p.isSpectator)
+          .map((p: any) => p.id);
+        setVisibleBoards(new Set(playerIds));
+
+      } catch (error) {
+        console.error('Error processing game state update:', error);
+      }
     });
 
+    // Handle errors
     socketService.onError((error: string) => {
       setQuestionErrorMsg(error);
       setTimeout(() => setQuestionErrorMsg(''), 3000);
     });
 
-    socketService.on('new_question', (data: { question: Question, timeLimit?: number }) => {
-      setCurrentQuestion(data.question);
-      setCurrentQuestionIndex(prev => prev + 1);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-      setSubmittedAnswer(false);
-      if (data.timeLimit) {
-        setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit);
-        setIsTimerRunning(true);
-      }
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      setPlayers(updatedPlayers);
-      // Make new players' boards visible by default
-      setVisibleBoards(prev => new Set(Array.from(prev).concat(updatedPlayers.map(p => p.id))));
-    });
-
-    // Handle board updates
-    socketService.on('board_update', ({ boardData, playerId, playerName }) => {
-      setPlayerBoards(prevBoards => {
-        const index = prevBoards.findIndex(b => b.playerId === playerId);
-        const player = players.find(p => p.id === playerId);
-        const name = playerName || player?.name || 'Unknown Player';
-        
-        if (index >= 0) {
-          const newBoards = [...prevBoards];
-          newBoards[index] = {
-            ...newBoards[index],
-            boardData,
-            playerName: name
-          };
-          return newBoards;
-        }
-        return [...prevBoards, { playerId, boardData, playerName: name }];
-      });
-
-      // Always make boards visible by default
-      setVisibleBoards(prev => new Set(Array.from(prev).concat([playerId])));
-    });
-
-    socketService.on('answer_submitted', (submission: AnswerSubmission) => {
-      setAllAnswersThisRound(prev => ({
-        ...prev,
-        [submission.playerId]: submission
-      }));
-    });
-
-    socketService.on('answer_evaluation', (data: { isCorrect: boolean, playerId: string }) => {
-      setEvaluatedAnswers(prev => ({
-        ...prev,
-        [data.playerId]: data.isCorrect
-      }));
-      
-      // Remove the evaluated answer from allAnswersThisRound
-      setAllAnswersThisRound(prev => {
-        const { [data.playerId]: removed, ...remaining } = prev;
-        return remaining;
-      });
-    });
-
+    // Handle game over
     socketService.on('game_over', () => {
       setGameOver(true);
-    });
-
-    socketService.on('game_winner', (data: { playerId: string }) => {
-      setIsWinner(true);
-    });
-
-    socketService.on('game_restarted', () => {
-      setGameStarted(false);
-      setGameOver(false);
-      setIsWinner(false);
-      setCurrentQuestion(null);
-      setCurrentQuestionIndex(0);
-      setPlayerBoards([]);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-      setVisibleBoards(new Set());
-      setTimeRemaining(null);
       setIsTimerRunning(false);
-      setSubmittedAnswer(false);
     });
 
+    // Handle winner
+    socketService.on('game_winner', (data: { playerId: string }) => {
+      setIsWinner(data.playerId === socketService.getSocketId());
+      setGameOver(true);
+      setIsTimerRunning(false);
+    });
+
+    // Handle timer updates
     socketService.on('timer_update', (data: { timeRemaining: number }) => {
       setTimeRemaining(data.timeRemaining);
-      setIsTimerRunning(true);
+      setIsTimerRunning(data.timeRemaining > 0);
     });
 
+    // Handle time up
     socketService.on('time_up', () => {
       setTimeRemaining(0);
       setIsTimerRunning(false);
       
-      // If player hasn't submitted their answer yet, submit it automatically
+      // Auto-submit if needed
       if (!submittedAnswer && currentQuestion) {
         const roomCode = sessionStorage.getItem('roomCode');
         if (roomCode) {
-          // Get the current answer from the input field if it exists
           const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
           const currentAnswer = answerInput?.value?.trim() || '';
-          
-          // Check if there's a drawing
           const canvas = document.querySelector('canvas');
           const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
           
-          // Submit whatever we have (text and/or drawing)
           socketService.submitAnswer(roomCode, currentAnswer || (hasDrawing ? 'Drawing submitted' : ''), hasDrawing || false);
           setSubmittedAnswer(true);
         }
       }
     });
 
-    socketService.on('end_round_early', () => {
-      setTimeRemaining(0);
-      setIsTimerRunning(false);
-    });
-
+    // Handle preview mode
     socketService.on('start_preview_mode', () => {
       setPreviewMode(prev => ({ ...prev, isActive: true }));
-      // Make all non-spectator player boards visible when entering preview mode
-      setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
+      // Show all non-spectator boards
+      const nonSpectatorIds = players
+        .filter(p => !p.isSpectator)
+        .map(p => p.id);
+      setVisibleBoards(new Set(nonSpectatorIds));
     });
 
     socketService.on('stop_preview_mode', () => {
@@ -427,24 +379,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
     });
 
+    // Cleanup
     return () => {
-      socketService.off('game_started');
-      socketService.off('new_question');
-      socketService.off('players_update');
-      socketService.off('board_update');
-      socketService.off('answer_submitted');
-      socketService.off('answer_evaluation');
+      socketService.off('game_state_update');
+      socketService.off('error');
       socketService.off('game_over');
       socketService.off('game_winner');
-      socketService.off('game_restarted');
       socketService.off('timer_update');
       socketService.off('time_up');
-      socketService.off('end_round_early');
       socketService.off('start_preview_mode');
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
     };
-  }, [getPlayerName]);
+  }, [players, currentQuestion, submittedAnswer]);
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {

@@ -10,6 +10,24 @@ class SocketService {
   private socket: Socket | null = null;
   private listeners: { [event: string]: ((...args: any[]) => void)[] } = {};
   private isConnecting: boolean = false;
+  private reconnectAttempts: number = 0;
+  private maxReconnectAttempts: number = 5;
+  private reconnectInterval: number = 2000;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private connectionState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
+  private connectionStateListeners: ((state: string) => void)[] = [];
+
+  // Add method to listen for connection state changes
+  onConnectionStateChange(callback: (state: string) => void) {
+    this.connectionStateListeners.push(callback);
+    // Immediately call with current state
+    callback(this.connectionState);
+  }
+
+  private updateConnectionState(newState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting') {
+    this.connectionState = newState;
+    this.connectionStateListeners.forEach(listener => listener(newState));
+  }
 
   connect() {
     if (this.isConnecting) {
@@ -20,27 +38,103 @@ class SocketService {
     if (!this.socket) {
       console.log(`Connecting to socket server at: ${SOCKET_URL}`);
       this.isConnecting = true;
-      this.socket = io(SOCKET_URL);
+      this.updateConnectionState('connecting');
       
+      this.socket = io(SOCKET_URL, {
+        reconnection: true,
+        reconnectionAttempts: this.maxReconnectAttempts,
+        reconnectionDelay: this.reconnectInterval,
+        timeout: 10000
+      });
+
       // Re-attach existing listeners
       Object.entries(this.listeners).forEach(([event, callbacks]) => {
         callbacks.forEach(callback => {
           this.socket?.on(event, callback);
         });
       });
-      
-      // Add connection event logging
+
+      // Enhanced connection event handling
       this.socket.on('connect', () => {
         console.log('Socket connected successfully');
         this.isConnecting = false;
+        this.reconnectAttempts = 0;
+        this.updateConnectionState('connected');
+        
+        if (this.reconnectTimer) {
+          clearTimeout(this.reconnectTimer);
+          this.reconnectTimer = null;
+        }
+
+        // Attempt to rejoin room with enhanced error handling
+        const roomCode = sessionStorage.getItem('roomCode');
+        const playerName = sessionStorage.getItem('playerName');
+        const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
+        
+        if (roomCode) {
+          try {
+            if (isGameMaster) {
+              this.emit('rejoin_gamemaster', { roomCode });
+            } else if (playerName) {
+              this.emit('rejoin_player', { roomCode, playerName });
+            }
+          } catch (error) {
+            console.error('Error rejoining room:', error);
+            this.handleReconnect();
+          }
+        }
       });
-      
+
       this.socket.on('connect_error', (error) => {
         console.error('Socket connection error:', error);
         this.isConnecting = false;
+        this.updateConnectionState('disconnected');
+        this.handleReconnect();
+      });
+
+      this.socket.on('disconnect', (reason) => {
+        console.log('Socket disconnected:', reason);
+        this.updateConnectionState('disconnected');
+        
+        if (reason === 'io server disconnect' || reason === 'transport close') {
+          this.handleReconnect();
+        }
+      });
+
+      // Add ping timeout handler
+      this.socket.on('ping_timeout', () => {
+        console.log('Ping timeout - connection unstable');
+        this.updateConnectionState('reconnecting');
+        this.handleReconnect();
       });
     }
     return this.socket;
+  }
+
+  private handleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('Max reconnection attempts reached');
+      this.updateConnectionState('disconnected');
+      this.emit('connection_failed');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    this.updateConnectionState('reconnecting');
+    console.log(`Attempting to reconnect (${this.reconnectAttempts}/${this.maxReconnectAttempts})...`);
+    
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+    }
+
+    // Exponential backoff for reconnection attempts
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
+    
+    this.reconnectTimer = setTimeout(() => {
+      if (this.connectionState !== 'connected') {
+        this.connect();
+      }
+    }, delay);
   }
 
   disconnect() {
@@ -170,7 +264,18 @@ class SocketService {
   }
 
   submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false) {
-    this.emit('submit_answer', { roomCode, answer, hasDrawing });
+    console.log('Submitting answer:', { roomCode, answer, hasDrawing });
+    if (!this.socket?.connected) {
+      console.log('Socket not connected, attempting to connect before submitting answer...');
+      this.connect();
+      this.socket?.once('connect', () => {
+        console.log('Socket connected, submitting answer');
+        this.socket?.emit('submit_answer', { roomCode, answer, hasDrawing });
+      });
+    } else {
+      console.log('Socket connected, submitting answer directly');
+      this.socket.emit('submit_answer', { roomCode, answer, hasDrawing });
+    }
   }
   
   // Board update function

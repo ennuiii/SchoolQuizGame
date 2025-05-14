@@ -72,7 +72,8 @@ const Player: React.FC = () => {
   const handleSubmitAnswer = useCallback((force = false) => {
     if (!currentQuestion || submittedAnswer) return;
   
-    const text = (document.querySelector('input[type="text"]') as HTMLInputElement)?.value?.trim() || '';
+    const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+    const text = answerInput?.value?.trim() || '';
     const canvas = document.querySelector('canvas');
     const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
   
@@ -82,18 +83,29 @@ const Player: React.FC = () => {
       return;
     }
   
-    let finalAnswer = '';
-    if (text) {
-      finalAnswer = hasDrawing ? `${text} (with drawing)` : text;
-    } else if (hasDrawing) {
-      finalAnswer = 'Drawing submitted';
-    } else if (force) {
-      finalAnswer = ''; // Empty submission for forced/automatic submission
+    try {
+      let finalAnswer = '';
+      if (text) {
+        finalAnswer = hasDrawing ? `${text} (with drawing)` : text;
+      } else if (hasDrawing) {
+        finalAnswer = 'Drawing submitted';
+      } else if (force) {
+        finalAnswer = ''; // Empty submission for forced/automatic submission
+      }
+    
+      console.log('Submitting answer:', { roomCode, finalAnswer, hasDrawing });
+      socketService.submitAnswer(roomCode, finalAnswer, hasDrawing || false);
+      setSubmittedAnswer(true);
+      setErrorMsg(force ? 'Answer submitted automatically' : 'Answer submitted!');
+      
+      // Clear the input after successful submission
+      if (answerInput) {
+        answerInput.value = '';
+      }
+    } catch (error) {
+      console.error('Error submitting answer:', error);
+      setErrorMsg('Failed to submit answer. Please try again.');
     }
-  
-    socketService.submitAnswer(roomCode, finalAnswer, hasDrawing || false);
-    setSubmittedAnswer(true);
-    setErrorMsg(force ? 'Answer submitted automatically' : 'Answer submitted!');
   }, [currentQuestion, roomCode, submittedAnswer, setErrorMsg]);
 
   // Handle visibility change
@@ -121,9 +133,13 @@ const Player: React.FC = () => {
 
   // Handle answer change
   const handleAnswerChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    if (submittedAnswer) return; // Don't update if already submitted
+    
     const socket = socketService.connect();
-    (socket as any).currentAnswer = e.target.value;
-  }, []);
+    if (socket) {
+      (socket as any).currentAnswer = e.target.value;
+    }
+  }, [submittedAnswer]);
 
   // Handle visibility change
   useEffect(() => {
