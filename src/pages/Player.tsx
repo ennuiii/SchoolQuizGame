@@ -422,23 +422,14 @@ const Player: React.FC = () => {
         </div>
         <div className="row g-3">
           <div className="col-12 col-md-8">
-            <div className="row g-3 mb-4">
-              <div className="col-12 col-md-6 d-flex flex-column gap-2 align-items-start">
-                {/* Remove lives display from here */}
-              </div>
-              <div className="col-6 col-md-3">
-                {/* Remove duplicate timer display */}
-              </div>
-            </div>
-            
-            {errorMsg && (
-              <div id="flash-message" className="alert mb-4" role="alert">
-                {errorMsg}
-              </div>
-            )}
-            
             {!gameStarted ? (
-              <LoadingOverlay message="Waiting for game to start..." isVisible={true} />
+              <div className="card p-4 text-center">
+                <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
+                <p>Get ready! The game will begin soon.</p>
+                <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
             ) : (
               <>
                 <QuestionCard
@@ -494,7 +485,7 @@ const Player: React.FC = () => {
           </div>
           <div className="col-12 col-md-4">
             <RoomCode />
-            <PlayerList title="Players" />
+            <PlayerList title="Other Players" />
           </div>
         </div>
       </div>
