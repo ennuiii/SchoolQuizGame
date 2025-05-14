@@ -14,6 +14,7 @@ import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import { useAudio } from '../contexts/AudioContext';
 import RoomSettings from '../components/game-master/RoomSettings';
+import RecapModal from '../components/shared/RecapModal';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -22,6 +23,8 @@ const GameMaster: React.FC = () => {
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
   const [isConnecting, setIsConnecting] = useState(false);
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
+  const [showRecap, setShowRecap] = useState(false);
+  const [gameRecap, setGameRecap] = useState(null);
   
   // Get context values
   const {
@@ -93,6 +96,18 @@ const GameMaster: React.FC = () => {
       }
     };
   }, [roomCode, createRoom]);
+
+  useEffect(() => {
+    // Listen for game recap
+    socketService.on('game_recap', (recap) => {
+      setGameRecap(recap);
+      setShowRecap(true);
+    });
+
+    return () => {
+      socketService.off('game_recap');
+    };
+  }, []);
 
   const handleStartGame = useCallback(() => {
     console.log('Starting game with:', {
@@ -422,6 +437,12 @@ const GameMaster: React.FC = () => {
           )}
         </div>
       )}
+
+      <RecapModal
+        show={showRecap}
+        onHide={() => setShowRecap(false)}
+        recap={gameRecap}
+      />
     </div>
   );
 };

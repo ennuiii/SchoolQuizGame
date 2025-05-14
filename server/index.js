@@ -11,6 +11,53 @@ const fs = require('fs');
 const app = express();
 app.use(cors());
 
+// Store active game rooms and game recaps
+const gameRooms = {};
+
+// Helper function to generate game recap data
+function generateGameRecap(roomCode) {
+  const room = gameRooms[roomCode];
+  if (!room) return null;
+
+  return {
+    roomCode,
+    startTime: room.startTime,
+    endTime: new Date(),
+    players: room.players.map(player => ({
+      id: player.id,
+      name: player.name,
+      finalLives: player.lives,
+      isSpectator: player.isSpectator,
+      isWinner: player.isActive && player.lives > 0
+    })),
+    rounds: room.questions.map((question, index) => {
+      // Get all boards for this round
+      const boardsForRound = {};
+      Object.entries(room.playerBoards || {}).forEach(([playerId, boardData]) => {
+        if (boardData.roundIndex === index) {
+          boardsForRound[playerId] = boardData.boardData;
+        }
+      });
+
+      return {
+        roundNumber: index + 1,
+        question: question,
+        submissions: room.players.map(player => {
+          const answer = player.answers[index];
+          return {
+            playerId: player.id,
+            playerName: player.name,
+            answer: answer ? answer.answer : null,
+            drawingData: boardsForRound[player.id] || null,
+            isCorrect: answer ? answer.isCorrect : null,
+            livesAfterRound: answer ? answer.livesAfterRound : null
+          };
+        })
+      };
+    })
+  };
+}
+
 // Determine the correct build path based on environment
 let buildPath = path.join(__dirname, '../build');
 if (process.env.NODE_ENV === 'production') {
@@ -60,15 +107,60 @@ const io = new Server(server, {
   pingTimeout: 60000
 });
 
-// Store active game rooms
-const gameRooms = {};
-
 // Debug endpoint to view active rooms
 app.get('/debug/rooms', (req, res) => {
   res.json({
     rooms: Object.keys(gameRooms),
     details: gameRooms
   });
+});
+
+// Game recap endpoints
+app.get('/api/recaps', (req, res) => {
+  // Return list of all recaps with basic info
+  const recapsList = Object.values(gameRooms).map(recap => ({
+    id: recap.id,
+    roomCode: recap.roomCode,
+    startTime: recap.startTime,
+    endTime: recap.endTime,
+    playerCount: recap.players.length,
+    roundCount: recap.rounds.length,
+    winner: recap.winner
+  }));
+  res.json(recapsList);
+});
+
+app.get('/api/recaps/:recapId', (req, res) => {
+  const recap = gameRooms[req.params.recapId];
+  if (!recap) {
+    res.status(404).json({ error: 'Recap not found' });
+    return;
+  }
+  res.json(recap);
+});
+
+app.get('/api/recaps/room/:roomCode', (req, res) => {
+  const roomRecaps = Object.values(gameRooms)
+    .filter(recap => recap.roomCode === req.params.roomCode)
+    .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
+  res.json(roomRecaps);
+});
+
+app.get('/api/recaps/:recapId/round/:roundNumber', (req, res) => {
+  const recap = gameRooms[req.params.recapId];
+  if (!recap) {
+    res.status(404).json({ error: 'Recap not found' });
+    return;
+  }
+  
+  const roundIndex = parseInt(req.params.roundNumber) - 1;
+  const round = recap.rounds[roundIndex];
+  if (!round) {
+    res.status(404).json({ error: 'Round not found' });
+    return;
+  }
+  
+  res.json(round);
 });
 
 // Timer management
@@ -122,6 +214,9 @@ io.on('connection', (socket) => {
     };
     gameRooms[roomCode].players.push(player);
 
+    // Emit room_joined event to the joining player
+    socket.emit('room_joined', { roomCode });
+
     // Send current game state to the joining player
     if (gameRooms[roomCode].started) {
       socket.emit('game_started', {
@@ -171,21 +266,22 @@ io.on('connection', (socket) => {
     
     console.log('[SERVER] Starting game:', { roomCode, questionCount: questions.length, timeLimit: timeLimit || 99999, timestamp: new Date().toISOString() });
     
-    // Set up the game state
+    // Add startTime to room
+    room.startTime = new Date();
     room.questions = questions;
     room.currentQuestionIndex = 0;
     room.started = true;
-    room.timeLimit = timeLimit || 99999; // Set to 99999 if no time limit provided
+    room.timeLimit = timeLimit || 99999;
     
-    // Start the timer if timeLimit is set
-    if (timeLimit && timeLimit < 99999) {
-      startQuestionTimer(roomCode);
+    // Initialize playerBoards with round tracking
+    if (!room.playerBoards) {
+      room.playerBoards = {};
     }
     
     // Notify all players that the game has started
     io.to(roomCode).emit('game_started', {
       question: questions[0],
-      timeLimit: room.timeLimit // Always send the timeLimit, which will be 99999 if none was specified
+      timeLimit: room.timeLimit
     });
   });
 
@@ -248,12 +344,14 @@ io.on('connection', (socket) => {
       return;
     }
 
-    // Store the board data for this player
-    if (!gameRooms[roomCode].playerBoards) {
-      gameRooms[roomCode].playerBoards = {};
+    const room = gameRooms[roomCode];
+    if (!room.playerBoards) {
+      room.playerBoards = {};
     }
-    gameRooms[roomCode].playerBoards[socket.id] = {
+    
+    room.playerBoards[socket.id] = {
       boardData,
+      roundIndex: room.currentQuestionIndex,
       timestamp: Date.now()
     };
 
@@ -281,23 +379,39 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === socket.id);
+    const room = gameRooms[roomCode];
+    const playerIndex = room.players.findIndex(p => p.id === socket.id);
     if (playerIndex === -1) {
       console.log(`Player ${socket.id} not found in room ${roomCode}`);
       return;
     }
 
-    // Store the answer
-    gameRooms[roomCode].players[playerIndex].answers.push({
+    // Store the answer with more details
+    room.players[playerIndex].answers[room.currentQuestionIndex] = {
       answer,
       hasDrawing,
-      timestamp: new Date().toISOString()
-    });
+      timestamp: Date.now(),
+      isCorrect: null,
+      livesAfterRound: null
+    };
+
+    // Add submission to recap
+    if (gameRecaps[roomCode]) {
+      const currentRoundIndex = room.currentQuestionIndex;
+      const boardData = room.playerBoards[socket.id]?.boardData || '';
+      
+      gameRecaps[roomCode].addSubmission(currentRoundIndex, {
+        playerId: socket.id,
+        playerName: room.players[playerIndex].name,
+        answer,
+        drawingData: hasDrawing ? boardData : null
+      });
+    }
 
     // Broadcast the answer submission to all clients in the room
     io.to(roomCode).emit('answer_submitted', {
       playerId: socket.id,
-      playerName: gameRooms[roomCode].players[playerIndex].name,
+      playerName: room.players[playerIndex].name,
       answer,
       hasDrawing
     });
@@ -308,19 +422,20 @@ io.on('connection', (socket) => {
 
   // Gamemaster evaluates an answer
   socket.on('evaluate_answer', ({ roomCode, playerId, isCorrect }) => {
-    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+    const room = gameRooms[roomCode];
+    if (!room || room.gamemaster !== socket.id) {
       socket.emit('error', 'Not authorized to evaluate answers');
       return;
     }
     
-    const playerIndex = gameRooms[roomCode].players.findIndex(p => p.id === playerId);
+    const playerIndex = room.players.findIndex(p => p.id === playerId);
     if (playerIndex === -1) return;
     
-    const player = gameRooms[roomCode].players[playerIndex];
+    const player = room.players[playerIndex];
+    const currentAnswer = player.answers[room.currentQuestionIndex];
     
     if (!isCorrect) {
       player.lives--;
-      
       if (player.lives <= 0) {
         player.isSpectator = true;
         player.isActive = false;
@@ -328,18 +443,30 @@ io.on('connection', (socket) => {
       }
     }
     
-    // Send evaluation to all clients in the room
-    io.to(roomCode).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
-    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
+    // Store evaluation result
+    if (currentAnswer) {
+      currentAnswer.isCorrect = isCorrect;
+      currentAnswer.livesAfterRound = player.lives;
+    }
     
-    // Check if only one player is left
-    const activePlayers = gameRooms[roomCode].players.filter(p => p.isActive);
+    // Check if game is over
+    const activePlayers = room.players.filter(p => p.isActive);
     if (activePlayers.length === 1) {
+      const winner = activePlayers[0];
+      
+      // Generate and send game recap
+      const gameRecap = generateGameRecap(roomCode);
+      io.to(roomCode).emit('game_recap', gameRecap);
+      
       io.to(roomCode).emit('game_winner', {
-        playerId: activePlayers[0].id,
-        playerName: activePlayers[0].name
+        playerId: winner.id,
+        playerName: winner.name
       });
     }
+    
+    // Send evaluation to all clients in the room
+    io.to(roomCode).emit('answer_evaluation', { isCorrect, lives: player.lives, playerId });
+    io.to(roomCode).emit('players_update', room.players);
   });
 
   // Next question from gamemaster
@@ -713,6 +840,14 @@ io.on('connection', (socket) => {
       return;
     }
     socket.emit('game_state', { started: !!room.started });
+  });
+
+  // Add new event for requesting recap
+  socket.on('request_recap', ({ roomCode }) => {
+    const recap = generateGameRecap(roomCode);
+    if (recap) {
+      socket.emit('game_recap', recap);
+    }
   });
 });
 

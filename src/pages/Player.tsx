@@ -11,11 +11,14 @@ import { useGame } from '../contexts/GameContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
 import DrawingBoard from '../components/player/DrawingBoard';
+import RecapModal from '../components/shared/RecapModal';
 
 const Player: React.FC = () => {
   const navigate = useNavigate();
   const [submittedAnswer, setSubmittedAnswer] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
+  const [showRecap, setShowRecap] = useState(false);
+  const [gameRecap, setGameRecap] = useState(null);
   
   // Get context values
   const {
@@ -153,6 +156,18 @@ const Player: React.FC = () => {
       toggleBoardVisibility(new Set(playerBoards.map(b => b.playerId)));
     }
   }, [isSpectator, playerBoards, toggleBoardVisibility]);
+
+  useEffect(() => {
+    // Listen for game recap
+    socketService.on('game_recap', (recap) => {
+      setGameRecap(recap);
+      setShowRecap(true);
+    });
+
+    return () => {
+      socketService.off('game_recap');
+    };
+  }, []);
 
   if (gameOver && !isWinner) {
     return (
@@ -379,6 +394,12 @@ const Player: React.FC = () => {
           <PlayerList title="Players" />
         </div>
       </div>
+      
+      <RecapModal
+        show={showRecap}
+        onHide={() => setShowRecap(false)}
+        recap={gameRecap}
+      />
     </div>
   );
 };

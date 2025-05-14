@@ -77,6 +77,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     socketService.on('room_joined', (data: { roomCode: string }) => {
+      console.log('Received room_joined event:', { roomCode: data.roomCode, playerName, isSpectator });
       setRoomCode(data.roomCode);
       sessionStorage.setItem('roomCode', data.roomCode);
       sessionStorage.setItem('playerName', playerName);
@@ -89,6 +90,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (socket && socket.id) {
         setCurrentPlayerId(socket.id);
       }
+      console.log('Navigating to:', isSpectator ? '/spectator' : '/player');
       navigate(isSpectator ? '/spectator' : '/player');
     });
 
