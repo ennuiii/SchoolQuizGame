@@ -419,46 +419,12 @@ const GameMaster: React.FC = () => {
   }
 
   return (
-    <div className="container-fluid px-2 px-md-4">
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-          <span className="bi bi-person-workspace section-icon" aria-label="Game Master"></span>
-          Game Master Dashboard
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <input
-            type="range"
-            className="form-range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume}
-            onChange={(e) => setVolume(parseFloat(e.target.value))}
-            style={{ width: '100px' }}
-            title="Volume"
-          />
-          <button
-            className="btn btn-outline-secondary"
-            onClick={toggleMute}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <i className="bi bi-volume-mute-fill"></i>
-            ) : (
-              <i className="bi bi-volume-up-fill"></i>
-            )}
-          </button>
-        </div>
-      </div>
-
-      {questionErrorMsg && (
-        <div className="alert alert-info mb-4" role="alert">
-          {questionErrorMsg}
-        </div>
-      )}
+    <div className="container-fluid py-4">
+      <LoadingOverlay isVisible={isLoading} />
+      <ConnectionStatus />
 
       {showEndRoundConfirm && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
+        <div className="modal show d-block" tabIndex={-1}>
           <div className="modal-dialog">
             <div className="modal-content">
               <div className="modal-header">
@@ -466,7 +432,7 @@ const GameMaster: React.FC = () => {
                 <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
               </div>
               <div className="modal-body">
-                <p>Are you sure you want to end this round early? All players' current answers will be submitted automatically.</p>
+                <p>Are you sure you want to end this round early? All players who haven't submitted will receive no points.</p>
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
@@ -481,12 +447,11 @@ const GameMaster: React.FC = () => {
         <div className="col-12 col-md-4">
           <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
           <RoomCode />
-          {!previewMode.isActive && (
+          {gameStarted && !previewMode.isActive && (
             <div className="mb-3">
               <button
                 className="btn btn-primary w-100"
                 onClick={handleStartPreview}
-                disabled={!gameStarted}
               >
                 Start Preview Mode
               </button>
@@ -499,7 +464,7 @@ const GameMaster: React.FC = () => {
           />
           <div className="d-grid gap-2 mt-3">
             <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
-            {!gameStarted && (
+            {!gameStarted ? (
               <button 
                 className="btn btn-success" 
                 onClick={handleStartGame}
@@ -512,8 +477,7 @@ const GameMaster: React.FC = () => {
               >
                 {isConnecting ? "Connecting..." : `Start Game (${players.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
               </button>
-            )}
-            {gameStarted && (
+            ) : (
               <>
                 <button className="btn btn-primary" onClick={handleNextQuestion}>Next Question</button>
                 <button className="btn btn-warning" onClick={handleEndRoundEarly}>End Round Early</button>
@@ -531,14 +495,21 @@ const GameMaster: React.FC = () => {
             />
           ) : (
             <>
-              <QuestionDisplay question={currentQuestion} />
-              {timeLimit !== null && timeRemaining !== null && (
-                <Timer
-                  isActive={isTimerRunning}
-                  showSeconds={true}
-                />
-              )}
-              <div className="card mb-4">
+              <div className="card mb-3">
+                <div className="card-body">
+                  <QuestionDisplay question={currentQuestion} />
+                  {timeLimit !== null && timeRemaining !== null && (
+                    <div className="mt-3">
+                      <Timer
+                        isActive={isTimerRunning}
+                        showSeconds={true}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="card mb-3">
                 <div className="card-header bg-light d-flex justify-content-between align-items-center">
                   <h5 className="mb-0">Player Boards</h5>
                   <div className="d-flex gap-2">
@@ -576,13 +547,9 @@ const GameMaster: React.FC = () => {
                   </div>
                 </div>
               </div>
+              
               <AnswerList
                 onEvaluate={handleEvaluateAnswer}
-              />
-              <PreviewOverlay
-                onFocus={handleFocusSubmission}
-                onClose={handleStopPreview}
-                isGameMaster={true}
               />
             </>
           )}
@@ -590,38 +557,11 @@ const GameMaster: React.FC = () => {
       </div>
 
       {previewMode.isActive && (
-        <div className="preview-mode-controls mt-3" style={{
-          display: 'flex',
-          gap: '10px',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000,
-          background: 'rgba(255, 255, 255, 0.9)',
-          padding: '10px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          width: '90%',
-          maxWidth: '500px'
-        }}>
-          <button
-            className="btn btn-secondary w-100"
-            onClick={handleStopPreview}
-          >
-            Stop Preview Mode
-          </button>
-          {previewMode.focusedPlayerId && (
-            <button
-              className="btn btn-outline-primary w-100"
-              onClick={() => handleFocusSubmission('')}
-            >
-              Back to Gallery
-            </button>
-          )}
-        </div>
+        <PreviewOverlay
+          onFocus={handleFocusSubmission}
+          onClose={handleStopPreview}
+          isGameMaster={true}
+        />
       )}
 
       <RecapModal
