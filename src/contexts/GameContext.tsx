@@ -254,22 +254,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load random questions
   const loadRandomQuestions = useCallback(async () => {
+    setIsLoadingRandom(true);
     try {
-      const questions = await supabaseService.getQuestions({
+      const fetchedQuestions = await supabaseService.getQuestions({
         subject: selectedSubject,
         grade: selectedGrade === '' ? undefined : Number(selectedGrade),
         language: selectedLanguage,
         sortByGrade: true
       });
 
-      const shuffled = questions.sort(() => 0.5 - Math.random());
+      const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
       const selected = shuffled.slice(0, randomCount);
-      setAvailableQuestions(selected.map(convertSupabaseQuestion));
+      const convertedQuestions = selected.map(convertSupabaseQuestion);
+      
+      // Merge with existing selected questions
+      const newQuestions = [...questions, ...convertedQuestions]
+        .filter((q, index, self) => // Remove duplicates
+          index === self.findIndex(t => t.id === q.id)
+        )
+        .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+      setQuestions(newQuestions);
+      setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
     } catch (error) {
       console.error('Error loading random questions:', error);
       setQuestionErrorMsg('Failed to load random questions');
+    } finally {
+      setIsLoadingRandom(false);
     }
-  }, [selectedSubject, selectedGrade, selectedLanguage, randomCount]);
+  }, [selectedSubject, selectedGrade, selectedLanguage, randomCount, questions]);
 
   // Load subjects and languages on mount
   useEffect(() => {
@@ -372,6 +386,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setAllAnswersThisRound({});
       setEvaluatedAnswers({});
       setPlayerBoards([]);
+
+      // Request complete game state update
+      const roomCode = sessionStorage.getItem('roomCode');
+      if (roomCode) {
+        socketService.emit('get_game_state', { roomCode });
+      }
     });
 
     // Handle new question event

@@ -421,17 +421,38 @@ io.on('connection', (socket) => {
     room.started = true;
     room.timeLimit = timeLimit || 99999;
     room.questionStartTime = Date.now();
+    room.currentQuestion = questions[0];
     
     // Initialize playerBoards with round tracking
     if (!room.playerBoards) {
       room.playerBoards = {};
     }
+
+    // Initialize round answers and evaluations
+    room.roundAnswers = {};
+    room.evaluatedAnswers = {};
     
-    // Notify all players that the game has started
+    // Send complete game state to all clients
+    const gameState = {
+      started: room.started,
+      currentQuestion: room.currentQuestion,
+      currentQuestionIndex: room.currentQuestionIndex,
+      timeLimit: room.timeLimit,
+      questionStartTime: room.questionStartTime,
+      players: room.players,
+      playerBoards: room.playerBoards,
+      roundAnswers: room.roundAnswers,
+      evaluatedAnswers: room.evaluatedAnswers
+    };
+    
+    // First send game_started event
     io.to(roomCode).emit('game_started', {
       question: questions[0],
       timeLimit: room.timeLimit
     });
+
+    // Then send complete game state
+    io.to(roomCode).emit('game_state_update', gameState);
 
     // Start the timer for the first question if time limit is set and not infinite
     if (room.timeLimit && room.timeLimit < 99999) {
