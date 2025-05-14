@@ -46,16 +46,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [copied, setCopied] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
 
-  const createRoom = useCallback((roomCode: string) => {
+  const createRoom = useCallback(async (roomCode: string) => {
     setIsLoading(true);
-    // Ensure socket is connected before creating room
-    const socket = socketService.connect();
-    if (!socket) {
+    try {
+      await socketService.createRoom(roomCode);
+    } catch (error) {
+      console.error('[RoomContext] Failed to create room:', error);
       setErrorMsg('Unable to connect to game server');
       setIsLoading(false);
-      return;
     }
-    socketService.createRoom(roomCode);
   }, []);
 
   const joinRoom = useCallback((roomCode: string, playerName: string, isSpectator?: boolean) => {
@@ -85,90 +84,101 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     console.log('[RoomContext] Setting up socket event listeners');
     
-    // Register event handlers only after socket is connected
-    const socket = socketService.getSocket();
-    if (!socket) {
-      console.log('[RoomContext] No socket available, skipping event registration');
-      return;
-    }
+    const setupSocketListeners = async () => {
+      try {
+        const socket = await socketService.connect();
+        if (!socket) {
+          console.log('[RoomContext] No socket available after connection attempt');
+          return;
+        }
 
-    console.log('[RoomContext] Registering room_created event handler');
-    socketService.on('room_created', (data: any) => {
-      console.log('[RoomContext] room_created event received:', data);
-      const code = typeof data === 'string' ? data : data.roomCode;
-      console.log('[RoomContext] Setting room code to:', code);
-      setRoomCode(code);
-      sessionStorage.setItem('roomCode', code);
-      sessionStorage.setItem('isGameMaster', 'true');
-      setIsLoading(false);
-      if (window.location.pathname !== '/gamemaster') {
-        navigate('/gamemaster');
-      }
-    });
-
-    socketService.on('room_joined', (data: { roomCode: string }) => {
-      console.log('Received room_joined event:', { roomCode: data.roomCode, playerName, isSpectator });
-      setRoomCode(data.roomCode);
-      sessionStorage.setItem('roomCode', data.roomCode);
-      sessionStorage.setItem('playerName', playerName);
-      sessionStorage.setItem('isGameMaster', 'false');
-      sessionStorage.setItem('isSpectator', isSpectator.toString());
-      setIsLoading(false);
-      setErrorMsg('');
-      // Set the current player ID when joining a room
-      const socket = socketService.connect();
-      if (socket && socket.id) {
-        setCurrentPlayerId(socket.id);
-      }
-      console.log('Navigating to:', isSpectator ? '/spectator' : '/player');
-      navigate(isSpectator ? '/spectator' : '/player');
-    });
-
-    socketService.on('player_joined', (player: Player) => {
-      setPlayers(prev => [...prev, player]);
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      setPlayers(updatedPlayers);
-    });
-
-    socketService.on('error', (error: string) => {
-      setErrorMsg(error);
-      setIsLoading(false);
-    });
-
-    // Check for existing room session
-    const savedRoomCode = sessionStorage.getItem('roomCode');
-    const savedPlayerName = sessionStorage.getItem('playerName');
-    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-    const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
-
-    if (savedRoomCode) {
-      setRoomCode(savedRoomCode);
-      if (savedPlayerName) {
-        setPlayerName(savedPlayerName);
-      }
-      setIsSpectator(savedIsSpectator);
-
-      if (isGameMaster) {
-        socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
-      } else {
-        socketService.emit('rejoin_player', {
-          roomCode: savedRoomCode,
-          playerName: savedPlayerName,
-          isSpectator: savedIsSpectator
+        console.log('[RoomContext] Socket connected, registering event handlers');
+        
+        socket.on('room_created', (data: any) => {
+          console.log('[RoomContext] room_created event received:', data);
+          const code = typeof data === 'string' ? data : data.roomCode;
+          console.log('[RoomContext] Setting room code to:', code);
+          setRoomCode(code);
+          sessionStorage.setItem('roomCode', code);
+          sessionStorage.setItem('isGameMaster', 'true');
+          setIsLoading(false);
+          if (window.location.pathname !== '/gamemaster') {
+            navigate('/gamemaster');
+          }
         });
-      }
-    }
 
-    // Clean up event listeners
+        socket.on('room_joined', (data: { roomCode: string }) => {
+          console.log('Received room_joined event:', { roomCode: data.roomCode, playerName, isSpectator });
+          setRoomCode(data.roomCode);
+          sessionStorage.setItem('roomCode', data.roomCode);
+          sessionStorage.setItem('playerName', playerName);
+          sessionStorage.setItem('isGameMaster', 'false');
+          sessionStorage.setItem('isSpectator', isSpectator.toString());
+          setIsLoading(false);
+          setErrorMsg('');
+          // Set the current player ID when joining a room
+          if (socket && socket.id) {
+            setCurrentPlayerId(socket.id);
+          }
+          console.log('Navigating to:', isSpectator ? '/spectator' : '/player');
+          navigate(isSpectator ? '/spectator' : '/player');
+        });
+
+        socket.on('player_joined', (player: Player) => {
+          setPlayers(prev => [...prev, player]);
+        });
+
+        socket.on('players_update', (updatedPlayers: Player[]) => {
+          setPlayers(updatedPlayers);
+        });
+
+        socket.on('error', (error: string) => {
+          setErrorMsg(error);
+          setIsLoading(false);
+        });
+
+        // Check for existing room session
+        const savedRoomCode = sessionStorage.getItem('roomCode');
+        const savedPlayerName = sessionStorage.getItem('playerName');
+        const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
+        const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
+
+        if (savedRoomCode) {
+          setRoomCode(savedRoomCode);
+          if (savedPlayerName) {
+            setPlayerName(savedPlayerName);
+          }
+          setIsSpectator(savedIsSpectator);
+
+          if (isGameMaster) {
+            socket.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
+          } else {
+            socket.emit('rejoin_player', {
+              roomCode: savedRoomCode,
+              playerName: savedPlayerName,
+              isSpectator: savedIsSpectator
+            });
+          }
+        }
+      } catch (error) {
+        console.error('[RoomContext] Failed to setup socket listeners:', error);
+        setErrorMsg('Failed to connect to game server');
+        setIsLoading(false);
+      }
+    };
+
+    setupSocketListeners();
+
     return () => {
       console.log('[RoomContext] Cleaning up socket event listeners');
-      socketService.off('room_created');
-      socketService.off('room_joined');
-      socketService.off('player_joined');
-      socketService.off('players_update');
-      socketService.off('error');
+      const socket = socketService.getSocket();
+      if (socket) {
+        socket.off('room_created');
+        socket.off('room_joined');
+        socket.off('player_joined');
+        socket.off('players_update');
+        socket.off('error');
+      }
     };
   }, [navigate, playerName, isSpectator]);
 

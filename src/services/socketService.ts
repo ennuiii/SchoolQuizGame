@@ -19,6 +19,7 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
 export class SocketService {
   private socket: Socket | null = null;
   private connectionState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
+  private connectionPromise: Promise<Socket | null> | null = null;
   private reconnectAttempts = 0;
   private readonly maxReconnectAttempts = 5;
   private reconnectTimer: NodeJS.Timeout | null = null;
@@ -43,25 +44,52 @@ export class SocketService {
     this.connectionStateListeners.forEach(listener => listener(newState));
   }
 
-  connect(): Socket | null {
+  connect(): Promise<Socket | null> {
+    // If we're already connecting, return the existing promise
+    if (this.connectionPromise) {
+      console.log('[SocketService] Connection already in progress, reusing promise');
+      return this.connectionPromise;
+    }
+
+    // If we're already connected, return the existing socket
     if (this.socket?.connected) {
       console.log('[SocketService] Already connected, reusing socket');
-      return this.socket;
+      return Promise.resolve(this.socket);
     }
 
     console.log('[SocketService] Attempting to connect to:', this.url);
     this.updateConnectionState('connecting');
-    
-    this.socket = io(this.url, {
-      transports: ['websocket', 'polling'],
-      reconnectionAttempts: this.maxReconnectAttempts,
-      timeout: 10000,
-      forceNew: true,
-      withCredentials: true
+
+    this.connectionPromise = new Promise((resolve, reject) => {
+      this.socket = io(this.url, {
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: this.maxReconnectAttempts,
+        timeout: 10000,
+        forceNew: false
+      });
+
+      this.socket.once('connect', () => {
+        console.log('[SocketService] Connected successfully:', {
+          socketId: this.socket?.id,
+          timestamp: new Date().toISOString(),
+          url: this.url
+        });
+        this.updateConnectionState('connected');
+        this.reconnectAttempts = 0;
+        this.connectionPromise = null;
+        resolve(this.socket);
+      });
+
+      this.socket.once('connect_error', (error) => {
+        console.error('[SocketService] Connection error:', error);
+        this.connectionPromise = null;
+        reject(error);
+      });
+
+      this.setupEventHandlers();
     });
-    
-    this.setupEventHandlers();
-    return this.socket;
+
+    return this.connectionPromise;
   }
 
   private setupEventHandlers() {
@@ -147,13 +175,18 @@ export class SocketService {
   }
 
   // Game-specific methods
-  createRoom(roomCode: string) {
+  async createRoom(roomCode: string) {
     console.log('[SocketService] Creating room:', { roomCode, timestamp: new Date().toISOString() });
-    if (!this.socket?.connected) {
-      console.warn('[SocketService] Socket not connected when trying to create room');
-      this.connect();
+    try {
+      const socket = await this.connect();
+      if (!socket) {
+        throw new Error('Failed to connect socket');
+      }
+      socket.emit('create_room', { roomCode, timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('[SocketService] Failed to create room:', error);
+      throw error;
     }
-    this.socket?.emit('create_room', { roomCode, timestamp: new Date().toISOString() });
   }
 
   joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
