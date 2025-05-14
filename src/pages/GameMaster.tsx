@@ -66,11 +66,12 @@ const GameMaster: React.FC = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [recapData, setRecapData] = useState<GameRecap | null>(null);
   const [timeLimit, setTimeLimit] = useState(30);
-  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
-  const [roomCode, setRoomCode] = useState<string | null>(null);
+  const [inputRoomCode, setInputRoomCode] = useState('');
   
   // Get context values
   const {
+    roomCode,
+    isLoading,
     createRoom,
     leaveRoom,
     players
@@ -127,10 +128,9 @@ const GameMaster: React.FC = () => {
   }, [navigate]);
 
   const handleJoinRoom = useCallback(() => {
-    const newRoomCode = roomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
-    setIsCreatingRoom(true);
+    const newRoomCode = inputRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
     createRoom(newRoomCode);
-  }, [createRoom, roomCode]);
+  }, [createRoom, inputRoomCode]);
 
   useEffect(() => {
     socketService.on('game_recap', (recap: GameRecap) => {
@@ -349,35 +349,39 @@ const GameMaster: React.FC = () => {
   // Show room code entry if no room code exists
   if (!roomCode) {
     return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <h2>Join or Create a Game Room</h2>
-          <div className="row justify-content-center mt-4">
-            <div className="col-md-6">
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  className="form-control"
-                  placeholder="Enter room code or leave empty for new room"
-                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                  maxLength={6}
-                />
-                <button
-                  className="btn btn-primary"
-                  onClick={handleJoinRoom}
-                  disabled={isCreatingRoom}
-                >
-                  {isCreatingRoom ? (
-                    <>
-                      <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                      Connecting...
-                    </>
-                  ) : (
-                    'Join/Create Room'
-                  )}
-                </button>
-              </div>
+      <div className="row justify-content-center">
+        <div className="col-12 col-md-6">
+          <div className="card p-4 text-center">
+            <h3>Create a New Game Room</h3>
+            <p>As the Game Master, you'll manage questions and evaluate answers.</p>
+            <div className="form-group mb-3">
+              <label htmlFor="roomCodeInput" className="form-label">Room Code (optional):</label>
+              <input
+                type="text"
+                id="roomCodeInput"
+                className="form-control"
+                placeholder="Leave blank for random code"
+                value={inputRoomCode}
+                onChange={e => setInputRoomCode(e.target.value.toUpperCase())}
+                maxLength={6}
+              />
+              <small className="text-muted">
+                You can specify a custom room code or leave it blank for a random one.
+              </small>
             </div>
+            <button
+              className="btn btn-primary btn-lg mt-3"
+              onClick={handleJoinRoom}
+              disabled={isLoading}
+            >
+              {isLoading ? 'Creating...' : 'Create Room'}
+            </button>
+            <button
+              className="btn btn-outline-secondary mt-3"
+              onClick={() => navigate('/')}
+            >
+              Back to Home
+            </button>
           </div>
         </div>
       </div>
