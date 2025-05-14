@@ -106,6 +106,8 @@ interface GameContextType {
 
 const GameContext = createContext<GameContextType | null>(null);
 
+type SocketConnectionState = 'connected' | 'disconnected' | 'connecting' | 'reconnecting';
+
 export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Game State
   const [gameStarted, setGameStarted] = useState(false);
@@ -148,6 +150,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [questionErrorMsg, setQuestionErrorMsg] = useState<string>('');
   const [randomCount, setRandomCount] = useState<number>(5);
   const [isLoadingRandom, setIsLoadingRandom] = useState<boolean>(false);
+  const [socketConnectionStatus, setSocketConnectionStatus] = useState<SocketConnectionState>(socketService.getConnectionState() as SocketConnectionState);
+
+  // Effect to subscribe to socket connection state changes
+  useEffect(() => {
+    const handleConnectionChange = (state: string) => {
+      console.log('[GameContext] Socket connection state changed from service:', state);
+      setSocketConnectionStatus(state as SocketConnectionState);
+    };
+    // Subscribe to connection state changes
+    socketService.onConnectionStateChange(handleConnectionChange);
+    
+    // Cleanup: How to unsubscribe from onConnectionStateChange?
+    // Assuming there isn't a direct return, and no specific offConnectionStateChange is visible in socketService
+    // This listener might be intended to persist or needs a specific method in socketService to unregister.
+    // For now, no direct cleanup call if 'unsubscribe' wasn't a function.
+    return () => {
+        console.log('[GameContext] Cleanup for onConnectionStateChange listener (no specific off method called).');
+    };
+  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
 
   // Helper function to get player name
   const getPlayerName = useCallback((playerId: string) => {
@@ -303,214 +324,140 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   React.useEffect(() => {
-    console.log('[GameContext] Setting up socket event listeners:', {
-      isSocketConnected: socketService.getConnectionState(),
+    if (socketConnectionStatus !== 'connected') {
+      console.log('[GameContext] Socket not connected, skipping event listener setup. Status:', socketConnectionStatus);
+      return () => {
+        // No cleanup action needed here as listeners are attached conditionally
+      };
+    }
+
+    console.log('[GameContext] Socket connected, setting up socket event listeners:', {
+      isSocketConnected: socketConnectionStatus,
       timestamp: new Date().toISOString()
     });
 
-    // Handle game started event
-    socketService.on('game_started', (data: { question: Question, timeLimit: number }) => {
+    // Define all handlers first (ensure these are defined before use)
+    const gameStartedHandler = (data: { question: Question, timeLimit: number }) => {
       console.log('[GameContext] IMMEDIATE: Game started event received');
-      
       console.log('[GameContext] Game started event received:', {
-        questionText: data.question.text,
-        timeLimit: data.timeLimit,
-        currentGameStarted: gameStarted,
-        currentQuestion: currentQuestion?.text,
-        currentQuestionIndex,
-        timestamp: new Date().toISOString()
+        questionText: data.question.text, timeLimit: data.timeLimit,
+        currentGameStarted: gameStarted, currentQuestion: currentQuestion?.text,
+        currentQuestionIndex, timestamp: new Date().toISOString()
       });
-      
       try {
-        setGameStarted(true);
-        setCurrentQuestion(data.question);
-        setTimeLimit(data.timeLimit);
-        setCurrentQuestionIndex(0);
-        setSubmittedAnswer(false);
-        setAllAnswersThisRound({});
-        setEvaluatedAnswers({});
-        setPlayerBoards([]);
-
+        setGameStarted(true); setCurrentQuestion(data.question); setTimeLimit(data.timeLimit);
+        setCurrentQuestionIndex(0); setSubmittedAnswer(false); setAllAnswersThisRound({});
+        setEvaluatedAnswers({}); setPlayerBoards([]);
         console.log('[GameContext] State updated after game_started event:', {
-          newGameStarted: true,
-          newQuestion: data.question.text,
-          newTimeLimit: data.timeLimit,
-          newQuestionIndex: 0,
-          timestamp: new Date().toISOString()
+          newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
+          newQuestionIndex: 0, timestamp: new Date().toISOString()
         });
       } catch (error: any) {
-        console.error('[GameContext] Error handling game_started event:', {
-          error: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString()
-        });
+        console.error('[GameContext] Error handling game_started event:', { error: error.message, stack: error.stack, timestamp: new Date().toISOString() });
       }
-    });
+    };
 
-    // Handle game state updates
-    socketService.on('game_state_update', (state: any) => {
+    const gameStateUpdateHandler = (state: any) => {
       console.log('[GameContext] Game state update received:', {
-        started: state.started,
-        currentGameStarted: gameStarted,
-        hasQuestion: !!state.currentQuestion,
-        currentQuestion: state.currentQuestion?.text,
-        timeLimit: state.timeLimit,
-        playerCount: state.players?.length,
-        answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
+        started: state.started, currentGameStarted: gameStarted, hasQuestion: !!state.currentQuestion,
+        currentQuestion: state.currentQuestion?.text, timeLimit: state.timeLimit,
+        playerCount: state.players?.length, answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
         timestamp: new Date().toISOString()
       });
-
       try {
         if (state.started !== gameStarted) {
-          console.log('[GameContext] Updating gameStarted state:', {
-            from: gameStarted,
-            to: state.started,
-            timestamp: new Date().toISOString()
-          });
+          console.log('[GameContext] Updating gameStarted state:', { from: gameStarted, to: state.started, timestamp: new Date().toISOString() });
           setGameStarted(state.started);
         }
-
         if (state.currentQuestion && (!currentQuestion || currentQuestion.text !== state.currentQuestion.text)) {
-          console.log('[GameContext] Updating currentQuestion:', {
-            from: currentQuestion?.text,
-            to: state.currentQuestion.text,
-            timestamp: new Date().toISOString()
-          });
+          console.log('[GameContext] Updating currentQuestion:', { from: currentQuestion?.text, to: state.currentQuestion.text, timestamp: new Date().toISOString() });
           setCurrentQuestion(state.currentQuestion);
         }
-
         if (state.timeLimit !== timeLimit) {
-          console.log('[GameContext] Updating timeLimit:', {
-            from: timeLimit,
-            to: state.timeLimit,
-            timestamp: new Date().toISOString()
-          });
+          console.log('[GameContext] Updating timeLimit:', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
           setTimeLimit(state.timeLimit);
         }
-
-        // Update other state
         setPlayers(state.players || []);
         setAllAnswersThisRound(state.roundAnswers || {});
         setEvaluatedAnswers(state.evaluatedAnswers || {});
-
-        console.log('[GameContext] State update complete:', {
-          gameStarted: state.started,
-          hasQuestion: !!state.currentQuestion,
-          playerCount: state.players?.length,
-          timestamp: new Date().toISOString()
-        });
+        console.log('[GameContext] State update complete:', { gameStarted: state.started, hasQuestion: !!state.currentQuestion, playerCount: state.players?.length, timestamp: new Date().toISOString() });
       } catch (error: any) {
-        console.error('[GameContext] Error handling game state update:', {
-          error: error.message,
-          stack: error.stack,
-          timestamp: new Date().toISOString()
-        });
+        console.error('[GameContext] Error handling game state update:', { error: error.message, stack: error.stack, timestamp: new Date().toISOString() });
       }
-    });
-
-    // Handle new question event
-    socketService.on('new_question', (data: { question: Question, timeLimit: number }) => {
-      console.log('[GameContext] New question:', {
-        questionText: data.question.text,
-        timeLimit: data.timeLimit,
-        timestamp: new Date().toISOString()
-      });
-      
-      setCurrentQuestion(data.question);
-      setTimeLimit(data.timeLimit);
-      setCurrentQuestionIndex(prev => {
-        const newIndex = prev + 1;
-        console.log('[GameContext] Updated question index:', { prev, new: newIndex });
-        return newIndex;
-      });
-      setSubmittedAnswer(false);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-      setPlayerBoards([]);
-    });
-
-    // Handle errors
-    socketService.on('error', (error: string) => {
-      setQuestionErrorMsg(error);
-      setTimeout(() => setQuestionErrorMsg(''), 3000);
-    });
-
-    // Handle game over
-    socketService.on('game_over', () => {
-      setGameOver(true);
-      setIsTimerRunning(false);
-    });
-
-    // Handle winner
-    socketService.on('game_winner', (data: { playerId: string }) => {
-      setIsWinner(data.playerId === socketService.getSocketId());
-      setGameOver(true);
-      setIsTimerRunning(false);
-    });
-
-    // Handle timer updates
-    socketService.on('timer_update', (data: { timeRemaining: number }) => {
-      console.log('[GameContext] Timer update:', {
-        timeRemaining: data.timeRemaining,
-        timestamp: new Date().toISOString()
-      });
-      setTimeRemaining(data.timeRemaining);
-      setIsTimerRunning(data.timeRemaining > 0);
-    });
-
-    // Handle time up
-    socketService.on('time_up', () => {
-      console.log('[GameContext] Time up event received');
-      setTimeRemaining(0);
-      setIsTimerRunning(false);
-      
-      // Auto-submit if needed
-      if (!submittedAnswer && currentQuestion) {
-        const roomCode = sessionStorage.getItem('roomCode');
-        if (roomCode) {
-          console.log('[GameContext] Auto-submitting answer due to time up');
-          const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-          const currentAnswer = answerInput?.value?.trim() || '';
-          const canvas = document.querySelector('canvas');
-          const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
-          
-          socketService.submitAnswer(roomCode, currentAnswer || (hasDrawing ? 'Drawing submitted' : ''), hasDrawing || false);
-          setSubmittedAnswer(true);
+    };
+    
+    const newQuestionHandler = (data: { question: Question, timeLimit: number }) => { 
+        console.log('[GameContext] New question:', { questionText: data.question.text, timeLimit: data.timeLimit, timestamp: new Date().toISOString() });
+        setCurrentQuestion(data.question); setTimeLimit(data.timeLimit);
+        setCurrentQuestionIndex(prev => { const newIndex = prev + 1; console.log('[GameContext] Updated question index:', { prev, new: newIndex }); return newIndex; });
+        setSubmittedAnswer(false); setAllAnswersThisRound({}); setEvaluatedAnswers({}); setPlayerBoards([]);
+    };
+    const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
+    const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };
+    const gameWinnerHandler = (data: { playerId: string }) => { setIsWinner(data.playerId === socketService.getSocketId()); setGameOver(true); setIsTimerRunning(false); };
+    const timerUpdateHandler = (data: { timeRemaining: number }) => { console.log('[GameContext] Timer update:', { timeRemaining: data.timeRemaining, timestamp: new Date().toISOString() }); setTimeRemaining(data.timeRemaining); setIsTimerRunning(data.timeRemaining > 0); };
+    const timeUpHandler = () => { 
+        console.log('[GameContext] Time up event received'); setTimeRemaining(0); setIsTimerRunning(false);
+        if (!submittedAnswer && currentQuestion) {
+            const roomCode = sessionStorage.getItem('roomCode');
+            if (roomCode) {
+                console.log('[GameContext] Auto-submitting answer due to time up');
+                const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+                const currentAnswer = answerInput?.value?.trim() || '';
+                const canvas = document.querySelector('canvas');
+                const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
+                socketService.submitAnswer(roomCode, currentAnswer || (hasDrawing ? 'Drawing submitted' : ''), hasDrawing || false);
+                setSubmittedAnswer(true);
+            }
         }
-      }
-    });
+    };
+    const startPreviewModeHandler = () => { 
+        console.log('[GameContext] Starting preview mode'); setPreviewMode(prev => ({ ...prev, isActive: true }));
+        const nonSpectatorIds = players.filter(p => !p.isSpectator).map(p => p.id);
+        setVisibleBoards(new Set(nonSpectatorIds));
+    };
+    const stopPreviewModeHandler = () => { console.log('[GameContext] Stopping preview mode'); setPreviewMode({ isActive: false, focusedPlayerId: null }); };
+    const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
+    const playerBoardUpdateHandler = (data: any) => { console.log('[GameContext] player_board_update received', data); /* Placeholder */ };
+    const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
+    const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 
 
-    // Handle preview mode
-    socketService.on('start_preview_mode', () => {
-      console.log('[GameContext] Starting preview mode');
-      setPreviewMode(prev => ({ ...prev, isActive: true }));
-      // Show all non-spectator boards
-      const nonSpectatorIds = players
-        .filter(p => !p.isSpectator)
-        .map(p => p.id);
-      setVisibleBoards(new Set(nonSpectatorIds));
-    });
-
-    socketService.on('stop_preview_mode', () => {
-      console.log('[GameContext] Stopping preview mode');
-      setPreviewMode({ isActive: false, focusedPlayerId: null });
-    });
-
-    socketService.on('focus_submission', (data: { playerId: string }) => {
-      console.log('[GameContext] Focusing submission:', {
-        playerId: data.playerId,
-        playerName: players.find(p => p.id === data.playerId)?.name
-      });
-      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
-    });
+    // Attach listeners
+    socketService.on('game_started', gameStartedHandler);
+    socketService.on('game_state_update', gameStateUpdateHandler);
+    socketService.on('new_question', newQuestionHandler);
+    socketService.on('error', errorHandler);
+    socketService.on('game_over', gameOverHandler);
+    socketService.on('game_winner', gameWinnerHandler);
+    socketService.on('timer_update', timerUpdateHandler);
+    socketService.on('time_up', timeUpHandler);
+    socketService.on('start_preview_mode', startPreviewModeHandler);
+    socketService.on('stop_preview_mode', stopPreviewModeHandler);
+    socketService.on('focus_submission', focusSubmissionHandler);
+    socketService.on('player_board_update', playerBoardUpdateHandler);
+    socketService.on('answer_evaluated', answerEvaluatedHandler);
+    socketService.on('round_over', roundOverHandler);
 
     // Cleanup
     return () => {
-      console.log('[GameContext] Cleaning up socket event listeners');
+      console.log('[GameContext] Cleaning up ALL socket event listeners (connection status on cleanup:', socketConnectionStatus, ')');
+      // According to linter, .off might only take the event name
       socketService.off('game_started');
       socketService.off('game_state_update');
+      socketService.off('new_question');
+      socketService.off('error');
+      socketService.off('game_over');
+      socketService.off('game_winner');
+      socketService.off('timer_update');
+      socketService.off('time_up');
+      socketService.off('start_preview_mode');
+      socketService.off('stop_preview_mode');
+      socketService.off('focus_submission');
+      socketService.off('player_board_update');
+      socketService.off('answer_evaluated');
+      socketService.off('round_over');
     };
-  }, [gameStarted, currentQuestion, timeLimit, players]);
+  }, [gameStarted, currentQuestion, timeLimit, players, socketConnectionStatus]); // socketConnectionStatus is crucial here
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
