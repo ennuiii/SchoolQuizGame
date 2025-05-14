@@ -415,7 +415,14 @@ io.on('connection', (socket) => {
       currentGamemaster: room ? room.gamemaster : undefined,
       hasRoom: !!room,
       timeLimit,
-      timestamp: new Date().toISOString()
+      questionCount: questions ? questions.length : 0,
+      timestamp: new Date().toISOString(),
+      roomState: room ? {
+        started: room.started,
+        playerCount: Object.keys(room.players).length,
+        currentQuestion: room.currentQuestion ? room.currentQuestion.text : null,
+        roundAnswers: Object.keys(room.roundAnswers || {}).length
+      } : null
     });
 
     if (!room) {
@@ -424,106 +431,69 @@ io.on('connection', (socket) => {
       return;
     }
     if (socket.id !== room.gamemaster) {
-      console.log('[SERVER] Start game failed - Not authorized:', { roomCode, socketId: socket.id, gamemaster: room.gamemaster, timestamp: new Date().toISOString() });
+      console.log('[SERVER] Start game failed - Not authorized:', { 
+        roomCode, 
+        socketId: socket.id, 
+        gamemaster: room.gamemaster,
+        timestamp: new Date().toISOString() 
+      });
       socket.emit('error', 'Not authorized to start game');
       return;
     }
-    if (!questions || !Array.isArray(questions) || questions.length === 0) {
-      console.log('[SERVER] Start game failed - No questions provided:', { roomCode, timestamp: new Date().toISOString() });
-      socket.emit('error', 'No questions provided');
-      return;
-    }
-    
-    try {
-      console.log('[SERVER] Starting game:', { roomCode, questionCount: questions.length, timeLimit: timeLimit || 99999, timestamp: new Date().toISOString() });
-      
-      // Add startTime to room
-      room.startTime = new Date();
-      room.questions = questions;
-      room.currentQuestionIndex = 0;
-      room.started = true;
-      room.timeLimit = timeLimit || 99999;
-      room.questionStartTime = Date.now();
-      room.currentQuestion = questions[0];
-      
-      // Initialize playerBoards with round tracking
-      if (!room.playerBoards) {
-        room.playerBoards = {};
-      }
 
-      // Initialize round answers and evaluations
+    try {
+      // Update room state
+      room.started = true;
+      room.questions = questions;
+      room.timeLimit = timeLimit;
+      room.currentQuestionIndex = 0;
+      room.currentQuestion = questions[0];
       room.roundAnswers = {};
       room.evaluatedAnswers = {};
-      
-      // Send complete game state to all clients
+
+      console.log('[SERVER] Game started successfully:', {
+        roomCode,
+        timeLimit,
+        currentQuestion: room.currentQuestion.text,
+        playerCount: Object.keys(room.players).length,
+        timestamp: new Date().toISOString()
+      });
+
+      // Notify all clients in the room
+      io.to(roomCode).emit('game_started', {
+        question: room.currentQuestion,
+        timeLimit: room.timeLimit
+      });
+
+      // Send updated game state
       const gameState = {
         started: room.started,
         currentQuestion: room.currentQuestion,
-        currentQuestionIndex: room.currentQuestionIndex,
         timeLimit: room.timeLimit,
-        questionStartTime: room.questionStartTime,
-        players: room.players,
-        playerBoards: room.playerBoards,
+        players: Object.values(room.players),
         roundAnswers: room.roundAnswers,
         evaluatedAnswers: room.evaluatedAnswers
       };
 
-      // First send game_started event
-      console.log('[SERVER] Sending game_started event:', {
+      console.log('[SERVER] Emitting game state update:', {
         roomCode,
-        questionText: questions[0].text,
-        timeLimit: room.timeLimit,
-        timestamp: new Date().toISOString()
-      });
-      
-      io.to(roomCode).emit('game_started', {
-        question: questions[0],
-        timeLimit: room.timeLimit
+        state: {
+          started: gameState.started,
+          hasQuestion: !!gameState.currentQuestion,
+          playerCount: gameState.players.length,
+          timestamp: new Date().toISOString()
+        }
       });
 
-      // Small delay to ensure proper event ordering
-      await new Promise(resolve => setTimeout(resolve, 100));
-
-      // Then send complete game state
-      console.log('[SERVER] Sending game_state_update event:', {
-        roomCode,
-        started: gameState.started,
-        questionIndex: gameState.currentQuestionIndex,
-        playerCount: gameState.players.length,
-        timestamp: new Date().toISOString()
-      });
-      
       io.to(roomCode).emit('game_state_update', gameState);
-
-      // Start the timer for the first question if time limit is set and not infinite
-      if (room.timeLimit && room.timeLimit < 99999) {
-        console.log(`[SERVER] Starting timer for room ${roomCode} with limit ${room.timeLimit}`);
-        startQuestionTimer(roomCode);
-      }
-
-      gameAnalytics.addGame(roomCode);
-      gameAnalytics.games[roomCode].totalQuestions = questions.length;
     } catch (error) {
-      console.error('[SERVER] Error starting game:', error);
-      socket.emit('error', 'Failed to start game properly');
-      
-      // Reset room state on error
-      room.started = false;
-      room.currentQuestion = null;
-      room.timeLimit = null;
-      room.questionStartTime = null;
-      
-      // Notify clients of the failure
-      io.to(roomCode).emit('game_state_update', {
-        started: false,
-        currentQuestion: null,
-        currentQuestionIndex: 0,
-        timeLimit: null,
-        players: room.players,
-        playerBoards: {},
-        roundAnswers: {},
-        evaluatedAnswers: {}
+      console.error('[SERVER] Error starting game:', {
+        roomCode,
+        error: error.message,
+        stack: error.stack,
+        timestamp: new Date().toISOString()
       });
+      socket.emit('error', 'Failed to start game');
     }
   });
 

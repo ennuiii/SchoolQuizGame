@@ -303,77 +303,101 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   React.useEffect(() => {
-    // Handle complete game state updates
-    socketService.on('game_state_update', (state: any) => {
-      console.log('[GameContext] Received game state update:', {
-        started: state.started,
-        currentGameStarted: gameStarted,
-        currentQuestionIndex: state.currentQuestionIndex,
-        timeLimit: state.timeLimit,
-        playerCount: state.players?.length,
-        boardCount: state.playerBoards ? Object.keys(state.playerBoards).length : 0,
-        answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
-        timestamp: new Date().toISOString()
-      });
-      
-      try {
-        // Update state in a specific order
-        setTimeLimit(state.timeLimit);
-        setCurrentQuestion(state.currentQuestion);
-        setCurrentQuestionIndex(state.currentQuestionIndex);
-        setPlayers(state.players);
-        setPlayerBoards(state.playerBoards ? Object.entries(state.playerBoards).map(([playerId, data]: [string, any]) => ({
-          playerId,
-          boardData: data.boardData,
-          playerName: state.players.find((p: any) => p.id === playerId)?.name || 'Unknown'
-        })) : []);
-        setAllAnswersThisRound(state.roundAnswers || {});
-        setEvaluatedAnswers(state.evaluatedAnswers || {});
-        
-        // Update gameStarted last to ensure all other state is ready
-        if (state.started !== gameStarted) {
-          console.log('[GameContext] Updating game started state:', {
-            from: gameStarted,
-            to: state.started,
-            timestamp: new Date().toISOString()
-          });
-          setGameStarted(state.started);
-        }
-      } catch (error) {
-        console.error('[GameContext] Error processing game state update:', error);
-      }
-    });
-
     // Handle game started event
     socketService.on('game_started', (data: { question: Question, timeLimit: number }) => {
       console.log('[GameContext] Game started event received:', {
         questionText: data.question.text,
         timeLimit: data.timeLimit,
         currentGameStarted: gameStarted,
+        currentQuestion: currentQuestion?.text,
+        currentQuestionIndex,
         timestamp: new Date().toISOString()
       });
       
       try {
-        // Set initial game state in a specific order
-        setTimeLimit(data.timeLimit);
+        setGameStarted(true);
         setCurrentQuestion(data.question);
+        setTimeLimit(data.timeLimit);
         setCurrentQuestionIndex(0);
         setSubmittedAnswer(false);
         setAllAnswersThisRound({});
         setEvaluatedAnswers({});
         setPlayerBoards([]);
-        
-        // Set gameStarted last to ensure all other state is ready
-        setGameStarted(true);
 
-        console.log('[GameContext] Updated game state after game_started event:', {
-          gameStarted: true,
-          questionText: data.question.text,
-          timeLimit: data.timeLimit,
+        console.log('[GameContext] State updated after game_started event:', {
+          newGameStarted: true,
+          newQuestion: data.question.text,
+          newTimeLimit: data.timeLimit,
+          newQuestionIndex: 0,
           timestamp: new Date().toISOString()
         });
-      } catch (error) {
-        console.error('[GameContext] Error processing game started event:', error);
+      } catch (error: any) {
+        console.error('[GameContext] Error handling game_started event:', {
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
+      }
+    });
+
+    // Handle game state updates
+    socketService.on('game_state_update', (state: any) => {
+      console.log('[GameContext] Game state update received:', {
+        started: state.started,
+        currentGameStarted: gameStarted,
+        hasQuestion: !!state.currentQuestion,
+        currentQuestion: state.currentQuestion?.text,
+        timeLimit: state.timeLimit,
+        playerCount: state.players?.length,
+        answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
+        timestamp: new Date().toISOString()
+      });
+
+      try {
+        if (state.started !== gameStarted) {
+          console.log('[GameContext] Updating gameStarted state:', {
+            from: gameStarted,
+            to: state.started,
+            timestamp: new Date().toISOString()
+          });
+          setGameStarted(state.started);
+        }
+
+        if (state.currentQuestion && (!currentQuestion || currentQuestion.text !== state.currentQuestion.text)) {
+          console.log('[GameContext] Updating currentQuestion:', {
+            from: currentQuestion?.text,
+            to: state.currentQuestion.text,
+            timestamp: new Date().toISOString()
+          });
+          setCurrentQuestion(state.currentQuestion);
+        }
+
+        if (state.timeLimit !== timeLimit) {
+          console.log('[GameContext] Updating timeLimit:', {
+            from: timeLimit,
+            to: state.timeLimit,
+            timestamp: new Date().toISOString()
+          });
+          setTimeLimit(state.timeLimit);
+        }
+
+        // Update other state
+        setPlayers(state.players || []);
+        setAllAnswersThisRound(state.roundAnswers || {});
+        setEvaluatedAnswers(state.evaluatedAnswers || {});
+
+        console.log('[GameContext] State update complete:', {
+          gameStarted: state.started,
+          hasQuestion: !!state.currentQuestion,
+          playerCount: state.players?.length,
+          timestamp: new Date().toISOString()
+        });
+      } catch (error: any) {
+        console.error('[GameContext] Error handling game state update:', {
+          error: error.message,
+          stack: error.stack,
+          timestamp: new Date().toISOString()
+        });
       }
     });
 
@@ -475,20 +499,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Cleanup
     return () => {
-      console.log('[GameContext] Cleaning up event listeners');
-      socketService.off('game_state_update');
+      console.log('[GameContext] Cleaning up socket event listeners');
       socketService.off('game_started');
-      socketService.off('new_question');
-      socketService.off('error');
-      socketService.off('game_over');
-      socketService.off('game_winner');
-      socketService.off('timer_update');
-      socketService.off('time_up');
-      socketService.off('start_preview_mode');
-      socketService.off('stop_preview_mode');
-      socketService.off('focus_submission');
+      socketService.off('game_state_update');
     };
-  }, []); // Remove dependencies to ensure event handlers are always registered
+  }, [gameStarted, currentQuestion, timeLimit]);
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
