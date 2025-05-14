@@ -282,8 +282,8 @@ io.on('connection', (socket) => {
 
     console.log(`Broadcasting board update from ${playerName} to room ${roomCode}`);
 
-    // Broadcast to all clients in the room except the sender
-    socket.to(roomCode).emit('board_update', {
+    // Broadcast to all clients in the room including the sender
+    io.to(roomCode).emit('board_update', {
       playerId: socket.id,
       playerName,
       boardData
@@ -493,7 +493,7 @@ io.on('connection', (socket) => {
       Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
         const player = gameRooms[roomCode].players.find(p => p.id === playerId);
         if (player) {
-          socket.emit('player_board_update', {
+          socket.emit('board_update', {
             playerId,
             playerName: player.name,
             boardData: gameRooms[roomCode].playerBoards[playerId].boardData

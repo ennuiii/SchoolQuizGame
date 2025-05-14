@@ -330,7 +330,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return [...prevBoards, { playerId, boardData, playerName: name }];
       });
 
-      // Make sure the board is visible
+      // Always make the board visible when it's updated
       setVisibleBoards(prev => {
         const newSet = new Set(prev);
         newSet.add(playerId);
