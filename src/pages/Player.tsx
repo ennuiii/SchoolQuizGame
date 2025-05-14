@@ -302,15 +302,7 @@ const Player: React.FC = () => {
               {/* Remove lives display from here */}
             </div>
             <div className="col-6 col-md-3">
-              {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
-                <div className={`timer-display ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
-                  <h3 className="h5">
-                    <span className="me-2">Time:</span>
-                    <span>{timeRemaining}</span>
-                    <span className="ms-1">sec</span>
-                  </h3>
-                </div>
-              )}
+              {/* Remove duplicate timer display */}
             </div>
           </div>
           
