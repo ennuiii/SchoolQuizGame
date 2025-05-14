@@ -26,7 +26,11 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         isDrawingMode: true,
         width: 800,
         height: 400,
-        backgroundColor: '#0C6A35' // Classic chalkboard green
+        backgroundColor: '#0C6A35', // Classic chalkboard green
+        enableRetinaScaling: true,
+        renderOnAddRemove: true,
+        skipTargetFind: true,
+        selection: false
       });
       
       fabricCanvasRef.current = canvas;
@@ -36,11 +40,21 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         canvas.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
         canvas.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
         canvas.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
+        canvas.freeDrawingBrush.decimate = 2; // Optimize performance by reducing points
       }
 
       // Track when drawing starts
       canvas.on('mouse:down', () => {
         if (canvas.isDrawingMode && !submittedAnswer) {
+          isDrawing.current = true;
+        }
+      });
+
+      // Track mouse movement during drawing
+      canvas.on('mouse:move', () => {
+        if (isDrawing.current && !submittedAnswer) {
+          // The actual drawing is handled by Fabric.js
+          // We just need to ensure isDrawing stays true
           isDrawing.current = true;
         }
       });
