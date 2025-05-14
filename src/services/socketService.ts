@@ -175,13 +175,16 @@ class SocketService {
   
   // Board update function
   updateBoard(roomCode: string, boardData: string) {
+    console.log(`Updating board for room ${roomCode}`);
     if (!this.socket?.connected) {
       console.log('Socket not connected, attempting to connect before updating board...');
       this.connect();
       this.socket?.once('connect', () => {
+        console.log('Socket connected, sending board update');
         this.emit('update_board', { roomCode, boardData });
       });
     } else {
+      console.log('Socket connected, sending board update directly');
       this.emit('update_board', { roomCode, boardData });
     }
   }

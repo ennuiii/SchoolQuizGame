@@ -254,21 +254,39 @@ io.on('connection', (socket) => {
 
   // Handle board updates
   socket.on('update_board', ({ roomCode, boardData }) => {
+    console.log(`Received board update from ${socket.id} in room ${roomCode}`);
+    
     if (!gameRooms[roomCode]) {
-      console.log('Invalid room code for board update');
+      console.log('Invalid room code for board update:', roomCode);
       return;
     }
 
     // Check if the socket is in the room
     if (!socket.rooms.has(roomCode)) {
-      console.log('Socket not in room for board update');
+      console.log('Socket not in room for board update:', roomCode);
       return;
     }
 
+    // Store the board data for this player
+    if (!gameRooms[roomCode].playerBoards) {
+      gameRooms[roomCode].playerBoards = {};
+    }
+    gameRooms[roomCode].playerBoards[socket.id] = {
+      boardData,
+      timestamp: Date.now()
+    };
+
+    // Get player name
+    const player = gameRooms[roomCode].players.find(p => p.id === socket.id);
+    const playerName = player ? player.name : 'Unknown Player';
+
+    console.log(`Broadcasting board update from ${playerName} to room ${roomCode}`);
+
     // Broadcast to all clients in the room except the sender
     socket.to(roomCode).emit('board_update', {
-      boardData,
-      playerId: socket.id
+      playerId: socket.id,
+      playerName,
+      boardData
     });
   });
 

@@ -7,11 +7,16 @@ declare module 'fabric' {
       backgroundColor: string;
       width: number;
       height: number;
+      selection: boolean;
+      backgroundImage: any;
       renderAll(): void;
       clear(): void;
       dispose(): void;
       toSVG(): string;
       on(event: string, callback: (...args: any[]) => void): void;
+      getObjects(): any[];
+      remove(object: any): void;
+      forEachObject(callback: (obj: any) => void): void;
     }
   }
 } 

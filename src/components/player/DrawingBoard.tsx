@@ -20,70 +20,75 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
 
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
-      fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
+      const canvas = new fabric.Canvas(canvasRef.current, {
         isDrawingMode: true,
         width: 800,
         height: 400,
         backgroundColor: '#0C6A35' // Classic chalkboard green
       });
       
-      // Set up drawing brush for chalk-like appearance
-      if (fabricCanvasRef.current.freeDrawingBrush) {
-        fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
-        fabricCanvasRef.current.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
-        fabricCanvasRef.current.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
-      }
+      fabricCanvasRef.current = canvas;
       
-      // Send canvas updates
-      fabricCanvasRef.current.on('path:created', () => {
-        if (fabricCanvasRef.current && roomCode && !submittedAnswer) {
-          const svgData = fabricCanvasRef.current.toSVG();
+      // Set up drawing brush for chalk-like appearance
+      if (canvas.freeDrawingBrush) {
+        canvas.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
+        canvas.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
+        canvas.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
+      }
+
+      // Send canvas updates only when path is completed (mouse up)
+      canvas.on('mouse:up', () => {
+        if (canvas.isDrawingMode && !submittedAnswer) {
+          const svgData = canvas.toSVG();
+          console.log('Sending board update on mouse up:', svgData);
           onBoardUpdate(svgData);
         }
       });
-      
-      // Also send updates during mouse movement for real-time drawing
-      fabricCanvasRef.current.on('mouse:move', () => {
-        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode && !submittedAnswer) {
-          const svgData = fabricCanvasRef.current.toSVG();
+
+      // Send canvas updates when path is created
+      canvas.on('path:created', () => {
+        if (!submittedAnswer) {
+          const svgData = canvas.toSVG();
+          console.log('Sending board update on path created:', svgData);
           onBoardUpdate(svgData);
         }
       });
     }
     
     return () => {
-      fabricCanvasRef.current?.dispose();
-      fabricCanvasRef.current = null;
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
     };
   }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
 
   // Add effect to disable canvas interaction after submission
   useEffect(() => {
     if (fabricCanvasRef.current) {
-      if (submittedAnswer) {
-        // Disable all interactions
-        fabricCanvasRef.current.isDrawingMode = false;
-        (fabricCanvasRef.current as any).selection = false;
-        (fabricCanvasRef.current as any).forEachObject((obj: any) => {
-          obj.selectable = false;
-          obj.evented = false;
-        });
-        fabricCanvasRef.current.renderAll();
-      } else {
-        // Enable drawing mode if not submitted
-        fabricCanvasRef.current.isDrawingMode = true;
-      }
+      fabricCanvasRef.current.isDrawingMode = !submittedAnswer;
+      fabricCanvasRef.current.selection = !submittedAnswer;
+      fabricCanvasRef.current.forEachObject((obj: any) => {
+        obj.selectable = !submittedAnswer;
+        obj.evented = !submittedAnswer;
+      });
+      fabricCanvasRef.current.renderAll();
     }
   }, [submittedAnswer]);
 
   const clearCanvas = () => {
     if (fabricCanvasRef.current && !submittedAnswer) {
-      fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#0C6A35';
-      fabricCanvasRef.current.renderAll();
+      const canvas = fabricCanvasRef.current;
+      canvas.getObjects().forEach((obj) => {
+        if (obj !== canvas.backgroundImage) {
+          canvas.remove(obj);
+        }
+      });
+      canvas.backgroundColor = '#0C6A35';
+      canvas.renderAll();
       
-      // Send empty canvas
-      const svgData = fabricCanvasRef.current.toSVG();
+      // Send the cleared state
+      const svgData = canvas.toSVG();
       onBoardUpdate(svgData);
     }
   };
