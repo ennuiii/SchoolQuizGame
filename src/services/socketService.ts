@@ -43,7 +43,8 @@ export class SocketService {
 
   connect(): Socket | null {
     if (!this.socket) {
-      this.socket = io(process.env.REACT_APP_SOCKET_URL || 'http://localhost:3001');
+      this.socket = io(SOCKET_URL);
+      this.setupEventHandlers();
     }
     return this.socket;
   }

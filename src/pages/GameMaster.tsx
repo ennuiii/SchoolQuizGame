@@ -66,6 +66,7 @@ const GameMaster: React.FC = () => {
   const [showRecap, setShowRecap] = useState(false);
   const [recapData, setRecapData] = useState<GameRecap | null>(null);
   const [timeLimit, setTimeLimit] = useState(30);
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
   
   // Get context values
   const {
@@ -109,28 +110,30 @@ const GameMaster: React.FC = () => {
 
   // Create a room if one doesn't exist
   useEffect(() => {
-    socketService.connect();
-    
-    socketService.on('connect', () => {
-      console.log('Socket connected successfully');
-      setIsConnecting(false);
+    if (!roomCode && !isCreatingRoom) {
+      setIsCreatingRoom(true);
+      socketService.connect();
       
-      if (!roomCode) {
+      socketService.on('connect', () => {
+        console.log('Socket connected successfully');
+        setIsConnecting(false);
+        
         const newRoomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
         createRoom(newRoomCode);
-      }
-    });
+      });
 
-    socketService.on('connect_error', (error: Error) => {
-      console.error('Socket connection error:', error);
-      setIsConnecting(false);
-    });
+      socketService.on('connect_error', (error: Error) => {
+        console.error('Socket connection error:', error);
+        setIsConnecting(false);
+        navigate('/');
+      });
 
-    return () => {
-      socketService.off('connect');
-      socketService.off('connect_error');
-    };
-  }, [roomCode, createRoom]);
+      return () => {
+        socketService.off('connect');
+        socketService.off('connect_error');
+      };
+    }
+  }, [roomCode, createRoom, navigate, isCreatingRoom]);
 
   useEffect(() => {
     socketService.on('game_recap', (recap: GameRecap) => {
@@ -347,8 +350,17 @@ const GameMaster: React.FC = () => {
   };
 
   if (!roomCode) {
-    console.log('[GameMaster] No room code found, redirecting to home');
-    navigate('/');
+    if (!isCreatingRoom) {
+      console.log('[GameMaster] No room code found, creating new room');
+      return <div className="container mt-5">
+        <div className="text-center">
+          <h2>Creating Game Room...</h2>
+          <div className="spinner-border text-primary mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>;
+    }
     return null;
   }
 
