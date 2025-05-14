@@ -57,6 +57,14 @@ const Player: React.FC = () => {
     leaveRoom
   } = useRoom();
 
+  // Clear canvas and reset state when new question starts
+  useEffect(() => {
+    if (currentQuestion) {
+      setSubmittedAnswer(false);
+      setCanvasKey(prev => prev + 1); // This will trigger canvas reinitialization
+    }
+  }, [currentQuestion]);
+
   // Handle answer submission
   const handleSubmitAnswer = useCallback((force = false) => {
     if (!currentQuestion || submittedAnswer) return;
