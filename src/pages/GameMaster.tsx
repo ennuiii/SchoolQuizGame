@@ -65,7 +65,7 @@ const GameMaster: React.FC = () => {
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [showRecap, setShowRecap] = useState(false);
   const [recapData, setRecapData] = useState<GameRecap | null>(null);
-  const [timeLimit, setTimeLimit] = useState(30);
+  const [timeLimit, setTimeLimit] = useState(99999);
   const [inputRoomCode, setInputRoomCode] = useState('');
   
   // Get context values
@@ -176,12 +176,12 @@ const GameMaster: React.FC = () => {
       console.log('[GameMaster] Starting game:', {
         roomCode,
         questionCount: questions.length,
-        timeLimit,
+        timeLimit: customTimeLimit ?? 30,
         timestamp: new Date().toISOString()
       });
 
       await startGame(roomCode, questions, customTimeLimit ?? 30);
-      console.log('[GameMaster] Game started successfully');
+      console.log('[GameMaster] Game start request sent successfully');
     } catch (error) {
       console.error('[GameMaster] Failed to start game:', error);
       toast.error('Failed to start game. Please try again.');
@@ -359,8 +359,14 @@ const GameMaster: React.FC = () => {
 
   // Debug log for roomCode and isLoading
   useEffect(() => {
-    console.log('[GameMaster] Render: roomCode =', roomCode, 'isLoading =', isLoading);
-  }, [roomCode, isLoading]);
+    console.log('[GameMaster] Component state update:', {
+      roomCode,
+      isLoading,
+      gameStarted,
+      hasCurrentQuestion: !!currentQuestion,
+      timestamp: new Date().toISOString()
+    });
+  }, [roomCode, isLoading, gameStarted, currentQuestion]);
 
   // Show room code entry if no room code exists
   if (!roomCode) {

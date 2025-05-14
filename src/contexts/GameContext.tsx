@@ -307,16 +307,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('game_state_update', (state: any) => {
       console.log('[GameContext] Received game state update:', {
         started: state.started,
+        currentGameStarted: gameStarted,
         currentQuestionIndex: state.currentQuestionIndex,
         timeLimit: state.timeLimit,
         playerCount: state.players?.length,
         boardCount: state.playerBoards ? Object.keys(state.playerBoards).length : 0,
-        answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0
+        answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
+        timestamp: new Date().toISOString()
       });
       
       try {
-        setGameStarted(state.started);
-        setCurrentQuestion(state.currentQuestion);
+        // Only update gameStarted if it's different from current state
+        if (state.started !== gameStarted) {
+          console.log('[GameContext] Updating game started state:', {
+            from: gameStarted,
+            to: state.started,
+            timestamp: new Date().toISOString()
+          });
+          setGameStarted(state.started);
+        }
+
+        // Only update current question if it's different
+        if (state.currentQuestion?.id !== currentQuestion?.id) {
+          console.log('[GameContext] Updating current question:', {
+            from: currentQuestion?.text,
+            to: state.currentQuestion?.text,
+            timestamp: new Date().toISOString()
+          });
+          setCurrentQuestion(state.currentQuestion);
+        }
+
         setCurrentQuestionIndex(state.currentQuestionIndex);
         setTimeLimit(state.timeLimit);
         setPlayers(state.players);
@@ -331,7 +351,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setPlayerBoards(boardsArray);
           console.log('[GameContext] Updated player boards:', {
             count: boardsArray.length,
-            players: boardsArray.map(b => b.playerName)
+            players: boardsArray.map(b => b.playerName),
+            timestamp: new Date().toISOString()
           });
         }
 
@@ -343,7 +364,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             answers: Object.entries(state.roundAnswers).map(([pid, data]: [string, any]) => ({
               player: state.players.find((p: any) => p.id === pid)?.name,
               hasDrawing: data.hasDrawing
-            }))
+            })),
+            timestamp: new Date().toISOString()
           });
         }
 
@@ -355,11 +377,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
             results: Object.entries(state.evaluatedAnswers).map(([pid, isCorrect]) => ({
               player: state.players.find((p: any) => p.id === pid)?.name,
               isCorrect
-            }))
+            })),
+            timestamp: new Date().toISOString()
           });
         }
 
-        // Make all boards visible by default
+        // Make all boards visible by default for non-spectator players
         const playerIds = state.players
           .filter((p: any) => !p.isSpectator)
           .map((p: any) => p.id);
@@ -372,12 +395,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Handle game started event
     socketService.on('game_started', (data: { question: Question, timeLimit: number }) => {
-      console.log('[GameContext] Game started:', {
+      console.log('[GameContext] Game started event received:', {
         questionText: data.question.text,
         timeLimit: data.timeLimit,
+        currentGameStarted: gameStarted,
         timestamp: new Date().toISOString()
       });
       
+      // Set initial game state
       setGameStarted(true);
       setCurrentQuestion(data.question);
       setTimeLimit(data.timeLimit);
@@ -387,11 +412,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setEvaluatedAnswers({});
       setPlayerBoards([]);
 
-      // Request complete game state update
-      const roomCode = sessionStorage.getItem('roomCode');
-      if (roomCode) {
-        socketService.emit('get_game_state', { roomCode });
-      }
+      // Log state update
+      console.log('[GameContext] Updated game state after game_started event:', {
+        gameStarted: true,
+        questionText: data.question.text,
+        timeLimit: data.timeLimit,
+        timestamp: new Date().toISOString()
+      });
     });
 
     // Handle new question event
