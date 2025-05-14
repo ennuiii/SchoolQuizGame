@@ -18,6 +18,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
   const lastSvgData = useRef<string | null>(null);
+  const isDrawing = useRef(false);
 
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
@@ -37,9 +38,17 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
         canvas.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
       }
 
-      // Send canvas updates only when path is completed (mouse up)
-      canvas.on('mouse:up', () => {
+      // Track when drawing starts
+      canvas.on('mouse:down', () => {
         if (canvas.isDrawingMode && !submittedAnswer) {
+          isDrawing.current = true;
+        }
+      });
+
+      // Track when drawing ends
+      canvas.on('mouse:up', () => {
+        if (isDrawing.current && !submittedAnswer) {
+          isDrawing.current = false;
           const svgData = canvas.toSVG();
           // Only send if data has changed
           if (svgData !== lastSvgData.current) {
@@ -72,6 +81,19 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
           canvas.renderAll();
         });
       }
+
+      // Handle mouse out of canvas
+      canvas.on('mouse:out', () => {
+        if (isDrawing.current && !submittedAnswer) {
+          isDrawing.current = false;
+          const svgData = canvas.toSVG();
+          if (svgData !== lastSvgData.current) {
+            console.log('Sending board update on mouse out');
+            lastSvgData.current = svgData;
+            onBoardUpdate(svgData);
+          }
+        }
+      });
     }
     
     return () => {
