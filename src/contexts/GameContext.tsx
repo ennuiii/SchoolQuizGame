@@ -510,7 +510,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('game_started');
       socketService.off('game_state_update');
     };
-  }, [gameStarted, currentQuestion, timeLimit]);
+  }, [gameStarted, currentQuestion, timeLimit, players]);
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
