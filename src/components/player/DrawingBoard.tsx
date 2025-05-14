@@ -1,5 +1,5 @@
-import React, { useEffect, useRef, useCallback } from 'react';
-import { fabric } from 'fabric';
+import React, { useEffect, useRef } from 'react';
+import { useCanvas } from '../../contexts/CanvasContext';
 
 interface DrawingBoardProps {
   canvasKey: number;
@@ -15,151 +15,39 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   onBoardUpdate
 }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
-  const lastSvgData = useRef<string | null>(null);
-  const isDrawing = useRef(false);
-  const updateQueued = useRef(false);
-  const lastUpdateTime = useRef(Date.now());
+  const { initializeCanvas, clearCanvas, updateBoard, setDrawingEnabled, disposeCanvas } = useCanvas();
 
-  // Initialize canvas with settings
-  const initializeCanvas = useCallback(() => {
-    if (!canvasRef.current || fabricCanvasRef.current) return;
-
-    const canvas = new fabric.Canvas(canvasRef.current, {
-      isDrawingMode: !submittedAnswer,
-      width: 800,
-      height: 400,
-      backgroundColor: '#0C6A35',
-      enableRetinaScaling: true,
-      renderOnAddRemove: true,
-      skipTargetFind: true,
-      selection: false,
-      perPixelTargetFind: true,
-      targetFindTolerance: 4
-    });
-
-    fabricCanvasRef.current = canvas;
-
-    // Set up drawing brush
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = '#FFFFFF';
-      canvas.freeDrawingBrush.width = 4;
-      canvas.freeDrawingBrush.opacity = 0.9;
-      canvas.freeDrawingBrush.decimate = 4;
-      (canvas.freeDrawingBrush as any).strokeLineCap = 'round';
-      (canvas.freeDrawingBrush as any).strokeLineJoin = 'round';
-    }
-
-    return canvas;
-  }, [submittedAnswer]);
-
-  // Handle board updates
-  const handleBoardUpdate = useCallback(() => {
-    if (!fabricCanvasRef.current || submittedAnswer || !updateQueued.current) return;
-    
-    const now = Date.now();
-    // Ensure minimum time between updates to prevent rapid updates
-    if (now - lastUpdateTime.current < 100) return;
-    
-    const svgData = fabricCanvasRef.current.toSVG();
-    if (svgData !== lastSvgData.current) {
-      lastSvgData.current = svgData;
-      onBoardUpdate(svgData);
-      lastUpdateTime.current = now;
-    }
-    updateQueued.current = false;
-  }, [submittedAnswer, onBoardUpdate]);
-
-  // Queue an update
-  const queueUpdate = useCallback(() => {
-    if (!isDrawing.current) {
-      updateQueued.current = true;
-      handleBoardUpdate();
-    }
-  }, [handleBoardUpdate]);
-
-  // Set up canvas event handlers
-  const setupCanvasHandlers = useCallback((canvas: fabric.Canvas) => {
-    canvas.on('mouse:down', () => {
-      if (canvas.isDrawingMode && !submittedAnswer) {
-        isDrawing.current = true;
-        updateQueued.current = false;
-      }
-    });
-
-    canvas.on('mouse:move', () => {
-      if (isDrawing.current && !submittedAnswer) {
-        // Just track that we're drawing, don't update yet
-        isDrawing.current = true;
-      }
-    });
-
-    canvas.on('mouse:up', () => {
-      if (!submittedAnswer) {
-        isDrawing.current = false;
-        queueUpdate();
-      }
-    });
-
-    canvas.on('path:created', () => {
-      if (!submittedAnswer) {
-        queueUpdate();
-      }
-    });
-
-    canvas.on('mouse:out', () => {
-      if (isDrawing.current && !submittedAnswer) {
-        isDrawing.current = false;
-        queueUpdate();
-      }
-    });
-  }, [submittedAnswer, queueUpdate]);
-
-  // Initialize canvas and set up handlers
+  // Initialize canvas when component mounts or key changes
   useEffect(() => {
-    const canvas = initializeCanvas();
-    if (canvas) {
-      setupCanvasHandlers(canvas);
+    if (canvasRef.current) {
+      initializeCanvas(canvasRef.current, {
+        width: 800,
+        height: 400,
+        isDrawingEnabled: !submittedAnswer
+      });
     }
 
     return () => {
-      if (fabricCanvasRef.current) {
-        fabricCanvasRef.current.dispose();
-        fabricCanvasRef.current = null;
-      }
+      disposeCanvas();
     };
-  }, [canvasKey, initializeCanvas, setupCanvasHandlers]);
+  }, [canvasKey, initializeCanvas, disposeCanvas, submittedAnswer]);
 
   // Handle submission state changes
   useEffect(() => {
-    if (fabricCanvasRef.current) {
-      fabricCanvasRef.current.isDrawingMode = !submittedAnswer;
-      fabricCanvasRef.current.selection = !submittedAnswer;
-      fabricCanvasRef.current.forEachObject((obj: any) => {
-        obj.selectable = !submittedAnswer;
-        obj.evented = !submittedAnswer;
-      });
-      fabricCanvasRef.current.renderAll();
-    }
-  }, [submittedAnswer]);
+    setDrawingEnabled(!submittedAnswer);
+  }, [submittedAnswer, setDrawingEnabled]);
 
-  const clearCanvas = useCallback(() => {
-    if (fabricCanvasRef.current && !submittedAnswer) {
-      const canvas = fabricCanvasRef.current;
-      canvas.getObjects().forEach((obj) => {
-        if (obj !== canvas.backgroundImage) {
-          canvas.remove(obj);
-        }
-      });
-      canvas.backgroundColor = '#0C6A35';
-      canvas.renderAll();
-      
-      const svgData = canvas.toSVG();
-      lastSvgData.current = svgData;
-      onBoardUpdate(svgData);
-    }
-  }, [submittedAnswer, onBoardUpdate]);
+  // Handle board updates
+  useEffect(() => {
+    const updateInterval = setInterval(() => {
+      updateBoard(roomCode, onBoardUpdate);
+    }, 100);
+
+    return () => {
+      clearInterval(updateInterval);
+    };
+  }, [roomCode, onBoardUpdate, updateBoard]);
 
   return (
     <div className="card mb-4">
