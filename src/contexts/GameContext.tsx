@@ -283,6 +283,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setTimeRemaining(data.timeLimit);
         setIsTimerRunning(true);
       }
+
+      // Make all active player boards visible
+      const activePlayers = players.filter(p => !p.isSpectator).map(p => p.id);
+      setVisibleBoards(new Set(activePlayers));
     });
 
     socketService.onError((error: string) => {
@@ -324,6 +328,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return newBoards;
         }
         return [...prevBoards, { playerId, boardData, playerName: name }];
+      });
+
+      // Make sure the board is visible
+      setVisibleBoards(prev => {
+        const newSet = new Set(prev);
+        newSet.add(playerId);
+        return newSet;
       });
     });
 

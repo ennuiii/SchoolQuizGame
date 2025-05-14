@@ -1,5 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useCanvas } from '../../contexts/CanvasContext';
+import { fabric } from 'fabric';
 
 interface Player {
   id: string;
@@ -39,6 +41,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
   isGameMaster
 }) => {
   const { players, playerBoards, allAnswersThisRound, evaluatedAnswers, previewMode } = useGame();
+  const { setDrawingEnabled } = useCanvas();
 
   if (!previewMode.isActive) return null;
 
@@ -63,6 +66,12 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
       onFocus(activePlayerBoards[currentIndex + 1].playerId);
     }
   };
+
+  // Disable drawing when in preview mode
+  useEffect(() => {
+    setDrawingEnabled(false);
+    return () => setDrawingEnabled(true);
+  }, [setDrawingEnabled]);
 
   return (
     <div className="preview-overlay" style={{

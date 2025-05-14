@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { useRoom } from '../contexts/RoomContext';
 import PlayerList from '../components/shared/PlayerList';
@@ -16,6 +16,7 @@ interface Player {
 
 const JoinGame: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [isSpectator, setIsSpectator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -32,6 +33,14 @@ const JoinGame: React.FC = () => {
     joinRoom,
     players
   } = useRoom();
+
+  // Read room code from URL when component mounts
+  useEffect(() => {
+    const roomFromUrl = searchParams.get('room');
+    if (roomFromUrl && !roomCode) {
+      setRoomCode(roomFromUrl.toUpperCase());
+    }
+  }, [searchParams, roomCode, setRoomCode]);
 
   // Ensure socket is connected when component mounts
   useEffect(() => {
