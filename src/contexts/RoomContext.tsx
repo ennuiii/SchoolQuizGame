@@ -84,9 +84,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     socketService.on('room_created', (data: any) => {
       console.log('[RoomContext] room_created event received:', data);
-      // Support both { roomCode: 'ABC123' } and 'ABC123'
       const code = typeof data === 'string' ? data : data.roomCode;
       setRoomCode(code);
+      console.log('[RoomContext] setRoomCode called with:', code);
       sessionStorage.setItem('roomCode', code);
       sessionStorage.setItem('isGameMaster', 'true');
       setIsLoading(false);

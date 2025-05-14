@@ -346,6 +346,11 @@ const GameMaster: React.FC = () => {
     setShowRecap(true);
   };
 
+  // Debug log for roomCode and isLoading
+  useEffect(() => {
+    console.log('[GameMaster] Render: roomCode =', roomCode, 'isLoading =', isLoading);
+  }, [roomCode, isLoading]);
+
   // Show room code entry if no room code exists
   if (!roomCode) {
     return (
