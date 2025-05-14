@@ -44,51 +44,60 @@ const JoinGame: React.FC = () => {
 
   // Ensure socket is connected when component mounts
   useEffect(() => {
-    const socket = socketService.connect();
-    if (!socket) {
-      console.error('Failed to connect to socket server');
-      return;
-    }
-    
-    socket.on('connect', () => {
-      console.log('Socket connected successfully');
-      setIsConnecting(false);
-    });
+    const connectSocket = async () => {
+      try {
+        const socket = await socketService.connect();
+        if (!socket) {
+          console.error('Failed to connect to socket server');
+          return;
+        }
+        
+        socket.on('connect', () => {
+          console.log('Socket connected successfully');
+          setIsConnecting(false);
+        });
 
-    socket.on('connect_error', (error) => {
-      console.error('Socket connection error:', error);
-      setErrorMsg('Failed to connect to server. Please try again.');
-      setIsConnecting(false);
-    });
+        socket.on('connect_error', (error: Error) => {
+          console.error('Socket connection error:', error);
+          setErrorMsg('Failed to connect to server. Please try again.');
+          setIsConnecting(false);
+        });
 
-    return () => {
-      socket.off('connect');
-      socket.off('connect_error');
+        return () => {
+          socket.off('connect');
+          socket.off('connect_error');
+        };
+      } catch (error) {
+        console.error('Socket connection error:', error);
+        setErrorMsg('Failed to connect to server. Please try again.');
+        setIsConnecting(false);
+      }
     };
+
+    connectSocket();
   }, [setErrorMsg]);
 
-  const handleJoinGame = useCallback(() => {
+  const handleJoinGame = useCallback(async () => {
     if (!roomCode || !playerName) {
       setErrorMsg('Please enter both room code and player name!');
       return;
     }
 
     setIsConnecting(true);
-    const socket = socketService.connect();
-    if (!socket) {
+    try {
+      const socket = await socketService.connect();
+      if (!socket || !socket.connected) {
+        setErrorMsg('Not connected to server. Please try again.');
+        setIsConnecting(false);
+        return;
+      }
+
+      joinRoom(roomCode, playerName, isSpectator);
+      setHasJoined(true);
+    } catch (error) {
       setErrorMsg('Failed to connect to server. Please try again.');
       setIsConnecting(false);
-      return;
     }
-    
-    if (!socket.connected) {
-      setErrorMsg('Not connected to server. Please try again.');
-      setIsConnecting(false);
-      return;
-    }
-
-    joinRoom(roomCode, playerName, isSpectator);
-    setHasJoined(true);
   }, [roomCode, playerName, isSpectator, joinRoom, setErrorMsg]);
 
   // Reset hasJoined when roomCode or playerName changes
