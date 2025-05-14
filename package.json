@@ -31,6 +31,7 @@
     "react-toastify": "^11.0.5",
     "socket.io": "^4.7.4",
     "socket.io-client": "^4.7.4",
+    "typescript": "^4.9.5",
     "uuid": "^9.0.1"
   },
   "devDependencies": {
@@ -38,8 +39,7 @@
     "@types/node": "^20.11.19",
     "@types/react": "^18.2.57",
     "@types/react-dom": "^18.2.19",
-    "@types/uuid": "^9.0.8",
-    "typescript": "^4.9.5"
+    "@types/uuid": "^9.0.8"
   },
   "browserslist": {
     "production": [
