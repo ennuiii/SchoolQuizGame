@@ -128,9 +128,19 @@ const GameMaster: React.FC = () => {
   }, [navigate]);
 
   const handleJoinRoom = useCallback(() => {
-    const newRoomCode = inputRoomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+    const newRoomCode = roomCode || Math.random().toString(36).substring(2, 8).toUpperCase();
+    console.log('[GameMaster] Attempting to create/join room:', newRoomCode);
+    
+    // Ensure socket is connected
+    const socket = socketService.connect();
+    if (!socket) {
+      console.error('[GameMaster] Failed to connect socket');
+      return;
+    }
+
+    setIsLoading(true);
     createRoom(newRoomCode);
-  }, [createRoom, inputRoomCode]);
+  }, [createRoom, roomCode]);
 
   useEffect(() => {
     socketService.on('game_recap', (recap: GameRecap) => {

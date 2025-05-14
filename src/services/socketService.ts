@@ -24,9 +24,11 @@ export class SocketService {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private eventListeners: Map<string, Set<Function>> = new Map();
   private connectionStateListeners: ((state: string) => void)[] = [];
+  private url: string;
 
   constructor() {
-    console.log('[SocketService] Initializing with URL:', SOCKET_URL);
+    this.url = process.env.REACT_APP_SOCKET_URL || 'https://schoolquizgame.onrender.com';
+    console.log('[SocketService] Initializing with URL:', this.url);
   }
 
   // Add method to listen for connection state changes
@@ -42,20 +44,23 @@ export class SocketService {
   }
 
   connect(): Socket | null {
-    if (!this.socket) {
-      console.log('[SocketService] Attempting to connect to:', SOCKET_URL);
-      this.updateConnectionState('connecting');
-      
-      this.socket = io(SOCKET_URL, {
-        transports: ['websocket', 'polling'],
-        reconnectionAttempts: this.maxReconnectAttempts,
-        timeout: 10000,
-        forceNew: true,
-        withCredentials: true
-      });
-      
-      this.setupEventHandlers();
+    if (this.socket?.connected) {
+      console.log('[SocketService] Already connected, reusing socket');
+      return this.socket;
     }
+
+    console.log('[SocketService] Attempting to connect to:', this.url);
+    this.updateConnectionState('connecting');
+    
+    this.socket = io(this.url, {
+      transports: ['websocket', 'polling'],
+      reconnectionAttempts: this.maxReconnectAttempts,
+      timeout: 10000,
+      forceNew: true,
+      withCredentials: true
+    });
+    
+    this.setupEventHandlers();
     return this.socket;
   }
 
@@ -65,8 +70,8 @@ export class SocketService {
     this.socket.on('connect', () => {
       console.log('[SocketService] Connected successfully:', {
         socketId: this.socket?.id,
-        url: SOCKET_URL,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        url: this.url
       });
       this.updateConnectionState('connected');
       this.reconnectAttempts = 0;
@@ -76,7 +81,7 @@ export class SocketService {
     this.socket.on('connect_error', (error) => {
       console.error('[SocketService] Connection error:', {
         error: error.message,
-        url: SOCKET_URL,
+        url: this.url,
         attempt: this.reconnectAttempts + 1,
         maxAttempts: this.maxReconnectAttempts,
         timestamp: new Date().toISOString()
@@ -142,12 +147,13 @@ export class SocketService {
   }
 
   // Game-specific methods
-  createRoom(roomCode?: string) {
-    console.log('[SocketService] Creating room:', {
-      roomCode: roomCode || 'auto-generated',
-      timestamp: new Date().toISOString()
-    });
-    this.emit('create_room', { roomCode });
+  createRoom(roomCode: string) {
+    console.log('[SocketService] Creating room:', { roomCode, timestamp: new Date().toISOString() });
+    if (!this.socket?.connected) {
+      console.warn('[SocketService] Socket not connected when trying to create room');
+      this.connect();
+    }
+    this.socket?.emit('create_room', { roomCode, timestamp: new Date().toISOString() });
   }
 
   joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
@@ -289,6 +295,10 @@ export class SocketService {
 
   onError(callback: (error: string) => void): void {
     this.on('error', callback);
+  }
+
+  getSocket(): Socket | null {
+    return this.socket;
   }
 }
 

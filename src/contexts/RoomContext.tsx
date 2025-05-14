@@ -82,11 +82,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   useEffect(() => {
+    console.log('[RoomContext] Setting up socket event listeners');
+    
+    // Register event handlers only after socket is connected
+    const socket = socketService.getSocket();
+    if (!socket) {
+      console.log('[RoomContext] No socket available, skipping event registration');
+      return;
+    }
+
+    console.log('[RoomContext] Registering room_created event handler');
     socketService.on('room_created', (data: any) => {
       console.log('[RoomContext] room_created event received:', data);
       const code = typeof data === 'string' ? data : data.roomCode;
+      console.log('[RoomContext] Setting room code to:', code);
       setRoomCode(code);
-      console.log('[RoomContext] setRoomCode called with:', code);
       sessionStorage.setItem('roomCode', code);
       sessionStorage.setItem('isGameMaster', 'true');
       setIsLoading(false);
@@ -150,7 +160,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
 
+    // Clean up event listeners
     return () => {
+      console.log('[RoomContext] Cleaning up socket event listeners');
       socketService.off('room_created');
       socketService.off('room_joined');
       socketService.off('player_joined');
