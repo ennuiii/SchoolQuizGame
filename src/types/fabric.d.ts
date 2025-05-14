@@ -17,6 +17,13 @@ declare module 'fabric' {
       getObjects(): any[];
       remove(object: any): void;
       forEachObject(callback: (obj: any) => void): void;
+      add(object: any): void;
     }
+
+    export function loadSVGFromString(
+      string: string,
+      callback: (objects: any[], options: any) => void,
+      reviver?: (group: any, obj: any) => void
+    ): void;
   }
 } 

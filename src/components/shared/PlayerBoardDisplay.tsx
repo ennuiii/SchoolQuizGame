@@ -1,4 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
+import { fabric } from 'fabric';
 
 interface PlayerBoard {
   playerId: string;
@@ -29,49 +30,61 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   onPan,
   onReset
 }) => {
-  const [svgContent, setSvgContent] = useState<React.ReactNode>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
   const [scale, setScale] = useState(1);
   const [position, setPosition] = useState({ x: 0, y: 0 });
 
+  // Initialize fabric canvas
   useEffect(() => {
-    if (!board.boardData) {
-      setSvgContent(null);
-      return;
+    if (canvasRef.current && !fabricCanvasRef.current) {
+      fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
+        isDrawingMode: false,
+        width: 800,
+        height: 400,
+        backgroundColor: '#0C6A35'
+      });
     }
 
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(board.boardData, 'image/svg+xml');
-    const svg = doc.querySelector('svg');
+    return () => {
+      if (fabricCanvasRef.current) {
+        fabricCanvasRef.current.dispose();
+        fabricCanvasRef.current = null;
+      }
+    };
+  }, []);
+
+  // Handle board data updates
+  useEffect(() => {
+    if (!fabricCanvasRef.current || !board.boardData) return;
+
+    const canvas = fabricCanvasRef.current;
     
-    if (!svg || !svg.innerHTML) {
-      setSvgContent(<div style={{color: 'red'}}>Invalid SVG</div>);
-      return;
-    }
-
-    // Create a wrapper group for transformations
-    const wrapperGroup = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-    wrapperGroup.setAttribute('transform', `matrix(${scale} 0 0 ${scale} ${position.x} ${position.y})`);
-    
-    // Move all SVG content into the wrapper group
-    while (svg.firstChild) {
-      wrapperGroup.appendChild(svg.firstChild);
-    }
-    svg.appendChild(wrapperGroup);
-
-    setSvgContent(
-      <svg
-        width="100%"
-        height="100%"
-        xmlns="http://www.w3.org/2000/svg"
-        xmlnsXlink="http://www.w3.org/1999/xlink"
-        style={{ display: 'block' }}
-        dangerouslySetInnerHTML={{ __html: svg.innerHTML }}
-      />
-    );
-  }, [board.boardData, scale, position]);
+    // Load the SVG data
+    fabric.loadSVGFromString(board.boardData, (objects, options) => {
+      // Keep the background color
+      const currentBgColor = canvas.backgroundColor;
+      
+      // Clear existing objects but keep background
+      canvas.getObjects().forEach((obj) => {
+        if (obj !== canvas.backgroundImage) {
+          canvas.remove(obj);
+        }
+      });
+      
+      // Add new objects
+      objects.forEach(obj => {
+        canvas.add(obj);
+      });
+      
+      // Restore background color
+      canvas.backgroundColor = currentBgColor;
+      canvas.renderAll();
+    });
+  }, [board.boardData]);
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.altKey) return;
@@ -86,11 +99,9 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    // Calculate zoom factor
     const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
     const newScale = Math.max(0.1, Math.min(5, scale * zoomFactor));
 
-    // Calculate new position to zoom towards mouse
     const newX = position.x - (mouseX - position.x) * (zoomFactor - 1);
     const newY = position.y - (mouseY - position.y) * (zoomFactor - 1);
 
@@ -192,7 +203,14 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 justifyContent: 'center'
               }}
             >
-              {svgContent}
+              <canvas 
+                ref={canvasRef}
+                style={{
+                  width: '100%',
+                  height: '100%',
+                  transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`
+                }}
+              />
             </div>
           </div>
         )}

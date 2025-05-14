@@ -17,6 +17,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
   const boardContainerRef = useRef<HTMLDivElement>(null);
+  const lastSvgData = useRef<string | null>(null);
 
   useEffect(() => {
     if (canvasRef.current && !fabricCanvasRef.current) {
@@ -40,8 +41,12 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
       canvas.on('mouse:up', () => {
         if (canvas.isDrawingMode && !submittedAnswer) {
           const svgData = canvas.toSVG();
-          console.log('Sending board update on mouse up:', svgData);
-          onBoardUpdate(svgData);
+          // Only send if data has changed
+          if (svgData !== lastSvgData.current) {
+            console.log('Sending board update on mouse up');
+            lastSvgData.current = svgData;
+            onBoardUpdate(svgData);
+          }
         }
       });
 
@@ -49,14 +54,30 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
       canvas.on('path:created', () => {
         if (!submittedAnswer) {
           const svgData = canvas.toSVG();
-          console.log('Sending board update on path created:', svgData);
-          onBoardUpdate(svgData);
+          // Only send if data has changed
+          if (svgData !== lastSvgData.current) {
+            console.log('Sending board update on path created');
+            lastSvgData.current = svgData;
+            onBoardUpdate(svgData);
+          }
         }
       });
+
+      // If there was previous SVG data, restore it
+      if (lastSvgData.current) {
+        fabric.loadSVGFromString(lastSvgData.current, (objects, options) => {
+          objects.forEach(obj => {
+            canvas.add(obj);
+          });
+          canvas.renderAll();
+        });
+      }
     }
     
     return () => {
       if (fabricCanvasRef.current) {
+        // Save the current state before disposing
+        lastSvgData.current = fabricCanvasRef.current.toSVG();
         fabricCanvasRef.current.dispose();
         fabricCanvasRef.current = null;
       }
@@ -87,8 +108,9 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({
       canvas.backgroundColor = '#0C6A35';
       canvas.renderAll();
       
-      // Send the cleared state
+      // Update the last SVG data and send the cleared state
       const svgData = canvas.toSVG();
+      lastSvgData.current = svgData;
       onBoardUpdate(svgData);
     }
   };
