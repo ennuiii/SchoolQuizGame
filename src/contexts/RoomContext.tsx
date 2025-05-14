@@ -82,10 +82,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   useEffect(() => {
-    socketService.on('room_created', (data: { roomCode: string }) => {
+    socketService.on('room_created', (data: any) => {
       console.log('[RoomContext] room_created event received:', data);
-      setRoomCode(data.roomCode);
-      sessionStorage.setItem('roomCode', data.roomCode);
+      // Support both { roomCode: 'ABC123' } and 'ABC123'
+      const code = typeof data === 'string' ? data : data.roomCode;
+      setRoomCode(code);
+      sessionStorage.setItem('roomCode', code);
       sessionStorage.setItem('isGameMaster', 'true');
       setIsLoading(false);
       if (window.location.pathname !== '/gamemaster') {
