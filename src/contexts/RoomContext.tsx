@@ -47,11 +47,25 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const createRoom = useCallback((roomCode: string) => {
     setIsLoading(true);
+    // Ensure socket is connected before creating room
+    const socket = socketService.connect();
+    if (!socket) {
+      setErrorMsg('Unable to connect to game server');
+      setIsLoading(false);
+      return;
+    }
     socketService.createRoom(roomCode);
   }, []);
 
   const joinRoom = useCallback((roomCode: string, playerName: string, isSpectator?: boolean) => {
     setIsLoading(true);
+    // Ensure socket is connected before joining room
+    const socket = socketService.connect();
+    if (!socket) {
+      setErrorMsg('Unable to connect to game server');
+      setIsLoading(false);
+      return;
+    }
     socketService.joinRoom(roomCode, playerName, isSpectator);
   }, []);
 

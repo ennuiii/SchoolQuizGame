@@ -350,18 +350,31 @@ const GameMaster: React.FC = () => {
   };
 
   if (!roomCode) {
-    if (!isCreatingRoom) {
-      console.log('[GameMaster] No room code found, creating new room');
-      return <div className="container mt-5">
+    console.log('[GameMaster] No room code found, creating new room');
+    return (
+      <div className="container mt-5">
         <div className="text-center">
           <h2>Creating Game Room...</h2>
           <div className="spinner-border text-primary mt-3" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
         </div>
-      </div>;
-    }
-    return null;
+      </div>
+    );
+  }
+
+  // Show loading state while socket is connecting
+  if (!socketService.getConnectionState() || socketService.getConnectionState() === 'connecting') {
+    return (
+      <div className="container mt-5">
+        <div className="text-center">
+          <h2>Connecting to Game Server...</h2>
+          <div className="spinner-border text-primary mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
