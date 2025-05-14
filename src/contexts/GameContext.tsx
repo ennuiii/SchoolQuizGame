@@ -303,8 +303,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   React.useEffect(() => {
+    console.log('[GameContext] Setting up socket event listeners:', {
+      isSocketConnected: socketService.getConnectionState(),
+      timestamp: new Date().toISOString()
+    });
+
     // Handle game started event
     socketService.on('game_started', (data: { question: Question, timeLimit: number }) => {
+      console.log('[GameContext] IMMEDIATE: Game started event received');
+      
       console.log('[GameContext] Game started event received:', {
         questionText: data.question.text,
         timeLimit: data.timeLimit,

@@ -184,7 +184,9 @@ const GameMaster: React.FC = () => {
         roomCode,
         questionCount: questions.length,
         timeLimit: customTimeLimit ?? 30,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        socketConnected: socketService.getConnectionState(),
+        socketId: socketService.getSocketId()
       });
 
       await startGame(roomCode, questions, customTimeLimit ?? 30);

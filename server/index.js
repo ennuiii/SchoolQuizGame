@@ -407,6 +407,12 @@ io.on('connection', (socket) => {
 
   // Start the game (Gamemaster only)
   socket.on('start_game', async (data) => {
+    console.log('[SERVER] START_GAME EVENT RECEIVED - IMMEDIATE LOG:', {
+      socketId: socket.id,
+      roomCode: data.roomCode,
+      timestamp: new Date().toISOString()
+    });
+
     const { roomCode, questions, timeLimit } = data;
     const room = gameRooms[roomCode];
     console.log('[SERVER] Received start_game request:', {
