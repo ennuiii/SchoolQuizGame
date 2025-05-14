@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
@@ -10,12 +10,12 @@ import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import { useGame } from '../contexts/GameContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
-import { useCanvas } from '../contexts/CanvasContext';
-import fabric from 'fabric';
 import DrawingBoard from '../components/player/DrawingBoard';
 
 const Player: React.FC = () => {
   const navigate = useNavigate();
+  const [submittedAnswer, setSubmittedAnswer] = useState(false);
+  const [canvasKey, setCanvasKey] = useState(0);
   
   // Get context values
   const {
@@ -57,28 +57,15 @@ const Player: React.FC = () => {
     leaveRoom
   } = useRoom();
 
-  const {
-    canvasRef,
-    fabricCanvasRef,
-    boardContainerRef,
-    canvasKey,
-    canvasSize,
-    canvasInitialized,
-    submittedAnswer,
-    initializeCanvas,
-    resetCanvas,
-    clearCanvas,
-    updateCanvasSize,
-    setSubmittedAnswer
-  } = useCanvas();
-
   // Handle answer submission
   const handleSubmitAnswer = useCallback((force = false) => {
     if (!currentQuestion || submittedAnswer) return;
   
-    const hasDrawing = fabricCanvasRef.current ? (fabricCanvasRef.current as any).getObjects().length > 0 : false;
     const text = (document.querySelector('input[type="text"]') as HTMLInputElement)?.value?.trim() || '';
+    const canvas = document.querySelector('canvas');
+    const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
   
+    // If not forced and no content, show error
     if (!force && !text && !hasDrawing) {
       setErrorMsg('Please enter an answer or draw something');
       return;
@@ -89,18 +76,20 @@ const Player: React.FC = () => {
       finalAnswer = hasDrawing ? `${text} (with drawing)` : text;
     } else if (hasDrawing) {
       finalAnswer = 'Drawing submitted';
+    } else if (force) {
+      finalAnswer = ''; // Empty submission for forced/automatic submission
     }
   
-    socketService.submitAnswer(roomCode, finalAnswer, hasDrawing);
+    socketService.submitAnswer(roomCode, finalAnswer, hasDrawing || false);
     setSubmittedAnswer(true);
     setErrorMsg(force ? 'Answer submitted automatically' : 'Answer submitted!');
-  }, [currentQuestion, roomCode, submittedAnswer, fabricCanvasRef, setErrorMsg, setSubmittedAnswer]);
+  }, [currentQuestion, roomCode, submittedAnswer, setErrorMsg]);
 
   // Handle visibility change
   const handleVisibilityChange = useCallback(() => {
     if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
       if (timeRemaining <= 0 && !submittedAnswer && currentQuestion) {
-        handleSubmitAnswer();
+        handleSubmitAnswer(true);
       }
     }
   }, [timeRemaining, timeLimit, currentQuestion, submittedAnswer, handleSubmitAnswer]);
@@ -124,13 +113,6 @@ const Player: React.FC = () => {
     const socket = socketService.connect();
     (socket as any).currentAnswer = e.target.value;
   }, []);
-
-  // Initialize canvas
-  useEffect(() => {
-    if (canvasRef.current && !canvasInitialized) {
-      initializeCanvas();
-    }
-  }, [canvasRef, canvasInitialized, initializeCanvas]);
 
   // Handle visibility change
   useEffect(() => {

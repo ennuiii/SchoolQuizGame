@@ -147,6 +147,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [randomCount, setRandomCount] = useState<number>(5);
   const [isLoadingRandom, setIsLoadingRandom] = useState(false);
 
+  // Helper function to get player name
+  const getPlayerName = useCallback((playerId: string) => {
+    const player = players.find(p => p.id === playerId);
+    return player?.name || 'Unknown Player';
+  }, [players]);
+
   // Actions
   const startGame = useCallback((roomCode: string, questions: Question[], timeLimit: number) => {
     if (!questions || questions.length === 0) {
@@ -301,16 +307,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setPlayers(updatedPlayers);
     });
 
-    socketService.on('board_update', (data: PlayerBoard) => {
-      setPlayerBoards(prevBoards => {
-        const index = prevBoards.findIndex(b => b.playerId === data.playerId);
-        if (index >= 0) {
-          const newBoards = [...prevBoards];
-          newBoards[index] = data;
-          return newBoards;
-        }
-        return [...prevBoards, data];
-      });
+    // Handle board updates
+    socketService.on('board_update', ({ boardData, playerId }) => {
+      if (playerId !== socketService.getSocketId()) {
+        setPlayerBoards(prevBoards => {
+          const index = prevBoards.findIndex(b => b.playerId === playerId);
+          if (index >= 0) {
+            const newBoards = [...prevBoards];
+            newBoards[index] = {
+              ...newBoards[index],
+              boardData
+            };
+            return newBoards;
+          }
+          return [...prevBoards, { playerId, boardData, playerName: getPlayerName(playerId) }];
+        });
+      }
     });
 
     socketService.on('answer_submitted', (submission: AnswerSubmission) => {
@@ -364,10 +376,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('time_up', () => {
       setTimeRemaining(0);
       setIsTimerRunning(false);
+      
+      // If player hasn't submitted their answer yet, submit it automatically
       if (!submittedAnswer && currentQuestion) {
         const roomCode = sessionStorage.getItem('roomCode');
         if (roomCode) {
-          socketService.submitAnswer(roomCode, '', false);
+          // Get the current answer from the input field if it exists
+          const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+          const currentAnswer = answerInput?.value?.trim() || '';
+          
+          // Check if there's a drawing
+          const canvas = document.querySelector('canvas');
+          const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
+          
+          // Submit whatever we have (text and/or drawing)
+          socketService.submitAnswer(roomCode, currentAnswer || (hasDrawing ? 'Drawing submitted' : ''), hasDrawing || false);
           setSubmittedAnswer(true);
         }
       }
@@ -407,7 +430,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
     };
-  }, []);
+  }, [getPlayerName]);
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
