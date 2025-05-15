@@ -95,10 +95,10 @@ const Player: React.FC = () => {
   }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal]);
 
   // Handle answer submission
-  const handleAnswerSubmit = useCallback(async (textAnswer: string, hasDrawingInput?: boolean) => {
+  const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
     const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
     const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
-    const finalHasDrawing = hasDrawingInput === undefined ? actualHasDrawing : hasDrawingInput;
+    const finalHasDrawing = actualHasDrawing; // Always base on actual drawing content
 
     if (!roomCode || !currentQuestion || submittedAnswerLocal) {
       console.error('[Player] Cannot submit answer:', {
@@ -162,7 +162,7 @@ const Player: React.FC = () => {
         const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
         const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
         if (actualHasDrawing && answer.trim() === '') {
-             handleAnswerSubmit('Drawing submitted', true as boolean);
+             handleAnswerSubmit(''); // Submit empty text, drawing will be picked up by actualHasDrawing
         }
       }
     }
@@ -343,7 +343,7 @@ const Player: React.FC = () => {
                 <button
                   className="btn btn-primary"
                   type="button"
-                  onClick={() => handleAnswerSubmit(answer, false)}
+                  onClick={() => handleAnswerSubmit(answer)}
                   disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
                 >
                   Submit Answer

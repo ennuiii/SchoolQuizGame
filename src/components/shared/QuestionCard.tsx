@@ -1,20 +1,28 @@
-import React from 'react';
-
-interface Question {
-  id: string;
-  text: string;
-  type: 'text' | 'drawing';
-  timeLimit?: number;
-}
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import type { Question } from '../../contexts/GameContext';
 
 interface QuestionCardProps {
   question: Question | null;
   timeRemaining: number | null;
-  onSubmit: (answer: string, hasDrawing?: boolean) => Promise<void>;
+  onSubmit: (textAnswer: string) => void;
   submitted: boolean;
 }
 
 const QuestionCard: React.FC<QuestionCardProps> = ({ question, timeRemaining, onSubmit, submitted }) => {
+  const [textAnswer, setTextAnswer] = useState('');
+
+  useEffect(() => {
+    setTextAnswer('');
+  }, [question]);
+
+  const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
+    setTextAnswer(e.target.value);
+  };
+
+  const handleSubmit = () => {
+    onSubmit(textAnswer);
+  };
+
   if (!question) return null;
 
   return (
