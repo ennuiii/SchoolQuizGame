@@ -59,12 +59,11 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     });
 
     // Set chalkboard texture as repeated pattern background over the green color
-    (fabric as any).Image.fromURL('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png', (img: any) => {
-      if (img) {
-        const pattern = new (fabric as any).Pattern({ source: img, repeat: 'repeat' });
-        canvas.backgroundColor = pattern;
-        canvas.renderAll();
-      }
+    (canvas as any).setBackgroundColor({
+      source: 'https://www.transparenttextures.com/patterns/green-dust-and-scratches.png',
+      repeat: 'repeat'
+    }, () => {
+      canvas.renderAll();
     });
 
     // Set up drawing brush
