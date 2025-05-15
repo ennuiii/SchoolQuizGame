@@ -52,7 +52,8 @@ const Player: React.FC = () => {
     previewMode,
     toggleBoardVisibility,
     currentQuestionIndex,
-    submittedAnswer
+    submittedAnswer,
+    isGameConcluded
   } = useGame();
 
   const {
@@ -293,7 +294,26 @@ const Player: React.FC = () => {
 
   if (isLoading) return <LoadingOverlay isVisible={true} />;
   if (errorMsg) return <div className="alert alert-danger">{errorMsg}</div>;
+  
+  // Handling for when game is concluded but recap not yet shown
+  if (isGameConcluded && !showRecap) {
+    return (
+      <div className="container text-center mt-5">
+        <div className="card p-5">
+          <h2 className="h4 mb-3">Game Over!</h2>
+          <p>Waiting for the Game Master to show the recap.</p>
+          <div className="spinner-border text-primary mx-auto mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <button className="btn btn-outline-secondary mt-4" onClick={() => navigate('/')}>Back to Home</button>
+        </div>
+      </div>
+    );
+  }
+  
   if (!roomCode || !playerName || amISpectator) {
+    // This condition might need adjustment based on the new isGameConcluded flow
+    // For now, it primarily catches initial loading/redirect issues.
     return (
       <div className="container text-center mt-5">
         <h2>Loading Player View...</h2>

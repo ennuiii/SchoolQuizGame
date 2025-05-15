@@ -125,7 +125,8 @@ function createGameRoom(roomCode, gamemasterId) {
     playerBoards: {},
     roundAnswers: {}, // Store current round answers separately
     evaluatedAnswers: {}, // Store evaluated answers
-    submissionPhaseOver: false // Initialize submission phase flag
+    submissionPhaseOver: false, // Initialize submission phase flag
+    isConcluded: false // Added isConcluded flag
   };
 }
 
@@ -753,7 +754,7 @@ io.on('connection', (socket) => {
     console.log(`[Server] Answer submission:`, {
       roomCode,
       playerId: socket.id,
-      hasDrawing,
+      hasDrawing, // This is the client's claim
       answerLength: answer?.length || 0,
       clientDrawingDataLength: clientDrawingData?.length || 0,
       timestamp: new Date().toISOString()
@@ -780,37 +781,43 @@ io.on('connection', (socket) => {
     }
 
     try {
-      // Store the answer
       let drawingDataForStorage = null;
-      if (hasDrawing && clientDrawingData) {
-        drawingDataForStorage = clientDrawingData;
-        console.log(`[Server SubmitAns DEBUG] Player ${socket.id}: using clientDrawingData. Length: ${clientDrawingData?.length}`);
-      } else if (hasDrawing) {
-        console.warn(`[Server SubmitAns] hasDrawing is true for player ${socket.id} but no drawingData received from client. Checking server-side playerBoards as a last resort.`);
-        if (room.playerBoards && room.playerBoards[socket.id]) {
-          const playerBoardEntry = room.playerBoards[socket.id];
-          if (playerBoardEntry.roundIndex === room.currentQuestionIndex) {
-            drawingDataForStorage = playerBoardEntry.boardData;
-            console.log(`[Server SubmitAns DEBUG] Player ${socket.id}: using playerBoard fallback. Length: ${drawingDataForStorage?.length}`);
-          } else {
-            console.warn(`[Server SubmitAns] Fallback: Mismatch in roundIndex for player board during fallback. Player: ${socket.id}, BoardRound: ${playerBoardEntry.roundIndex}, CurrentRound: ${room.currentQuestionIndex}`);
-          }
+      let finalHasDrawing = false; // Server-determined truth for hasDrawing
+
+      if (hasDrawing) { // If client claims there is a drawing
+        if (clientDrawingData && clientDrawingData.trim() !== '') {
+          drawingDataForStorage = clientDrawingData;
+          finalHasDrawing = true;
+          console.log(`[Server SubmitAns REFINED] Player ${socket.id}: using non-empty clientDrawingData. Length: ${clientDrawingData?.length}`);
         } else {
-          console.warn(`[Server SubmitAns DEBUG] Player ${socket.id}: hasDrawing true, no clientData, no playerBoard entry.`);
+          console.warn(`[Server SubmitAns REFINED] Player ${socket.id}: hasDrawing true from client, but clientDrawingData is empty/null. Attempting fallback to playerBoards.`);
+          if (room.playerBoards && room.playerBoards[socket.id]) {
+            const playerBoardEntry = room.playerBoards[socket.id];
+            if (playerBoardEntry.roundIndex === room.currentQuestionIndex && playerBoardEntry.boardData && playerBoardEntry.boardData.trim() !== '') {
+              drawingDataForStorage = playerBoardEntry.boardData;
+              finalHasDrawing = true;
+              console.log(`[Server SubmitAns REFINED] Player ${socket.id}: using playerBoard fallback. Length: ${drawingDataForStorage?.length}`);
+            } else {
+              console.warn(`[Server SubmitAns REFINED] Player ${socket.id}: playerBoard fallback failed (round mismatch or empty boardData). BoardRound: ${playerBoardEntry.roundIndex}, CurrentRound: ${room.currentQuestionIndex}, BoardData Empty: ${!playerBoardEntry.boardData || playerBoardEntry.boardData.trim() === ''}`);
+            }
+          } else {
+            console.warn(`[Server SubmitAns REFINED] Player ${socket.id}: hasDrawing true from client, clientDrawingData empty, and no playerBoard entry for fallback.`);
+          }
         }
+      } else {
+        console.log(`[Server SubmitAns REFINED] Player ${socket.id}: hasDrawing is false from client. No drawing data to store.`);
       }
 
       const answerData = {
         playerId: socket.id,
         playerName: player.name,
         answer,
-        hasDrawing,
+        hasDrawing: finalHasDrawing, // Use server-determined finalHasDrawing
         drawingData: drawingDataForStorage,
         timestamp: Date.now(),
         isCorrect: null
       };
-      // Log the drawing data that is about to be stored
-      console.log(`[Server SubmitAns DEBUG] Player ${socket.id}: Storing answerData. Drawing data length: ${answerData.drawingData?.length}, HasDrawing flag: ${answerData.hasDrawing}`);
+      console.log(`[Server SubmitAns REFINED] Player ${socket.id}: Storing answerData. FinalHasDrawing: ${answerData.hasDrawing}, DrawingData Length: ${answerData.drawingData?.length}`);
 
       // Store in both places for consistency
       player.answers[room.currentQuestionIndex] = answerData;
@@ -889,22 +896,20 @@ io.on('connection', (socket) => {
       room.evaluatedAnswers[playerId] = isCorrect;
 
       // Check for game over
-      const activePlayers = room.players.filter(p => p.isActive);
-      if (activePlayers.length <= 1) {
-        const gameRecap = generateGameRecap(roomCode);
-        io.to(roomCode).emit('game_recap', gameRecap);
+      const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
+      console.log(`[Server Eval] Active players remaining: ${activePlayers.length}`);
 
-        if (activePlayers.length === 1) {
-          const winner = activePlayers[0];
-          io.to(roomCode).emit('game_winner', {
-            playerId: winner.id,
-            playerName: winner.name
-          });
-        } else {
-          // Optional: Emit an event indicating no winner or all players lost
-          io.to(roomCode).emit('all_players_eliminated');
-          console.log(`[Server Eval] All players eliminated in room ${roomCode}. Game recap generated.`);
+      if (activePlayers.length <= 1) {
+        // Game is over, set flag if not already set, and notify clients
+        if (!room.isConcluded) { // Prevent multiple emissions
+            room.isConcluded = true; // Mark room as concluded to prevent re-triggering logic
+            console.log(`[Server Eval] Game concluded in room ${roomCode}. Emitting game_over_pending_recap.`);
+            io.to(roomCode).emit('game_over_pending_recap', { 
+                roomCode, 
+                winner: activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null
+            });
         }
+        // DO NOT emit game_recap here anymore. GM will trigger it.
       }
 
       // Broadcast updated game state
@@ -1125,23 +1130,17 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('player_left', { playerId: socket.id });
         io.to(roomCode).emit('players_update', room.players);
         
-        // Only delete the room if both game master and all players are gone
-        if (room.players.length === 0 && !room.gamemaster) {
-          clearRoomTimer(roomCode);
-          delete gameRooms[roomCode];
-          console.log(`Room ${roomCode} deleted because all players and gamemaster left`);
-        } else {
-          console.log(`Room ${roomCode} still has game master or ${room.players.length} players`);
-        }
-        
         // Check if only one player is left in an active game
-        if (room.started && room.players.length > 0) {
-          const activePlayers = room.players.filter(p => p.isActive);
-          if (activePlayers.length === 1) {
-            io.to(roomCode).emit('game_winner', {
-              playerId: activePlayers[0].id,
-              playerName: activePlayers[0].name
+        if (room.started && room.players.length > 0 && !room.isConcluded) {
+          const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
+          if (activePlayers.length <= 1) {
+            room.isConcluded = true;
+            console.log(`[Server Disconnect] Game concluded in room ${roomCode} due to disconnect. Emitting game_over_pending_recap.`);
+            io.to(roomCode).emit('game_over_pending_recap', {
+                roomCode,
+                winner: activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null
             });
+            // DO NOT emit game_recap or game_winner here anymore.
           }
         }
       }
@@ -1391,11 +1390,45 @@ io.on('connection', (socket) => {
     socket.emit('game_state', state);
   });
 
-  // Add new event for requesting recap
-  socket.on('request_recap', ({ roomCode }) => {
+  socket.on('gm_end_game_request', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      console.warn(`[Server gm_end_game_request] Unauthorized or room not found by ${socket.id} for ${roomCode}`);
+      return;
+    }
+    const room = gameRooms[roomCode];
+    if (room && room.started && !room.isConcluded) {
+      room.isConcluded = true;
+      clearRoomTimer(roomCode); // Stop any active timers for the current question
+      console.log(`[Server gm_end_game_request] GM ${socket.id} ended game in room ${roomCode}. Emitting game_over_pending_recap.`);
+      
+      // Determine winner if any, at the point of GM ending the game
+      const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
+      const winnerPayload = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : 
+                            activePlayers.length > 1 ? null : // Multiple players still active, or no one
+                            null; // Or specific logic for no active players if GM ends game when all are out
+
+      io.to(roomCode).emit('game_over_pending_recap', { 
+        roomCode,
+        winner: winnerPayload
+      });
+    } else {
+      console.log(`[Server gm_end_game_request] Game in room ${roomCode} not started or already concluded.`);
+    }
+  });
+
+  // GM controlled recap
+  socket.on('gm_show_recap_to_all', ({ roomCode }) => {
+    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
+      // Optional: emit error back to GM if not authorized or room not found
+      console.warn(`[Server gm_show_recap_to_all] Unauthorized attempt or room not found by ${socket.id} for room ${roomCode}`);
+      return;
+    }
     const recap = generateGameRecap(roomCode);
     if (recap) {
-      socket.emit('game_recap', recap);
+      console.log(`[Server gm_show_recap_to_all] GM ${socket.id} broadcasting recap for room ${roomCode}`);
+      io.to(roomCode).emit('game_recap', recap);
+    } else {
+      console.warn(`[Server gm_show_recap_to_all] Recap data generation failed for room ${roomCode}`);
     }
   });
 });

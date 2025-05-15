@@ -66,7 +66,10 @@ const GameMaster: React.FC = () => {
     timeLimit: gameTimeLimit,
     timeRemaining,
     isTimerRunning,
-    questionErrorMsg
+    questionErrorMsg,
+    isGameConcluded,
+    gmShowRecapToAll,
+    gmEndGameRequest
   } = useGame();
 
   const {
@@ -236,25 +239,40 @@ const GameMaster: React.FC = () => {
     }
   };
 
-  // Handle end game
-  const handleEndGame = async () => {
+  // Handle end game - now requests server to mark game as ended
+  const handleEndGameRequest = async () => {
     if (!roomCode) {
-      console.error('[GameMaster] Cannot end game - No room code found');
+      console.error('[GameMaster] Cannot request end game - No room code found');
+      toast.error('Room code not found.');
       return;
     }
 
     try {
-      console.log('[GameMaster] Ending game:', {
+      console.log('[GameMaster] Requesting to end game:', {
         roomCode,
         timestamp: new Date().toISOString()
       });
-
-      await socketService.endGame(roomCode);
-      toast.success('Game has been ended. Recap will be shown.');
+      gmEndGameRequest(roomCode);
+      // toast.success('Game end requested. You can now show the recap.'); // Optional toast
     } catch (error) {
-      console.error('[GameMaster] Failed to end game:', error);
-      toast.error('Failed to end game. Please try again.');
+      console.error('[GameMaster] Failed to request end game:', error);
+      toast.error('Failed to request end game. Please try again.');
     }
+  };
+
+  const handleShowRecap = () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot show recap - No room code found');
+      toast.error('Room code not found.');
+      return;
+    }
+    if (!isGameConcluded) {
+      console.warn('[GameMaster] Cannot show recap - Game is not yet concluded.');
+      toast.warn('Game must be concluded before showing recap.');
+      return;
+    }
+    gmShowRecapToAll(roomCode);
+    toast.info('Broadcasting game recap to all players.');
   };
 
   const handleRestartGame = async () => {
@@ -481,14 +499,14 @@ const GameMaster: React.FC = () => {
                 <button 
                   className="btn btn-primary" 
                   onClick={handleNextQuestion}
-                  disabled={!currentQuestion || isRestarting}
+                  disabled={!currentQuestion || isRestarting || isGameConcluded}
                 >
                   Next Question
                 </button>
                 <button 
                   className="btn btn-warning" 
                   onClick={handleEndRoundEarly}
-                  disabled={!currentQuestion || isRestarting}
+                  disabled={!currentQuestion || isRestarting || isGameConcluded}
                 >
                   End Round Early
                 </button>
@@ -499,13 +517,24 @@ const GameMaster: React.FC = () => {
                 >
                   {isRestarting ? 'Restarting...' : 'Restart Game'}
                 </button>
-                <button 
-                  className="btn btn-danger" 
-                  onClick={handleEndGame}
-                  disabled={!currentQuestion || isRestarting}
-                >
-                  End Game
-                </button>
+                {!isGameConcluded && (
+                  <button 
+                    className="btn btn-danger" 
+                    onClick={handleEndGameRequest}
+                    disabled={isRestarting || !gameStarted}
+                  >
+                    End Game
+                  </button>
+                )}
+                {isGameConcluded && (
+                  <button
+                    className="btn btn-success"
+                    onClick={handleShowRecap}
+                    disabled={isRestarting}
+                  >
+                    Show Game Recap
+                  </button>
+                )}
               </>
             )}
           </div>

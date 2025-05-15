@@ -51,6 +51,7 @@ interface GameContextType {
   timeRemaining: number | null;
   isTimerRunning: boolean;
   submittedAnswer: boolean;
+  isGameConcluded: boolean;
   
   // Players and Boards
   players: Player[];
@@ -102,6 +103,8 @@ interface GameContextType {
   clearAllSelectedQuestions: () => void;
   organizeSelectedQuestions: () => void;
   addCustomQuestion: () => void;
+  gmShowRecapToAll: (roomCode: string) => void;
+  gmEndGameRequest: (roomCode: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -119,6 +122,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [submittedAnswer, setSubmittedAnswer] = useState<boolean>(false);
+  const [isGameConcluded, setIsGameConcluded] = useState<boolean>(false);
   
   // Players and Boards
   const [players, setPlayers] = useState<Player[]>([]);
@@ -233,6 +237,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const endRoundEarly = useCallback((roomCode: string) => {
     socketService.endRoundEarly(roomCode);
+  }, []);
+
+  const gmShowRecapToAll = useCallback((roomCode: string) => {
+    socketService.emit('gm_show_recap_to_all', { roomCode });
+  }, []);
+
+  const gmEndGameRequest = useCallback((roomCode: string) => {
+    socketService.emit('gm_end_game_request', { roomCode });
   }, []);
 
   const toggleBoardVisibility = useCallback((playerIdOrSet: string | Set<string>) => {
@@ -371,6 +383,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAllAnswersThisRound({});
         setEvaluatedAnswers({}); 
         setPlayerBoards([]);
+        setIsGameConcluded(false);
+        setGameOver(false);
+        setIsWinner(false);
         console.log('[GameContext] State updated after game_started event:', {
           newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
           newQuestionIndex: 0, timestamp: new Date().toISOString()
@@ -403,6 +418,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPlayers(state.players || []);
         setAllAnswersThisRound(state.roundAnswers || {});
         setEvaluatedAnswers(state.evaluatedAnswers || {});
+        if (state.isConcluded !== undefined && state.isConcluded !== isGameConcluded) {
+          setIsGameConcluded(state.isConcluded);
+        }
+        if (state.started === false && gameStarted === true && state.isConcluded === false) { 
+          setIsGameConcluded(false);
+          setGameOver(false);
+          setIsWinner(false);
+        }
         console.log('[GameContext] State update complete:', { gameStarted: state.started, hasQuestion: !!state.currentQuestion, playerCount: state.players?.length, timestamp: new Date().toISOString() });
       } catch (error: any) {
         console.error('[GameContext] Error handling game state update:', { error: error.message, stack: error.stack, timestamp: new Date().toISOString() });
@@ -429,10 +452,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[GameContext] Time up event received by context'); 
         setTimeRemaining(0); 
         setIsTimerRunning(false);
-        // Auto-submission logic has been removed from here.
-        // The server-side timer (`startQuestionTimer` in server/index.js) now handles
-        // auto-submission for active, non-spectator players who haven't submitted an answer.
-        // This simplifies client-side logic and centralizes game mechanics.
     };
     const startPreviewModeHandler = () => { 
         console.log('[GameContext] Starting preview mode'); setPreviewMode(prev => ({ ...prev, isActive: true }));
@@ -443,6 +462,24 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
     const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
     const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 
+
+    const gameOverPendingRecapHandler = (data: { roomCode: string, winner?: {id: string, name: string} }) => {
+      console.log('[GameContext] game_over_pending_recap received:', data);
+      setGameOver(true); 
+      setIsGameConcluded(true); 
+      setIsTimerRunning(false);
+      if (data.winner && data.winner.id === socketService.getSocketId()) {
+        setIsWinner(true);
+      } else if (!data.winner) {
+        setIsWinner(false);
+      }
+    };
+
+    const gameRecapHandler = (recapData: any) => {
+        console.log('[GameContext] game_recap received (triggered by GM):', recapData);
+        setIsGameConcluded(true); 
+        setGameOver(true);
+    };
 
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
@@ -459,6 +496,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('board_update', boardUpdateHandler);
     socketService.on('answer_evaluated', answerEvaluatedHandler);
     socketService.on('round_over', roundOverHandler);
+    socketService.on('game_over_pending_recap', gameOverPendingRecapHandler);
+    socketService.on('game_recap', gameRecapHandler);
 
     // Cleanup
     return () => {
@@ -583,6 +622,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     timeRemaining,
     isTimerRunning,
     submittedAnswer,
+    isGameConcluded,
     players,
     playerBoards,
     visibleBoards,
@@ -621,7 +661,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     removeSelectedQuestion,
     clearAllSelectedQuestions,
     organizeSelectedQuestions,
-    addCustomQuestion
+    addCustomQuestion,
+    gmShowRecapToAll,
+    gmEndGameRequest
   };
 
   return (

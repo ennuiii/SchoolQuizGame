@@ -165,14 +165,23 @@ const RoundDetailsContent: React.FC<{ recap: GameRecapData }> = ({ recap }) => {
                       {!submission.answer && !submission.hasDrawing && (
                          <div className="mt-1 fst-italic text-muted"><small>No text answer submitted.</small></div>
                       )}
-                      {currentRoundData.question.answer && (
-                        <div className="mt-1"><small className="text-primary">Correct: </small>{currentRoundData.question.answer}</div>
-                      )}
                       {submission.hasDrawing && submission.drawingData && (
                         <div className="mt-2">
                           <small className="text-muted d-block mb-1">Submitted Drawing:</small>
-                          <div className="recap-drawing-preview" style={{ width: '200px', height: '150px', border: '1px solid #ccc', overflow: 'hidden' }}>
-                            <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+                          <div 
+                            className="recap-drawing-preview"
+                            style={{
+                              width: '100%',
+                              maxWidth: '300px',
+                              minHeight: '225px',
+                              border: '1px solid #ccc',
+                              overflow: 'hidden',
+                              display: 'flex',
+                              justifyContent: 'center',
+                              alignItems: 'center'
+                            }}
+                          >
+                            <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} style={{ display: 'block' }} />
                           </div>
                         </div>
                       )}
