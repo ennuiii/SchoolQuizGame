@@ -124,7 +124,8 @@ function createGameRoom(roomCode, gamemasterId) {
     timeLimit: null,
     playerBoards: {},
     roundAnswers: {}, // Store current round answers separately
-    evaluatedAnswers: {} // Store evaluated answers
+    evaluatedAnswers: {}, // Store evaluated answers
+    submissionPhaseOver: false // Initialize submission phase flag
   };
 }
 
@@ -141,7 +142,8 @@ function getGameState(roomCode) {
     players: room.players,
     playerBoards: room.playerBoards,
     roundAnswers: room.roundAnswers,
-    evaluatedAnswers: room.evaluatedAnswers
+    evaluatedAnswers: room.evaluatedAnswers,
+    submissionPhaseOver: room.submissionPhaseOver // Include submission phase flag
   };
 }
 
@@ -457,6 +459,7 @@ io.on('connection', (socket) => {
       room.roundAnswers = {};
       room.evaluatedAnswers = {};
       room.questionStartTime = Date.now();
+      room.submissionPhaseOver = false; // Reset submission phase flag
 
       console.log('[SERVER] Game started successfully:', {
         roomCode,
@@ -480,7 +483,8 @@ io.on('connection', (socket) => {
         players: Object.values(room.players),
         roundAnswers: room.roundAnswers,
         evaluatedAnswers: room.evaluatedAnswers,
-        questionStartTime: room.questionStartTime
+        questionStartTime: room.questionStartTime,
+        submissionPhaseOver: room.submissionPhaseOver
       };
 
       console.log('[SERVER] Emitting game state update:', {
@@ -540,6 +544,7 @@ io.on('connection', (socket) => {
     room.questionStartTime = null; // Reset question start time
     room.roundAnswers = {};       // Clear current round's answers
     room.evaluatedAnswers = {};   // Clear evaluated answers
+    room.submissionPhaseOver = false; // Reset submission phase flag
     
     // Reset all players, but keep them in the room
     room.players.forEach(player => {
@@ -597,6 +602,11 @@ io.on('connection', (socket) => {
       room.playerBoards = {};
     }
     
+    if (room.submissionPhaseOver) {
+      console.warn(`[Server UpdateBoard] Denied: submission phase over for room ${roomCode}, player ${socket.id}`);
+      return; // Silently ignore
+    }
+    
     const player = room.players.find(p => p.id === socket.id);
     if (!player || player.isSpectator || !player.isActive) {
       console.warn(`[Server UpdateBoard] Denied for inactive/spectator player: ${socket.id}`);
@@ -651,6 +661,12 @@ io.on('connection', (socket) => {
     if (!player || player.isSpectator || !player.isActive) {
       console.warn(`[Server SubmitAnswer] Denied for inactive/spectator player: ${socket.id}`);
       socket.emit('error', 'Submission denied: you are a spectator or inactive.');
+      return;
+    }
+
+    if (room.submissionPhaseOver) {
+      console.warn(`[Server SubmitAnswer] Denied: submission phase over for room ${roomCode}, player ${socket.id}`);
+      socket.emit('error', 'Submission phase is over for this round.');
       return;
     }
 
@@ -803,6 +819,7 @@ io.on('connection', (socket) => {
       room.currentQuestionIndex += 1;
       room.currentQuestion = room.questions[room.currentQuestionIndex];
       room.questionStartTime = Date.now();
+      room.submissionPhaseOver = false; // Reset for the new question
 
       // Reset round-specific states
       room.roundAnswers = {};
@@ -871,6 +888,8 @@ io.on('connection', (socket) => {
             playerInRoom.answers = [];
           }
           const autoAnswer = {
+            playerId: playerInRoom.id, // Add playerId
+            playerName: playerInRoom.name, // Add playerName
             answer: '',
             hasDrawing: false,
             drawingData: null,
@@ -941,7 +960,8 @@ io.on('connection', (socket) => {
         playerBoards: {},
         timeLimit: null,
         roundAnswers: {},
-        evaluatedAnswers: {}
+        evaluatedAnswers: {},
+        submissionPhaseOver: false
       };
       
       console.log(`Created new room ${roomCode} for gamemaster ${socket.id}`);
@@ -1279,7 +1299,8 @@ io.on('connection', (socket) => {
       players: room.players,
       playerBoards: room.playerBoards,
       roundAnswers: room.roundAnswers,
-      evaluatedAnswers: room.evaluatedAnswers
+      evaluatedAnswers: room.evaluatedAnswers,
+      submissionPhaseOver: room.submissionPhaseOver
     };
     
     socket.emit('game_state', state);
@@ -1342,18 +1363,31 @@ function startQuestionTimer(roomCode) {
       // Auto-submit answers for players who haven't submitted yet
       const currentRoom = gameRooms[roomCode];
       if (currentRoom) {
+        currentRoom.submissionPhaseOver = true; // Set submission phase over
         currentRoom.players.forEach(playerInRoom => {
-          if (playerInRoom.isActive && !playerInRoom.isSpectator && !playerInRoom.answers[currentRoom.currentQuestionIndex]) {
+          if (playerInRoom.isActive && !playerInRoom.isSpectator && (!playerInRoom.answers || !playerInRoom.answers[currentRoom.currentQuestionIndex])) {
             console.log(`[TIMER] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
-            playerInRoom.answers[currentRoom.currentQuestionIndex] = {
+            if (!playerInRoom.answers) { // Ensure answers array exists
+                playerInRoom.answers = [];
+            }
+            const autoAnswerData = {
+              playerId: playerInRoom.id, // Add playerId
+              playerName: playerInRoom.name, // Add playerName
               answer: '',
               hasDrawing: false,
               drawingData: null,
               timestamp: Date.now(),
               isCorrect: null
             };
+            playerInRoom.answers[currentRoom.currentQuestionIndex] = autoAnswerData;
+            
+            // Ensure roundAnswers is updated for consistency if it exists
+            if (currentRoom.roundAnswers) {
+                currentRoom.roundAnswers[playerInRoom.id] = autoAnswerData;
+            }
           }
         });
+        broadcastGameState(roomCode); // Broadcast state after auto-submissions and flag update
       }
     }
   }, 1000);
