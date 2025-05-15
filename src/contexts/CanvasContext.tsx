@@ -2,7 +2,7 @@ import React, { createContext, useContext, useRef, useCallback, ReactNode } from
 import { fabric } from 'fabric';
 
 interface CanvasContextType {
-  fabricCanvas: fabric.Canvas | null;
+  getFabricCanvas: () => fabric.Canvas | null;
   isDrawing: boolean;
   lastSvgData: string | null;
   initializeCanvas: (
@@ -167,7 +167,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   }, []);
 
   const value = {
-    fabricCanvas: fabricCanvasRef.current,
+    getFabricCanvas: () => fabricCanvasRef.current,
     isDrawing: isDrawingRef.current,
     lastSvgData: lastSvgDataRef.current,
     initializeCanvas,

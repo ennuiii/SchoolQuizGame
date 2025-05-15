@@ -19,20 +19,21 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
   const [brushSize, setBrushSize] = useState(4);
 
   const {
+    getFabricCanvas,
     initializeCanvas,
     disposeCanvas,
     clearCanvas,
     setDrawingEnabled,
-    updateBoard,
-    fabricCanvas
+    updateBoard
   } = useCanvas();
 
   const updateBrush = useCallback(() => {
+    const fabricCanvas = getFabricCanvas();
     if (fabricCanvas && fabricCanvas.freeDrawingBrush) {
       fabricCanvas.freeDrawingBrush.color = brushColor;
       fabricCanvas.freeDrawingBrush.width = brushSize;
     }
-  }, [brushColor, brushSize, fabricCanvas]);
+  }, [brushColor, brushSize, getFabricCanvas]);
 
   useEffect(() => {
     updateBrush();
