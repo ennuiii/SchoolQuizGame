@@ -204,7 +204,7 @@ body {
 
 /* Drawing Board */
 .drawing-board-container {
-  background: #c7b599 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35 url('/assets/green-dust-and-scratches.png');
   border-width: 20px;
   border-style: solid;
   border-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png') 30 round;
@@ -230,7 +230,7 @@ body {
 
 .drawing-board {
   min-height: 300px;
-  background: transparent;
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   position: relative;
 }
 
@@ -241,7 +241,7 @@ body {
   left: 0;
   right: 0;
   bottom: 0;
-  background: url('https://www.transparenttextures.com/patterns/chalkboard.png');
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   opacity: 0.1;
   pointer-events: none;
 }
