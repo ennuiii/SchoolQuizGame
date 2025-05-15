@@ -114,7 +114,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     fabricCanvasRef.current = canvas; // Store the new canvas instance in the ref
 
     const baseColor = '#0C6A35';
-    const textureUrl = 'https://www.transparenttextures.com/patterns/green-dust-and-scratches.png';
+    const textureUrl = '/assets/green-dust-and-scratches.png';
 
     // Set initial solid background color
     canvas.backgroundColor = baseColor;
