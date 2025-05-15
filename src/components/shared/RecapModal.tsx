@@ -140,40 +140,52 @@ const RoundDetailsContent: React.FC<{ recap: GameRecapData }> = ({ recap }) => {
           <QuestionDisplayCard question={currentRoundData.question} showAnswer={true} title="Question Details" />
           <h5>Submissions</h5>
           <div className="list-group">
-            {currentRoundData.submissions.map((submission: SubmissionInRecap) => (
-              <div
-                key={submission.playerId}
-                className={`list-group-item ${submission.isCorrect === true ? 'list-group-item-success' : submission.isCorrect === false ? 'list-group-item-danger' : ''}`}
-              >
-                <div className="d-flex justify-content-between align-items-center">
-                  <div style={{ flexGrow: 1 }}>
-                    <strong>{submission.playerName}</strong>
-                    {submission.answer && (
-                      <div className="mt-1"><small className="text-muted">Submitted: </small>{submission.answer}</div>
-                    )}
-                    {!submission.answer && !submission.hasDrawing && (
-                       <div className="mt-1 fst-italic text-muted"><small>No text answer submitted.</small></div>
-                    )}
-                    {currentRoundData.question.answer && (
-                      <div className="mt-1"><small className="text-primary">Correct: </small>{currentRoundData.question.answer}</div>
-                    )}
-                    {submission.hasDrawing && submission.drawingData && (
-                      <div className="mt-2">
-                        <small className="text-muted d-block mb-1">Submitted Drawing:</small>
-                        <div className="recap-drawing-preview" style={{ width: '200px', height: '150px', border: '1px solid #ccc', overflow: 'hidden' }}>
-                          <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+            {currentRoundData.submissions.map((submission: SubmissionInRecap) => {
+              // Log submission data just before rendering
+              if (submission.hasDrawing) {
+                console.log(`[RecapModal DEBUG] Player ${submission.playerName}: Rendering submission. HasDrawing: ${submission.hasDrawing}, DrawingData Length: ${submission.drawingData?.length}`);
+                if (submission.drawingData && submission.drawingData.length < 200) { // Log short SVGs
+                    console.log(`[RecapModal DEBUG] Player ${submission.playerName}: DrawingData content (short): ${submission.drawingData}`);
+                }
+              } else if (submission.answer && !submission.hasDrawing) {
+                console.log(`[RecapModal DEBUG] Player ${submission.playerName}: Rendering submission. HasDrawing: false, Answer: "${submission.answer}"`);
+              }
+
+              return (
+                <div
+                  key={submission.playerId}
+                  className={`list-group-item ${submission.isCorrect === true ? 'list-group-item-success' : submission.isCorrect === false ? 'list-group-item-danger' : ''}`}
+                >
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div style={{ flexGrow: 1 }}>
+                      <strong>{submission.playerName}</strong>
+                      {submission.answer && (
+                        <div className="mt-1"><small className="text-muted">Submitted: </small>{submission.answer}</div>
+                      )}
+                      {!submission.answer && !submission.hasDrawing && (
+                         <div className="mt-1 fst-italic text-muted"><small>No text answer submitted.</small></div>
+                      )}
+                      {currentRoundData.question.answer && (
+                        <div className="mt-1"><small className="text-primary">Correct: </small>{currentRoundData.question.answer}</div>
+                      )}
+                      {submission.hasDrawing && submission.drawingData && (
+                        <div className="mt-2">
+                          <small className="text-muted d-block mb-1">Submitted Drawing:</small>
+                          <div className="recap-drawing-preview" style={{ width: '200px', height: '150px', border: '1px solid #ccc', overflow: 'hidden' }}>
+                            <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+                          </div>
                         </div>
-                      </div>
+                      )}
+                    </div>
+                    {submission.isCorrect !== null && (
+                      <span className={`badge fs-6 ms-3 ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
+                        {submission.isCorrect ? 'Correct' : 'Incorrect'}
+                      </span>
                     )}
                   </div>
-                  {submission.isCorrect !== null && (
-                    <span className={`badge fs-6 ms-3 ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
-                      {submission.isCorrect ? 'Correct' : 'Incorrect'}
-                    </span>
-                  )}
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

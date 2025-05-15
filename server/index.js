@@ -225,9 +225,17 @@ function generateGameRecap(roomCode) {
 
       return {
         roundNumber: index + 1,
-        question: questionForRecap, // Use the prepared question object
+        question: questionForRecap,
         submissions: room.players.map(player => {
           const answer = player.answers[index];
+          // Log the drawing data being retrieved for the recap
+          if (answer && answer.hasDrawing) {
+            console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${answer.drawingData?.length}`);
+          } else if (answer && !answer.hasDrawing) {
+            console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Submission hasDrawing is false.`);
+          } else if (!answer) {
+            console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: No answer found for this round.`);
+          }
           return {
             playerId: player.id,
             playerName: player.name,
@@ -776,16 +784,19 @@ io.on('connection', (socket) => {
       let drawingDataForStorage = null;
       if (hasDrawing && clientDrawingData) {
         drawingDataForStorage = clientDrawingData;
+        console.log(`[Server SubmitAns DEBUG] Player ${socket.id}: using clientDrawingData. Length: ${clientDrawingData?.length}`);
       } else if (hasDrawing) {
         console.warn(`[Server SubmitAns] hasDrawing is true for player ${socket.id} but no drawingData received from client. Checking server-side playerBoards as a last resort.`);
         if (room.playerBoards && room.playerBoards[socket.id]) {
           const playerBoardEntry = room.playerBoards[socket.id];
           if (playerBoardEntry.roundIndex === room.currentQuestionIndex) {
             drawingDataForStorage = playerBoardEntry.boardData;
-            console.log(`[Server SubmitAns] Fallback: Used drawingData from server-side playerBoards for player ${socket.id}`);
+            console.log(`[Server SubmitAns DEBUG] Player ${socket.id}: using playerBoard fallback. Length: ${drawingDataForStorage?.length}`);
           } else {
             console.warn(`[Server SubmitAns] Fallback: Mismatch in roundIndex for player board during fallback. Player: ${socket.id}, BoardRound: ${playerBoardEntry.roundIndex}, CurrentRound: ${room.currentQuestionIndex}`);
           }
+        } else {
+          console.warn(`[Server SubmitAns DEBUG] Player ${socket.id}: hasDrawing true, no clientData, no playerBoard entry.`);
         }
       }
 
@@ -798,6 +809,8 @@ io.on('connection', (socket) => {
         timestamp: Date.now(),
         isCorrect: null
       };
+      // Log the drawing data that is about to be stored
+      console.log(`[Server SubmitAns DEBUG] Player ${socket.id}: Storing answerData. Drawing data length: ${answerData.drawingData?.length}, HasDrawing flag: ${answerData.hasDrawing}`);
 
       // Store in both places for consistency
       player.answers[room.currentQuestionIndex] = answerData;
