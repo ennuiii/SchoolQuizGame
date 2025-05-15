@@ -358,9 +358,13 @@ app.get('/api/recaps/:recapId/round/:roundNumber', (req, res) => {
   res.json(round);
 });
 
+// Grace period for disconnects (player/gamemaster)
+const DISCONNECT_GRACE_PERIOD_MS = 30000; // 30 seconds
+// Grace period for auto-submit after round ends
+const AUTO_SUBMIT_GRACE_PERIOD_MS = 1000; // 1 second
+
 // Timer management
 const timers = new Map();
-const GRACE_PERIOD_MS = 1000; // 1 second grace period
 
 // Helper function to finalize round, perform auto-submissions, and broadcast state
 function finalizeRoundAndAutoSubmit(roomCode) {
@@ -454,7 +458,6 @@ function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
 
 // --- Grace period for disconnects ---
 const disconnectTimers = {};
-const GRACE_PERIOD_MS = 30000; // 30 seconds
 
 io.on('connection', (socket) => {
   console.log(`[Server] User connected: ${socket.id}`);
@@ -1027,12 +1030,12 @@ io.on('connection', (socket) => {
 
     // Notify all players in the room that the round has ended early by triggering time_up
     io.to(roomCode).emit('time_up');
-    console.log(`[EndRoundEarly] Emitted 'time_up' for room ${roomCode}. Starting grace period of ${GRACE_PERIOD_MS}ms.`);
+    console.log(`[EndRoundEarly] Emitted 'time_up' for room ${roomCode}. Starting grace period of ${AUTO_SUBMIT_GRACE_PERIOD_MS}ms.`);
 
     // Set a timer to finalize the round after the grace period
     setTimeout(() => {
       finalizeRoundAndAutoSubmit(roomCode);
-    }, GRACE_PERIOD_MS);
+    }, AUTO_SUBMIT_GRACE_PERIOD_MS);
   });
 
   // Preview Mode handlers
@@ -1145,7 +1148,7 @@ io.on('connection', (socket) => {
           delete gameRooms[roomCode];
           console.log(`[GracePeriod] Room ${roomCode} deleted after 30s grace because gamemaster did not return.`);
           delete disconnectTimers[roomCode];
-        }, GRACE_PERIOD_MS);
+        }, DISCONNECT_GRACE_PERIOD_MS);
         console.log(`[GracePeriod] Gamemaster disconnect detected for room ${roomCode}. 30s grace period started.`);
         return;
       }
@@ -1169,7 +1172,7 @@ io.on('connection', (socket) => {
           }
           console.log(`[GracePeriod] Player ${socket.id} removed from room ${roomCode} after 30s grace.`);
           delete disconnectTimers[socket.id];
-        }, GRACE_PERIOD_MS);
+        }, DISCONNECT_GRACE_PERIOD_MS);
         console.log(`[GracePeriod] Player disconnect detected for ${socket.id} in room ${roomCode}. 30s grace period started.`);
       }
     });
@@ -1551,12 +1554,12 @@ function startQuestionTimer(roomCode) {
       clearInterval(timer);
       timers.delete(roomCode);
       io.to(roomCode).emit('time_up');
-      console.log(`[TIMER] Emitted 'time_up' for room ${roomCode} due to natural timeout. Starting grace period of ${GRACE_PERIOD_MS}ms.`);
+      console.log(`[TIMER] Emitted 'time_up' for room ${roomCode} due to natural timeout. Starting grace period of ${AUTO_SUBMIT_GRACE_PERIOD_MS}ms.`);
       
       // Set a timer to finalize the round after the grace period
       setTimeout(() => {
         finalizeRoundAndAutoSubmit(roomCode);
-      }, GRACE_PERIOD_MS);
+      }, AUTO_SUBMIT_GRACE_PERIOD_MS);
     }
   }, 1000);
 
