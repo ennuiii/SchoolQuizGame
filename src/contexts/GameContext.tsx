@@ -418,14 +418,29 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     const stopPreviewModeHandler = () => { console.log('[GameContext] Stopping preview mode'); setPreviewMode({ isActive: false, focusedPlayerId: null }); };
     const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
-    const playerBoardUpdateHandler = (data: any) => { console.log('[GameContext] player_board_update received', data); /* Placeholder */ };
+    const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
+      console.log('[GameContext] board_update received', updatedBoard);
+      setPlayerBoards(prevBoards => {
+        const index = prevBoards.findIndex(b => b.playerId === updatedBoard.playerId);
+        if (index !== -1) {
+          // Update existing board
+          const newBoards = [...prevBoards];
+          newBoards[index] = updatedBoard;
+          return newBoards;
+        } else {
+          // Add new board
+          return [...prevBoards, updatedBoard];
+        }
+      });
+    }, []);
     const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
     const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 
 
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
-    socketService.on('new_question', newQuestionHandler);
+    socketService.on('question', newQuestionHandler);
+    socketService.on('next_question', newQuestionHandler);
     socketService.on('error', errorHandler);
     socketService.on('game_over', gameOverHandler);
     socketService.on('game_winner', gameWinnerHandler);
@@ -434,7 +449,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('start_preview_mode', startPreviewModeHandler);
     socketService.on('stop_preview_mode', stopPreviewModeHandler);
     socketService.on('focus_submission', focusSubmissionHandler);
-    socketService.on('player_board_update', playerBoardUpdateHandler);
+    socketService.on('board_update', boardUpdateHandler);
     socketService.on('answer_evaluated', answerEvaluatedHandler);
     socketService.on('round_over', roundOverHandler);
 
@@ -444,7 +459,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // According to linter, .off might only take the event name
       socketService.off('game_started');
       socketService.off('game_state_update');
-      socketService.off('new_question');
+      socketService.off('question');
+      socketService.off('next_question');
       socketService.off('error');
       socketService.off('game_over');
       socketService.off('game_winner');
@@ -453,7 +469,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('start_preview_mode');
       socketService.off('stop_preview_mode');
       socketService.off('focus_submission');
-      socketService.off('player_board_update');
+      socketService.off('board_update');
       socketService.off('answer_evaluated');
       socketService.off('round_over');
     };
