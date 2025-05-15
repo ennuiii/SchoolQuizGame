@@ -379,8 +379,8 @@ const GameMaster: React.FC = () => {
                 <button 
                   className="btn btn-primary" 
                   onClick={handleNextQuestion}
-                  disabled={!currentQuestion || isRestarting || isGameConcluded || (Object.keys(allAnswersThisRound).length > 0 && !allAnswersEvaluated)}
-                  title={Object.keys(allAnswersThisRound).length > 0 && !allAnswersEvaluated ? "All answers must be evaluated before proceeding" : ""}
+                  disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated}
+                  title={currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? (Object.keys(allAnswersThisRound).length === 0 ? "Waiting for players to submit answers for this round." : "All submitted answers must be evaluated before proceeding.") : ""}
                 >
                   Next Question
                 </button>
