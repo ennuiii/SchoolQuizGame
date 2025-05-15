@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MusicControl from '../components/shared/MusicControl';
+import { useAudio } from '../contexts/AudioContext';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
+  const { playBackgroundMusic } = useAudio();
+
+  useEffect(() => {
+    playBackgroundMusic();
+  }, [playBackgroundMusic]);
 
   return (
     <>

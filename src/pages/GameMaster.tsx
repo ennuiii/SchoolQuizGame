@@ -74,6 +74,7 @@ const GameMaster: React.FC = () => {
   } = useGame();
 
   const {
+    playBackgroundMusic
   } = useAudio();
 
   const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
@@ -91,6 +92,10 @@ const GameMaster: React.FC = () => {
       };
     }
   }, [navigate]);
+
+  useEffect(() => {
+    playBackgroundMusic();
+  }, [playBackgroundMusic]);
 
   const handleCreateRoom = useCallback(() => {
     const newRoomCode = inputRoomCode.trim() || Math.random().toString(36).substring(2, 8).toUpperCase();

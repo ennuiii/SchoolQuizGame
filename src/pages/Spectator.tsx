@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
@@ -9,9 +9,11 @@ import { useRoom } from '../contexts/RoomContext';
 import QuestionDisplayCard from '../components/shared/QuestionDisplayCard';
 import RecapModal from '../components/shared/RecapModal';
 import MusicControl from '../components/shared/MusicControl';
+import { useAudio } from '../contexts/AudioContext';
 
 const Spectator: React.FC = () => {
   const navigate = useNavigate();
+  const { playBackgroundMusic } = useAudio();
   
   const {
     gameStarted,
@@ -32,6 +34,10 @@ const Spectator: React.FC = () => {
     roomCode,
     playerName,
   } = useRoom();
+
+  useEffect(() => {
+    playBackgroundMusic();
+  }, [playBackgroundMusic]);
 
   const handleJoinAsPlayer = useCallback(() => {
     if (!roomCode || !playerName) return;
