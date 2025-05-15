@@ -15,13 +15,6 @@ const AnswerInput: React.FC<AnswerInputProps> = ({
   const { timeLimit, timeRemaining, submittedAnswer } = useGame();
   const isDisabled = submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0));
 
-  // Auto-submit when time runs out
-  useEffect(() => {
-    if (timeLimit !== null && timeRemaining !== null && timeRemaining <= 0 && !submittedAnswer) {
-      onSubmitAnswer();
-    }
-  }, [timeRemaining, timeLimit, submittedAnswer, onSubmitAnswer]);
-
   return (
     <div className="card mb-4">
       <div className="card-body">

@@ -83,7 +83,7 @@ const Player: React.FC = () => {
       setCanvasKey(prev => prev + 1);
       setAnswer(''); // Clear text answer field on new question
     }
-  }, [currentQuestion?.id]);
+  }, [currentQuestion?.id, currentQuestionIndex]);
 
   // Effect for handling game state changes
   useEffect(() => {
@@ -100,7 +100,10 @@ const Player: React.FC = () => {
   // Handle answer submission
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
     const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
-    const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
+    // Check if fabric canvas exists and has objects, excluding a potential background image if any.
+    const fabricCanvas = (drawingBoardComponent as any)?._fabricCanvas;
+    const objects = fabricCanvas?.getObjects().filter((obj: any) => obj !== fabricCanvas.backgroundImage);
+    const actualHasDrawing = objects?.length > 0;
     const finalHasDrawing = actualHasDrawing;
 
     if (!roomCode || !currentQuestion || submittedAnswerLocal) {
@@ -163,19 +166,55 @@ const Player: React.FC = () => {
     setShowRecap(true);
   };
 
+  // Auto-submit when time runs out
+  useEffect(() => {
+    if (
+      gameStarted &&
+      currentQuestion &&
+      timeLimit !== null &&
+      timeRemaining !== null &&
+      timeRemaining <= 0 &&
+      !submittedAnswerLocal
+    ) {
+      console.log(`[Player.tsx] Auto-submitting due to timer. Answer: "${answer}"`);
+      handleAnswerSubmit(answer);
+    }
+  }, [
+    gameStarted,
+    currentQuestion,
+    timeLimit,
+    timeRemaining,
+    submittedAnswerLocal,
+    answer,
+    handleAnswerSubmit,
+  ]);
+
   // Handle visibility change
   const handleVisibilityChange = useCallback(() => {
     if (amISpectator) return; // Do nothing if spectator
-    if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
-      if (timeRemaining <= 0 && !submittedAnswerLocal && currentQuestion) {
-        const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
-        const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
-        if (actualHasDrawing && answer.trim() === '') {
-             handleAnswerSubmit(''); // Submit empty text, drawing will be picked up by actualHasDrawing
-        }
-      }
+
+    if (
+      document.visibilityState === 'visible' &&
+      gameStarted &&
+      currentQuestion &&
+      timeLimit !== null &&
+      timeRemaining !== null &&
+      timeRemaining <= 0 &&
+      !submittedAnswerLocal
+    ) {
+      console.log(`[Player.tsx] Auto-submitting due to visibility change + timer. Answer: "${answer}"`);
+      handleAnswerSubmit(answer); // Submit current text answer
     }
-  }, [amISpectator, timeRemaining, timeLimit, currentQuestion, submittedAnswerLocal, answer, handleAnswerSubmit]);
+  }, [
+    amISpectator,
+    gameStarted,
+    currentQuestion,
+    timeLimit,
+    timeRemaining,
+    submittedAnswerLocal,
+    answer,
+    handleAnswerSubmit,
+  ]);
 
   // Handle volume change
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
