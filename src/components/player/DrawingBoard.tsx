@@ -36,7 +36,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled }) => {
     return () => {
       disposeCanvas();
     };
-  }, [disabled, initializeCanvas, disposeCanvas]);
+  }, [initializeCanvas, disposeCanvas]);
 
   // Handle submission state changes - only disable drawing, don't clear
   useEffect(() => {
