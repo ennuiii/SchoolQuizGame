@@ -1,5 +1,6 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import type { Question } from '../../contexts/GameContext';
+import QuestionDisplayCard from './QuestionDisplayCard';
 
 interface QuestionCardProps {
   question: Question | null;
@@ -9,36 +10,12 @@ interface QuestionCardProps {
 }
 
 const QuestionCard: React.FC<QuestionCardProps> = ({ question, timeRemaining, onSubmit, submitted }) => {
-  const [textAnswer, setTextAnswer] = useState('');
-
-  useEffect(() => {
-    setTextAnswer('');
-  }, [question]);
-
-  const handleTextChange = (e: ChangeEvent<HTMLInputElement>) => {
-    setTextAnswer(e.target.value);
-  };
-
-  const handleSubmit = () => {
-    onSubmit(textAnswer);
-  };
-
-  if (!question) return null;
+  if (!question) {
+    return <QuestionDisplayCard question={null} showAnswer={false} title="Question" />;
+  }
 
   return (
-    <div className="card mb-4">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <h3 className="mb-0">Question</h3>
-      </div>
-      <div className="card-body">
-        <div className="question-container">
-          <p className="lead mb-1">{question.text}</p>
-          <small>
-            Type: {question.type}
-          </small>
-        </div>
-      </div>
-    </div>
+    <QuestionDisplayCard question={question} showAnswer={false} title="Question" />
   );
 };
 

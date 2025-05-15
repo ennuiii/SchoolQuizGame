@@ -6,6 +6,7 @@ import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
+import QuestionDisplayCard from '../components/shared/QuestionDisplayCard';
 
 const Spectator: React.FC = () => {
   const navigate = useNavigate();
@@ -76,14 +77,7 @@ const Spectator: React.FC = () => {
           </div>
         </div>
         <div className="col-12 col-md-8">
-          {currentQuestion && (
-            <div className="card mb-4">
-              <div className="card-body">
-                <h3>Current Question:</h3>
-                <p className="lead">{currentQuestion.text}</p>
-              </div>
-            </div>
-          )}
+          <QuestionDisplayCard question={currentQuestion} showAnswer={false} />
           <div className="card mb-4">
             <div className="card-header bg-light d-flex justify-content-between align-items-center">
               <h5 className="mb-0">Player Boards</h5>

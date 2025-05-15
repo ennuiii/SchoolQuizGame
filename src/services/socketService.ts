@@ -203,14 +203,15 @@ export class SocketService {
     this.emit('start_game', { roomCode, questions, timeLimit });
   }
 
-  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false) {
+  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false, drawingData?: string | null) {
     console.log('[SocketService] Submitting answer:', {
       roomCode,
       answerLength: answer.length,
       hasDrawing,
+      drawingDataLength: drawingData?.length || 0,
       timestamp: new Date().toISOString()
     });
-    this.emit('submit_answer', { roomCode, answer, hasDrawing });
+    this.emit('submit_answer', { roomCode, answer, hasDrawing, drawingData });
   }
 
   updateBoard(roomCode: string, boardData: any) {

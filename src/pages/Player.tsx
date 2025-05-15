@@ -10,6 +10,7 @@ import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import { useGame } from '../contexts/GameContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
+import { useCanvas } from '../contexts/CanvasContext';
 import DrawingBoard from '../components/player/DrawingBoard';
 import RecapModal from '../components/shared/RecapModal';
 import { toast } from 'react-toastify';
@@ -73,6 +74,8 @@ const Player: React.FC = () => {
     leaveRoom
   } = useRoom();
 
+  const { getCurrentCanvasSVG } = useCanvas();
+
   // Clear canvas and reset state when new question starts
   useEffect(() => {
     if (currentQuestion) {
@@ -98,7 +101,7 @@ const Player: React.FC = () => {
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
     const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
     const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
-    const finalHasDrawing = actualHasDrawing; // Always base on actual drawing content
+    const finalHasDrawing = actualHasDrawing;
 
     if (!roomCode || !currentQuestion || submittedAnswerLocal) {
       console.error('[Player] Cannot submit answer:', {
@@ -116,21 +119,27 @@ const Player: React.FC = () => {
         return;
       }
       
+      let drawingData: string | null = null;
+      if (finalHasDrawing) {
+        drawingData = getCurrentCanvasSVG();
+      }
+
       console.log('[Player] Submitting answer:', {
         roomCode,
         answerLength: finalAnswer.length,
         hasDrawing: finalHasDrawing,
+        drawingDataLength: drawingData?.length || 0,
         timestamp: new Date().toISOString()
       });
 
-      await socketService.submitAnswer(roomCode, finalAnswer, finalHasDrawing);
+      await socketService.submitAnswer(roomCode, finalAnswer, finalHasDrawing, drawingData);
       setSubmittedAnswerLocal(true);
       toast.success('Answer submitted!');
     } catch (error) {
       console.error('[Player] Failed to submit answer:', error);
       toast.error('Failed to submit answer. Please try again.');
     }
-  }, [roomCode, currentQuestion, submittedAnswerLocal, toast]);
+  }, [roomCode, currentQuestion, submittedAnswerLocal, getCurrentCanvasSVG, toast]);
 
   // Handle board updates
   const handleBoardUpdate = async (boardData: BoardData) => {

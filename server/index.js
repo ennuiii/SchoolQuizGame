@@ -618,12 +618,13 @@ io.on('connection', (socket) => {
 
   // Handle answer submission
   socket.on('submit_answer', (data) => {
-    const { roomCode, answer, hasDrawing } = data;
+    const { roomCode, answer, hasDrawing, drawingData: clientDrawingData } = data;
     console.log(`[Server] Answer submission:`, {
       roomCode,
       playerId: socket.id,
       hasDrawing,
       answerLength: answer?.length || 0,
+      clientDrawingDataLength: clientDrawingData?.length || 0,
       timestamp: new Date().toISOString()
     });
     
@@ -643,14 +644,19 @@ io.on('connection', (socket) => {
 
     try {
       // Store the answer
-      let drawingData = null;
-      if (hasDrawing && room.playerBoards && room.playerBoards[socket.id]) {
-        const playerBoardEntry = room.playerBoards[socket.id];
-        // Ensure the board data is for the current question
-        if (playerBoardEntry.roundIndex === room.currentQuestionIndex) {
-          drawingData = playerBoardEntry.boardData;
-        } else {
-          console.warn(`[Server SubmitAns] Mismatch in roundIndex for player board. Player: ${socket.id}, BoardRound: ${playerBoardEntry.roundIndex}, CurrentRound: ${room.currentQuestionIndex}`);
+      let drawingDataForStorage = null;
+      if (hasDrawing && clientDrawingData) {
+        drawingDataForStorage = clientDrawingData;
+      } else if (hasDrawing) {
+        console.warn(`[Server SubmitAns] hasDrawing is true for player ${socket.id} but no drawingData received from client. Checking server-side playerBoards as a last resort.`);
+        if (room.playerBoards && room.playerBoards[socket.id]) {
+          const playerBoardEntry = room.playerBoards[socket.id];
+          if (playerBoardEntry.roundIndex === room.currentQuestionIndex) {
+            drawingDataForStorage = playerBoardEntry.boardData;
+            console.log(`[Server SubmitAns] Fallback: Used drawingData from server-side playerBoards for player ${socket.id}`);
+          } else {
+            console.warn(`[Server SubmitAns] Fallback: Mismatch in roundIndex for player board during fallback. Player: ${socket.id}, BoardRound: ${playerBoardEntry.roundIndex}, CurrentRound: ${room.currentQuestionIndex}`);
+          }
         }
       }
 
@@ -659,7 +665,7 @@ io.on('connection', (socket) => {
         playerName: player.name,
         answer,
         hasDrawing,
-        drawingData,
+        drawingData: drawingDataForStorage,
         timestamp: Date.now(),
         isCorrect: null
       };

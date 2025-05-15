@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Nav } from 'react-bootstrap';
 import type { GameRecapData, RoundInRecap, PlayerInRecap, SubmissionInRecap, QuestionInRecap } from '../../types/recap'; // Adjusted import path
+import QuestionDisplayCard from './QuestionDisplayCard'; // Import the new component
 
 // Removed local interface definitions for Player, Submission, Round, GameRecap
 
@@ -75,23 +76,7 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
               <div className="col-md-9">
                 <div className="p-3">
                   <h4>Round {currentRound.roundNumber}</h4>
-                  <div className="card mb-3">
-                    <div className="card-body">
-                      <h5>Question</h5>
-                      <p className="lead">{currentRound.question.text}</p>
-                      <div className="text-muted">
-                        <small>
-                          Answer: {currentRound.question.answer}
-                          <br />
-                          {/* Ensure grade and subject are available and correctly typed */}
-                          Grade: {currentRound.question.grade}
-                          <br />
-                          Subject: {currentRound.question.subject}
-                          {/* <br /> Type: {currentRound.question.type} */}
-                        </small>
-                      </div>
-                    </div>
-                  </div>
+                  <QuestionDisplayCard question={currentRound.question} showAnswer={true} title="Question Details" />
                   <h5>Submissions</h5>
                   <div className="list-group">
                     {currentRound.submissions.map((submission: SubmissionInRecap) => (
@@ -100,19 +85,36 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
                         className={`list-group-item ${submission.isCorrect === true ? 'list-group-item-success' : submission.isCorrect === false ? 'list-group-item-danger' : ''}`}
                       >
                         <div className="d-flex justify-content-between align-items-center">
-                          <div>
+                          <div style={{ flexGrow: 1 }}> {/* Allow this div to take available space */}
                             <strong>
                               {submission.playerName}
                             </strong>
-                            <div>{submission.answer}</div>
+                            {submission.answer && (
+                              <div className="mt-1">
+                                <small className="text-muted">Submitted: </small>{submission.answer}
+                              </div>
+                            )}
+                            {!submission.answer && !submission.hasDrawing && (
+                               <div className="mt-1 fst-italic text-muted">
+                                 <small>No text answer submitted.</small>
+                               </div>
+                            )}
+                            {currentRound.question.answer && (
+                              <div className="mt-1">
+                                <small className="text-primary">Correct: </small>{currentRound.question.answer}
+                              </div>
+                            )}
                             {submission.hasDrawing && submission.drawingData && (
-                              <div className="mt-2 recap-drawing-preview" style={{ width: '200px', height: '150px', border: '1px solid #ccc', overflow: 'hidden' }}>
-                                <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+                              <div className="mt-2">
+                                <small className="text-muted d-block mb-1">Submitted Drawing:</small>
+                                <div className="recap-drawing-preview" style={{ width: '200px', height: '150px', border: '1px solid #ccc', overflow: 'hidden' }}>
+                                  <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+                                </div>
                               </div>
                             )}
                           </div>
                           {submission.isCorrect !== null && (
-                            <span className={`badge ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
+                            <span className={`badge fs-6 ms-3 ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
                               {submission.isCorrect ? 'Correct' : 'Incorrect'}
                             </span>
                           )}

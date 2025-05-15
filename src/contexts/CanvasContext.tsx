@@ -17,6 +17,7 @@ interface CanvasContextType {
   updateBoard: (roomCode: string, onBoardUpdate: (svgData: string) => void) => void;
   setDrawingEnabled: (enabled: boolean) => void;
   disposeCanvas: () => void;
+  getCurrentCanvasSVG: () => string | null;
 }
 
 const CanvasContext = createContext<CanvasContextType | null>(null);
@@ -158,6 +159,13 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     }
   }, []);
 
+  const getCurrentCanvasSVG = useCallback((): string | null => {
+    if (fabricCanvasRef.current) {
+      return fabricCanvasRef.current.toSVG();
+    }
+    return null;
+  }, []);
+
   const value = {
     fabricCanvas: fabricCanvasRef.current,
     isDrawing: isDrawingRef.current,
@@ -166,7 +174,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     clearCanvas,
     updateBoard,
     setDrawingEnabled,
-    disposeCanvas
+    disposeCanvas,
+    getCurrentCanvasSVG
   };
 
   return (
