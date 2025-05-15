@@ -172,7 +172,10 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
 
   const getCurrentCanvasSVG = useCallback((): string | null => {
     if (fabricCanvasRef.current) {
-      return fabricCanvasRef.current.toSVG();
+      const canvas = fabricCanvasRef.current;
+      if (canvas.backgroundImage) {
+        return canvas.toSVG();
+      }
     }
     return null;
   }, []);
