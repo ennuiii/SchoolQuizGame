@@ -8,11 +8,22 @@ import QuestionDisplayCard from './QuestionDisplayCard'; // Import the new compo
 interface RecapModalProps {
   show: boolean;
   onHide: () => void;
-  recap: GameRecapData | null; // Updated type
+  recap: GameRecapData | null;
+  // Props for synchronized round navigation
+  selectedRoundIndex?: number; // Current selected round from context/parent
+  onRoundChange?: (index: number) => void; // Callback to notify parent (GM) of round change selection
+  isControllable?: boolean; // True if this modal instance can control navigation (i.e., GM's view)
 }
 
-const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
-  const [activeTab, setActiveTab] = useState<string>('overallResults'); // Default to new tab
+const RecapModal: React.FC<RecapModalProps> = ({ 
+  show, 
+  onHide, 
+  recap, 
+  selectedRoundIndex = 0, // Default to 0 if not provided
+  onRoundChange, 
+  isControllable = false 
+}) => {
+  const [activeTab, setActiveTab] = useState<string>('overallResults');
 
   if (!show || !recap) return null;
 
@@ -91,8 +102,12 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
                 </Tab.Pane>
                 {recap.rounds && recap.rounds.length > 0 && (
                   <Tab.Pane eventKey="roundDetails">
-                    {/* Existing Round Details Logic */}
-                    <RoundDetailsContent recap={recap} />
+                    <RoundDetailsContent 
+                      recap={recap} 
+                      currentSelectedRoundIndex={selectedRoundIndex} // Pass the synchronized index
+                      onSelectRound={onRoundChange} // Pass the callback
+                      isControllable={isControllable} // Pass controllability
+                    />
                   </Tab.Pane>
                 )}
               </Tab.Content>
@@ -109,15 +124,24 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
   );
 };
 
-// Extracted Round Details into a sub-component for clarity
-const RoundDetailsContent: React.FC<{ recap: GameRecapData }> = ({ recap }) => {
-  const [selectedRound, setSelectedRound] = useState(0);
+interface RoundDetailsContentProps {
+  recap: GameRecapData;
+  currentSelectedRoundIndex: number;
+  onSelectRound?: (index: number) => void;
+  isControllable: boolean;
+}
 
-  if (!recap.rounds || recap.rounds.length === 0 || !recap.rounds[selectedRound]) {
+const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({ 
+  recap, 
+  currentSelectedRoundIndex, 
+  onSelectRound, 
+  isControllable 
+}) => {
+  if (!recap.rounds || recap.rounds.length === 0 || !recap.rounds[currentSelectedRoundIndex]) {
     return <p>No round data available to display or selected round is invalid.</p>;
   }
   
-  const currentRoundData: RoundInRecap = recap.rounds[selectedRound];
+  const currentRoundData: RoundInRecap = recap.rounds[currentSelectedRoundIndex];
 
   return (
     <div className="row g-0">
@@ -126,8 +150,13 @@ const RoundDetailsContent: React.FC<{ recap: GameRecapData }> = ({ recap }) => {
           {recap.rounds.map((round: RoundInRecap, index: number) => (
             <button
               key={round.roundNumber}
-              className={`list-group-item list-group-item-action ${selectedRound === index ? 'active' : ''}`}
-              onClick={() => setSelectedRound(index)}
+              className={`list-group-item list-group-item-action ${currentSelectedRoundIndex === index ? 'active' : ''}`}
+              onClick={() => {
+                if (isControllable && onSelectRound) {
+                  onSelectRound(index);
+                }
+              }}
+              disabled={!isControllable} // Disable if not controllable
             >
               Round {round.roundNumber}
             </button>

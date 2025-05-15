@@ -419,6 +419,39 @@ function finalizeRoundAndAutoSubmit(roomCode) {
   console.log(`[FinalizeRound] Game state broadcasted for room ${roomCode} after finalization.`);
 }
 
+// Helper function to conclude game and send recap to all
+function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
+    const room = gameRooms[roomCode];
+    if (!room) {
+        console.log(`[ConcludeGame] Room ${roomCode} not found. Skipping.`);
+        return;
+    }
+    if (room.isConcluded) {
+        console.log(`[ConcludeGame] Room ${roomCode} already concluded. Skipping recap send.`);
+        return;
+    }
+
+    room.isConcluded = true;
+    clearRoomTimer(roomCode); // Stop any active timers
+
+    console.log(`[ConcludeGame] Game concluded in room ${roomCode}. Emitting game_over_pending_recap.`);
+    io.to(roomCode).emit('game_over_pending_recap', {
+        roomCode,
+        winner: winnerInfo
+    });
+
+    // Generate and send recap immediately
+    const recap = generateGameRecap(roomCode);
+    if (recap) {
+        console.log(`[ConcludeGame] Automatically broadcasting recap for room ${roomCode} with initialSelectedRoundIndex.`);
+        // Add initialSelectedRoundIndex to the recap payload for the client
+        const recapWithInitialRound = { ...recap, initialSelectedRoundIndex: 0 };
+        io.to(roomCode).emit('game_recap', recapWithInitialRound);
+    } else {
+        console.warn(`[ConcludeGame] Recap data generation failed for room ${roomCode} during auto-send.`);
+    }
+}
+
 io.on('connection', (socket) => {
   console.log(`[Server] User connected: ${socket.id}`);
 
@@ -900,16 +933,9 @@ io.on('connection', (socket) => {
       console.log(`[Server Eval] Active players remaining: ${activePlayers.length}`);
 
       if (activePlayers.length <= 1) {
-        // Game is over, set flag if not already set, and notify clients
-        if (!room.isConcluded) { // Prevent multiple emissions
-            room.isConcluded = true; // Mark room as concluded to prevent re-triggering logic
-            console.log(`[Server Eval] Game concluded in room ${roomCode}. Emitting game_over_pending_recap.`);
-            io.to(roomCode).emit('game_over_pending_recap', { 
-                roomCode, 
-                winner: activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null
-            });
-        }
-        // DO NOT emit game_recap here anymore. GM will trigger it.
+        // Game is over
+        const winner = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
+        concludeGameAndSendRecap(roomCode, winner);
       }
 
       // Broadcast updated game state
@@ -1131,16 +1157,17 @@ io.on('connection', (socket) => {
         io.to(roomCode).emit('players_update', room.players);
         
         // Check if only one player is left in an active game
-        if (room.started && room.players.length > 0 && !room.isConcluded) {
+        if (room.started && room.players.length > 0 /* room.isConcluded check is inside helper */) {
           const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
           if (activePlayers.length <= 1) {
-            room.isConcluded = true;
-            console.log(`[Server Disconnect] Game concluded in room ${roomCode} due to disconnect. Emitting game_over_pending_recap.`);
-            io.to(roomCode).emit('game_over_pending_recap', {
-                roomCode,
-                winner: activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null
-            });
-            // DO NOT emit game_recap or game_winner here anymore.
+            // room.isConcluded = true; // Handled by helper
+            // console.log(`[Server Disconnect] Game concluded in room ${roomCode} due to disconnect. Emitting game_over_pending_recap.`);
+            // io.to(roomCode).emit('game_over_pending_recap', {
+            //     roomCode,
+            //     winner: activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null
+            // });
+            const winner = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
+            concludeGameAndSendRecap(roomCode, winner);
           }
         }
       }
@@ -1396,21 +1423,20 @@ io.on('connection', (socket) => {
       return;
     }
     const room = gameRooms[roomCode];
-    if (room && room.started && !room.isConcluded) {
-      room.isConcluded = true;
-      clearRoomTimer(roomCode); // Stop any active timers for the current question
-      console.log(`[Server gm_end_game_request] GM ${socket.id} ended game in room ${roomCode}. Emitting game_over_pending_recap.`);
+    if (room && room.started /* && !room.isConcluded already checked by helper */) {
+      // room.isConcluded = true; // Handled by helper
+      // clearRoomTimer(roomCode); // Handled by helper
+      console.log(`[Server gm_end_game_request] GM ${socket.id} ended game in room ${roomCode}.`);
       
-      // Determine winner if any, at the point of GM ending the game
       const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
-      const winnerPayload = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : 
-                            activePlayers.length > 1 ? null : // Multiple players still active, or no one
-                            null; // Or specific logic for no active players if GM ends game when all are out
-
-      io.to(roomCode).emit('game_over_pending_recap', { 
-        roomCode,
-        winner: winnerPayload
-      });
+      const winnerPayload = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
+      
+      concludeGameAndSendRecap(roomCode, winnerPayload);
+      // Old logic:
+      // io.to(roomCode).emit('game_over_pending_recap', { 
+      //   roomCode,
+      //   winner: winnerPayload
+      // });
     } else {
       console.log(`[Server gm_end_game_request] Game in room ${roomCode} not started or already concluded.`);
     }
@@ -1426,10 +1452,33 @@ io.on('connection', (socket) => {
     const recap = generateGameRecap(roomCode);
     if (recap) {
       console.log(`[Server gm_show_recap_to_all] GM ${socket.id} broadcasting recap for room ${roomCode}`);
-      io.to(roomCode).emit('game_recap', recap);
+      // Add initialSelectedRoundIndex for consistency, though it might be less critical for a re-broadcast
+      const recapWithInitialRound = { ...recap, initialSelectedRoundIndex: 0 };
+      io.to(roomCode).emit('game_recap', recapWithInitialRound);
     } else {
       console.warn(`[Server gm_show_recap_to_all] Recap data generation failed for room ${roomCode}`);
     }
+  });
+
+  // GM navigates recap round
+  socket.on('gm_navigate_recap_round', ({ roomCode, selectedRoundIndex }) => {
+    const room = gameRooms[roomCode];
+    // Basic validation
+    if (!room || socket.id !== room.gamemaster) {
+      console.warn(`[Server gm_navigate_recap_round] Unauthorized or room not found by ${socket.id} for ${roomCode}`);
+      // Optionally emit an error back to the sender
+      // socket.emit('error', 'Failed to navigate recap round: unauthorized or room not found.');
+      return;
+    }
+    if (typeof selectedRoundIndex !== 'number') {
+      console.warn(`[Server gm_navigate_recap_round] Invalid selectedRoundIndex: ${selectedRoundIndex} from ${socket.id}`);
+      // socket.emit('error', 'Invalid round index for recap navigation.');
+      return;
+    }
+
+    // Broadcast to all clients in the room
+    console.log(`[Server gm_navigate_recap_round] GM ${socket.id} navigated recap to round ${selectedRoundIndex} for room ${roomCode}`);
+    io.to(roomCode).emit('recap_round_changed', { selectedRoundIndex });
   });
 });
 

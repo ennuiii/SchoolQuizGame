@@ -7,27 +7,28 @@ import PreviewOverlay from '../components/shared/PreviewOverlay';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import QuestionDisplayCard from '../components/shared/QuestionDisplayCard';
+import RecapModal from '../components/shared/RecapModal';
 
 const Spectator: React.FC = () => {
   const navigate = useNavigate();
   
-  // Get context values
   const {
     gameStarted,
     currentQuestion,
     players,
     playerBoards,
     visibleBoards,
-    allAnswersThisRound,
-    evaluatedAnswers,
     previewMode,
-    toggleBoardVisibility
+    toggleBoardVisibility,
+    isGameConcluded,
+    gameRecapData,
+    recapSelectedRoundIndex,
+    hideRecap
   } = useGame();
 
   const {
     roomCode,
     playerName,
-    leaveRoom
   } = useRoom();
 
   const handleJoinAsPlayer = useCallback(() => {
@@ -38,22 +39,49 @@ const Spectator: React.FC = () => {
   }, [roomCode, playerName, navigate]);
 
   const showAllBoards = useCallback(() => {
-    toggleBoardVisibility(new Set(playerBoards.filter(b => {
-      const player = players.find(p => p.id === b.playerId);
-      return player && !player.isSpectator;
-    }).map(b => b.playerId)));
+    const activePlayerBoardIds = playerBoards
+      .filter(b => players.find(p => p.id === b.playerId && !p.isSpectator))
+      .map(b => b.playerId);
+    toggleBoardVisibility(new Set(activePlayerBoardIds));
   }, [playerBoards, players, toggleBoardVisibility]);
 
-  const hideAllBoards = useCallback(() => {
+  const hideAllBoardsAction = useCallback(() => {
     toggleBoardVisibility(new Set());
   }, [toggleBoardVisibility]);
 
+  if (isGameConcluded && !gameRecapData) {
+    return (
+      <div className="container text-center mt-5">
+        <div className="card p-5">
+          <h2 className="h4 mb-3">Game Over!</h2>
+          <p>Waiting for the game recap to be generated...</p>
+          <div className="spinner-border text-primary mx-auto mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+          <button className="btn btn-outline-secondary mt-4" onClick={() => navigate('/')}>Back to Home</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (gameRecapData && roomCode && hideRecap) {
+    return (
+      <RecapModal
+        show={!!gameRecapData}
+        onHide={() => hideRecap()}
+        recap={gameRecapData}
+        selectedRoundIndex={recapSelectedRoundIndex ?? 0}
+        isControllable={false}
+      />
+    );
+  }
+
   return (
-    <div className="container-fluid px-2 px-md-4">
+    <div className="container-fluid px-2 px-md-4 py-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
         <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
           <span className="bi bi-eye section-icon" aria-label="Spectator"></span>
-          Spectator View
+          Spectator View {roomCode && <small className="text-muted"> (Room: {roomCode})</small>}
         </div>
       </div>
       <div className="row g-3">
@@ -77,50 +105,54 @@ const Spectator: React.FC = () => {
           </div>
         </div>
         <div className="col-12 col-md-8">
-          <QuestionDisplayCard question={currentQuestion} showAnswer={false} />
-          <div className="card mb-4">
-            <div className="card-header bg-light d-flex justify-content-between align-items-center">
-              <h5 className="mb-0">Player Boards</h5>
-              <div className="d-flex gap-2">
-                <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
-                <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+          <QuestionDisplayCard question={currentQuestion} showAnswer={false} title={currentQuestion ? "Current Question" : "Waiting for game to start..."} />
+          {gameStarted && currentQuestion && (
+            <div className="card mb-4">
+              <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                <h5 className="mb-0">Player Boards</h5>
+                <div className="d-flex gap-2">
+                  <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                  <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoardsAction}>Hide All</button>
+                </div>
+              </div>
+              <div className="card-body">
+                <div
+                  className="board-row"
+                  style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                    gap: '20px',
+                    width: '100%',
+                    overflowX: 'auto',
+                    alignItems: 'stretch',
+                  }}
+                >
+                  {playerBoards.filter(board => {
+                    const player = players.find(p => p.id === board.playerId);
+                    return player && !player.isSpectator;
+                  }).map(board => (
+                    <PlayerBoardDisplay
+                      key={board.playerId}
+                      board={board}
+                      isVisible={visibleBoards.has(board.playerId)}
+                      onToggleVisibility={id => toggleBoardVisibility(id)}
+                      transform={{ scale: 1, x: 0, y: 0 }}
+                      onScale={() => {}}
+                      onPan={() => {}}
+                      onReset={() => {}}
+                    />
+                  ))}
+                </div>
               </div>
             </div>
-            <div className="card-body">
-              <div
-                className="board-row"
-                style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                  gap: '20px',
-                  width: '100%',
-                  overflowX: 'auto',
-                  alignItems: 'stretch',
-                }}
-              >
-                {playerBoards.filter(board => {
-                  const player = players.find(p => p.id === board.playerId);
-                  return player && !player.isSpectator;
-                }).map(board => (
-                  <PlayerBoardDisplay
-                    key={board.playerId}
-                    board={board}
-                    isVisible={visibleBoards.has(board.playerId)}
-                    onToggleVisibility={id => toggleBoardVisibility(id)}
-                    transform={{ scale: 1, x: 0, y: 0 }}
-                    onScale={(playerId, scale) => {}}
-                    onPan={(playerId, dx, dy) => {}}
-                    onReset={(playerId) => {}}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-          <PreviewOverlay
-            onFocus={() => {}}
-            onClose={() => {}}
-            isGameMaster={false}
-          />
+          )}
+          {previewMode.isActive && (
+            <PreviewOverlay
+              onFocus={() => {}}
+              onClose={() => {}}
+              isGameMaster={false}
+            />
+          )}
         </div>
       </div>
     </div>

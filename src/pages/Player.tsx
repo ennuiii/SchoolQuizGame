@@ -6,7 +6,6 @@ import QuestionCard from '../components/shared/QuestionCard';
 import Timer from '../components/shared/Timer';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
-import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import { useGame } from '../contexts/GameContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
@@ -18,8 +17,7 @@ import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 
 // Import Question and PlayerBoard types from GameContext
-import type { Question, PlayerBoard } from '../contexts/GameContext';
-import type { GameRecapData } from '../types/recap';
+import type { PlayerBoard } from '../contexts/GameContext';
 
 // TODO: Move BoardData to a shared types file if used elsewhere or becomes complex.
 interface BoardData {
@@ -31,36 +29,26 @@ const Player: React.FC = () => {
   const navigate = useNavigate();
   const [submittedAnswerLocal, setSubmittedAnswerLocal] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
-  const [showRecap, setShowRecap] = useState(false);
-  const [recapData, setRecapData] = useState<GameRecapData | null>(null);
   const [answer, setAnswer] = useState('');
   
   // Get context values
   const {
     gameStarted,
-    gameOver,
-    isWinner,
     currentQuestion,
     timeLimit,
     timeRemaining,
     isTimerRunning,
-    players,
-    playerBoards,
-    visibleBoards,
-    allAnswersThisRound,
-    evaluatedAnswers,
     previewMode,
     toggleBoardVisibility,
     currentQuestionIndex,
     submittedAnswer,
-    isGameConcluded
+    isGameConcluded,
+    gameRecapData,
+    recapSelectedRoundIndex,
+    hideRecap
   } = useGame();
 
   const {
-    isMuted,
-    volume,
-    toggleMute,
-    setVolume,
     playBackgroundMusic,
     pauseBackgroundMusic
   } = useAudio();
@@ -69,10 +57,8 @@ const Player: React.FC = () => {
     roomCode,
     playerName,
     isSpectator: amISpectator,
-    isLoading,
+    isLoading: isRoomLoading,
     errorMsg,
-    setErrorMsg,
-    leaveRoom
   } = useRoom();
 
   const { getCurrentCanvasSVG } = useCanvas();
@@ -94,9 +80,10 @@ const Player: React.FC = () => {
       timeRemaining,
       contextSubmittedAnswer: submittedAnswer,
       localSubmissionLock: submittedAnswerLocal,
+      gameRecapAvailable: !!gameRecapData,
       timestamp: new Date().toISOString()
     });
-  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal]);
+  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal, gameRecapData]);
 
   // Handle answer submission
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
@@ -160,13 +147,6 @@ const Player: React.FC = () => {
     }
   };
 
-  // Handle game recap
-  const handleGameRecap = (recap: GameRecapData) => {
-    console.log('[Player] Received game recap:', recap);
-    setRecapData(recap);
-    setShowRecap(true);
-  };
-
   // Auto-submit when time runs out
   useEffect(() => {
     if (
@@ -217,11 +197,6 @@ const Player: React.FC = () => {
     handleAnswerSubmit,
   ]);
 
-  // Handle volume change
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setVolume(parseFloat(e.target.value));
-  }, [setVolume]);
-
   // Handle answer change
   const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (submittedAnswerLocal) return;
@@ -244,41 +219,6 @@ const Player: React.FC = () => {
     };
   }, [playBackgroundMusic, pauseBackgroundMusic]);
 
-  // Handle game start
-  useEffect(() => {
-    if (gameStarted) {
-      // Show all boards by default
-      toggleBoardVisibility(new Set(playerBoards.map((board: { playerId: string }) => board.playerId)));
-    }
-  }, [gameStarted, playerBoards, toggleBoardVisibility]);
-
-  // Handle spectator mode
-  useEffect(() => {
-    if (amISpectator) {
-      // Show all boards by default
-      toggleBoardVisibility(new Set(playerBoards.map((board: { playerId: string }) => board.playerId)));
-    }
-  }, [amISpectator, playerBoards, toggleBoardVisibility]);
-
-  useEffect(() => {
-    // Listen for game recap
-    socketService.on('game_recap', handleGameRecap);
-
-    return () => {
-      socketService.off('game_recap', handleGameRecap);
-    };
-  }, []);
-
-  // Fix the board visibility handlers
-  const handleShowAllBoards = () => {
-    const nonSpectatorBoards = playerBoards.map((board: PlayerBoard) => board.playerId);
-    toggleBoardVisibility(new Set(nonSpectatorBoards));
-  };
-
-  const handleHideAllBoards = () => {
-    toggleBoardVisibility(new Set());
-  };
-
   useEffect(() => {
     if (amISpectator) {
       toast.info("You are a spectator. Redirecting to spectator view.");
@@ -292,16 +232,17 @@ const Player: React.FC = () => {
     return null;
   }
 
-  if (isLoading) return <LoadingOverlay isVisible={true} />;
+  if (isRoomLoading) return <LoadingOverlay isVisible={true} />;
   if (errorMsg) return <div className="alert alert-danger">{errorMsg}</div>;
   
-  // Handling for when game is concluded but recap not yet shown
-  if (isGameConcluded && !showRecap) {
+  // If game is concluded AND recap data is NOT YET available, show waiting message.
+  // This covers the brief period after game_over_pending_recap and before game_recap is received.
+  if (isGameConcluded && !gameRecapData) {
     return (
       <div className="container text-center mt-5">
         <div className="card p-5">
           <h2 className="h4 mb-3">Game Over!</h2>
-          <p>Waiting for the Game Master to show the recap.</p>
+          <p>Waiting for the game recap to be generated...</p>
           <div className="spinner-border text-primary mx-auto mt-3" role="status">
             <span className="visually-hidden">Loading...</span>
           </div>
@@ -311,14 +252,14 @@ const Player: React.FC = () => {
     );
   }
   
-  if (!roomCode || !playerName || amISpectator) {
+  if (!playerName || amISpectator) {
     // This condition might need adjustment based on the new isGameConcluded flow
     // For now, it primarily catches initial loading/redirect issues.
     return (
       <div className="container text-center mt-5">
         <h2>Loading Player View...</h2>
         {amISpectator && <p>You are a spectator. You should be redirected shortly.</p>}
-        {!roomCode || !playerName && <p>Missing room or player information.</p>}
+        {!playerName && <p>Missing player information.</p>}
         <button className="btn btn-primary mt-3" onClick={() => navigate('/')}>Back to Home</button>
       </div>
     );
@@ -328,9 +269,23 @@ const Player: React.FC = () => {
     return <PreviewOverlay onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />;
   }
 
+  // If recap data is available, show recap modal. This takes precedence over game view.
+  if (gameRecapData && roomCode && hideRecap) {
+    return (
+      <RecapModal
+        show={!!gameRecapData}
+        onHide={() => hideRecap()} // Use hideRecap from context
+        recap={gameRecapData} // From context
+        selectedRoundIndex={recapSelectedRoundIndex ?? 0} // From context
+        isControllable={false} // Player cannot control navigation
+        // onRoundChange is not needed as isControllable is false
+      />
+    );
+  }
+
   return (
     <div className="container py-4">
-      <LoadingOverlay isVisible={isLoading} />
+      <LoadingOverlay isVisible={isRoomLoading} />
       <ConnectionStatus />
       {errorMsg && (
         <div className="alert alert-danger">{errorMsg}</div>
@@ -404,14 +359,6 @@ const Player: React.FC = () => {
           <PlayerList title="Other Players" />
         </div>
       </div>
-      
-      {showRecap && recapData && (
-        <RecapModal
-          show={showRecap}
-          onHide={() => setShowRecap(false)}
-          recap={recapData}
-        />
-      )}
     </div>
   );
 };
