@@ -129,21 +129,26 @@ const Spectator: React.FC = () => {
                     alignItems: 'stretch',
                   }}
                 >
-                  {playerBoards.filter(board => {
-                    const player = players.find(p => p.id === board.playerId);
-                    return player && !player.isSpectator;
-                  }).map(board => (
-                    <PlayerBoardDisplay
-                      key={board.playerId}
-                      board={board}
-                      isVisible={visibleBoards.has(board.playerId)}
-                      onToggleVisibility={id => toggleBoardVisibility(id)}
-                      transform={{ scale: 1, x: 0, y: 0 }}
-                      onScale={() => {}}
-                      onPan={() => {}}
-                      onReset={() => {}}
-                    />
-                  ))}
+                  {players.filter(player => !player.isSpectator).map(player => {
+                    const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                    const boardForDisplay = {
+                      playerId: player.id,
+                      playerName: player.name,
+                      boardData: boardEntry ? boardEntry.boardData : ''
+                    };
+                    return (
+                      <PlayerBoardDisplay
+                        key={player.id}
+                        board={boardForDisplay}
+                        isVisible={visibleBoards.has(player.id)}
+                        onToggleVisibility={id => toggleBoardVisibility(id)}
+                        transform={{ scale: 1, x: 0, y: 0 }}
+                        onScale={() => {}}
+                        onPan={() => {}}
+                        onReset={() => {}}
+                      />
+                    );
+                  })}
                 </div>
               </div>
             </div>
