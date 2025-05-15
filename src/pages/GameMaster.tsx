@@ -33,8 +33,11 @@ interface Round {
   totalAnswers: number;
   submissions: Array<{
     playerId: string;
-    answer: string;
-    isCorrect: boolean;
+    playerName: string;
+    answer: string | null;
+    hasDrawing: boolean;
+    drawingData: string | null;
+    isCorrect: boolean | null;
   }>;
 }
 
