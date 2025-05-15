@@ -120,75 +120,42 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     canvas.backgroundColor = baseColor;
     canvas.renderAll();
 
-    // --- Image Loading for Texture ---
-    const img = new Image();
-    img.crossOrigin = 'anonymous'; // Necessary for loading cross-origin images onto canvas
-
+    // --- Image Loading for Texture using fabric.util.loadImage ---
     // Store a reference to this specific canvas instance for the callbacks
     // to ensure they operate on the correct (non-disposed) canvas.
     const associatedCanvasInstance = canvas;
 
-    img.onload = () => {
-      // Check if the canvas this image was intended for is still the current active canvas
-      if (fabricCanvasRef.current === associatedCanvasInstance) {
+    fabric.util.loadImage(textureUrl, (loadedImg) => {
+      // Check if the image loaded successfully AND if the canvas it was loaded for is still the current one
+      if (loadedImg && fabricCanvasRef.current === associatedCanvasInstance) {
         try {
-          // Create a new Fabric.js pattern object
-          const pattern = new (fabric as any).Pattern({ // Using 'as any' to bypass potential strict typing issues with fabric.Pattern
-            source: img,      // The loaded image element
-            repeat: 'repeat', // How the pattern should repeat
+          const pattern = new fabric.Pattern({
+            source: loadedImg,
+            repeat: 'repeat',
           });
-          associatedCanvasInstance.backgroundColor = pattern; // Set the canvas background to the pattern
-          associatedCanvasInstance.renderAll();             // Re-render the canvas to show the new background
-          console.log('Texture loaded and applied successfully.');
+          associatedCanvasInstance.backgroundColor = pattern;
+          associatedCanvasInstance.renderAll();
+          console.log('Texture loaded and applied successfully via fabric.util.loadImage.');
         } catch (e) {
-          console.error('Error applying pattern to canvas:', e);
+          console.error('Error applying pattern to canvas via fabric.util.loadImage:', e);
           // Fallback to baseColor if pattern creation or application fails
           associatedCanvasInstance.backgroundColor = baseColor;
           associatedCanvasInstance.renderAll();
         }
-      } else {
-        // This can happen if the canvas was re-initialized before the image finished loading
-        console.log('Texture loaded for a discarded canvas instance. Ignoring.');
-      }
-    };
-
-    img.onerror = (event) => {
-      // Check if the error is for the current canvas instance
-      if (fabricCanvasRef.current === associatedCanvasInstance) {
-        console.warn('Texture failed to load for the current canvas. Event details:', event);
-        console.warn('Attempted to load texture from URL:', textureUrl);
-        console.warn('Falling back to solid background color. Check browser network tab and console for more specific errors (e.g., CORS, CSP, 404, ad-blockers).');
-        associatedCanvasInstance.backgroundColor = baseColor; // Fallback to solid color
-        associatedCanvasInstance.renderAll();
-      } else {
-        console.warn('Texture failed to load for a discarded canvas instance. Ignoring. Event:', event);
-      }
-    };
-
-    // Start loading the image. This is asynchronous.
-    img.src = textureUrl;
-
-    /*
-    // Alternative using fabric.util.loadImage (Fabric.js idiomatic way)
-    // This might handle some aspects of image loading internally.
-    fabric.util.loadImage(textureUrl, (loadedImg) => {
-      if (loadedImg && fabricCanvasRef.current === associatedCanvasInstance) {
-        const pattern = new fabric.Pattern({
-          source: loadedImg,
-          repeat: 'repeat',
-        });
-        associatedCanvasInstance.backgroundColor = pattern;
-        associatedCanvasInstance.renderAll();
-        console.log('Texture loaded via fabric.util.loadImage.');
       } else if (!loadedImg && fabricCanvasRef.current === associatedCanvasInstance) {
-        console.warn('Texture failed to load via fabric.util.loadImage. Falling back to solid color.');
+        // Image failed to load, but it was for the current canvas
+        console.warn('Texture failed to load via fabric.util.loadImage for the current canvas. URL:', textureUrl);
+        console.warn('Falling back to solid background color. Check browser network tab and console for errors (CORS, CSP, 404, ad-blockers).');
         associatedCanvasInstance.backgroundColor = baseColor;
         associatedCanvasInstance.renderAll();
       } else if (loadedImg) {
-         console.log('Texture loaded via fabric.util.loadImage for a discarded canvas. Ignoring.');
+        // Image loaded, but the canvas instance has changed (e.g., re-initialized quickly)
+        console.log('Texture loaded via fabric.util.loadImage for a discarded canvas instance. Ignoring.');
+      } else {
+        // Image failed to load for a discarded canvas instance
+        console.warn('Texture failed to load via fabric.util.loadImage for a discarded canvas instance. Ignoring.');
       }
-    }, null, 'anonymous'); // context is null, 'anonymous' for crossOrigin
-    */
+    }, null, { crossOrigin: 'anonymous' }); // context is null, options object with crossOrigin
 
     // Set up drawing brush properties
     if (canvas.freeDrawingBrush) {
@@ -252,16 +219,6 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     if (!canvas) return;
 
     canvas.isDrawingMode = enabled;
-    // fabric.js typically handles selectable/evented based on isDrawingMode for paths,
-    // but explicitly setting for other objects might be needed if you add them.
-    // For free drawing, isDrawingMode is the main control.
-    // If you add other objects (shapes, text) and want them to be selectable
-    // when not in drawing mode, you'd manage their 'selectable' and 'evented' properties.
-    // canvas.selection = enabled; // This enables group selection, usually false if isDrawingMode is true.
-    // canvas.forEachObject((obj: fabric.Object) => {
-    //   obj.selectable = enabled; // This might be too broad if you only want drawing.
-    //   obj.evented = enabled;
-    // });
     canvas.renderAll();
   }, []); // No dependencies
 
@@ -275,19 +232,15 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
 
   const getCurrentCanvasSVG = useCallback((): string | null => {
     if (fabricCanvasRef.current) {
-      // Ensure canvas is not empty or in a weird state before getting SVG
-      // The toSVG() method itself is robust.
       return fabricCanvasRef.current.toSVG();
     }
     return null;
   }, []); // No dependencies
 
-  // Memoize the context value to prevent unnecessary re-renders of consumers
-  // if CanvasProvider re-renders but these values haven't changed.
   const contextValue = React.useMemo(() => ({
     getFabricCanvas: () => fabricCanvasRef.current,
-    isDrawing: isDrawingReactive, // Use reactive state
-    lastSvgData: lastSvgDataReactive, // Use reactive state
+    isDrawing: isDrawingReactive, 
+    lastSvgData: lastSvgDataReactive, 
     initializeCanvas,
     clearCanvas,
     updateBoard,
@@ -306,7 +259,6 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     ]
   );
 
-  // Cleanup effect to dispose canvas when component unmounts
   useEffect(() => {
     return () => {
       if (fabricCanvasRef.current) {
@@ -315,7 +267,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
         fabricCanvasRef.current = null;
       }
     };
-  }, []); // Run only on mount and unmount
+  }, []); 
 
   return (
     <CanvasContext.Provider value={contextValue}>
