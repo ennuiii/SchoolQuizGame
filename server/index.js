@@ -684,7 +684,12 @@ io.on('connection', (socket) => {
 
     try {
       const player = room.players.find(p => p.id === playerId);
-      if (!player) return;
+      if (!player) {
+        console.error('[Server EVal] Player not found for evaluation:', { roomCode, playerId });
+        return;
+      }
+
+      console.log('[Server Eval] Player found:', { playerId: player.id, name: player.name, initialLives: player.lives });
 
       // Update both answer storages
       const answer = player.answers[room.currentQuestionIndex];
@@ -695,12 +700,17 @@ io.on('connection', (socket) => {
 
       // Update player state
       if (!isCorrect) {
+        console.log('[Server Eval] Answer marked incorrect. Decrementing lives for player:', { playerId: player.id, currentLives: player.lives });
         player.lives--;
+        console.log('[Server Eval] Player lives after decrement:', { playerId: player.id, newLives: player.lives });
         if (player.lives <= 0) {
           player.isActive = false;
           player.isSpectator = true;
+          console.log('[Server Eval] Player has no lives left. Setting to spectator.', { playerId: player.id });
           io.to(playerId).emit('become_spectator');
         }
+      } else {
+        console.log('[Server Eval] Answer marked correct. No change to lives for player:', { playerId: player.id, currentLives: player.lives });
       }
 
       // Store evaluation
@@ -720,6 +730,7 @@ io.on('connection', (socket) => {
 
       // Broadcast updated game state
       broadcastGameState(roomCode);
+      console.log('[Server Eval] Broadcasted game state after evaluation. Updated player data should include:', { playerId: player.id, lives: player.lives, isActive: player.isActive, isSpectator: player.isSpectator });
 
       const responseTime = Date.now() - room.questionStartTime;
       gameAnalytics.recordAnswer(roomCode, playerId, answer.answer, isCorrect, responseTime);
@@ -744,6 +755,11 @@ io.on('connection', (socket) => {
       room.currentQuestion = room.questions[room.currentQuestionIndex];
       room.questionStartTime = Date.now();
 
+      // Reset round-specific states
+      room.roundAnswers = {};
+      room.evaluatedAnswers = {};
+      console.log(`[Server NextQ] Cleared roundAnswers and evaluatedAnswers for room ${roomCode}`);
+
       // Reset answer for the new question index for all players
       room.players.forEach(player => {
         player.answers[room.currentQuestionIndex] = undefined;
@@ -765,6 +781,11 @@ io.on('connection', (socket) => {
         startQuestionTimer(roomCode);
       }
 
+      // It's important to broadcast the full game state AFTER resetting round answers
+      // so clients get the cleared evaluation state along with the new question.
+      broadcastGameState(roomCode); 
+      // The 'new_question' event is still useful for specific client-side actions like clearing canvas,
+      // but the primary state update should come from 'game_state_update' triggered by broadcastGameState.
       io.to(roomCode).emit('new_question', {
         question: room.currentQuestion,
         timeLimit: room.timeLimit
