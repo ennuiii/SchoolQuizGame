@@ -27,6 +27,7 @@ const GameMaster: React.FC = () => {
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [showRecap, setShowRecap] = useState(false);
   const [recapData, setRecapData] = useState<GameRecapData | null>(null);
@@ -249,10 +250,27 @@ const GameMaster: React.FC = () => {
       });
 
       await socketService.endGame(roomCode);
-      console.log('[GameMaster] Game ended successfully');
+      toast.success('Game has been ended. Recap will be shown.');
     } catch (error) {
       console.error('[GameMaster] Failed to end game:', error);
       toast.error('Failed to end game. Please try again.');
+    }
+  };
+
+  const handleRestartGame = async () => {
+    if (!roomCode) {
+      toast.error("No room code found to restart the game.");
+      return;
+    }
+    setIsRestarting(true);
+    try {
+      await restartGame(roomCode);
+      toast.success("Game is restarting!");
+    } catch (error) {
+      console.error("[GameMaster] Failed to restart game:", error);
+      toast.error("Failed to restart game. Please try again.");
+    } finally {
+      setIsRestarting(false);
     }
   };
 
@@ -463,21 +481,28 @@ const GameMaster: React.FC = () => {
                 <button 
                   className="btn btn-primary" 
                   onClick={handleNextQuestion}
-                  disabled={!currentQuestion}
+                  disabled={!currentQuestion || isRestarting}
                 >
                   Next Question
                 </button>
                 <button 
                   className="btn btn-warning" 
                   onClick={handleEndRoundEarly}
-                  disabled={!currentQuestion}
+                  disabled={!currentQuestion || isRestarting}
                 >
                   End Round Early
                 </button>
                 <button 
+                  className="btn btn-info"
+                  onClick={handleRestartGame}
+                  disabled={isRestarting || !gameStarted}
+                >
+                  {isRestarting ? 'Restarting...' : 'Restart Game'}
+                </button>
+                <button 
                   className="btn btn-danger" 
                   onClick={handleEndGame}
-                  disabled={!currentQuestion}
+                  disabled={!currentQuestion || isRestarting}
                 >
                   End Game
                 </button>

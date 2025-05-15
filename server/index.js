@@ -515,46 +515,58 @@ io.on('connection', (socket) => {
 
   // Restart the game (Gamemaster only)
   socket.on('restart_game', ({ roomCode }) => {
-    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
-      socket.emit('error', 'Not authorized to restart the game');
+    const room = gameRooms[roomCode];
+    if (!room || room.gamemaster !== socket.id) {
+      socket.emit('error', 'Not authorized to restart the game or room not found');
       return;
     }
+
+    console.log(`[Server Restart] Attempting to restart game in room: ${roomCode}`);
     
     // Clear any active timers
     clearRoomTimer(roomCode);
     
     // Reset the game state but keep the room and settings
-    gameRooms[roomCode].started = false;
-    // DO NOT reset questions or timeLimit
+    room.started = false;
+    // DO NOT reset questions or timeLimit from room.questions and room.timeLimit
+    
     // Reset progress
-    gameRooms[roomCode].currentQuestionIndex = 0;
-    if (gameRooms[roomCode].questions && gameRooms[roomCode].questions.length > 0) {
-      gameRooms[roomCode].currentQuestion = gameRooms[roomCode].questions[0];
+    room.currentQuestionIndex = 0;
+    if (room.questions && room.questions.length > 0) {
+      room.currentQuestion = room.questions[0];
     } else {
-      gameRooms[roomCode].currentQuestion = null;
+      room.currentQuestion = null;
     }
+    room.questionStartTime = null; // Reset question start time
+    room.roundAnswers = {};       // Clear current round's answers
+    room.evaluatedAnswers = {};   // Clear evaluated answers
     
     // Reset all players, but keep them in the room
-    gameRooms[roomCode].players.forEach(player => {
+    room.players.forEach(player => {
       player.lives = 3;
-      player.answers = [];
-      player.isActive = true;
+      player.answers = []; // Clear all answers from previous game
+      player.isActive = true; // Ensures they are active for the new game
+      // Spectators who joined as such might need specific handling if they shouldn't become active players.
+      // For now, this makes all non-GM participants active with full lives.
     });
     
-    // Clear player boards
-    Object.keys(gameRooms[roomCode].playerBoards).forEach(playerId => {
-      gameRooms[roomCode].playerBoards[playerId] = {
-        boardData: '',
-        answers: [],
-        answerSubmitted: false
-      };
-    });
+    // Clear player boards (drawings)
+    if (room.playerBoards) {
+        Object.keys(room.playerBoards).forEach(playerId => {
+            room.playerBoards[playerId] = {
+                boardData: '', // Clear the drawing data
+                // Other fields like roundIndex or timestamp could be reset or removed if not needed
+            };
+        });
+    }
     
-    // Notify everyone that the game has been restarted
-    io.to(roomCode).emit('game_restarted');
-    io.to(roomCode).emit('players_update', gameRooms[roomCode].players);
+    // Notify everyone that the game has been restarted (optional, as broadcastGameState will update clients)
+    io.to(roomCode).emit('game_restarted', { roomCode }); 
     
-    console.log(`Game restarted in room: ${roomCode}`);
+    // Broadcast the complete updated (reset) game state
+    broadcastGameState(roomCode);
+    
+    console.log(`[Server Restart] Game restarted successfully in room: ${roomCode}. New state broadcasted.`);
   });
 
   // Handle board updates
