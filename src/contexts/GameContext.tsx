@@ -392,7 +392,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     // Define all handlers first (ensure these are defined before use)
-    const gameStartedHandler = (data: { question: Question, timeLimit: number }) => {
+    const gameStartedHandler = (data: { question: Question, timeLimit: number, players: Player[] }) => {
       console.log('[GameContext] IMMEDIATE: Game started event received');
       console.log('[GameContext] Game started event received:', {
         questionText: data.question.text, timeLimit: data.timeLimit,
@@ -413,6 +413,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsGameConcluded(false);
         setGameOver(false);
         setIsWinner(false);
+        
+        // Make all non-spectator player boards visible by default
+        // Use players from the event data if available, otherwise use the current 'players' state.
+        const currentPlayers = data.players || players;
+        const initialVisiblePlayerIds = new Set(currentPlayers.filter(p => !p.isSpectator).map(p => p.id));
+        setVisibleBoards(initialVisiblePlayerIds);
+        console.log('[GameContext] Initial visible boards set:', initialVisiblePlayerIds);
+
         console.log('[GameContext] State updated after game_started event:', {
           newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
           newQuestionIndex: 0, timestamp: new Date().toISOString()
@@ -442,9 +450,33 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[GameContext] Updating timeLimit:', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
           setTimeLimit(state.timeLimit);
         }
-        setPlayers(state.players || []);
+        const newPlayers = state.players || [];
+        setPlayers(newPlayers);
         setAllAnswersThisRound(state.roundAnswers || {});
         setEvaluatedAnswers(state.evaluatedAnswers || {});
+
+        // Update visible boards for new non-spectator players if game has started
+        if (state.started) {
+          const newNonSpectatorPlayerIds = newPlayers
+            .filter((p: Player) => !p.isSpectator)
+            .map((p: Player) => p.id);
+          
+          setVisibleBoards(prevVisibleBoards => {
+            const updatedVisibleBoards = new Set(prevVisibleBoards);
+            let boardsUpdated = false;
+            newNonSpectatorPlayerIds.forEach((id: string) => {
+              if (!updatedVisibleBoards.has(id)) {
+                updatedVisibleBoards.add(id);
+                boardsUpdated = true;
+              }
+            });
+            if (boardsUpdated) {
+              console.log('[GameContext] Added new players to visible boards:', updatedVisibleBoards);
+            }
+            return updatedVisibleBoards;
+          });
+        }
+        
         if (state.isConcluded !== undefined && state.isConcluded !== isGameConcluded) {
           setIsGameConcluded(state.isConcluded);
         }
