@@ -58,34 +58,40 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       targetFindTolerance: 4
     });
 
-    // Set chalkboard texture as repeated pattern background over the green color
+    const baseColor = '#0C6A35';
+    const textureUrl = 'https://www.transparenttextures.com/patterns/green-dust-and-scratches.png';
+
+    // Set initial solid background color
+    canvas.backgroundColor = baseColor;
+    canvas.renderAll();
+
+    // Preload the pattern image and set as background
     const img = new Image();
     img.crossOrigin = 'anonymous';
     img.onload = () => {
-      if (canvas) {
-        const pattern = new (fabric as any).Pattern({
-          source: img,
-          repeat: 'repeat'
-        });
-        canvas.backgroundColor = pattern;
-        canvas.renderAll();
-      }
-    };
-    img.onerror = () => {
-      console.warn('Failed to load background texture, using solid color only');
-      canvas.backgroundColor = '#0C6A35';
+      const pattern = new (fabric as any).Pattern({
+        source: img,
+        repeat: 'repeat',
+      });
+      canvas.backgroundColor = pattern;
       canvas.renderAll();
     };
-    img.src = 'https://www.transparenttextures.com/patterns/green-dust-and-scratches.png';
+    img.onerror = () => {
+      canvas.backgroundColor = baseColor;
+      canvas.renderAll();
+      console.warn('Texture failed to load, using solid color');
+    };
+    img.src = textureUrl;
 
     // Set up drawing brush
     if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = '#FFFFFF';
-      canvas.freeDrawingBrush.width = 4;
-      canvas.freeDrawingBrush.opacity = 0.9;
-      canvas.freeDrawingBrush.decimate = 4;
-      (canvas.freeDrawingBrush as any).strokeLineCap = 'round';
-      (canvas.freeDrawingBrush as any).strokeLineJoin = 'round';
+      Object.assign(canvas.freeDrawingBrush, {
+        color: '#fff',
+        width: 4,
+        opacity: 0.9,
+        strokeLineCap: 'round',
+        strokeLineJoin: 'round',
+      });
     }
 
     fabricCanvasRef.current = canvas;
