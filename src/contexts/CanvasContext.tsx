@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useRef, useCallback, ReactNode } from 'react';
 import { fabric } from 'fabric';
+import { fabric as fabricNamespace } from 'fabric';
 
 interface CanvasContextType {
   getFabricCanvas: () => fabric.Canvas | null;
@@ -56,6 +57,12 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       selection: false,
       perPixelTargetFind: true,
       targetFindTolerance: 4
+    });
+
+    // Set chalkboard texture as background
+    fabricNamespace.Image.fromURL('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png', (img: fabricNamespace.Image) => {
+      canvas.backgroundImage = img;
+      canvas.renderAll();
     });
 
     // Set up drawing brush
