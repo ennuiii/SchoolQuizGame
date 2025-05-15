@@ -35,6 +35,7 @@ interface PreviewOverlayProps {
   onFocus: (playerId: string) => void;
   onClose: () => void;
   isGameMaster: boolean;
+  onEvaluate?: (playerId: string, isCorrect: boolean) => void;
 }
 
 const boardColors = [
@@ -52,7 +53,8 @@ const boardColors = [
 const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
   onFocus,
   onClose,
-  isGameMaster
+  isGameMaster,
+  onEvaluate
 }) => {
   const context = useGame();
   const { setDrawingEnabled } = useCanvas();
@@ -114,6 +116,12 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
               style={{ borderColor, minWidth: activePlayerBoards.length <= 3 ? 340 : 300, maxWidth: activePlayerBoards.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
               <div className="classroom-whiteboard-content">
+                {/* Player lives */}
+                <div style={{ marginBottom: 6 }}>
+                  {[...Array(player?.lives || 0)].map((_, i) => (
+                    <span key={i} style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 2 }}>❤</span>
+                  ))}
+                </div>
                 <div
                   className="classroom-whiteboard-svg"
                   style={{ minHeight: 120, maxHeight: 180, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
@@ -125,13 +133,23 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     />
                   </div>
                 </div>
+                {/* Answer with notepad effect */}
                 {answer && (
-                  <div className="classroom-whiteboard-answer">
-                    {answer.answer}
+                  <div className="notepad-answer mt-2 mb-2">
+                    <span className="notepad-label">Answer:</span>
+                    <span className="notepad-text ms-2">{answer.answer}</span>
                   </div>
                 )}
+                {/* Correct/Incorrect buttons for GameMaster */}
+                {isGameMaster && answer && evaluation === undefined && onEvaluate && (
+                  <div className="d-flex gap-2 justify-content-center mt-2">
+                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(board.playerId, true)}>Correct</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(board.playerId, false)}>Incorrect</button>
+                  </div>
+                )}
+                {/* Show badge if evaluated */}
                 {evaluation !== undefined && (
-                  <span className={`className-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
+                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
                 )}
               </div>
               <div className="classroom-whiteboard-label">

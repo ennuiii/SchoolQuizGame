@@ -204,7 +204,7 @@ body {
 
 /* Drawing Board */
 .drawing-board-container {
-  background: #c7b599 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border-width: 20px;
   border-style: solid;
   border-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png') 30 round;
@@ -617,178 +617,23 @@ body {
 
 /* Question Selector readable font color */
 .question-selector {
-  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
-  border: 3px dashed #ffe066;
-  border-radius: 18px;
-  box-shadow: 0 6px 16px rgba(0,0,0,0.10);
-  color: #2d4739;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  padding: 32px 24px 24px 24px;
-  margin-bottom: 32px;
+  color: #222;
 }
 
-.question-selector h5,
-.question-selector h6 {
-  font-family: 'Schoolbell', 'Patrick Hand', cursive;
-  color: #2d4739;
-  margin-bottom: 12px;
-}
-
-.question-selector .row.g-3 {
-  margin-bottom: 0;
-}
-
-.question-selector .form-label {
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  color: #2d4739;
-  font-size: 1.1rem;
-}
-
+/* Question Selector filter label and input readability */
+.question-selector .form-label,
 .question-selector .form-select,
 .question-selector input[type="number"],
 .question-selector input[type="text"] {
-  background: #fff9e6;
-  border: 2px solid #ffd166;
-  border-radius: 8px;
-  color: #2d4739;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.05rem;
-  box-shadow: 0 1px 4px #ffe06622;
+  color: #222 !important;
+  background: #fff !important;
+  border-color: #ccc;
 }
 
-.question-selector .form-select:focus,
-.question-selector input[type="number"]:focus,
-.question-selector input[type="text"]:focus {
-  border-color: #4ecdc4;
-  outline: none;
-  box-shadow: 0 0 0 2px #4ecdc433;
-}
-
-.question-selector .card {
-  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
-  border: 2.5px dashed #ffe066;
-  border-radius: 14px;
-  box-shadow: 0 2px 8px #00000011;
-  color: #2d4739;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-}
-
-.question-selector .card-header {
-  background: linear-gradient(90deg, #ffe066 80%, #ffd166 100%);
-  color: #2d4739;
-  font-size: 1.1rem;
-  border-bottom: 2px solid #ffd166;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-}
-
-.question-selector .list-group-item {
-  background: #fffbe7;
-  color: #2d4739;
-  border: none;
-  border-bottom: 1px dashed #ffe066;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.05rem;
-}
-
-.question-selector .list-group-item-action {
-  cursor: pointer;
-  transition: background 0.15s, color 0.15s;
-}
-
-.question-selector .list-group-item-action:hover {
-  background: #ffe066;
-  color: #2d4739;
-}
-
-.question-selector .btn,
-.question-selector .btn-sm {
-  border-radius: 10px !important;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.05rem;
-  font-weight: bold;
-  background: #ffe066;
-  color: #2d4739;
-  border: 2px solid #ffd166;
-  box-shadow: 0 2px 6px #00000011;
-  transition: background 0.2s, color 0.2s, transform 0.15s;
-}
-
-.question-selector .btn:hover, .question-selector .btn:focus {
-  background: #ffd166;
-  color: #2d4739;
-  transform: scale(1.04) rotate(-2deg);
-}
-
-.question-selector .btn-primary {
-  background: #4ecdc4 !important;
-  color: #fffbe7 !important;
-  border-color: #38b2ac !important;
-}
-
-.question-selector .btn-primary:hover, .question-selector .btn-primary:focus {
-  background: #38b2ac !important;
-  color: #fffbe7 !important;
-}
-
-.question-selector .btn-success {
-  background: #ffe066 !important;
-  color: #2d4739 !important;
-  border-color: #ffd166 !important;
-}
-
-.question-selector .btn-danger {
-  background: #ff6b6b !important;
-  color: #fffbe7 !important;
-  border-color: #ff8787 !important;
-}
-
-.question-selector .btn-outline-primary {
-  color: #4ecdc4 !important;
-  border-color: #4ecdc4 !important;
-  background: transparent !important;
-}
-
-.question-selector .btn-outline-primary:hover, .question-selector .btn-outline-primary:focus {
-  background: #4ecdc4 !important;
-  color: #fffbe7 !important;
-}
-
-.question-selector .btn-outline-danger {
-  color: #d32f2f !important;
-  border-color: #d32f2f !important;
-  background: transparent !important;
-}
-
-.question-selector .btn-outline-danger:hover, .question-selector .btn-outline-danger:focus {
-  background: #f8d7da !important;
-  color: #d32f2f !important;
-}
-
-.question-selector .list-group {
-  border-radius: 10px;
-  overflow: hidden;
-}
-
-.question-selector .form-group,
-.question-selector .row.g-3 {
-  margin-bottom: 18px;
-}
-
-.question-selector .mb-3 {
-  margin-bottom: 18px !important;
-}
-
-.question-selector .mb-4 {
-  margin-bottom: 28px !important;
-}
-
-@media (max-width: 768px) {
-  .question-selector {
-    padding: 16px 4px 12px 4px;
-  }
-  .question-selector .card {
-    margin-bottom: 10px;
-  }
+.question-selector .form-select:disabled,
+.question-selector input:disabled {
+  color: #aaa !important;
+  background: #f5f5f5 !important;
 }
 
 /* --- PreviewOverlayV2 Styles --- */
@@ -1002,12 +847,10 @@ body {
 }
 
 .classroom-chalkboard {
-  position: static;
-  top: unset;
-  left: unset;
-  width: 100%;
-  max-width: 900px;
-  margin: 0 auto 48px auto;
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  width: 540px;
   min-height: 120px;
   background: #185c37 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border: 6px solid #fff;
@@ -1018,19 +861,47 @@ body {
   justify-content: flex-start;
   padding: 28px 44px 28px 44px;
   z-index: 3050;
-  margin-top: 36px;
 }
 
-.classroom-chalkboard-sponge { display: none !important; }
+.classroom-chalkboard-content {
+  flex: 1;
+}
+
+.classroom-chalkboard-grade {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.2rem;
+  color: #ffe066;
+  margin-bottom: 6px;
+}
+
+.classroom-chalkboard-question {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.7rem;
+  color: #fff;
+  text-shadow: 1px 1px 0 #0002;
+  white-space: pre-line;
+}
+
+.classroom-chalkboard-sponge {
+  width: 54px;
+  height: 32px;
+  background: #ffe066;
+  border-radius: 16px 12px 18px 14px;
+  box-shadow: 2px 2px 8px #0002, 0 0 0 2px #ffd166 inset;
+  position: absolute;
+  bottom: 18px;
+  left: 18px;
+  transform: rotate(-8deg);
+}
 
 .classroom-whiteboard-grid {
   width: 100vw;
-  max-width: 1400px;
+  max-width: 100vw;
   margin: 0 auto;
-  margin-top: 0;
+  margin-top: 180px;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 48px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 36px;
   justify-items: center;
   z-index: 1;
 }
@@ -1040,9 +911,9 @@ body {
   border: 7px solid #1976d2;
   border-radius: 22px;
   box-shadow: 0 4px 16px #0002, 0 2px 8px #0001;
-  min-width: 340px;
-  max-width: 420px;
-  min-height: 260px;
+  min-width: 300px;
+  max-width: 400px;
+  min-height: 220px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -1052,27 +923,24 @@ body {
   margin-bottom: 32px;
 }
 
+.classroom-whiteboard-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  min-height: 120px;
+}
+
 .classroom-whiteboard-svg {
   width: 100%;
-  min-height: 120px;
-  max-height: 180px;
+  min-height: 90px;
+  max-height: 120px;
   margin-bottom: 8px;
   background: #f5f5f5;
   border-radius: 8px;
   box-shadow: 0 1px 4px #0001;
   overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.classroom-whiteboard-svg svg {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  object-fit: contain;
-  display: block;
 }
 
 .classroom-whiteboard-answer {
@@ -1095,17 +963,11 @@ body {
   background: #d4edda;
   color: #388e3c;
   border: 2px solid #388e3c;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.08em;
-  margin-top: 8px;
 }
 .classroom-whiteboard-badge.incorrect {
   background: #f8d7da;
   color: #d32f2f;
   border: 2px solid #d32f2f;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.08em;
-  margin-top: 8px;
 }
 
 .classroom-whiteboard-label {
@@ -1169,46 +1031,11 @@ body {
   .classroom-whiteboard-grid {
     max-width: 100vw;
     gap: 18px;
-    margin-top: 24px;
+    margin-top: 120px;
   }
   .classroom-whiteboard-card {
     min-width: 160px;
     max-width: 98vw;
     padding: 10px 4px 28px 4px;
   }
-}
-
-/* Notepad answer effect for PreviewOverlayV2 */
-.notepad-answer {
-  background: #fffde4 url('https://www.transparenttextures.com/patterns/notebook.png');
-  border: 2px solid #ffd166;
-  border-radius: 10px;
-  box-shadow: 0 2px 8px #ffe06644, 0 1px 2px #0001;
-  padding: 10px 18px;
-  margin: 8px 0 8px 0;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.15rem;
-  position: relative;
-  min-width: 120px;
-  display: inline-block;
-}
-.notepad-label {
-  color: #388e3c;
-  font-weight: bold;
-  font-size: 1.08em;
-  letter-spacing: 1px;
-  margin-right: 6px;
-}
-.notepad-text {
-  color: #2d4739;
-  font-size: 1.08em;
-}
-
-.classroom-whiteboard-card .btn-success,
-.classroom-whiteboard-card .btn-danger {
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1em;
-  border-radius: 8px;
-  padding: 4px 16px;
-  margin: 0 2px;
 } 

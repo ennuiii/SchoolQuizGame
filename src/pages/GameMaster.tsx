@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
-import PreviewOverlay from '../components/shared/PreviewOverlay';
 import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
 import QuestionSelector from '../components/game-master/QuestionSelector';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
@@ -500,35 +499,12 @@ const GameMaster: React.FC = () => {
         </div>
 
         {previewMode.isActive && (
-          <>
-            <div style={{ position: 'fixed', top: 24, left: 24, zIndex: 3000 }}>
-              <button
-                className={`btn btn-sm ${previewOverlayVersion === 'v1' ? 'btn-primary' : 'btn-outline-primary'} me-2`}
-                onClick={() => setPreviewOverlayVersion('v1')}
-              >
-                Classic Preview
-              </button>
-              <button
-                className={`btn btn-sm ${previewOverlayVersion === 'v2' ? 'btn-primary' : 'btn-outline-primary'}`}
-                onClick={() => setPreviewOverlayVersion('v2')}
-              >
-                Classroom Preview
-              </button>
-            </div>
-            {previewOverlayVersion === 'v1' ? (
-              <PreviewOverlay
-                onFocus={handleFocusSubmissionInternal}
-                onClose={handleStopPreview}
-                isGameMaster={true}
-              />
-            ) : (
-              <PreviewOverlayV2
-                onFocus={handleFocusSubmissionInternal}
-                onClose={handleStopPreview}
-                isGameMaster={true}
-              />
-            )}
-          </>
+          <PreviewOverlayV2
+            onFocus={handleFocusSubmissionInternal}
+            onClose={handleStopPreview}
+            isGameMaster={true}
+            onEvaluate={handleEvaluateAnswer}
+          />
         )}
 
         {gameRecapData && roomCode && (

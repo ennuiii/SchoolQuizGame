@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
-import PreviewOverlay from '../components/shared/PreviewOverlay';
 import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
@@ -165,9 +164,7 @@ const Spectator: React.FC = () => {
               </div>
             )}
             {previewMode.isActive && (
-              previewOverlayVersion === 'v2'
-                ? <PreviewOverlayV2 onClose={() => {}} onFocus={() => {}} isGameMaster={false} />
-                : <PreviewOverlay onClose={() => {}} onFocus={() => {}} isGameMaster={false} />
+              <PreviewOverlayV2 onClose={() => {}} onFocus={() => {}} isGameMaster={false} />
             )}
           </div>
         </div>
