@@ -748,14 +748,21 @@ io.on('connection', (socket) => {
 
       // Check for game over
       const activePlayers = room.players.filter(p => p.isActive);
-      if (activePlayers.length === 1) {
-        const winner = activePlayers[0];
+      if (activePlayers.length <= 1) {
         const gameRecap = generateGameRecap(roomCode);
         io.to(roomCode).emit('game_recap', gameRecap);
-        io.to(roomCode).emit('game_winner', {
-          playerId: winner.id,
-          playerName: winner.name
-        });
+
+        if (activePlayers.length === 1) {
+          const winner = activePlayers[0];
+          io.to(roomCode).emit('game_winner', {
+            playerId: winner.id,
+            playerName: winner.name
+          });
+        } else {
+          // Optional: Emit an event indicating no winner or all players lost
+          io.to(roomCode).emit('all_players_eliminated');
+          console.log(`[Server Eval] All players eliminated in room ${roomCode}. Game recap generated.`);
+        }
       }
 
       // Broadcast updated game state
@@ -830,11 +837,51 @@ io.on('connection', (socket) => {
       return;
     }
 
+    const room = gameRooms[roomCode];
+    if (!room) {
+        console.error(`[EndRoundEarly] Room ${roomCode} not found internally.`);
+        socket.emit('error', 'Internal server error: Room not found');
+        return;
+    }
+
     // Clear the timer for this room
     clearRoomTimer(roomCode);
 
+    // Auto-submit answers for players who haven't submitted yet
+    if (room.players && room.currentQuestionIndex !== undefined) {
+      room.players.forEach(playerInRoom => {
+        if (playerInRoom.isActive &&
+            !playerInRoom.isSpectator &&
+            (!playerInRoom.answers || !playerInRoom.answers[room.currentQuestionIndex])
+        ) {
+          console.log(`[EndRoundEarly] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
+          if (!playerInRoom.answers) {
+            playerInRoom.answers = [];
+          }
+          const autoAnswer = {
+            answer: '',
+            hasDrawing: false,
+            drawingData: null,
+            timestamp: Date.now(),
+            isCorrect: null
+          };
+          playerInRoom.answers[room.currentQuestionIndex] = autoAnswer;
+          
+          // Ensure roundAnswers is updated for consistency
+          if (room.roundAnswers) {
+            room.roundAnswers[playerInRoom.id] = autoAnswer;
+          }
+        }
+      });
+    }
+
     // Notify all players in the room that the round has ended early by triggering time_up
     io.to(roomCode).emit('time_up');
+
+    // Broadcast the updated game state so clients see the auto-submitted answers
+    broadcastGameState(roomCode);
+    console.log(`[EndRoundEarly] Round ended early for room ${roomCode}. Auto-submissions processed and game state broadcasted.`);
+
   });
 
   // Preview Mode handlers

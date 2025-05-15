@@ -323,12 +323,14 @@ const Player: React.FC = () => {
           ) : (
             <>
               <div className="d-flex justify-content-between align-items-center mb-3">
-                <QuestionCard
-                  question={currentQuestion}
-                  timeRemaining={timeRemaining}
-                  onSubmit={handleAnswerSubmit}
-                  submitted={submittedAnswerLocal}
-                />
+                <div style={{ flexGrow: 1, marginRight: '1rem' }}>
+                  <QuestionCard
+                    question={currentQuestion}
+                    timeRemaining={timeRemaining}
+                    onSubmit={handleAnswerSubmit}
+                    submitted={submittedAnswerLocal}
+                  />
+                </div>
                 {timeLimit !== null && timeLimit < 99999 && (
                   <Timer isActive={isTimerRunning} showSeconds={true} />
                 )}
