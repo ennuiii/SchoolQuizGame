@@ -65,11 +65,16 @@ const GameMaster: React.FC = () => {
     recapSelectedTabKey,
     gmNavigateRecapRound,
     gmNavigateRecapTab,
-    hideRecap
+    hideRecap,
+    allAnswersThisRound,
+    evaluatedAnswers
   } = useGame();
 
   const {
   } = useAudio();
+
+  const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
+                              Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));
 
   useEffect(() => {
     if (!socketService.getConnectionState()) {
@@ -374,7 +379,8 @@ const GameMaster: React.FC = () => {
                 <button 
                   className="btn btn-primary" 
                   onClick={handleNextQuestion}
-                  disabled={!currentQuestion || isRestarting || isGameConcluded}
+                  disabled={!currentQuestion || isRestarting || isGameConcluded || (Object.keys(allAnswersThisRound).length > 0 && !allAnswersEvaluated)}
+                  title={Object.keys(allAnswersThisRound).length > 0 && !allAnswersEvaluated ? "All answers must be evaluated before proceeding" : ""}
                 >
                   Next Question
                 </button>

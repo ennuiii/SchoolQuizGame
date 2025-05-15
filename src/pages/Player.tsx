@@ -15,6 +15,7 @@ import RecapModal from '../components/shared/RecapModal';
 import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
+import ReviewNotification from '../components/player/ReviewNotification';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -342,10 +343,14 @@ const Player: React.FC = () => {
                 </button>
               </div>
               
-              {submittedAnswerLocal && (
-                <div className="alert alert-info">
-                  Your answer has been submitted. Wait for the Game Master to evaluate it.
+              {submittedAnswerLocal && !currentQuestion?.answer && (
+                <div className="alert alert-info mt-3">
+                  Your answer has been submitted. Waiting for the Game Master to evaluate it.
                 </div>
+              )}
+              
+              {submittedAnswerLocal && socketService.getSocketId() && (
+                <ReviewNotification playerId={socketService.getSocketId()!} />
               )}
             </>
           )}
