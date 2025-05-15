@@ -152,6 +152,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoadingRandom, setIsLoadingRandom] = useState<boolean>(false);
   const [socketConnectionStatus, setSocketConnectionStatus] = useState<SocketConnectionState>(socketService.getConnectionState() as SocketConnectionState);
 
+  const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
+    console.log('[GameContext] board_update received', updatedBoard);
+    setPlayerBoards(prevBoards => {
+      const index = prevBoards.findIndex(b => b.playerId === updatedBoard.playerId);
+      if (index !== -1) {
+        // Update existing board
+        const newBoards = [...prevBoards];
+        newBoards[index] = updatedBoard;
+        return newBoards;
+      } else {
+        // Add new board
+        return [...prevBoards, updatedBoard];
+      }
+    });
+  }, []);
+
   // Effect to subscribe to socket connection state changes
   useEffect(() => {
     const handleConnectionChange = (state: string) => {
@@ -418,21 +434,6 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     const stopPreviewModeHandler = () => { console.log('[GameContext] Stopping preview mode'); setPreviewMode({ isActive: false, focusedPlayerId: null }); };
     const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
-    const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
-      console.log('[GameContext] board_update received', updatedBoard);
-      setPlayerBoards(prevBoards => {
-        const index = prevBoards.findIndex(b => b.playerId === updatedBoard.playerId);
-        if (index !== -1) {
-          // Update existing board
-          const newBoards = [...prevBoards];
-          newBoards[index] = updatedBoard;
-          return newBoards;
-        } else {
-          // Add new board
-          return [...prevBoards, updatedBoard];
-        }
-      });
-    }, []);
     const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
     const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 
 
@@ -472,8 +473,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('board_update');
       socketService.off('answer_evaluated');
       socketService.off('round_over');
+      socketService.off('room_created');
+      // socketService.off('answer_submitted');
+      // socketService.off('answer_evaluation');
     };
-  }, [gameStarted, currentQuestion, timeLimit, players, socketConnectionStatus]); // socketConnectionStatus is crucial here
+  }, [gameStarted, currentQuestion, timeLimit, players, socketConnectionStatus, boardUpdateHandler]); // Added boardUpdateHandler to dependencies
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
