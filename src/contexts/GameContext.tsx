@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import socketService from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
+import type { GameRecapData } from '../types/recap'; // Import GameRecapData
 
 export interface Question {
   id: string;
@@ -52,6 +53,10 @@ interface GameContextType {
   isTimerRunning: boolean;
   submittedAnswer: boolean;
   isGameConcluded: boolean;
+  
+  // Recap State
+  gameRecapData: GameRecapData | null;
+  recapSelectedRoundIndex: number;
   
   // Players and Boards
   players: Player[];
@@ -105,6 +110,8 @@ interface GameContextType {
   addCustomQuestion: () => void;
   gmShowRecapToAll: (roomCode: string) => void;
   gmEndGameRequest: (roomCode: string) => void;
+  gmNavigateRecapRound: (roomCode: string, roundIndex: number) => void; // Add recap navigation
+  hideRecap: () => void; // Add hide recap function
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -123,6 +130,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
   const [submittedAnswer, setSubmittedAnswer] = useState<boolean>(false);
   const [isGameConcluded, setIsGameConcluded] = useState<boolean>(false);
+  
+  // Recap State
+  const [gameRecapData, setGameRecapData] = useState<GameRecapData | null>(null);
+  const [recapSelectedRoundIndex, setRecapSelectedRoundIndex] = useState<number>(0);
   
   // Players and Boards
   const [players, setPlayers] = useState<Player[]>([]);
@@ -245,6 +256,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const gmEndGameRequest = useCallback((roomCode: string) => {
     socketService.emit('gm_end_game_request', { roomCode });
+  }, []);
+
+  const gmNavigateRecapRound = useCallback((roomCode: string, roundIndex: number) => {
+    socketService.emit('gm_navigate_recap_round', { roomCode, selectedRoundIndex: roundIndex });
+  }, []);
+
+  const hideRecap = useCallback(() => {
+    setGameRecapData(null);
+    // Potentially reset other recap-related states if necessary
   }, []);
 
   const toggleBoardVisibility = useCallback((playerIdOrSet: string | Set<string>) => {
@@ -475,10 +495,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    const gameRecapHandler = (recapData: any) => {
-        console.log('[GameContext] game_recap received (triggered by GM):', recapData);
+    const gameRecapHandler = (recapDataWithInitialRound: GameRecapData & { initialSelectedRoundIndex?: number }) => {
+        console.log('[GameContext] game_recap received:', recapDataWithInitialRound);
         setIsGameConcluded(true); 
-        setGameOver(true);
+        setGameOver(true); // Assuming recap means game is fully over
+        setGameRecapData(recapDataWithInitialRound);
+        setRecapSelectedRoundIndex(recapDataWithInitialRound.initialSelectedRoundIndex ?? 0);
+    };
+
+    const recapRoundChangedHandler = (data: { selectedRoundIndex: number }) => {
+      console.log('[GameContext] recap_round_changed received:', data);
+      setRecapSelectedRoundIndex(data.selectedRoundIndex);
     };
 
     // Attach listeners
@@ -498,6 +525,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('round_over', roundOverHandler);
     socketService.on('game_over_pending_recap', gameOverPendingRecapHandler);
     socketService.on('game_recap', gameRecapHandler);
+    socketService.on('recap_round_changed', recapRoundChangedHandler); // Add new listener
 
     // Cleanup
     return () => {
@@ -518,6 +546,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('answer_evaluated');
       socketService.off('round_over');
       socketService.off('room_created');
+      socketService.off('game_over_pending_recap');
+      socketService.off('game_recap');
+      socketService.off('recap_round_changed'); // Remove new listener
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
@@ -641,6 +672,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     questionErrorMsg,
     randomCount,
     isLoadingRandom,
+    gameRecapData,
+    recapSelectedRoundIndex,
+    gmNavigateRecapRound,
+    hideRecap,
     setQuestions,
     setSelectedSubject,
     setSelectedGrade,
