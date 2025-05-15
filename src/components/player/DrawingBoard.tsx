@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useCanvas } from '../../contexts/CanvasContext';
 
 interface BoardData {
@@ -15,14 +15,28 @@ interface DrawingBoardProps {
 const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, controls }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [key, setKey] = useState(0);
+  const [brushColor, setBrushColor] = useState('#FFFFFF');
+  const [brushSize, setBrushSize] = useState(4);
 
   const {
     initializeCanvas,
     disposeCanvas,
     clearCanvas,
     setDrawingEnabled,
-    updateBoard
+    updateBoard,
+    fabricCanvas
   } = useCanvas();
+
+  const updateBrush = useCallback(() => {
+    if (fabricCanvas && fabricCanvas.freeDrawingBrush) {
+      fabricCanvas.freeDrawingBrush.color = brushColor;
+      fabricCanvas.freeDrawingBrush.width = brushSize;
+    }
+  }, [brushColor, brushSize, fabricCanvas]);
+
+  useEffect(() => {
+    updateBrush();
+  }, [updateBrush]);
 
   // Initialize canvas when component mounts
   useEffect(() => {
@@ -67,6 +81,20 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
   return (
     <div className="drawing-board mb-4" key={key}>
       <div className="drawing-board-controls mb-2 d-flex justify-content-end align-items-center" style={{ minHeight: 40 }}>
+        <input
+          type="color"
+          value={brushColor}
+          onChange={(e) => setBrushColor(e.target.value)}
+          className="me-2"
+        />
+        <input
+          type="range"
+          min="1"
+          max="20"
+          value={brushSize}
+          onChange={(e) => setBrushSize(parseInt(e.target.value))}
+          className="me-2"
+        />
         {controls ? controls : (
           <button
             className="btn btn-outline-light me-2"
