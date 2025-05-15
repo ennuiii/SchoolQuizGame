@@ -66,7 +66,7 @@ const Player: React.FC = () => {
   const {
     roomCode,
     playerName,
-    isSpectator,
+    isSpectator: amISpectator,
     isLoading,
     errorMsg,
     setErrorMsg,
@@ -156,6 +156,7 @@ const Player: React.FC = () => {
 
   // Handle visibility change
   const handleVisibilityChange = useCallback(() => {
+    if (amISpectator) return; // Do nothing if spectator
     if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
       if (timeRemaining <= 0 && !submittedAnswerLocal && currentQuestion) {
         const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
@@ -165,7 +166,7 @@ const Player: React.FC = () => {
         }
       }
     }
-  }, [timeRemaining, timeLimit, currentQuestion, submittedAnswerLocal, answer, handleAnswerSubmit]);
+  }, [amISpectator, timeRemaining, timeLimit, currentQuestion, submittedAnswerLocal, answer, handleAnswerSubmit]);
 
   // Handle volume change
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
@@ -204,11 +205,11 @@ const Player: React.FC = () => {
 
   // Handle spectator mode
   useEffect(() => {
-    if (isSpectator) {
+    if (amISpectator) {
       // Show all boards by default
       toggleBoardVisibility(new Set(playerBoards.map((board: { playerId: string }) => board.playerId)));
     }
-  }, [isSpectator, playerBoards, toggleBoardVisibility]);
+  }, [amISpectator, playerBoards, toggleBoardVisibility]);
 
   useEffect(() => {
     // Listen for game recap
@@ -228,6 +229,13 @@ const Player: React.FC = () => {
   const handleHideAllBoards = () => {
     toggleBoardVisibility(new Set());
   };
+
+  useEffect(() => {
+    if (amISpectator) {
+      toast.info("You are a spectator. Redirecting to spectator view.");
+      navigate('/spectator');
+    }
+  }, [amISpectator, navigate]);
 
   if (gameOver && !isWinner) {
     return (
@@ -263,82 +271,6 @@ const Player: React.FC = () => {
     );
   }
 
-  if (isSpectator) {
-    return (
-      <div className="container-fluid px-2 px-md-4">
-        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-          <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-            <span className="bi bi-eye section-icon" aria-label="Spectator"></span>
-            Spectator View
-          </div>
-        </div>
-        <div className="row g-3">
-          <div className="col-12 col-md-8">
-            {currentQuestion && (
-              <div className="card mb-4">
-                <div className="card-body">
-                  <h3>Current Question:</h3>
-                  <p className="lead">{currentQuestion.text}</p>
-                </div>
-              </div>
-            )}
-            <div className="card mb-4">
-              <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                <h5 className="mb-0">Player Boards</h5>
-                <div className="d-flex gap-2">
-                  <button className="btn btn-sm btn-outline-primary" onClick={handleShowAllBoards}>Show All</button>
-                  <button className="btn btn-sm btn-outline-secondary" onClick={handleHideAllBoards}>Hide All</button>
-                </div>
-              </div>
-              <div className="card-body">
-                <div
-                  className="board-row"
-                  style={{
-                    display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                    gap: '20px',
-                    width: '100%',
-                    overflowX: 'auto',
-                    alignItems: 'stretch',
-                  }}
-                >
-                  {playerBoards.map((board: PlayerBoard) => (
-                    <PlayerBoardDisplay
-                      key={board.playerId}
-                      board={board}
-                      isVisible={visibleBoards.has(board.playerId)}
-                      onToggleVisibility={id => toggleBoardVisibility(id)}
-                      transform={{ scale: 1, x: 0, y: 0 }}
-                      onScale={(playerId, scale) => {}}
-                      onPan={(playerId, dx, dy) => {}}
-                      onReset={(playerId) => {}}
-                    />
-                  ))}
-                </div>
-              </div>
-            </div>
-            <PreviewOverlay
-              onFocus={() => {}}
-              onClose={() => {}}
-              isGameMaster={false}
-            />
-          </div>
-          <div className="col-12 col-md-4">
-            <PlayerList title="Players" />
-            <div className="d-grid gap-2 mt-3">
-              <button
-                className="btn btn-outline-secondary"
-                onClick={() => navigate('/')}
-              >
-                Leave Game
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -347,7 +279,16 @@ const Player: React.FC = () => {
 
   if (isLoading) return <LoadingOverlay isVisible={true} />;
   if (errorMsg) return <div className="alert alert-danger">{errorMsg}</div>;
-  if (!roomCode || !playerName) return <div className="alert alert-warning">Joining room... If this persists, please go back and try again.</div>;
+  if (!roomCode || !playerName || amISpectator) {
+    return (
+      <div className="container text-center mt-5">
+        <h2>Loading Player View...</h2>
+        {amISpectator && <p>You are a spectator. You should be redirected shortly.</p>}
+        {!roomCode || !playerName && <p>Missing room or player information.</p>}
+        <button className="btn btn-primary mt-3" onClick={() => navigate('/')}>Back to Home</button>
+      </div>
+    );
+  }
 
   if (previewMode.isActive) {
     return <PreviewOverlay onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />;
@@ -387,7 +328,7 @@ const Player: React.FC = () => {
               <DrawingBoard
                 key={canvasKey}
                 onUpdate={handleBoardUpdate}
-                disabled={submittedAnswerLocal}
+                disabled={submittedAnswerLocal || amISpectator}
               />
               
               <div className="input-group mb-3">
@@ -397,13 +338,13 @@ const Player: React.FC = () => {
                   placeholder="Type your answer here..."
                   value={answer}
                   onChange={handleAnswerChange}
-                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion}
+                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
                 />
                 <button
                   className="btn btn-primary"
                   type="button"
                   onClick={() => handleAnswerSubmit(answer, false)}
-                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion}
+                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
                 >
                   Submit Answer
                 </button>

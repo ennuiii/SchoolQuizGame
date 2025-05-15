@@ -585,6 +585,12 @@ io.on('connection', (socket) => {
       room.playerBoards = {};
     }
     
+    const player = room.players.find(p => p.id === socket.id);
+    if (!player || player.isSpectator || !player.isActive) {
+      console.warn(`[Server UpdateBoard] Denied for inactive/spectator player: ${socket.id}`);
+      return;
+    }
+    
     room.playerBoards[socket.id] = {
       boardData,
       roundIndex: room.currentQuestionIndex,
@@ -592,7 +598,6 @@ io.on('connection', (socket) => {
     };
 
     // Get player name
-    const player = gameRooms[roomCode].players.find(p => p.id === socket.id);
     const playerName = player ? player.name : 'Unknown Player';
 
     console.log(`[Server] Broadcasting board update:`, {
@@ -630,12 +635,9 @@ io.on('connection', (socket) => {
     }
 
     const player = room.players.find(p => p.id === socket.id);
-    if (!player) {
-      console.error('[Server] Answer submission failed - Player not found:', {
-        roomCode,
-        playerId: socket.id
-      });
-      socket.emit('error', 'Player not found');
+    if (!player || player.isSpectator || !player.isActive) {
+      console.warn(`[Server SubmitAnswer] Denied for inactive/spectator player: ${socket.id}`);
+      socket.emit('error', 'Submission denied: you are a spectator or inactive.');
       return;
     }
 
@@ -1275,12 +1277,15 @@ function startQuestionTimer(roomCode) {
       // Auto-submit answers for players who haven't submitted yet
       const currentRoom = gameRooms[roomCode];
       if (currentRoom) {
-        currentRoom.players.forEach(player => {
-          if (player.isActive && !player.answers[currentRoom.currentQuestionIndex]) {
-            // Auto-submit empty answer
-            player.answers[currentRoom.currentQuestionIndex] = {
+        currentRoom.players.forEach(playerInRoom => {
+          if (playerInRoom.isActive && !playerInRoom.isSpectator && !playerInRoom.answers[currentRoom.currentQuestionIndex]) {
+            console.log(`[TIMER] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
+            playerInRoom.answers[currentRoom.currentQuestionIndex] = {
               answer: '',
-              timestamp: Date.now()
+              hasDrawing: false,
+              drawingData: null,
+              timestamp: Date.now(),
+              isCorrect: null
             };
           }
         });

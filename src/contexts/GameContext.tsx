@@ -426,19 +426,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const gameWinnerHandler = (data: { playerId: string }) => { setIsWinner(data.playerId === socketService.getSocketId()); setGameOver(true); setIsTimerRunning(false); };
     const timerUpdateHandler = (data: { timeRemaining: number }) => { console.log('[GameContext] Timer update:', { timeRemaining: data.timeRemaining, timestamp: new Date().toISOString() }); setTimeRemaining(data.timeRemaining); setIsTimerRunning(data.timeRemaining > 0); };
     const timeUpHandler = () => { 
-        console.log('[GameContext] Time up event received'); setTimeRemaining(0); setIsTimerRunning(false);
-        if (!submittedAnswer && currentQuestion) {
-            const roomCode = sessionStorage.getItem('roomCode');
-            if (roomCode) {
-                console.log('[GameContext] Auto-submitting answer due to time up');
-                const answerInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-                const currentAnswer = answerInput?.value?.trim() || '';
-                const canvas = document.querySelector('canvas');
-                const hasDrawing = canvas && (canvas as any)._fabricCanvas?.getObjects().length > 0;
-                socketService.submitAnswer(roomCode, currentAnswer || (hasDrawing ? 'Drawing submitted' : ''), hasDrawing || false);
-                setSubmittedAnswer(true);
-            }
-        }
+        console.log('[GameContext] Time up event received by context'); 
+        setTimeRemaining(0); 
+        setIsTimerRunning(false);
+        // Auto-submission logic has been removed from here.
+        // The server-side timer (`startQuestionTimer` in server/index.js) now handles
+        // auto-submission for active, non-spectator players who haven't submitted an answer.
+        // This simplifies client-side logic and centralizes game mechanics.
     };
     const startPreviewModeHandler = () => { 
         console.log('[GameContext] Starting preview mode'); setPreviewMode(prev => ({ ...prev, isActive: true }));
