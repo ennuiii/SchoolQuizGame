@@ -78,13 +78,23 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
     };
   }, [onUpdate, updateBoard]);
 
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBrushColor(e.target.value);
+    updateBrush();
+  };
+
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBrushSize(parseInt(e.target.value));
+    updateBrush();
+  };
+
   return (
     <div className="drawing-board mb-4" key={key}>
       <div className="drawing-board-controls mb-2 d-flex justify-content-end align-items-center" style={{ minHeight: 40 }}>
         <input
           type="color"
           value={brushColor}
-          onChange={(e) => setBrushColor(e.target.value)}
+          onChange={handleColorChange}
           className="me-2"
         />
         <input
@@ -92,7 +102,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
           min="1"
           max="20"
           value={brushSize}
-          onChange={(e) => setBrushSize(parseInt(e.target.value))}
+          onChange={handleSizeChange}
           className="me-2"
         />
         {controls ? controls : (
