@@ -180,16 +180,17 @@ const GameMaster: React.FC = () => {
     }
 
     try {
+      const effectiveTimeLimit = customTimeLimit === null || customTimeLimit === 0 ? 99999 : customTimeLimit;
       console.log('[GameMaster] Starting game:', {
         roomCode,
         questionCount: questions.length,
-        timeLimit: customTimeLimit ?? 30,
+        timeLimit: effectiveTimeLimit,
         timestamp: new Date().toISOString(),
         socketConnected: socketService.getConnectionState(),
         socketId: socketService.getSocketId()
       });
 
-      await startGame(roomCode, questions, customTimeLimit ?? 30);
+      await startGame(roomCode, questions, effectiveTimeLimit);
       console.log('[GameMaster] Game start request sent successfully');
     } catch (error) {
       console.error('[GameMaster] Failed to start game:', error);
@@ -531,7 +532,7 @@ const GameMaster: React.FC = () => {
               <div className="card mb-3">
                 <div className="card-body">
                   <QuestionDisplay question={currentQuestion} />
-                  {timeLimit !== null && timeRemaining !== null && (
+                  {timeLimit !== null && timeLimit < 99999 && (
                     <div className="mt-3">
                       <Timer
                         isActive={isTimerRunning}

@@ -782,8 +782,8 @@ io.on('connection', (socket) => {
     // Clear the timer for this room
     clearRoomTimer(roomCode);
 
-    // Notify all players in the room that the round has ended early
-    io.to(roomCode).emit('end_round_early');
+    // Notify all players in the room that the round has ended early by triggering time_up
+    io.to(roomCode).emit('time_up');
   });
 
   // Preview Mode handlers

@@ -361,9 +361,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         currentQuestionIndex, timestamp: new Date().toISOString()
       });
       try {
-        setGameStarted(true); setCurrentQuestion(data.question); setTimeLimit(data.timeLimit);
-        setCurrentQuestionIndex(0); setSubmittedAnswer(false); setAllAnswersThisRound({});
-        setEvaluatedAnswers({}); setPlayerBoards([]);
+        setGameStarted(true); 
+        setCurrentQuestion(data.question); 
+        setTimeLimit(data.timeLimit);
+        setTimeRemaining(data.timeLimit < 99999 ? data.timeLimit : null);
+        setIsTimerRunning(data.timeLimit < 99999);
+        setCurrentQuestionIndex(0); 
+        setSubmittedAnswer(false); 
+        setAllAnswersThisRound({});
+        setEvaluatedAnswers({}); 
+        setPlayerBoards([]);
         console.log('[GameContext] State updated after game_started event:', {
           newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
           newQuestionIndex: 0, timestamp: new Date().toISOString()
@@ -404,9 +411,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const newQuestionHandler = (data: { question: Question, timeLimit: number }) => { 
         console.log('[GameContext] New question:', { questionText: data.question.text, timeLimit: data.timeLimit, timestamp: new Date().toISOString() });
-        setCurrentQuestion(data.question); setTimeLimit(data.timeLimit);
+        setCurrentQuestion(data.question); 
+        setTimeLimit(data.timeLimit);
+        setTimeRemaining(data.timeLimit < 99999 ? data.timeLimit : null);
+        setIsTimerRunning(data.timeLimit < 99999);
         setCurrentQuestionIndex(prev => { const newIndex = prev + 1; console.log('[GameContext] Updated question index:', { prev, new: newIndex }); return newIndex; });
-        setSubmittedAnswer(false); setAllAnswersThisRound({}); setEvaluatedAnswers({}); setPlayerBoards([]);
+        setSubmittedAnswer(false); 
+        setAllAnswersThisRound({}); 
+        setEvaluatedAnswers({}); 
+        setPlayerBoards([]);
     };
     const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
     const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };
@@ -440,8 +453,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
-    socketService.on('question', newQuestionHandler);
-    socketService.on('next_question', newQuestionHandler);
+    socketService.on('new_question', newQuestionHandler);
     socketService.on('error', errorHandler);
     socketService.on('game_over', gameOverHandler);
     socketService.on('game_winner', gameWinnerHandler);
@@ -460,8 +472,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // According to linter, .off might only take the event name
       socketService.off('game_started');
       socketService.off('game_state_update');
-      socketService.off('question');
-      socketService.off('next_question');
+      socketService.off('new_question');
       socketService.off('error');
       socketService.off('game_over');
       socketService.off('game_winner');

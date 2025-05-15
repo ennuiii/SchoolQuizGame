@@ -40,7 +40,7 @@ const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChang
             </button>
           </div>
           <div className="form-text">
-            Set to 0 for no time limit
+            Leave empty or set to 0 for no time limit. Actual value for no limit will be 99999.
           </div>
         </div>
       </div>

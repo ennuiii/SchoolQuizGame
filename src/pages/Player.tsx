@@ -413,7 +413,7 @@ const Player: React.FC = () => {
                 submitted={submittedAnswer}
               />
               
-              {timeLimit !== null && timeRemaining !== null && (
+              {timeLimit !== null && timeLimit < 99999 && (
                 <Timer
                   isActive={isTimerRunning}
                   showSeconds={true}
