@@ -613,4 +613,9 @@ body {
 .btn-schoolquiz-default:hover {
   background: #ffd166 !important;
   transform: scale(1.05) rotate(-2deg);
+}
+
+/* Question Selector readable font color */
+.question-selector {
+  color: #2d4739;
 } 

@@ -18,7 +18,6 @@ const JoinGame: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const [isSpectator, setIsSpectator] = useState(false);
-  const [isGameMaster, setIsGameMaster] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   
@@ -31,7 +30,6 @@ const JoinGame: React.FC = () => {
     setPlayerName,
     setErrorMsg,
     joinRoom,
-    createRoom,
     players
   } = useRoom();
 
@@ -79,12 +77,8 @@ const JoinGame: React.FC = () => {
   }, [setErrorMsg]);
 
   const handleJoinGame = useCallback(async () => {
-    if (isGameMaster && !roomCode) {
-      // Generate room code for game master if not provided
-      const generatedCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-      setRoomCode(generatedCode);
-    } else if (!roomCode || (!isGameMaster && !playerName)) {
-      setErrorMsg(isGameMaster ? 'Please enter a room code!' : 'Please enter both room code and player name!');
+    if (!roomCode || !playerName) {
+      setErrorMsg('Please enter both room code and player name!');
       return;
     }
 
@@ -97,183 +91,113 @@ const JoinGame: React.FC = () => {
         return;
       }
 
-      if (isGameMaster) {
-        createRoom(roomCode);
-      } else {
-        joinRoom(roomCode, playerName, isSpectator);
-      }
-      setHasJoined(true);
+      joinRoom(roomCode, playerName, isSpectator);
     } catch (error) {
       setErrorMsg('Failed to connect to server. Please try again.');
       setIsConnecting(false);
     }
-  }, [roomCode, playerName, isGameMaster, isSpectator, createRoom, joinRoom, setErrorMsg, setRoomCode]);
+  }, [roomCode, playerName, isSpectator, joinRoom, setErrorMsg]);
 
-  // Reset hasJoined when roomCode or playerName changes
+  // Listen for room_joined and error events to set hasJoined correctly
   useEffect(() => {
-    setHasJoined(false);
-  }, [roomCode, playerName]);
+    const socketPromise = socketService.connect();
+    let socket: any = null;
+    socketPromise.then(s => {
+      socket = s;
+      if (!socket) return;
+      const handleRoomJoined = () => setHasJoined(true);
+      const handleError = () => setHasJoined(false);
+      socket.on('room_joined', handleRoomJoined);
+      socket.on('error', handleError);
+      // Cleanup
+      return () => {
+        socket.off('room_joined', handleRoomJoined);
+        socket.off('error', handleError);
+      };
+    });
+    // No cleanup needed for the promise itself
+  }, []);
 
   return (
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
         <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
           <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
-          {isGameMaster ? 'Create Game' : 'Join Game'}
+          {'Join Game'}
         </div>
       </div>
       
       {!hasJoined ? (
         <div className="row justify-content-center">
           <div className="col-12 col-md-6">
-            {isGameMaster ? (
-              // GameMaster join UI with previous design
-              <div className="card p-4 text-center">
-                <h3>Create a New Game Room</h3>
-                <p>As the Game Master, you'll manage questions and evaluate answers.</p>
-                <div className="form-group mb-3">
-                  <label htmlFor="roomCodeInput" className="form-label">Room Code (optional):</label>
-                  <input
-                    type="text"
-                    id="roomCodeInput"
-                    className="form-control"
-                    placeholder="Leave blank for random code"
-                    value={roomCode || ''}
-                    onChange={e => setRoomCode(e.target.value.toUpperCase())}
-                    maxLength={6}
-                  />
-                  <small className="text-muted">
-                    You can specify a custom room code or leave it blank for a random one.
-                  </small>
-                </div>
-                {errorMsg && (
-                  <div className="alert alert-danger" role="alert">
-                    {errorMsg}
-                    <button 
-                      type="button" 
-                      className="btn-close float-end" 
-                      onClick={() => setErrorMsg('')}
-                      aria-label="Close"
-                    ></button>
-                  </div>
-                )}
-                <button
-                  className="btn btn-primary btn-lg mt-3"
-                  onClick={handleJoinGame}
-                  disabled={isLoading || isConnecting}
-                >
-                  {isLoading ? 'Creating...' : isConnecting ? 'Connecting...' : 'Create Room'}
-                </button>
-                <button
-                  className="btn btn-outline-secondary mt-3"
-                  onClick={() => {
-                    setIsGameMaster(false);
-                    setRoomCode('');
-                  }}
-                >
-                  Back to Role Selection
-                </button>
+            <div className="card p-4 text-center">
+              <h3>Join a Game</h3>
+              <p>Enter the room code and your name to join the game.</p>
+              
+              <div className="form-check mb-3">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="spectatorCheckbox"
+                  checked={isSpectator}
+                  onChange={(e) => setIsSpectator(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="spectatorCheckbox">
+                  Join as Spectator
+                </label>
               </div>
-            ) : (
-              // Player join UI with role selection
-              <div className="card p-4 text-center">
-                <h3>Join a Game</h3>
-                <p>Enter the room code and your name to join the game.</p>
-                
-                <div className="btn-group mb-4" role="group" aria-label="Select Role">
-                  <input
-                    type="radio"
-                    className="btn-check"
-                    name="role"
-                    id="playerRole"
-                    checked={!isGameMaster}
-                    onChange={() => {
-                      setIsGameMaster(false);
-                      setIsSpectator(false);
-                    }}
-                  />
-                  <label className="btn btn-outline-primary" htmlFor="playerRole">Player</label>
 
-                  <input
-                    type="radio"
-                    className="btn-check"
-                    name="role"
-                    id="gameMasterRole"
-                    checked={isGameMaster}
-                    onChange={() => {
-                      setIsGameMaster(true);
-                      setIsSpectator(false);
-                    }}
-                  />
-                  <label className="btn btn-outline-primary" htmlFor="gameMasterRole">Game Master</label>
-                </div>
-
-                <div className="form-check mb-3">
-                  <input
-                    type="checkbox"
-                    className="form-check-input"
-                    id="spectatorCheckbox"
-                    checked={isSpectator}
-                    onChange={(e) => setIsSpectator(e.target.checked)}
-                    disabled={isGameMaster}
-                  />
-                  <label className="form-check-label" htmlFor="spectatorCheckbox">
-                    Join as Spectator
-                  </label>
-                </div>
-
-                <div className="form-group mb-3">
-                  <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
-                  <input
-                    type="text"
-                    id="roomCodeInput"
-                    className="form-control"
-                    placeholder="Enter room code"
-                    value={roomCode || ''}
-                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
-                    maxLength={6}
-                  />
-                </div>
-
-                <div className="form-group mb-3">
-                  <label htmlFor="playerNameInput" className="form-label">Your Name:</label>
-                  <input
-                    type="text"
-                    id="playerNameInput"
-                    className="form-control"
-                    placeholder="Enter your name"
-                    value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
-                  />
-                </div>
-
-                {errorMsg && (
-                  <div className="alert alert-danger" role="alert">
-                    {errorMsg}
-                    <button 
-                      type="button" 
-                      className="btn-close float-end" 
-                      onClick={() => setErrorMsg('')}
-                      aria-label="Close"
-                    ></button>
-                  </div>
-                )}
-
-                <button 
-                  className="btn btn-primary btn-lg mt-3"
-                  onClick={handleJoinGame}
-                  disabled={isLoading || isConnecting}
-                >
-                  {isLoading ? 'Processing...' : isConnecting ? 'Connecting...' : 'Join Game'}
-                </button>
-                <button 
-                  className="btn btn-outline-secondary mt-3"
-                  onClick={() => navigate('/')}
-                >
-                  Back to Home
-                </button>
+              <div className="form-group mb-3">
+                <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
+                <input
+                  type="text"
+                  id="roomCodeInput"
+                  className="form-control"
+                  placeholder="Enter room code"
+                  value={roomCode || ''}
+                  onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                  maxLength={6}
+                />
               </div>
-            )}
+
+              <div className="form-group mb-3">
+                <label htmlFor="playerNameInput" className="form-label">Your Name:</label>
+                <input
+                  type="text"
+                  id="playerNameInput"
+                  className="form-control"
+                  placeholder="Enter your name"
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                />
+              </div>
+
+              {errorMsg && (
+                <div className="alert alert-danger" role="alert">
+                  {errorMsg}
+                  <button 
+                    type="button" 
+                    className="btn-close float-end" 
+                    onClick={() => setErrorMsg('')}
+                    aria-label="Close"
+                  ></button>
+                </div>
+              )}
+
+              <button 
+                className="btn btn-primary btn-lg mt-3"
+                onClick={handleJoinGame}
+                disabled={isLoading || isConnecting}
+              >
+                {isLoading ? 'Processing...' : isConnecting ? 'Connecting...' : 'Join Game'}
+              </button>
+              <button 
+                className="btn btn-outline-secondary mt-3"
+                onClick={() => navigate('/')}
+              >
+                Back to Home
+              </button>
+            </div>
           </div>
         </div>
       ) : (
@@ -294,20 +218,11 @@ const JoinGame: React.FC = () => {
               <div className="card">
                 <div className="card-header">
                   <h3 className="mb-0">
-                    {isGameMaster ? 'Room Created Successfully!' : 'Waiting for Game Master'}
+                    {'Waiting for Game Master'}
                   </h3>
                 </div>
                 <div className="card-body">
-                  {isGameMaster ? (
-                    <>
-                      <p className="mb-4">Your game room has been created. You will be redirected to the Game Master dashboard shortly.</p>
-                      <div className="spinner-border text-primary" role="status">
-                        <span className="visually-hidden">Loading...</span>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="mb-4">You have joined the room. Please wait for the Game Master to start the game.</p>
-                  )}
+                  <p className="mb-4">You have joined the room. Please wait for the Game Master to start the game.</p>
                 </div>
               </div>
             </div>
