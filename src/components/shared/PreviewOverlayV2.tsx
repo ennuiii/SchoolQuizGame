@@ -50,6 +50,15 @@ const boardColors = [
   '#455a64', // gray
 ];
 
+const tapeColors = [
+  '#ffe066', '#ffd6e0', '#b5ead7', '#c7ceea', '#ffdac1', '#e2f0cb', '#f6dfeb', '#f7cac9', '#b5ead7', '#c9c9ff', '#f3ffe3', '#f7d6e0'
+];
+
+function getRandomTapeColor(idx: number) {
+  // Deterministic per board idx for SSR/CSR consistency
+  return tapeColors[idx % tapeColors.length];
+}
+
 const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
   onFocus,
   onClose,
@@ -109,6 +118,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           const answer = context.allAnswersThisRound[board.playerId];
           const evaluation = context.evaluatedAnswers[board.playerId];
           const borderColor = boardColors[idx % boardColors.length];
+          const tapeColor = getRandomTapeColor(idx);
           return (
             <div
               key={board.playerId}
@@ -119,7 +129,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 {/* Player lives */}
                 <div style={{ marginBottom: 6 }}>
                   {[...Array(player?.lives || 0)].map((_, i) => (
-                    <span key={i} style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 2 }}>❤</span>
+                    <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 2 }}>❤</span>
                   ))}
                 </div>
                 <div
@@ -154,8 +164,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
               </div>
               <div className="classroom-whiteboard-label">
                 <span className="classroom-whiteboard-name">{player?.name || ''}</span>
-                <span className="classroom-whiteboard-tape classroom-whiteboard-tape-left" />
-                <span className="classroom-whiteboard-tape classroom-whiteboard-tape-right" />
+                <span className="classroom-whiteboard-tape classroom-whiteboard-tape-left" style={{ background: tapeColor }} />
+                <span className="classroom-whiteboard-tape classroom-whiteboard-tape-right" style={{ background: tapeColor }} />
               </div>
             </div>
           );
