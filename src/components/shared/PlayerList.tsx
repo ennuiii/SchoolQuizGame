@@ -1,4 +1,5 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
 import { useRoom } from '../../contexts/RoomContext';
 
 interface Player {
@@ -23,7 +24,8 @@ const PlayerList: React.FC<PlayerListProps> = ({
   selectedPlayerId,
   title = "Players"
 }) => {
-  const { players, currentPlayerId: contextCurrentPlayerId } = useRoom();
+  const { players } = useGame();
+  const { currentPlayerId: contextCurrentPlayerId } = useRoom();
   const currentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
 
   return (

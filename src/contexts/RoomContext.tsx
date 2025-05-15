@@ -137,6 +137,16 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsLoading(false);
         });
 
+        socket.on('become_spectator', () => {
+          console.log('[RoomContext] Received become_spectator event');
+          setIsSpectator(true);
+          sessionStorage.setItem('isSpectator', 'true');
+          // Optional: navigate to spectator view if not already there or if current page is Player page
+          if (window.location.pathname === '/player') {
+            navigate('/spectator');
+          }
+        });
+
         // Check for existing room session
         const savedRoomCode = sessionStorage.getItem('roomCode');
         const savedPlayerName = sessionStorage.getItem('playerName');
@@ -178,6 +188,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.off('player_joined');
         socket.off('players_update');
         socket.off('error');
+        socket.off('become_spectator');
       }
     };
   }, [navigate, playerName, isSpectator]);

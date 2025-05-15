@@ -187,9 +187,9 @@ function generateGameRecap(roomCode) {
             playerId: player.id,
             playerName: player.name,
             answer: answer ? answer.answer : null,
-            drawingData: boardsForRound[player.id] || null,
-            isCorrect: answer ? answer.isCorrect : null,
-            livesAfterRound: answer ? answer.livesAfterRound : null
+            hasDrawing: answer ? answer.hasDrawing : false,
+            drawingData: answer && answer.hasDrawing ? answer.drawingData : null,
+            isCorrect: answer ? answer.isCorrect : null
           };
         })
       };
@@ -631,11 +631,23 @@ io.on('connection', (socket) => {
 
     try {
       // Store the answer
+      let drawingData = null;
+      if (hasDrawing && room.playerBoards && room.playerBoards[socket.id]) {
+        const playerBoardEntry = room.playerBoards[socket.id];
+        // Ensure the board data is for the current question
+        if (playerBoardEntry.roundIndex === room.currentQuestionIndex) {
+          drawingData = playerBoardEntry.boardData;
+        } else {
+          console.warn(`[Server SubmitAns] Mismatch in roundIndex for player board. Player: ${socket.id}, BoardRound: ${playerBoardEntry.roundIndex}, CurrentRound: ${room.currentQuestionIndex}`);
+        }
+      }
+
       const answerData = {
         playerId: socket.id,
         playerName: player.name,
         answer,
         hasDrawing,
+        drawingData,
         timestamp: Date.now(),
         isCorrect: null
       };

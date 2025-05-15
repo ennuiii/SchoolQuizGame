@@ -30,8 +30,11 @@ interface Round {
   totalAnswers: number;
   submissions: Array<{
     playerId: string;
-    answer: string;
-    isCorrect: boolean;
+    playerName: string;
+    answer: string | null;
+    hasDrawing: boolean;
+    drawingData: string | null;
+    isCorrect: boolean | null;
   }>;
 }
 
@@ -117,18 +120,25 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
                     {currentRound.submissions.map(submission => (
                       <div
                         key={submission.playerId}
-                        className={`list-group-item ${submission.isCorrect ? 'list-group-item-success' : 'list-group-item-danger'}`}
+                        className={`list-group-item ${submission.isCorrect === true ? 'list-group-item-success' : submission.isCorrect === false ? 'list-group-item-danger' : ''}`}
                       >
                         <div className="d-flex justify-content-between align-items-center">
                           <div>
                             <strong>
-                              {recap.players.find(p => p.id === submission.playerId)?.name}
+                              {submission.playerName}
                             </strong>
                             <div>{submission.answer}</div>
+                            {submission.hasDrawing && submission.drawingData && (
+                              <div className="mt-2 recap-drawing-preview" style={{ width: '200px', height: '150px', border: '1px solid #ccc', overflow: 'hidden' }}>
+                                <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+                              </div>
+                            )}
                           </div>
-                          <span className={`badge ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
-                            {submission.isCorrect ? 'Correct' : 'Incorrect'}
-                          </span>
+                          {submission.isCorrect !== null && (
+                            <span className={`badge ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
+                              {submission.isCorrect ? 'Correct' : 'Incorrect'}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
