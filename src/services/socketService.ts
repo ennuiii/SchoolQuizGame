@@ -26,6 +26,7 @@ export class SocketService {
   private eventListeners: Map<string, Set<Function>> = new Map();
   private connectionStateListeners: ((state: string) => void)[] = [];
   private url: string;
+  private reconnectListeners: ((attemptNumber: number) => void)[] = [];
 
   constructor() {
     this.url = process.env.REACT_APP_SOCKET_URL || 'https://schoolquizgame.onrender.com';
@@ -104,6 +105,15 @@ export class SocketService {
       this.updateConnectionState('connected');
       this.reconnectAttempts = 0;
       this.emit('connection_established');
+    });
+
+    this.socket.on('reconnect', (attemptNumber) => {
+      // This event is fired by socket.io-client after a successful reconnection
+      console.log(`[SocketService] Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
+      // Notify listeners (contexts) that a reconnect happened
+      if (this.reconnectListeners) {
+        this.reconnectListeners.forEach(cb => cb(attemptNumber));
+      }
     });
 
     this.socket.on('connect_error', (error) => {
@@ -337,6 +347,15 @@ export class SocketService {
 
   getSocket(): Socket | null {
     return this.socket;
+  }
+
+  // --- Reconnect event subscription for contexts ---
+  /**
+   * Subscribe to socket reconnect events. Contexts can use this to trigger rejoin logic.
+   * @param callback Called with the attempt number after a successful reconnect.
+   */
+  onReconnect(callback: (attemptNumber: number) => void) {
+    this.reconnectListeners.push(callback);
   }
 }
 

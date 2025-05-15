@@ -391,6 +391,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timestamp: new Date().toISOString()
     });
 
+    // --- Robust reconnection and state sync logic ---
+    // After a successful rejoin (room_joined or game_state), always request the latest game state
+    const socket = socketService.getSocket();
+    if (socket) {
+      socket.on('room_joined', (data: { roomCode: string }) => {
+        console.log('[GameContext] Detected room_joined after reconnect. Requesting latest game state.');
+        socket.emit('get_game_state', { roomCode: data.roomCode });
+      });
+      socket.on('game_state', (state: any) => {
+        console.log('[GameContext] Received game_state after reconnect:', state);
+        // No-op: handled by gameStateUpdateHandler, but log for clarity
+      });
+    }
+    // --- End robust reconnection and state sync logic ---
+
     // Define all handlers first (ensure these are defined before use)
     const gameStartedHandler = (data: { question: Question, timeLimit: number, players: Player[] }) => {
       console.log('[GameContext] IMMEDIATE: Game started event received');

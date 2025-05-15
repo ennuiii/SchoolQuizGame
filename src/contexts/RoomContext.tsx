@@ -97,6 +97,34 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         console.log('[RoomContext] Socket connected, registering event handlers');
         
+        // --- Robust reconnection and rejoin logic ---
+        // Listen for reconnect event from socketService
+        socketService.onReconnect(() => {
+          console.log('[RoomContext] Detected socket reconnect. Attempting to rejoin room...');
+          const savedRoomCode = sessionStorage.getItem('roomCode');
+          const savedPlayerName = sessionStorage.getItem('playerName');
+          const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
+          const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
+          if (savedRoomCode) {
+            if (isGameMaster) {
+              console.log('[RoomContext] Rejoining as gamemaster:', savedRoomCode);
+              socket.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
+            } else {
+              console.log('[RoomContext] Rejoining as player/spectator:', savedRoomCode, savedPlayerName, savedIsSpectator);
+              socket.emit('rejoin_player', {
+                roomCode: savedRoomCode,
+                playerName: savedPlayerName,
+                isSpectator: savedIsSpectator
+              });
+            }
+            // Always request latest game state after rejoin
+            socket.emit('get_game_state', { roomCode: savedRoomCode });
+          } else {
+            console.warn('[RoomContext] No saved room/session found on reconnect.');
+          }
+        });
+        // --- End robust reconnection logic ---
+
         socket.on('room_created', (data: any) => {
           console.log('[RoomContext] room_created event received:', data);
           const code = typeof data === 'string' ? data : data.roomCode;
@@ -138,6 +166,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.on('error', (error: string) => {
           setErrorMsg(error);
           setIsLoading(false);
+          // --- Handle rejoin failure: log, clear session, redirect ---
+          if (error && (error.includes('Invalid room code') || error.includes('not found'))) {
+            console.error('[RoomContext] Rejoin failed:', error);
+            sessionStorage.clear();
+            setTimeout(() => {
+              navigate('/');
+            }, 2000);
+          }
         });
 
         socket.on('become_spectator', () => {

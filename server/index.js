@@ -452,6 +452,10 @@ function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
     }
 }
 
+// --- Grace period for disconnects ---
+const disconnectTimers = {};
+const GRACE_PERIOD_MS = 30000; // 30 seconds
+
 io.on('connection', (socket) => {
   console.log(`[Server] User connected: ${socket.id}`);
 
@@ -1128,51 +1132,47 @@ io.on('connection', (socket) => {
   // Handle disconnections
   socket.on('disconnect', () => {
     console.log(`User disconnected: ${socket.id}`);
-    
-    // Save roomCode before cleanup for logging
     let wasInRoom = null;
-    
-    // Check if user was in a room
     Object.keys(gameRooms).forEach(roomCode => {
       const room = gameRooms[roomCode];
-      
-      // If gamemaster disconnects, end the game
+      // If gamemaster disconnects, start grace period before deleting room
       if (room.gamemaster === socket.id) {
         wasInRoom = roomCode;
-        clearRoomTimer(roomCode);
-        io.to(roomCode).emit('gamemaster_left');
-        delete gameRooms[roomCode];
-        console.log(`Room ${roomCode} deleted because gamemaster left`);
+        if (disconnectTimers[roomCode]) clearTimeout(disconnectTimers[roomCode]);
+        disconnectTimers[roomCode] = setTimeout(() => {
+          clearRoomTimer(roomCode);
+          io.to(roomCode).emit('gamemaster_left');
+          delete gameRooms[roomCode];
+          console.log(`[GracePeriod] Room ${roomCode} deleted after 30s grace because gamemaster did not return.`);
+          delete disconnectTimers[roomCode];
+        }, GRACE_PERIOD_MS);
+        console.log(`[GracePeriod] Gamemaster disconnect detected for room ${roomCode}. 30s grace period started.`);
         return;
       }
-      
-      // If player disconnects, remove them from the room
+      // If player disconnects, start grace period before removing
       const playerIndex = room.players.findIndex(p => p.id === socket.id);
       if (playerIndex !== -1) {
         wasInRoom = roomCode;
-        room.players.splice(playerIndex, 1);
-        delete room.playerBoards[socket.id];
-        
-        io.to(roomCode).emit('player_left', { playerId: socket.id });
-        io.to(roomCode).emit('players_update', room.players);
-        
-        // Check if only one player is left in an active game
-        if (room.started && room.players.length > 0 /* room.isConcluded check is inside helper */) {
-          const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
-          if (activePlayers.length <= 1) {
-            // room.isConcluded = true; // Handled by helper
-            // console.log(`[Server Disconnect] Game concluded in room ${roomCode} due to disconnect. Emitting game_over_pending_recap.`);
-            // io.to(roomCode).emit('game_over_pending_recap', {
-            //     roomCode,
-            //     winner: activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null
-            // });
-            const winner = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
-            concludeGameAndSendRecap(roomCode, winner);
+        if (disconnectTimers[socket.id]) clearTimeout(disconnectTimers[socket.id]);
+        disconnectTimers[socket.id] = setTimeout(() => {
+          room.players.splice(playerIndex, 1);
+          delete room.playerBoards[socket.id];
+          io.to(roomCode).emit('player_left', { playerId: socket.id });
+          io.to(roomCode).emit('players_update', room.players);
+          // Check if only one player is left in an active game
+          if (room.started && room.players.length > 0) {
+            const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
+            if (activePlayers.length <= 1) {
+              const winner = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
+              concludeGameAndSendRecap(roomCode, winner);
+            }
           }
-        }
+          console.log(`[GracePeriod] Player ${socket.id} removed from room ${roomCode} after 30s grace.`);
+          delete disconnectTimers[socket.id];
+        }, GRACE_PERIOD_MS);
+        console.log(`[GracePeriod] Player disconnect detected for ${socket.id} in room ${roomCode}. 30s grace period started.`);
       }
     });
-    
     if (wasInRoom) {
       console.log(`After disconnect, remaining rooms:`, Object.keys(gameRooms));
     }
@@ -1390,6 +1390,13 @@ io.on('connection', (socket) => {
     // Broadcast updated player list to all clients in the room
     io.to(roomCode).emit('players_update', room.players);
     console.log(`Player ${playerName} successfully rejoined room ${roomCode}`);
+
+    // --- Cancel disconnect timer if exists (grace period logic) ---
+    if (disconnectTimers[socket.id]) {
+      clearTimeout(disconnectTimers[socket.id]);
+      delete disconnectTimers[socket.id];
+      console.log(`[GracePeriod] Player ${socket.id} rejoined room ${roomCode} within grace period. Timer cancelled.`);
+    }
   });
 
   // Get current game state for a room
