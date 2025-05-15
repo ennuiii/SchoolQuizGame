@@ -9,9 +9,10 @@ interface BoardData {
 interface DrawingBoardProps {
   onUpdate: (boardData: BoardData) => Promise<void>;
   disabled: boolean;
+  controls?: React.ReactNode; // Optional custom controls
 }
 
-const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled }) => {
+const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, controls }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [key, setKey] = useState(0);
 
@@ -65,8 +66,8 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled }) => {
 
   return (
     <div className="drawing-board mb-4" key={key}>
-      <div className="drawing-board-controls mb-2 d-flex justify-content-between">
-        <div>
+      <div className="drawing-board-controls mb-2 d-flex justify-content-end align-items-center" style={{ minHeight: 40 }}>
+        {controls ? controls : (
           <button
             className="btn btn-outline-light me-2"
             onClick={clearCanvas}
@@ -79,7 +80,7 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled }) => {
           >
             Clear Canvas
           </button>
-        </div>
+        )}
       </div>
       <div
         style={{

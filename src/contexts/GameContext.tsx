@@ -211,29 +211,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [players]);
 
   // Actions
-  const handleStartGame = (roomCode: string, questions: Question[], timeLimit: number) => {
-    socketService.emit('start_game', { roomCode, questions, timeLimit });
-  };
-
-  const handleNextQuestion = (roomCode: string) => {
-    socketService.emit('next_question', { roomCode });
-  };
-
-  const handleEvaluateAnswer = (roomCode: string, playerId: string, isCorrect: boolean) => {
-    socketService.emit('evaluate_answer', { roomCode, playerId, isCorrect });
-  };
-
-  const handleRestartGame = (roomCode: string) => {
-    socketService.emit('restart_game', { roomCode });
-  };
-
   const startGame = useCallback((roomCode: string, questions: Question[], timeLimit: number) => {
     if (!questions || questions.length === 0) {
       setQuestionErrorMsg('Cannot start game: No questions selected');
       setTimeout(() => setQuestionErrorMsg(''), 3000);
       return;
     }
-
     socketService.startGame(roomCode, questions, timeLimit);
   }, []);
 
@@ -246,6 +229,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const restartGame = useCallback((roomCode: string) => {
+    // Reset recap and conclusion state on restart
+    setIsGameConcluded(false);
+    setGameRecapData(null);
+    setRecapSelectedRoundIndex(0);
+    setRecapSelectedTabKey('overallResults');
     socketService.restartGame(roomCode);
   }, []);
 
@@ -440,6 +428,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
           newQuestionIndex: 0, timestamp: new Date().toISOString()
         });
+
+        // Reset recap and conclusion state on restart
+        setIsGameConcluded(false);
+        setGameRecapData(null);
+        setRecapSelectedRoundIndex(0);
+        setRecapSelectedTabKey('overallResults');
       } catch (error: any) {
         console.error('[GameContext] Error handling game_started event:', { error: error.message, stack: error.stack, timestamp: new Date().toISOString() });
       }

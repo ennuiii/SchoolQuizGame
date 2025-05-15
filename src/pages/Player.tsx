@@ -16,6 +16,7 @@ import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import ReviewNotification from '../components/player/ReviewNotification';
+import MusicControl from '../components/shared/MusicControl';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -285,87 +286,107 @@ const Player: React.FC = () => {
     );
   }
 
-  return (
-    <div className="container py-4">
-      <LoadingOverlay isVisible={isRoomLoading} />
-      <ConnectionStatus />
-      {errorMsg && (
-        <div className="alert alert-danger">{errorMsg}</div>
-      )}
-      <div className="row g-3">
-        <div className="col-12 col-md-8">
-          {!gameStarted ? (
-            <div className="card p-4 text-center">
-              <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
-              <p>Get ready! The game will begin soon.</p>
-              <div className="spinner-border text-primary mx-auto mt-3" role="status">
-                <span className="visually-hidden">Loading...</span>
-              </div>
-            </div>
-          ) : (
-            <>
-              <div className="d-flex justify-content-between align-items-center mb-3">
-                <div style={{ flexGrow: 1, marginRight: '1rem' }}>
-                  <QuestionCard
-                    question={currentQuestion}
-                    timeRemaining={timeRemaining}
-                    onSubmit={handleAnswerSubmit}
-                    submitted={submittedAnswerLocal}
-                  />
-                </div>
-                {timeLimit !== null && timeLimit < 99999 && (
-                  <Timer isActive={isTimerRunning} showSeconds={true} />
-                )}
-              </div>
-              
-              <DrawingBoard
-                key={canvasKey}
-                onUpdate={handleBoardUpdate}
-                disabled={submittedAnswerLocal || amISpectator}
-              />
-              
-              <div className="input-group mb-3">
-                <input
-                  type="text"
-                  className="form-control form-control-lg"
-                  placeholder="Type your answer here..."
-                  value={answer}
-                  onChange={handleAnswerChange}
-                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
-                />
-                <button
-                  className="btn btn-primary"
-                  type="button"
-                  onClick={() => handleAnswerSubmit(answer)}
-                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
-                >
-                  Submit Answer
-                </button>
-              </div>
-              
-              {submittedAnswerLocal && !currentQuestion?.answer && (
-                <div className="alert alert-info mt-3">
-                  Your answer has been submitted. Waiting for the Game Master to evaluate it.
-                </div>
-              )}
-              
-              {submittedAnswerLocal && socketService.getSocketId() && (
-                <ReviewNotification playerId={socketService.getSocketId()!} />
-              )}
-            </>
-          )}
-          <PreviewOverlay
-            onFocus={() => {}}
-            onClose={() => {}}
-            isGameMaster={false}
-          />
+  // Helper: render controls for DrawingBoard
+  const renderDrawingBoardControls = () => (
+    <div className="d-flex align-items-center justify-content-end gap-3 w-100">
+      <button
+        className="btn btn-outline-light"
+        onClick={() => setCanvasKey(prev => prev + 1)}
+        disabled={submittedAnswerLocal || amISpectator}
+        style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
+      >
+        Clear Canvas
+      </button>
+      {/* Show ReviewNotification only if evaluated */}
+      {submittedAnswerLocal && socketService.getSocketId() && (
+        <div style={{ minWidth: 180 }}>
+          <ReviewNotification playerId={socketService.getSocketId()!} />
         </div>
-        <div className="col-12 col-md-4">
-          <RoomCode />
-          <PlayerList title="Other Players" />
+      )}
+    </div>
+  );
+
+  return (
+    <>
+      <MusicControl />
+      <div className="container py-4">
+        <LoadingOverlay isVisible={isRoomLoading} />
+        <ConnectionStatus />
+        {errorMsg && (
+          <div className="alert alert-danger">{errorMsg}</div>
+        )}
+        <div className="row g-3">
+          <div className="col-12 col-md-8">
+            {!gameStarted ? (
+              <div className="card p-4 text-center">
+                <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
+                <p>Get ready! The game will begin soon.</p>
+                <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                  <span className="visually-hidden">Loading...</span>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="d-flex justify-content-between align-items-center mb-3">
+                  <div style={{ flexGrow: 1, marginRight: '1rem' }}>
+                    <QuestionCard
+                      question={currentQuestion}
+                      timeRemaining={timeRemaining}
+                      onSubmit={handleAnswerSubmit}
+                      submitted={submittedAnswerLocal}
+                    />
+                  </div>
+                  {timeLimit !== null && timeLimit < 99999 && (
+                    <Timer isActive={isTimerRunning} showSeconds={true} />
+                  )}
+                </div>
+                
+                <DrawingBoard
+                  key={canvasKey}
+                  onUpdate={handleBoardUpdate}
+                  disabled={submittedAnswerLocal || amISpectator}
+                  controls={renderDrawingBoardControls()}
+                />
+                
+                <div className="input-group mb-3">
+                  <input
+                    type="text"
+                    className="form-control form-control-lg"
+                    placeholder="Type your answer here..."
+                    value={answer}
+                    onChange={handleAnswerChange}
+                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
+                  />
+                  <button
+                    className="btn btn-primary"
+                    type="button"
+                    onClick={() => handleAnswerSubmit(answer)}
+                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
+                  >
+                    Submit Answer
+                  </button>
+                </div>
+                
+                {submittedAnswerLocal && !currentQuestion?.answer && (
+                  <div className="alert alert-info mt-3">
+                    Your answer has been submitted. Waiting for the Game Master to evaluate it.
+                  </div>
+                )}
+              </>
+            )}
+            <PreviewOverlay
+              onFocus={() => {}}
+              onClose={() => {}}
+              isGameMaster={false}
+            />
+          </div>
+          <div className="col-12 col-md-4">
+            <RoomCode />
+            <PlayerList title="Other Players" />
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

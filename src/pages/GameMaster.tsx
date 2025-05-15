@@ -4,6 +4,7 @@ import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
+import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
 import QuestionSelector from '../components/game-master/QuestionSelector';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
 import GameControls from '../components/game-master/GameControls';
@@ -19,6 +20,7 @@ import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import type { Question } from '../contexts/GameContext';
+import MusicControl from '../components/shared/MusicControl';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -30,6 +32,7 @@ const GameMaster: React.FC = () => {
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [timeLimit, setTimeLimit] = useState(99999);
   const [inputRoomCode, setInputRoomCode] = useState('');
+  const [previewOverlayVersion, setPreviewOverlayVersion] = useState<'v1' | 'v2'>('v1');
   
   const {
     roomCode,
@@ -319,198 +322,223 @@ const GameMaster: React.FC = () => {
   }
 
   return (
-    <div className="container-fluid py-4">
-      <LoadingOverlay isVisible={isRoomLoading} />
-      <ConnectionStatus />
-
-      {showEndRoundConfirm && (
-        <div className="modal show d-block" tabIndex={-1}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">End Round Early?</h5>
-                <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to end this round early? All players who haven't submitted will receive no points.</p>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
-                <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
+    <>
+      <MusicControl />
+      <div className="container-fluid py-4">
+        <LoadingOverlay isVisible={isRoomLoading} />
+        <ConnectionStatus />
+        {showEndRoundConfirm && (
+          <div className="modal show d-block" tabIndex={-1}>
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">End Round Early?</h5>
+                  <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
+                </div>
+                <div className="modal-body">
+                  <p>Are you sure you want to end this round early? All players who haven't submitted will receive no points.</p>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
+                  <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      )}
-
-      <div className="row g-3">
-        <div className="col-12 col-md-4">
-          <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
-          <RoomCode />
-          {gameStarted && !previewMode.isActive && (
-            <div className="mb-3">
-              <button className="btn btn-primary w-100" onClick={handleStartPreview}>
-                Start Preview Mode
-              </button>
-            </div>
-          )}
-          <PlayerList 
-            title="Players"
-            onPlayerSelect={handlePlayerSelect}
-            selectedPlayerId={selectedPlayerId}
-          />
-          <div className="d-grid gap-2 mt-3">
-            <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
-            {!gameStarted ? (
-              <button 
-                className="btn btn-success" 
-                onClick={handleStartGame}
-                disabled={isConnecting || questions.length === 0 || players.filter(p => !p.isSpectator).length < 1}
-                title={
-                  isConnecting ? "Connecting to server..." :
-                  players.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
-                  questions.length === 0 ? "Please select questions first" : ""
-                }
-              >
-                {isConnecting ? "Connecting..." : `Start Game (${players.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
-              </button>
-            ) : (
-              <>
-                <button 
-                  className="btn btn-primary" 
-                  onClick={handleNextQuestion}
-                  disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated}
-                  title={currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? (Object.keys(allAnswersThisRound).length === 0 ? "Waiting for players to submit answers for this round." : "All submitted answers must be evaluated before proceeding.") : ""}
-                >
-                  Next Question
+        )}
+        <div className="row g-3">
+          <div className="col-12 col-md-4">
+            <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
+            <RoomCode />
+            {gameStarted && !previewMode.isActive && (
+              <div className="mb-3">
+                <button className="btn btn-primary w-100" onClick={handleStartPreview}>
+                  Start Preview Mode
                 </button>
+              </div>
+            )}
+            <PlayerList 
+              title="Players"
+              onPlayerSelect={handlePlayerSelect}
+              selectedPlayerId={selectedPlayerId}
+            />
+            <div className="d-grid gap-2 mt-3">
+              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
+              {!gameStarted ? (
                 <button 
-                  className="btn btn-warning" 
-                  onClick={handleEndRoundEarlyAction}
-                  disabled={!currentQuestion || isRestarting || isGameConcluded}
+                  className="btn btn-success" 
+                  onClick={handleStartGame}
+                  disabled={isConnecting || questions.length === 0 || players.filter(p => !p.isSpectator).length < 1}
+                  title={
+                    isConnecting ? "Connecting to server..." :
+                    players.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
+                    questions.length === 0 ? "Please select questions first" : ""
+                  }
                 >
-                  End Round Early
+                  {isConnecting ? "Connecting..." : `Start Game (${players.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
                 </button>
-                <button 
-                  className="btn btn-info"
-                  onClick={handleRestartGame}
-                  disabled={isRestarting || !gameStarted}
-                >
-                  {isRestarting ? 'Restarting...' : 'Restart Game'}
-                </button>
-                {!isGameConcluded && (
+              ) : (
+                <>
                   <button 
-                    className="btn btn-danger" 
-                    onClick={handleEndGameRequest}
+                    className="btn btn-primary" 
+                    onClick={handleNextQuestion}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated}
+                    title={currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? (Object.keys(allAnswersThisRound).length === 0 ? "Waiting for players to submit answers for this round." : "All submitted answers must be evaluated before proceeding.") : ""}
+                  >
+                    Next Question
+                  </button>
+                  <button 
+                    className="btn btn-warning" 
+                    onClick={handleEndRoundEarlyAction}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded}
+                  >
+                    End Round Early
+                  </button>
+                  <button 
+                    className="btn btn-info"
+                    onClick={handleRestartGame}
                     disabled={isRestarting || !gameStarted}
                   >
-                    End Game
+                    {isRestarting ? 'Restarting...' : 'Restart Game'}
                   </button>
-                )}
-                {isGameConcluded && (
-                  <button
-                    className="btn btn-success"
-                    onClick={handleShowRecapButtonClick}
-                    disabled={isRestarting}
-                  >
-                    Show Game Recap For All
-                  </button>
-                )}
+                  {!isGameConcluded && (
+                    <button 
+                      className="btn btn-danger" 
+                      onClick={handleEndGameRequest}
+                      disabled={isRestarting || !gameStarted}
+                    >
+                      End Game
+                    </button>
+                  )}
+                  {isGameConcluded && (
+                    <button
+                      className="btn btn-success"
+                      onClick={handleShowRecapButtonClick}
+                      disabled={isRestarting}
+                    >
+                      Show Game Recap For All
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="col-12 col-md-8">
+            {!gameStarted ? (
+              <QuestionSelector
+                onQuestionsSelected={setQuestions}
+                selectedQuestions={questions}
+                onSelectedQuestionsChange={setQuestions}
+              />
+            ) : (
+              <>
+                <div className="card mb-3">
+                  <div className="card-body">
+                    <QuestionDisplay question={currentQuestion} />
+                    {gameTimeLimit !== null && gameTimeLimit < 99999 && (
+                      <div className="mt-3">
+                        <Timer isActive={isTimerRunning} showSeconds={true} />
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <AnswerList onEvaluate={handleEvaluateAnswer} />
+                
+                <div className="card mb-3">
+                  <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0">Player Boards</h5>
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+                    </div>
+                  </div>
+                  <div className="card-body">
+                    <div
+                      className="board-row"
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                        gap: '20px',
+                        width: '100%',
+                        overflowX: 'auto',
+                        alignItems: 'stretch',
+                      }}
+                    >
+                      {players.filter(player => !player.isSpectator).map(player => {
+                        const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                        const boardForDisplay = {
+                          playerId: player.id,
+                          playerName: player.name,
+                          boardData: boardEntry ? boardEntry.boardData : ''
+                        };
+                        return (
+                          <PlayerBoardDisplay
+                            key={player.id}
+                            board={boardForDisplay}
+                            isVisible={visibleBoards.has(player.id)}
+                            onToggleVisibility={id => toggleBoardVisibility(id)}
+                            transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
+                            onScale={handleBoardScale}
+                            onPan={handleBoardPan}
+                            onReset={handleBoardReset}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
               </>
             )}
           </div>
         </div>
-        <div className="col-12 col-md-8">
-          {!gameStarted ? (
-            <QuestionSelector
-              onQuestionsSelected={setQuestions}
-              selectedQuestions={questions}
-              onSelectedQuestionsChange={setQuestions}
-            />
-          ) : (
-            <>
-              <div className="card mb-3">
-                <div className="card-body">
-                  <QuestionDisplay question={currentQuestion} />
-                  {gameTimeLimit !== null && gameTimeLimit < 99999 && (
-                    <div className="mt-3">
-                      <Timer isActive={isTimerRunning} showSeconds={true} />
-                    </div>
-                  )}
-                </div>
-              </div>
 
-              <AnswerList onEvaluate={handleEvaluateAnswer} />
-              
-              <div className="card mb-3">
-                <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">Player Boards</h5>
-                  <div className="d-flex gap-2">
-                    <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
-                    <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
-                  </div>
-                </div>
-                <div className="card-body">
-                  <div
-                    className="board-row"
-                    style={{
-                      display: 'grid',
-                      gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                      gap: '20px',
-                      width: '100%',
-                      overflowX: 'auto',
-                      alignItems: 'stretch',
-                    }}
-                  >
-                    {players.filter(player => !player.isSpectator).map(player => {
-                      const boardEntry = playerBoards.find(b => b.playerId === player.id);
-                      const boardForDisplay = {
-                        playerId: player.id,
-                        playerName: player.name,
-                        boardData: boardEntry ? boardEntry.boardData : ''
-                      };
-                      return (
-                        <PlayerBoardDisplay
-                          key={player.id}
-                          board={boardForDisplay}
-                          isVisible={visibleBoards.has(player.id)}
-                          onToggleVisibility={id => toggleBoardVisibility(id)}
-                          transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
-                          onScale={handleBoardScale}
-                          onPan={handleBoardPan}
-                          onReset={handleBoardReset}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            </>
-          )}
-        </div>
+        {previewMode.isActive && (
+          <>
+            <div style={{ position: 'fixed', top: 24, left: 24, zIndex: 3000 }}>
+              <button
+                className={`btn btn-sm ${previewOverlayVersion === 'v1' ? 'btn-primary' : 'btn-outline-primary'} me-2`}
+                onClick={() => setPreviewOverlayVersion('v1')}
+              >
+                Classic Preview
+              </button>
+              <button
+                className={`btn btn-sm ${previewOverlayVersion === 'v2' ? 'btn-primary' : 'btn-outline-primary'}`}
+                onClick={() => setPreviewOverlayVersion('v2')}
+              >
+                Classroom Preview
+              </button>
+            </div>
+            {previewOverlayVersion === 'v1' ? (
+              <PreviewOverlay
+                onFocus={handleFocusSubmissionInternal}
+                onClose={handleStopPreview}
+                isGameMaster={true}
+              />
+            ) : (
+              <PreviewOverlayV2
+                onFocus={handleFocusSubmissionInternal}
+                onClose={handleStopPreview}
+                isGameMaster={true}
+              />
+            )}
+          </>
+        )}
+
+        {gameRecapData && roomCode && (
+          <RecapModal
+            show={!!gameRecapData}
+            onHide={() => hideRecap()}
+            recap={gameRecapData}
+            selectedRoundIndex={recapSelectedRoundIndex ?? 0}
+            onRoundChange={(index) => gmNavigateRecapRound(roomCode, index)}
+            isControllable={true}
+            activeTabKey={recapSelectedTabKey}
+            onTabChange={(tabKey) => gmNavigateRecapTab(roomCode, tabKey)}
+          />
+        )}
       </div>
-
-      {previewMode.isActive && (
-        <PreviewOverlay
-          onFocus={handleFocusSubmissionInternal}
-          onClose={handleStopPreview}
-          isGameMaster={true}
-        />
-      )}
-
-      {gameRecapData && roomCode && (
-        <RecapModal
-          show={!!gameRecapData}
-          onHide={() => hideRecap()}
-          recap={gameRecapData}
-          selectedRoundIndex={recapSelectedRoundIndex ?? 0}
-          onRoundChange={(index) => gmNavigateRecapRound(roomCode, index)}
-          isControllable={true}
-          activeTabKey={recapSelectedTabKey}
-          onTabChange={(tabKey) => gmNavigateRecapTab(roomCode, tabKey)}
-        />
-      )}
-    </div>
+    </>
   );
 };
 
