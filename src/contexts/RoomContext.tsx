@@ -57,8 +57,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const joinRoom = useCallback((roomCode: string, playerName: string, isSpectator?: boolean) => {
+  const joinRoom = useCallback((roomCode: string, playerName: string, spectatorStatus?: boolean) => {
     setIsLoading(true);
+    if (spectatorStatus !== undefined) {
+      setIsSpectator(spectatorStatus);
+    }
     // Ensure socket is connected before joining room
     const socket = socketService.connect();
     if (!socket) {
@@ -66,8 +69,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
       return;
     }
-    socketService.joinRoom(roomCode, playerName, isSpectator);
-  }, []);
+    socketService.joinRoom(roomCode, playerName, spectatorStatus);
+  }, [setIsSpectator]);
 
   const leaveRoom = useCallback(() => {
     socketService.disconnect();

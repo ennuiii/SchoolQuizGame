@@ -114,19 +114,6 @@ const JoinGame: React.FC = () => {
     setHasJoined(false);
   }, [roomCode, playerName]);
 
-  // Navigate after successful join
-  useEffect(() => {
-    if (hasJoined) {
-      if (isGameMaster) {
-        navigate('/gamemaster');
-      } else if (isSpectator) {
-        navigate('/spectator');
-      } else {
-        navigate('/player');
-      }
-    }
-  }, [hasJoined, isGameMaster, isSpectator, navigate]);
-
   return (
     <div className="container-fluid px-2 px-md-4">
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
