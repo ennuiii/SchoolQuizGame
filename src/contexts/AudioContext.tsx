@@ -36,8 +36,10 @@ export const AudioProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Initialize audio state from service
   useEffect(() => {
-    setIsMuted(audioService.isMusicMuted());
-    setVolumeState(audioService.getVolume());
+    const currentMuteState = audioService.isMusicMuted();
+    const currentVolume = audioService.getVolume();
+    setIsMuted(currentMuteState);
+    setVolumeState(currentVolume);
   }, []);
 
   const value = {

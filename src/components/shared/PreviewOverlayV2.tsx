@@ -69,47 +69,36 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
     return () => setDrawingEnabled(true);
   }, [setDrawingEnabled]);
 
-  // --- Chalkboard question card ---
   const currentQuestion = context.currentQuestion;
 
-  // --- Responsive grid: always at least 3 columns ---
-  const gridTemplateColumns = `repeat(auto-fit, minmax(260px, 1fr))`;
-
-  if (activePlayerBoards.length === 0) {
-    return (
-      <div className="preview-overlay-v2">
-        <div className="preview-chalkboard-card">
-          <span className="chalkboard-title">No player boards available to display.</span>
-        </div>
-        <button className="btn btn-primary preview-close-btn" onClick={onClose}>
-          Close Preview
-        </button>
-      </div>
-    );
-  }
+  // Responsive grid: always at least 3 columns
+  const gridTemplateColumns = `repeat(auto-fit, minmax(320px, 1fr))`;
 
   return (
-    <div className="preview-overlay-v2">
-      {/* Chalkboard question card */}
-      <div className="preview-chalkboard-card">
-        <div className="chalkboard-content">
-          <div className="chalkboard-grade">{currentQuestion ? `${currentQuestion.grade}. Klasse – ${currentQuestion.subject}` : ''}</div>
-          <div className="chalkboard-question">
+    <div className="preview-overlay-v2 classroom-preview-overlay">
+      {/* Close button overlays music button */}
+      <button className="btn btn-danger classroom-preview-close-btn" onClick={onClose}>
+        ×
+      </button>
+      {/* Chalkboard question in upper left */}
+      <div className="classroom-chalkboard">
+        <div className="classroom-chalkboard-content">
+          <div className="classroom-chalkboard-grade">
+            {currentQuestion ? `${currentQuestion.grade}. Klasse – ${currentQuestion.subject}` : ''}
+          </div>
+          <div className="classroom-chalkboard-question">
             {currentQuestion ? currentQuestion.text : 'No question'}
           </div>
         </div>
-        <div className="chalkboard-sponge" />
+        <div className="classroom-chalkboard-sponge" />
       </div>
-      <button className="btn btn-primary preview-close-btn" onClick={onClose}>
-        Close Preview
-      </button>
       {/* Player boards grid */}
       <div
-        className="preview-whiteboard-grid"
+        className="classroom-whiteboard-grid"
         style={{
           display: 'grid',
           gridTemplateColumns,
-          gap: 32,
+          gap: 36,
           marginTop: 32,
           justifyItems: 'center',
         }}
@@ -122,25 +111,27 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           return (
             <div
               key={board.playerId}
-              className="preview-whiteboard-card"
+              className="classroom-whiteboard-card"
               style={{ borderColor }}
             >
-              <div className="preview-whiteboard-content">
+              <div className="classroom-whiteboard-content">
                 <div
-                  className="preview-whiteboard-svg"
+                  className="classroom-whiteboard-svg"
                   dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
                 />
                 {answer && (
-                  <div className="preview-whiteboard-answer">
+                  <div className="classroom-whiteboard-answer">
                     {answer.answer}
                   </div>
                 )}
                 {evaluation !== undefined && (
-                  <span className={`preview-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
+                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
                 )}
               </div>
-              <div className="preview-whiteboard-tape">
-                <span className="preview-whiteboard-name">{player?.name || ''}</span>
+              <div className="classroom-whiteboard-label">
+                <span className="classroom-whiteboard-name">{player?.name || ''}</span>
+                <span className="classroom-whiteboard-tape classroom-whiteboard-tape-left" />
+                <span className="classroom-whiteboard-tape classroom-whiteboard-tape-right" />
               </div>
             </div>
           );
