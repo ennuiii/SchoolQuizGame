@@ -456,10 +456,11 @@ io.on('connection', (socket) => {
       room.currentQuestion = questions[0];
       room.roundAnswers = {};
       room.evaluatedAnswers = {};
+      room.questionStartTime = Date.now();
 
       console.log('[SERVER] Game started successfully:', {
         roomCode,
-        timeLimit,
+        timeLimit: room.timeLimit,
         currentQuestion: room.currentQuestion.text,
         playerCount: Object.keys(room.players).length,
         timestamp: new Date().toISOString()
@@ -478,7 +479,8 @@ io.on('connection', (socket) => {
         timeLimit: room.timeLimit,
         players: Object.values(room.players),
         roundAnswers: room.roundAnswers,
-        evaluatedAnswers: room.evaluatedAnswers
+        evaluatedAnswers: room.evaluatedAnswers,
+        questionStartTime: room.questionStartTime
       };
 
       console.log('[SERVER] Emitting game state update:', {
@@ -486,12 +488,20 @@ io.on('connection', (socket) => {
         state: {
           started: gameState.started,
           hasQuestion: !!gameState.currentQuestion,
+          timeLimit: gameState.timeLimit,
           playerCount: gameState.players.length,
           timestamp: new Date().toISOString()
         }
       });
 
       io.to(roomCode).emit('game_state_update', gameState);
+
+      // Start timer for the first question if a specific time limit is set
+      if (room.timeLimit && room.timeLimit < 99999) {
+        console.log(`[SERVER] Starting timer for first question in room ${roomCode} with limit ${room.timeLimit}`);
+        startQuestionTimer(roomCode);
+      }
+
     } catch (error) {
       console.error('[SERVER] Error starting game:', {
         roomCode,
@@ -1234,8 +1244,8 @@ function generateRoomCode() {
 // Helper function to start question timer
 function startQuestionTimer(roomCode) {
   const room = gameRooms[roomCode];
-  if (!room || !room.timeLimit) {
-    console.log(`[TIMER] Cannot start timer for room ${roomCode}: ${!room ? 'room not found' : 'no time limit'}`);
+  if (!room || !room.timeLimit || room.timeLimit === 99999) {
+    console.log(`[TIMER] Timer not started for room ${roomCode}: ${!room ? 'room not found' : !room.timeLimit ? 'no time limit set' : 'infinite time limit (99999)'}`);
     return;
   }
 

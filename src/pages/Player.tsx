@@ -18,56 +18,20 @@ import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 
 // Import Question and PlayerBoard types from GameContext
 import type { Question, PlayerBoard } from '../contexts/GameContext';
+import type { GameRecapData } from '../types/recap';
 
+// TODO: Move BoardData to a shared types file if used elsewhere or becomes complex.
 interface BoardData {
   data: string;
   timestamp: number;
 }
 
-interface Round {
-  roundNumber: number;
-  question: {
-    text: string;
-    answer: string;
-    grade: string;
-    subject: string;
-  };
-  correctAnswers: number;
-  totalAnswers: number;
-  submissions: Array<{
-    playerId: string;
-    playerName: string;
-    answer: string | null;
-    hasDrawing: boolean;
-    drawingData: string | null;
-    isCorrect: boolean | null;
-  }>;
-}
-
-interface RecapData {
-  roomCode: string;
-  startTime: Date;
-  endTime: Date;
-  players: Array<{
-    id: string;
-    name: string;
-    score: number;
-    finalLives: number;
-    isSpectator: boolean;
-    isWinner: boolean;
-  }>;
-  rounds: Round[];
-  correctAnswers: number;
-  totalQuestions: number;
-  score: number;
-}
-
 const Player: React.FC = () => {
   const navigate = useNavigate();
-  const [submittedAnswer, setSubmittedAnswer] = useState(false);
+  const [submittedAnswerLocal, setSubmittedAnswerLocal] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
   const [showRecap, setShowRecap] = useState(false);
-  const [recapData, setRecapData] = useState<RecapData | null>(null);
+  const [recapData, setRecapData] = useState<GameRecapData | null>(null);
   const [answer, setAnswer] = useState('');
   
   // Get context values
@@ -86,10 +50,8 @@ const Player: React.FC = () => {
     evaluatedAnswers,
     previewMode,
     toggleBoardVisibility,
-    startPreviewMode,
-    stopPreviewMode,
-    focusSubmission,
-    currentQuestionIndex
+    currentQuestionIndex,
+    submittedAnswer
   } = useGame();
 
   const {
@@ -114,8 +76,9 @@ const Player: React.FC = () => {
   // Clear canvas and reset state when new question starts
   useEffect(() => {
     if (currentQuestion) {
-      setSubmittedAnswer(false);
-      setCanvasKey(prev => prev + 1); // This will trigger canvas reinitialization
+      setSubmittedAnswerLocal(false);
+      setCanvasKey(prev => prev + 1);
+      setAnswer(''); // Clear text answer field on new question
     }
   }, [currentQuestion?.id]);
 
@@ -125,45 +88,49 @@ const Player: React.FC = () => {
       started: gameStarted,
       questionIndex: currentQuestionIndex,
       timeRemaining,
-      submittedAnswer,
+      contextSubmittedAnswer: submittedAnswer,
+      localSubmissionLock: submittedAnswerLocal,
       timestamp: new Date().toISOString()
     });
-  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer]);
+  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal]);
 
   // Handle answer submission
-  const handleAnswerSubmit = async (answer: string, hasDrawing: boolean = false) => {
-    if (!roomCode || !currentQuestion || submittedAnswer) {
+  const handleAnswerSubmit = useCallback(async (textAnswer: string, hasDrawingInput?: boolean) => {
+    const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
+    const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
+    const finalHasDrawing = hasDrawingInput === undefined ? actualHasDrawing : hasDrawingInput;
+
+    if (!roomCode || !currentQuestion || submittedAnswerLocal) {
       console.error('[Player] Cannot submit answer:', {
         hasRoomCode: !!roomCode,
         hasQuestion: !!currentQuestion,
-        alreadySubmitted: submittedAnswer
+        alreadySubmitted: submittedAnswerLocal
       });
       return;
     }
 
     try {
-      const finalAnswer = answer.trim();
-      if (!finalAnswer && !hasDrawing) {
-        setErrorMsg('Please enter an answer or submit a drawing');
+      const finalAnswer = textAnswer.trim();
+      if (!finalAnswer && !finalHasDrawing) {
+        toast.error('Please enter an answer or submit a drawing');
         return;
       }
       
       console.log('[Player] Submitting answer:', {
         roomCode,
         answerLength: finalAnswer.length,
-        hasDrawing,
+        hasDrawing: finalHasDrawing,
         timestamp: new Date().toISOString()
       });
 
-      await socketService.submitAnswer(roomCode, finalAnswer, hasDrawing);
-      setSubmittedAnswer(true);
-      console.log('[Player] Answer submitted successfully');
-      setErrorMsg('');
+      await socketService.submitAnswer(roomCode, finalAnswer, finalHasDrawing);
+      setSubmittedAnswerLocal(true);
+      toast.success('Answer submitted!');
     } catch (error) {
       console.error('[Player] Failed to submit answer:', error);
       toast.error('Failed to submit answer. Please try again.');
     }
-  };
+  }, [roomCode, currentQuestion, submittedAnswerLocal, toast]);
 
   // Handle board updates
   const handleBoardUpdate = async (boardData: BoardData) => {
@@ -173,14 +140,7 @@ const Player: React.FC = () => {
     }
     
     try {
-      console.log('[Player] Updating board:', {
-        roomCode,
-        dataSize: boardData.data.length,
-        timestamp: new Date().toISOString()
-      });
-
       await socketService.updateBoard(roomCode, boardData.data);
-      console.log('[Player] Board updated successfully');
     } catch (error) {
       console.error('[Player] Failed to update board:', error);
       toast.error('Failed to update drawing. Please try again.');
@@ -188,7 +148,7 @@ const Player: React.FC = () => {
   };
 
   // Handle game recap
-  const handleGameRecap = (recap: RecapData) => {
+  const handleGameRecap = (recap: GameRecapData) => {
     console.log('[Player] Received game recap:', recap);
     setRecapData(recap);
     setShowRecap(true);
@@ -197,29 +157,24 @@ const Player: React.FC = () => {
   // Handle visibility change
   const handleVisibilityChange = useCallback(() => {
     if (document.visibilityState === 'visible' && timeLimit !== null && timeRemaining !== null) {
-      if (timeRemaining <= 0 && !submittedAnswer && currentQuestion) {
-        handleAnswerSubmit('Drawing submitted', true);
+      if (timeRemaining <= 0 && !submittedAnswerLocal && currentQuestion) {
+        const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
+        const actualHasDrawing = drawingBoardComponent && (drawingBoardComponent as any)._fabricCanvas?.getObjects().length > 0;
+        if (actualHasDrawing && answer.trim() === '') {
+             handleAnswerSubmit('Drawing submitted', true as boolean);
+        }
       }
     }
-  }, [timeRemaining, timeLimit, currentQuestion, submittedAnswer]);
+  }, [timeRemaining, timeLimit, currentQuestion, submittedAnswerLocal, answer, handleAnswerSubmit]);
 
   // Handle volume change
   const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     setVolume(parseFloat(e.target.value));
   }, [setVolume]);
 
-  // Handle preview mode
-  const handleClosePreviewMode = useCallback(() => {
-    stopPreviewMode(roomCode);
-  }, [roomCode, stopPreviewMode]);
-
-  const handleFocusSubmission = useCallback((playerId: string) => {
-    focusSubmission(roomCode, playerId);
-  }, [roomCode, focusSubmission]);
-
   // Handle answer change
   const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (submittedAnswer) return;
+    if (submittedAnswerLocal) return;
     setAnswer(e.target.value);
   };
 
@@ -260,7 +215,7 @@ const Player: React.FC = () => {
     socketService.on('game_recap', handleGameRecap);
 
     return () => {
-      socketService.off('game_recap');
+      socketService.off('game_recap', handleGameRecap);
     };
   }, []);
 
@@ -390,6 +345,14 @@ const Player: React.FC = () => {
     return null;
   }
 
+  if (isLoading) return <LoadingOverlay isVisible={true} />;
+  if (errorMsg) return <div className="alert alert-danger">{errorMsg}</div>;
+  if (!roomCode || !playerName) return <div className="alert alert-warning">Joining room... If this persists, please go back and try again.</div>;
+
+  if (previewMode.isActive) {
+    return <PreviewOverlay onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />;
+  }
+
   return (
     <div className="container py-4">
       <LoadingOverlay isVisible={isLoading} />
@@ -409,23 +372,22 @@ const Player: React.FC = () => {
             </div>
           ) : (
             <>
-              <QuestionCard
-                question={currentQuestion}
-                timeRemaining={timeRemaining}
-                onSubmit={handleAnswerSubmit}
-                submitted={submittedAnswer}
-              />
-              
-              {timeLimit !== null && timeLimit < 99999 && (
-                <Timer
-                  isActive={isTimerRunning}
-                  showSeconds={true}
+              <div className="d-flex justify-content-between align-items-center mb-3">
+                <QuestionCard
+                  question={currentQuestion}
+                  timeRemaining={timeRemaining}
+                  onSubmit={handleAnswerSubmit}
+                  submitted={submittedAnswerLocal}
                 />
-              )}
+                {timeLimit !== null && timeLimit < 99999 && (
+                  <Timer isActive={isTimerRunning} showSeconds={true} />
+                )}
+              </div>
               
               <DrawingBoard
+                key={canvasKey}
                 onUpdate={handleBoardUpdate}
-                disabled={submittedAnswer}
+                disabled={submittedAnswerLocal}
               />
               
               <div className="input-group mb-3">
@@ -435,19 +397,19 @@ const Player: React.FC = () => {
                   placeholder="Type your answer here..."
                   value={answer}
                   onChange={handleAnswerChange}
-                  disabled={submittedAnswer || !gameStarted || !currentQuestion}
+                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion}
                 />
                 <button
                   className="btn btn-primary"
                   type="button"
                   onClick={() => handleAnswerSubmit(answer, false)}
-                  disabled={submittedAnswer || !gameStarted || !currentQuestion}
+                  disabled={submittedAnswerLocal || !gameStarted || !currentQuestion}
                 >
                   Submit Answer
                 </button>
               </div>
               
-              {submittedAnswer && (
+              {submittedAnswerLocal && (
                 <div className="alert alert-info">
                   Your answer has been submitted. Wait for the Game Master to evaluate it.
                 </div>
@@ -455,8 +417,8 @@ const Player: React.FC = () => {
             </>
           )}
           <PreviewOverlay
-            onFocus={handleFocusSubmission}
-            onClose={handleClosePreviewMode}
+            onFocus={() => {}}
+            onClose={() => {}}
             isGameMaster={false}
           />
         </div>

@@ -19,45 +19,7 @@ import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import type { Question } from '../contexts/GameContext';
-
-interface Round {
-  roundNumber: number;
-  question: {
-    text: string;
-    answer: string;
-    grade: string;
-    subject: string;
-    type: 'text' | 'drawing';
-  };
-  correctAnswers: number;
-  totalAnswers: number;
-  submissions: Array<{
-    playerId: string;
-    playerName: string;
-    answer: string | null;
-    hasDrawing: boolean;
-    drawingData: string | null;
-    isCorrect: boolean | null;
-  }>;
-}
-
-interface GameRecap {
-  roomCode: string;
-  startTime: Date;
-  endTime: Date;
-  players: Array<{
-    id: string;
-    name: string;
-    score: number;
-    finalLives: number;
-    isSpectator: boolean;
-    isWinner: boolean;
-  }>;
-  rounds: Round[];
-  correctAnswers: number;
-  totalQuestions: number;
-  score: number;
-}
+import type { GameRecapData } from '../types/recap';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -67,7 +29,7 @@ const GameMaster: React.FC = () => {
   const [isConnecting, setIsConnecting] = useState(false);
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [showRecap, setShowRecap] = useState(false);
-  const [recapData, setRecapData] = useState<GameRecap | null>(null);
+  const [recapData, setRecapData] = useState<GameRecapData | null>(null);
   const [timeLimit, setTimeLimit] = useState(99999);
   const [inputRoomCode, setInputRoomCode] = useState('');
   
@@ -147,7 +109,7 @@ const GameMaster: React.FC = () => {
   }, [createRoom, roomCode]);
 
   useEffect(() => {
-    socketService.on('game_recap', (recap: GameRecap) => {
+    socketService.on('game_recap', (recap: GameRecapData) => {
       setRecapData(recap);
       setShowRecap(true);
     });
@@ -364,7 +326,7 @@ const GameMaster: React.FC = () => {
   }, [players]);
 
   // Handle game recap
-  const handleGameRecap = (recap: GameRecap) => {
+  const handleGameRecap = (recap: GameRecapData) => {
     console.log('[GameMaster] Received game recap:', recap);
     setRecapData(recap);
     setShowRecap(true);
@@ -535,7 +497,7 @@ const GameMaster: React.FC = () => {
               <div className="card mb-3">
                 <div className="card-body">
                   <QuestionDisplay question={currentQuestion} />
-                  {timeLimit !== null && timeLimit < 99999 && (
+                  {gameTimeLimit !== null && gameTimeLimit < 99999 && (
                     <div className="mt-3">
                       <Timer
                         isActive={isTimerRunning}

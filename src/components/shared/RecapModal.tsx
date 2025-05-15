@@ -1,65 +1,13 @@
 import React, { useState } from 'react';
 import { Modal, Button, Nav } from 'react-bootstrap';
+import type { GameRecapData, RoundInRecap, PlayerInRecap, SubmissionInRecap, QuestionInRecap } from '../../types/recap'; // Adjusted import path
 
-interface Player {
-  id: string;
-  name: string;
-  finalLives: number;
-  isSpectator: boolean;
-  isWinner: boolean;
-}
-
-interface Submission {
-  playerId: string;
-  playerName: string;
-  answer: string | null;
-  drawingData: string | null;
-  isCorrect: boolean | null;
-  livesAfterRound: number | null;
-}
-
-interface Round {
-  roundNumber: number;
-  question: {
-    text: string;
-    answer: string;
-    grade: string;
-    subject: string;
-  };
-  correctAnswers: number;
-  totalAnswers: number;
-  submissions: Array<{
-    playerId: string;
-    playerName: string;
-    answer: string | null;
-    hasDrawing: boolean;
-    drawingData: string | null;
-    isCorrect: boolean | null;
-  }>;
-}
-
-interface GameRecap {
-  roomCode: string;
-  startTime: Date;
-  endTime: Date;
-  players: Array<{
-    id: string;
-    name: string;
-    score: number;
-    finalLives: number;
-    isSpectator: boolean;
-    isWinner: boolean;
-  }>;
-  rounds: Round[];
-  correctAnswers: number;
-  totalQuestions: number;
-  score: number;
-}
+// Removed local interface definitions for Player, Submission, Round, GameRecap
 
 interface RecapModalProps {
   show: boolean;
   onHide: () => void;
-  recap: GameRecap | null;
+  recap: GameRecapData | null; // Updated type
 }
 
 const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
@@ -67,7 +15,33 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
 
   if (!show || !recap) return null;
 
-  const currentRound = recap.rounds[selectedRound];
+  // Ensure rounds exist and selectedRound is valid
+  if (!recap.rounds || recap.rounds.length === 0 || !recap.rounds[selectedRound]) {
+    // Optionally, handle this case, e.g., show a message or select first available round
+    return (
+      <div className="modal show" style={{ display: 'block' }}>
+        <div className="modal-dialog modal-lg">
+          <div className="modal-content">
+            <div className="modal-header">
+              <h5 className="modal-title">Game Recap - Room {recap.roomCode}</h5>
+              <button type="button" className="btn-close" onClick={onHide}></button>
+            </div>
+            <div className="modal-body">
+              <p>No round data available to display.</p>
+            </div>
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={onHide}>
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const currentRound: RoundInRecap = recap.rounds[selectedRound];
+  // const currentQuestion: QuestionInRecap = currentRound.question; // If needed directly
 
   return (
     <div className="modal show" style={{ display: 'block' }}>
@@ -82,16 +56,17 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
               {/* Left sidebar with round navigation */}
               <div className="col-md-3 border-end">
                 <div className="list-group list-group-flush">
-                  {recap.rounds.map((round, index) => (
+                  {recap.rounds.map((round: RoundInRecap, index: number) => (
                     <button
                       key={round.roundNumber}
                       className={`list-group-item list-group-item-action ${selectedRound === index ? 'active' : ''}`}
                       onClick={() => setSelectedRound(index)}
                     >
                       Round {round.roundNumber}
-                      <div className="small">
+                      {/* TODO: Add correctAnswers/totalAnswers to RoundInRecap type and server data */}
+                      {/* <div className="small">
                         {round.correctAnswers} / {round.totalAnswers} correct
-                      </div>
+                      </div> */}
                     </button>
                   ))}
                 </div>
@@ -108,16 +83,18 @@ const RecapModal: React.FC<RecapModalProps> = ({ show, onHide, recap }) => {
                         <small>
                           Answer: {currentRound.question.answer}
                           <br />
+                          {/* Ensure grade and subject are available and correctly typed */}
                           Grade: {currentRound.question.grade}
                           <br />
                           Subject: {currentRound.question.subject}
+                          {/* <br /> Type: {currentRound.question.type} */}
                         </small>
                       </div>
                     </div>
                   </div>
                   <h5>Submissions</h5>
                   <div className="list-group">
-                    {currentRound.submissions.map(submission => (
+                    {currentRound.submissions.map((submission: SubmissionInRecap) => (
                       <div
                         key={submission.playerId}
                         className={`list-group-item ${submission.isCorrect === true ? 'list-group-item-success' : submission.isCorrect === false ? 'list-group-item-danger' : ''}`}

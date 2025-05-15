@@ -233,18 +233,22 @@ export class SocketService {
   // Event handling methods
   on(event: string, callback: (...args: any[]) => void): void {
     if (!this.socket) {
-      console.error('[SocketService] Socket not connected');
+      console.warn('[SocketService] Attempted to attach listener when socket not connected:', event);
       return;
     }
     this.socket.on(event, callback);
   }
 
-  off(event: string): void {
+  off(event: string, callback?: (...args: any[]) => void): void {
     if (!this.socket) {
-      console.error('[SocketService] Socket not connected');
+      console.warn('[SocketService] Attempted to detach listener when socket not connected:', event);
       return;
     }
-    this.socket.off(event);
+    if (callback) {
+      this.socket.off(event, callback);
+    } else {
+      this.socket.off(event);
+    }
   }
 
   public emit(event: string, data: any = {}): void {
