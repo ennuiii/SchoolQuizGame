@@ -21,26 +21,6 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({ question, sho
       <div className="card-body">
         {question.text && <p className="lead" style={{ whiteSpace: 'pre-wrap' }}>{question.text}</p>}
         
-        {question.type === 'drawing' && question.drawingData && (
-          <div className="mb-3">
-            <h6 className="card-subtitle mb-2 text-muted">Question Drawing:</h6>
-            <div 
-              className="recap-drawing-preview" 
-              style={{ 
-                width: '100%', 
-                maxWidth: '400px', // Max width for question drawing
-                height: 'auto', // Adjust height automatically
-                minHeight: '200px', // Minimum height
-                border: '1px solid #ccc', 
-                overflow: 'hidden',
-                margin: '0 auto' // Center the drawing preview
-              }}
-            >
-              <div dangerouslySetInnerHTML={{ __html: question.drawingData }} />
-            </div>
-          </div>
-        )}
-
         <div className="mt-2">
           <small className="text-muted d-block">Type: {question.type}</small>
           <small className="text-muted d-block">Subject: {question.subject}</small>
