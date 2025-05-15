@@ -308,6 +308,64 @@ app.get('/api/recaps/:recapId/round/:roundNumber', (req, res) => {
 
 // Timer management
 const timers = new Map();
+const GRACE_PERIOD_MS = 1000; // 1 second grace period
+
+// Helper function to finalize round, perform auto-submissions, and broadcast state
+function finalizeRoundAndAutoSubmit(roomCode) {
+  const room = gameRooms[roomCode];
+  if (!room) {
+    console.log(`[FinalizeRound] Room ${roomCode} not found.`);
+    return;
+  }
+
+  console.log(`[FinalizeRound] Finalizing round for room ${roomCode}. Current question index: ${room.currentQuestionIndex}`);
+  room.submissionPhaseOver = true;
+
+  if (room.players && room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null) {
+    room.players.forEach(playerInRoom => {
+      if (
+        playerInRoom.isActive &&
+        !playerInRoom.isSpectator &&
+        (!playerInRoom.answers || !playerInRoom.answers[room.currentQuestionIndex])
+      ) {
+        console.log(`[FinalizeRound] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
+        if (!playerInRoom.answers) {
+          playerInRoom.answers = [];
+        }
+
+        let autoAnswerHasDrawing = false;
+        let autoAnswerDrawingData = null;
+        if (room.playerBoards && room.playerBoards[playerInRoom.id]) {
+          const playerBoardEntry = room.playerBoards[playerInRoom.id];
+          if (playerBoardEntry.roundIndex === room.currentQuestionIndex && playerBoardEntry.boardData) {
+            autoAnswerHasDrawing = true;
+            autoAnswerDrawingData = playerBoardEntry.boardData;
+          }
+        }
+
+        const autoAnswer = {
+          playerId: playerInRoom.id,
+          playerName: playerInRoom.name,
+          answer: '', // Text answer is empty for auto-submission
+          hasDrawing: autoAnswerHasDrawing,
+          drawingData: autoAnswerDrawingData,
+          timestamp: Date.now(),
+          isCorrect: null
+        };
+        playerInRoom.answers[room.currentQuestionIndex] = autoAnswer;
+
+        if (room.roundAnswers) {
+          room.roundAnswers[playerInRoom.id] = autoAnswer;
+        }
+      }
+    });
+  } else {
+    console.warn(`[FinalizeRound] Could not perform auto-submissions for room ${roomCode}. Conditions not met: players array exists: ${!!room.players}, currentQuestionIndex defined: ${room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null}`);
+  }
+
+  broadcastGameState(roomCode);
+  console.log(`[FinalizeRound] Game state broadcasted for room ${roomCode} after finalization.`);
+}
 
 io.on('connection', (socket) => {
   console.log(`[Server] User connected: ${socket.id}`);
@@ -876,43 +934,14 @@ io.on('connection', (socket) => {
     // Clear the timer for this room
     clearRoomTimer(roomCode);
 
-    // Auto-submit answers for players who haven't submitted yet
-    if (room.players && room.currentQuestionIndex !== undefined) {
-      room.players.forEach(playerInRoom => {
-        if (playerInRoom.isActive &&
-            !playerInRoom.isSpectator &&
-            (!playerInRoom.answers || !playerInRoom.answers[room.currentQuestionIndex])
-        ) {
-          console.log(`[EndRoundEarly] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
-          if (!playerInRoom.answers) {
-            playerInRoom.answers = [];
-          }
-          const autoAnswer = {
-            playerId: playerInRoom.id, // Add playerId
-            playerName: playerInRoom.name, // Add playerName
-            answer: '',
-            hasDrawing: false,
-            drawingData: null,
-            timestamp: Date.now(),
-            isCorrect: null
-          };
-          playerInRoom.answers[room.currentQuestionIndex] = autoAnswer;
-          
-          // Ensure roundAnswers is updated for consistency
-          if (room.roundAnswers) {
-            room.roundAnswers[playerInRoom.id] = autoAnswer;
-          }
-        }
-      });
-    }
-
     // Notify all players in the room that the round has ended early by triggering time_up
     io.to(roomCode).emit('time_up');
+    console.log(`[EndRoundEarly] Emitted 'time_up' for room ${roomCode}. Starting grace period of ${GRACE_PERIOD_MS}ms.`);
 
-    // Broadcast the updated game state so clients see the auto-submitted answers
-    broadcastGameState(roomCode);
-    console.log(`[EndRoundEarly] Round ended early for room ${roomCode}. Auto-submissions processed and game state broadcasted.`);
-
+    // Set a timer to finalize the round after the grace period
+    setTimeout(() => {
+      finalizeRoundAndAutoSubmit(roomCode);
+    }, GRACE_PERIOD_MS);
   });
 
   // Preview Mode handlers
@@ -1359,36 +1388,12 @@ function startQuestionTimer(roomCode) {
       clearInterval(timer);
       timers.delete(roomCode);
       io.to(roomCode).emit('time_up');
+      console.log(`[TIMER] Emitted 'time_up' for room ${roomCode} due to natural timeout. Starting grace period of ${GRACE_PERIOD_MS}ms.`);
       
-      // Auto-submit answers for players who haven't submitted yet
-      const currentRoom = gameRooms[roomCode];
-      if (currentRoom) {
-        currentRoom.submissionPhaseOver = true; // Set submission phase over
-        currentRoom.players.forEach(playerInRoom => {
-          if (playerInRoom.isActive && !playerInRoom.isSpectator && (!playerInRoom.answers || !playerInRoom.answers[currentRoom.currentQuestionIndex])) {
-            console.log(`[TIMER] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
-            if (!playerInRoom.answers) { // Ensure answers array exists
-                playerInRoom.answers = [];
-            }
-            const autoAnswerData = {
-              playerId: playerInRoom.id, // Add playerId
-              playerName: playerInRoom.name, // Add playerName
-              answer: '',
-              hasDrawing: false,
-              drawingData: null,
-              timestamp: Date.now(),
-              isCorrect: null
-            };
-            playerInRoom.answers[currentRoom.currentQuestionIndex] = autoAnswerData;
-            
-            // Ensure roundAnswers is updated for consistency if it exists
-            if (currentRoom.roundAnswers) {
-                currentRoom.roundAnswers[playerInRoom.id] = autoAnswerData;
-            }
-          }
-        });
-        broadcastGameState(roomCode); // Broadcast state after auto-submissions and flag update
-      }
+      // Set a timer to finalize the round after the grace period
+      setTimeout(() => {
+        finalizeRoundAndAutoSubmit(roomCode);
+      }, GRACE_PERIOD_MS);
     }
   }, 1000);
 
