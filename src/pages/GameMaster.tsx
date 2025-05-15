@@ -32,7 +32,6 @@ const GameMaster: React.FC = () => {
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [timeLimit, setTimeLimit] = useState(99999);
   const [inputRoomCode, setInputRoomCode] = useState('');
-  const [previewOverlayVersion, setPreviewOverlayVersion] = useState<'v1' | 'v2'>('v1');
   
   const {
     roomCode,
@@ -70,7 +69,9 @@ const GameMaster: React.FC = () => {
     gmNavigateRecapTab,
     hideRecap,
     allAnswersThisRound,
-    evaluatedAnswers
+    evaluatedAnswers,
+    previewOverlayVersion,
+    setPreviewOverlayVersion
   } = useGame();
 
   const {

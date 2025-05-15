@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
+import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
 import QuestionCard from '../components/shared/QuestionCard';
 import Timer from '../components/shared/Timer';
 import PlayerList from '../components/shared/PlayerList';
@@ -41,6 +42,7 @@ const Player: React.FC = () => {
     timeRemaining,
     isTimerRunning,
     previewMode,
+    previewOverlayVersion,
     toggleBoardVisibility,
     currentQuestionIndex,
     submittedAnswer,
@@ -267,7 +269,9 @@ const Player: React.FC = () => {
   }
 
   if (previewMode.isActive) {
-    return <PreviewOverlay onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />;
+    return previewOverlayVersion === 'v2'
+      ? <PreviewOverlayV2 onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />
+      : <PreviewOverlay onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />;
   }
 
   // If recap data is available, show recap modal. This takes precedence over game view.

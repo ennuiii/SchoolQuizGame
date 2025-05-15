@@ -85,6 +85,9 @@ interface GameContextType {
   randomCount: number;
   isLoadingRandom: boolean;
   
+  // Preview Overlay Version
+  previewOverlayVersion: 'v1' | 'v2';
+  
   // Actions
   startGame: (roomCode: string, questions: Question[], timeLimit: number) => void;
   nextQuestion: (roomCode: string) => void;
@@ -114,6 +117,10 @@ interface GameContextType {
   gmNavigateRecapRound: (roomCode: string, roundIndex: number) => void;
   hideRecap: () => void;
   gmNavigateRecapTab: (roomCode: string, tabKey: string) => void;
+  
+  // Preview Overlay Version
+  setPreviewOverlayVersion: (version: 'v1' | 'v2') => void;
+  togglePreviewOverlayVersion: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -169,6 +176,9 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [randomCount, setRandomCount] = useState<number>(5);
   const [isLoadingRandom, setIsLoadingRandom] = useState<boolean>(false);
   const [socketConnectionStatus, setSocketConnectionStatus] = useState<SocketConnectionState>(socketService.getConnectionState() as SocketConnectionState);
+
+  // Preview Overlay Version (sync across clients)
+  const [previewOverlayVersion, setPreviewOverlayVersionState] = useState<'v1' | 'v2'>('v1');
 
   const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
     console.log('[GameContext] board_update received', updatedBoard);
@@ -699,6 +709,28 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setTimeout(() => setQuestionErrorMsg(''), 3000);
   }, [questions]);
 
+  // Action to set version and emit to others (GameMaster only)
+  const setPreviewOverlayVersion = useCallback((version: 'v1' | 'v2') => {
+    setPreviewOverlayVersionState(version);
+    socketService.emit('preview_overlay_version_changed', { version });
+  }, []);
+
+  // Action to toggle version
+  const togglePreviewOverlayVersion = useCallback(() => {
+    setPreviewOverlayVersion(previewOverlayVersion === 'v1' ? 'v2' : 'v1');
+  }, [previewOverlayVersion, setPreviewOverlayVersion]);
+
+  // Listen for version changes from server
+  useEffect(() => {
+    const handler = (data: { version: 'v1' | 'v2' }) => {
+      setPreviewOverlayVersionState(data.version);
+    };
+    socketService.on('preview_overlay_version_changed', handler);
+    return () => {
+      socketService.off('preview_overlay_version_changed', handler);
+    };
+  }, []);
+
   const value = {
     gameStarted,
     gameOver,
@@ -756,7 +788,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     organizeSelectedQuestions,
     addCustomQuestion,
     gmShowRecapToAll,
-    gmEndGameRequest
+    gmEndGameRequest,
+    previewOverlayVersion,
+    setPreviewOverlayVersion,
+    togglePreviewOverlayVersion
   };
 
   return (

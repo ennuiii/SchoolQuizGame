@@ -204,7 +204,7 @@ body {
 
 /* Drawing Board */
 .drawing-board-container {
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #c7b599 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border-width: 20px;
   border-style: solid;
   border-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png') 30 round;
@@ -847,10 +847,12 @@ body {
 }
 
 .classroom-chalkboard {
-  position: absolute;
-  top: 32px;
-  left: 32px;
-  width: 540px;
+  position: static;
+  top: unset;
+  left: unset;
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto 48px auto;
   min-height: 120px;
   background: #185c37 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border: 6px solid #fff;
@@ -863,45 +865,16 @@ body {
   z-index: 3050;
 }
 
-.classroom-chalkboard-content {
-  flex: 1;
-}
-
-.classroom-chalkboard-grade {
-  font-family: 'Schoolbell', 'Patrick Hand', cursive;
-  font-size: 1.2rem;
-  color: #ffe066;
-  margin-bottom: 6px;
-}
-
-.classroom-chalkboard-question {
-  font-family: 'Schoolbell', 'Patrick Hand', cursive;
-  font-size: 1.7rem;
-  color: #fff;
-  text-shadow: 1px 1px 0 #0002;
-  white-space: pre-line;
-}
-
-.classroom-chalkboard-sponge {
-  width: 54px;
-  height: 32px;
-  background: #ffe066;
-  border-radius: 16px 12px 18px 14px;
-  box-shadow: 2px 2px 8px #0002, 0 0 0 2px #ffd166 inset;
-  position: absolute;
-  bottom: 18px;
-  left: 18px;
-  transform: rotate(-8deg);
-}
+.classroom-chalkboard-sponge { display: none !important; }
 
 .classroom-whiteboard-grid {
   width: 100vw;
-  max-width: 100vw;
+  max-width: 1400px;
   margin: 0 auto;
-  margin-top: 180px;
+  margin-top: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 36px;
+  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+  gap: 48px;
   justify-items: center;
   z-index: 1;
 }
@@ -911,9 +884,9 @@ body {
   border: 7px solid #1976d2;
   border-radius: 22px;
   box-shadow: 0 4px 16px #0002, 0 2px 8px #0001;
-  min-width: 300px;
-  max-width: 400px;
-  min-height: 220px;
+  min-width: 340px;
+  max-width: 420px;
+  min-height: 260px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
@@ -923,24 +896,27 @@ body {
   margin-bottom: 32px;
 }
 
-.classroom-whiteboard-content {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 120px;
-}
-
 .classroom-whiteboard-svg {
   width: 100%;
-  min-height: 90px;
-  max-height: 120px;
+  min-height: 120px;
+  max-height: 180px;
   margin-bottom: 8px;
   background: #f5f5f5;
   border-radius: 8px;
   box-shadow: 0 1px 4px #0001;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.classroom-whiteboard-svg svg {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain;
+  display: block;
 }
 
 .classroom-whiteboard-answer {
@@ -1031,7 +1007,7 @@ body {
   .classroom-whiteboard-grid {
     max-width: 100vw;
     gap: 18px;
-    margin-top: 120px;
+    margin-top: 24px;
   }
   .classroom-whiteboard-card {
     min-width: 160px;

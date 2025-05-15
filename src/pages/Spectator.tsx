@@ -4,6 +4,7 @@ import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
 import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
 import PreviewOverlay from '../components/shared/PreviewOverlay';
+import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import QuestionDisplayCard from '../components/shared/QuestionDisplayCard';
@@ -22,6 +23,7 @@ const Spectator: React.FC = () => {
     playerBoards,
     visibleBoards,
     previewMode,
+    previewOverlayVersion,
     toggleBoardVisibility,
     isGameConcluded,
     gameRecapData,
@@ -163,11 +165,9 @@ const Spectator: React.FC = () => {
               </div>
             )}
             {previewMode.isActive && (
-              <PreviewOverlay
-                onFocus={() => {}}
-                onClose={() => {}}
-                isGameMaster={false}
-              />
+              previewOverlayVersion === 'v2'
+                ? <PreviewOverlayV2 onClose={() => {}} onFocus={() => {}} isGameMaster={false} />
+                : <PreviewOverlay onClose={() => {}} onFocus={() => {}} isGameMaster={false} />
             )}
           </div>
         </div>

@@ -71,17 +71,14 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
 
   const currentQuestion = context.currentQuestion;
 
-  // Responsive grid: always at least 3 columns
-  const gridTemplateColumns = `repeat(auto-fit, minmax(320px, 1fr))`;
-
   return (
     <div className="preview-overlay-v2 classroom-preview-overlay">
       {/* Close button overlays music button */}
       <button className="btn btn-danger classroom-preview-close-btn" onClick={onClose}>
         ×
       </button>
-      {/* Chalkboard question in upper left */}
-      <div className="classroom-chalkboard">
+      {/* Chalkboard question at the top, not absolutely positioned */}
+      <div className="classroom-chalkboard" style={{ position: 'static', margin: '0 auto', left: 'unset', top: 'unset', width: '100%', maxWidth: 900, marginBottom: 48 }}>
         <div className="classroom-chalkboard-content">
           <div className="classroom-chalkboard-grade">
             {currentQuestion ? `${currentQuestion.grade}. Klasse – ${currentQuestion.subject}` : ''}
@@ -90,17 +87,19 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
             {currentQuestion ? currentQuestion.text : 'No question'}
           </div>
         </div>
-        <div className="classroom-chalkboard-sponge" />
+        {/* Removed sponge */}
       </div>
-      {/* Player boards grid */}
+      {/* Player boards grid below chalkboard */}
       <div
         className="classroom-whiteboard-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns,
-          gap: 36,
-          marginTop: 32,
+          gridTemplateColumns: `repeat(auto-fit, minmax(${activePlayerBoards.length <= 3 ? 380 : 320}px, 1fr))`,
+          gap: activePlayerBoards.length <= 3 ? 48 : 36,
+          marginTop: 0,
           justifyItems: 'center',
+          width: '100%',
+          maxWidth: 1400,
         }}
       >
         {activePlayerBoards.map((board, idx) => {
@@ -112,20 +111,27 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
             <div
               key={board.playerId}
               className="classroom-whiteboard-card"
-              style={{ borderColor }}
+              style={{ borderColor, minWidth: activePlayerBoards.length <= 3 ? 340 : 300, maxWidth: activePlayerBoards.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
               <div className="classroom-whiteboard-content">
                 <div
                   className="classroom-whiteboard-svg"
-                  dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                />
+                  style={{ minHeight: 120, maxHeight: 180, background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                >
+                  {/* Ensure SVG is scaled to fit the container */}
+                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                      dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                    />
+                  </div>
+                </div>
                 {answer && (
                   <div className="classroom-whiteboard-answer">
                     {answer.answer}
                   </div>
                 )}
                 {evaluation !== undefined && (
-                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
+                  <span className={`className-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
                 )}
               </div>
               <div className="classroom-whiteboard-label">
