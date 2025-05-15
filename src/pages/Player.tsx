@@ -88,13 +88,6 @@ const Player: React.FC = () => {
 
   // Handle answer submission
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
-    const drawingBoardComponent = document.querySelector('.drawing-board canvas') as HTMLCanvasElement;
-    // Check if fabric canvas exists and has objects, excluding a potential background image if any.
-    const fabricCanvas = (drawingBoardComponent as any)?._fabricCanvas;
-    const objects = fabricCanvas?.getObjects().filter((obj: any) => obj !== fabricCanvas.backgroundImage);
-    const actualHasDrawing = objects?.length > 0;
-    const finalHasDrawing = actualHasDrawing;
-
     if (!roomCode || !currentQuestion || submittedAnswerLocal) {
       console.error('[Player] Cannot submit answer:', {
         hasRoomCode: !!roomCode,
@@ -106,14 +99,19 @@ const Player: React.FC = () => {
 
     try {
       const finalAnswer = textAnswer.trim();
+      
+      let drawingData: string | null = getCurrentCanvasSVG();
+      // A basic check for a non-empty SVG. More sophisticated checks could verify if it's more than a blank canvas.
+      const finalHasDrawing = !!(drawingData && drawingData.trim() !== '' && drawingData.includes('<svg'));
+
       if (!finalAnswer && !finalHasDrawing) {
         toast.error('Please enter an answer or submit a drawing');
         return;
       }
       
-      let drawingData: string | null = null;
-      if (finalHasDrawing) {
-        drawingData = getCurrentCanvasSVG();
+      // If not finalHasDrawing, ensure drawingData is null before sending
+      if (!finalHasDrawing) {
+        drawingData = null;
       }
 
       console.log('[Player] Submitting answer:', {
