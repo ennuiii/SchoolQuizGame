@@ -76,7 +76,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       canvas.backgroundColor = '#0C6A35';
       canvas.renderAll();
     };
-    img.src = 'https://raw.githubusercontent.com/fabricjs/fabric.js/master/assets/chalkboard.png';
+    img.src = 'https://www.transparenttextures.com/patterns/green-dust-and-scratches.png';
 
     // Set up drawing brush
     if (canvas.freeDrawingBrush) {
