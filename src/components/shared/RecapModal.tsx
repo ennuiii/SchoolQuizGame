@@ -143,12 +143,47 @@ interface RoundDetailsContentProps {
   isControllable: boolean;
 }
 
+// Define EnlargedDrawingModal here as it's closely tied to RecapModal's functionality
+const EnlargedDrawingModal: React.FC<{
+  show: boolean;
+  onHide: () => void;
+  svgData: string | null;
+  playerName: string;
+}> = ({ show, onHide, svgData, playerName }) => {
+  if (!show || !svgData) return null;
+
+  return (
+    <div className="modal show enlarged-drawing-modal-backdrop" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="enlargedDrawingModalTitle">
+      <div className="modal-dialog modal-xl enlarged-drawing-modal-dialog">
+        <div className="modal-content enlarged-drawing-modal-content">
+          <Modal.Header closeButton onHide={onHide} className="enlarged-drawing-modal-header">
+            <Modal.Title id="enlargedDrawingModalTitle">Drawing by: {playerName}</Modal.Title>
+          </Modal.Header>
+          <Modal.Body className="enlarged-drawing-modal-body">
+            <div
+              className="enlarged-drawing-svg-container"
+              dangerouslySetInnerHTML={{ __html: svgData }}
+            />
+          </Modal.Body>
+          <Modal.Footer className="enlarged-drawing-modal-footer">
+            <Button variant="secondary" onClick={onHide} className="btn-schoolquiz-default">
+              Close
+            </Button>
+          </Modal.Footer>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({ 
   recap, 
   currentSelectedRoundIndex, 
   onSelectRound, 
   isControllable 
 }) => {
+  const [enlargedDrawing, setEnlargedDrawing] = useState<{ svg: string; playerName: string } | null>(null);
+
   if (!recap.rounds || recap.rounds.length === 0 || !recap.rounds[currentSelectedRoundIndex]) {
     return <p>No round data available to display or selected round is invalid.</p>;
   }
@@ -211,18 +246,13 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                           <small className="text-muted d-block mb-1">Submitted Drawing:</small>
                           <div 
                             className="recap-drawing-preview"
-                            style={{
-                              width: '100%',
-                              maxWidth: '300px',
-                              minHeight: '225px',
-                              border: '1px solid #ccc',
-                              overflow: 'hidden',
-                              display: 'flex',
-                              justifyContent: 'center',
-                              alignItems: 'center'
-                            }}
+                            onClick={() => setEnlargedDrawing({ svg: submission.drawingData!, playerName: submission.playerName })}
+                            role="button"
+                            tabIndex={0}
+                            onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') setEnlargedDrawing({ svg: submission.drawingData!, playerName: submission.playerName }); }}
+                            aria-label={`View drawing by ${submission.playerName}`}
                           >
-                            <div dangerouslySetInnerHTML={{ __html: submission.drawingData }} style={{ display: 'block' }} />
+                            <div className="recap-drawing-preview-inner-html" dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
                           </div>
                         </div>
                       )}
@@ -239,6 +269,12 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
           </div>
         </div>
       </div>
+      <EnlargedDrawingModal
+        show={!!enlargedDrawing}
+        onHide={() => setEnlargedDrawing(null)}
+        svgData={enlargedDrawing?.svg || null}
+        playerName={enlargedDrawing?.playerName || ''}
+      />
     </div>
   );
 };
