@@ -62,7 +62,9 @@ const GameMaster: React.FC = () => {
     gmEndGameRequest,
     gameRecapData,
     recapSelectedRoundIndex,
+    recapSelectedTabKey,
     gmNavigateRecapRound,
+    gmNavigateRecapTab,
     hideRecap
   } = useGame();
 
@@ -493,6 +495,8 @@ const GameMaster: React.FC = () => {
           selectedRoundIndex={recapSelectedRoundIndex ?? 0}
           onRoundChange={(index) => gmNavigateRecapRound(roomCode, index)}
           isControllable={true}
+          activeTabKey={recapSelectedTabKey}
+          onTabChange={(tabKey) => gmNavigateRecapTab(roomCode, tabKey)}
         />
       )}
     </div>

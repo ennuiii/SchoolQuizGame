@@ -45,6 +45,7 @@ const Player: React.FC = () => {
     isGameConcluded,
     gameRecapData,
     recapSelectedRoundIndex,
+    recapSelectedTabKey,
     hideRecap
   } = useGame();
 
@@ -278,7 +279,9 @@ const Player: React.FC = () => {
         recap={gameRecapData} // From context
         selectedRoundIndex={recapSelectedRoundIndex ?? 0} // From context
         isControllable={false} // Player cannot control navigation
+        activeTabKey={recapSelectedTabKey} // Pass activeTabKey from context
         // onRoundChange is not needed as isControllable is false
+        // onTabChange is not needed as isControllable is false
       />
     );
   }

@@ -443,10 +443,10 @@ function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
     // Generate and send recap immediately
     const recap = generateGameRecap(roomCode);
     if (recap) {
-        console.log(`[ConcludeGame] Automatically broadcasting recap for room ${roomCode} with initialSelectedRoundIndex.`);
-        // Add initialSelectedRoundIndex to the recap payload for the client
-        const recapWithInitialRound = { ...recap, initialSelectedRoundIndex: 0 };
-        io.to(roomCode).emit('game_recap', recapWithInitialRound);
+        console.log(`[ConcludeGame] Automatically broadcasting recap for room ${roomCode} with initialSelectedRoundIndex and initialSelectedTabKey.`);
+        // Add initialSelectedRoundIndex and initialSelectedTabKey to the recap payload for the client
+        const recapWithInitialState = { ...recap, initialSelectedRoundIndex: 0, initialSelectedTabKey: 'overallResults' };
+        io.to(roomCode).emit('game_recap', recapWithInitialState);
     } else {
         console.warn(`[ConcludeGame] Recap data generation failed for room ${roomCode} during auto-send.`);
     }
@@ -1452,9 +1452,9 @@ io.on('connection', (socket) => {
     const recap = generateGameRecap(roomCode);
     if (recap) {
       console.log(`[Server gm_show_recap_to_all] GM ${socket.id} broadcasting recap for room ${roomCode}`);
-      // Add initialSelectedRoundIndex for consistency, though it might be less critical for a re-broadcast
-      const recapWithInitialRound = { ...recap, initialSelectedRoundIndex: 0 };
-      io.to(roomCode).emit('game_recap', recapWithInitialRound);
+      // Add initialSelectedRoundIndex and initialSelectedTabKey for consistency
+      const recapWithInitialState = { ...recap, initialSelectedRoundIndex: 0, initialSelectedTabKey: 'overallResults' };
+      io.to(roomCode).emit('game_recap', recapWithInitialState);
     } else {
       console.warn(`[Server gm_show_recap_to_all] Recap data generation failed for room ${roomCode}`);
     }
@@ -1479,6 +1479,24 @@ io.on('connection', (socket) => {
     // Broadcast to all clients in the room
     console.log(`[Server gm_navigate_recap_round] GM ${socket.id} navigated recap to round ${selectedRoundIndex} for room ${roomCode}`);
     io.to(roomCode).emit('recap_round_changed', { selectedRoundIndex });
+  });
+
+  // GM navigates recap tab
+  socket.on('gm_navigate_recap_tab', ({ roomCode, selectedTabKey }) => {
+    const room = gameRooms[roomCode];
+    // Basic validation
+    if (!room || socket.id !== room.gamemaster) {
+      console.warn(`[Server gm_navigate_recap_tab] Unauthorized or room not found by ${socket.id} for ${roomCode}`);
+      return;
+    }
+    if (typeof selectedTabKey !== 'string') {
+      console.warn(`[Server gm_navigate_recap_tab] Invalid selectedTabKey: ${selectedTabKey} from ${socket.id}`);
+      return;
+    }
+
+    // Broadcast to all clients in the room
+    console.log(`[Server gm_navigate_recap_tab] GM ${socket.id} navigated recap to tab ${selectedTabKey} for room ${roomCode}`);
+    io.to(roomCode).emit('recap_tab_changed', { selectedTabKey });
   });
 });
 

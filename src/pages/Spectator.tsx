@@ -23,6 +23,7 @@ const Spectator: React.FC = () => {
     isGameConcluded,
     gameRecapData,
     recapSelectedRoundIndex,
+    recapSelectedTabKey,
     hideRecap
   } = useGame();
 
@@ -72,6 +73,7 @@ const Spectator: React.FC = () => {
         recap={gameRecapData}
         selectedRoundIndex={recapSelectedRoundIndex ?? 0}
         isControllable={false}
+        activeTabKey={recapSelectedTabKey}
       />
     );
   }

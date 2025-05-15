@@ -13,6 +13,9 @@ interface RecapModalProps {
   selectedRoundIndex?: number; // Current selected round from context/parent
   onRoundChange?: (index: number) => void; // Callback to notify parent (GM) of round change selection
   isControllable?: boolean; // True if this modal instance can control navigation (i.e., GM's view)
+  // Props for synchronized tab navigation
+  activeTabKey?: string; // Current active tab key from context/parent
+  onTabChange?: (tabKey: string) => void; // Callback to notify parent (GM) of tab change
 }
 
 const RecapModal: React.FC<RecapModalProps> = ({ 
@@ -21,15 +24,20 @@ const RecapModal: React.FC<RecapModalProps> = ({
   recap, 
   selectedRoundIndex = 0, // Default to 0 if not provided
   onRoundChange, 
-  isControllable = false 
+  isControllable = false, 
+  activeTabKey = 'overallResults', // Default to 'overallResults' if not provided
+  onTabChange
 }) => {
-  const [activeTab, setActiveTab] = useState<string>('overallResults');
+  // const [activeTab, setActiveTab] = useState<string>('overallResults'); // Remove local state
 
   if (!show || !recap) return null;
 
   const handleSelectTab = (k: string | null) => {
     if (k) {
-      setActiveTab(k);
+      // setActiveTab(k); // Remove local state update
+      if (isControllable && onTabChange) {
+        onTabChange(k);
+      }
     }
   };
   
@@ -44,14 +52,18 @@ const RecapModal: React.FC<RecapModalProps> = ({
             <Modal.Title>Game Recap - Room {recap.roomCode}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
-            <Tab.Container id="recap-tabs" activeKey={activeTab} onSelect={handleSelectTab}>
+            <Tab.Container id="recap-tabs" activeKey={activeTabKey} onSelect={isControllable ? handleSelectTab : undefined}>
               <Nav variant="tabs" className="mb-3">
                 <Nav.Item>
-                  <Nav.Link eventKey="overallResults">Overall Results</Nav.Link>
+                  <Nav.Link eventKey="overallResults" disabled={!isControllable && activeTabKey !== 'overallResults'}>
+                    Overall Results
+                  </Nav.Link>
                 </Nav.Item>
                 {recap.rounds && recap.rounds.length > 0 && (
                   <Nav.Item>
-                    <Nav.Link eventKey="roundDetails">Round Details</Nav.Link>
+                    <Nav.Link eventKey="roundDetails" disabled={!isControllable && activeTabKey !== 'roundDetails'}>
+                      Round Details
+                    </Nav.Link>
                   </Nav.Item>
                 )}
               </Nav>
