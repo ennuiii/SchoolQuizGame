@@ -114,7 +114,7 @@ const Player: React.FC = () => {
       setSubmittedAnswer(false);
       setCanvasKey(prev => prev + 1); // This will trigger canvas reinitialization
     }
-  }, [currentQuestion]);
+  }, [currentQuestion?.id]);
 
   // Effect for handling game state changes
   useEffect(() => {
