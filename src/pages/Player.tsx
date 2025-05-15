@@ -285,40 +285,6 @@ const Player: React.FC = () => {
     }
   }, [amISpectator, navigate]);
 
-  if (gameOver && !isWinner) {
-    return (
-      <div className="container text-center">
-        <div className="card p-5 mt-5">
-          <h1 className="mb-4">Game Over!</h1>
-          <p className="lead mb-4">You've lost all your lives!</p>
-          <button 
-            className="btn btn-primary btn-lg"
-            onClick={() => navigate('/')}
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-  
-  if (isWinner) {
-    return (
-      <div className="container text-center">
-        <div className="card p-5 mt-5 bg-success text-white">
-          <h1 className="mb-4"><span role="img" aria-label="trophy">🏆</span> You Win! <span role="img" aria-label="trophy">🏆</span></h1>
-          <p className="lead mb-4">Congratulations! You're the last one standing!</p>
-          <button 
-            className="btn btn-light btn-lg"
-            onClick={() => navigate('/')}
-          >
-            Back to Home
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');

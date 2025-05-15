@@ -160,16 +160,48 @@ function generateGameRecap(roomCode) {
   const room = gameRooms[roomCode];
   if (!room) return null;
 
+  // Sort players for the recap
+  const sortedPlayers = [...room.players].sort((a, b) => {
+    // Winners first
+    if (a.isWinner && !b.isWinner) return -1;
+    if (!a.isWinner && b.isWinner) return 1;
+
+    // If both are winners or both are not, then:
+    // Active players (who are not winners but still in game) before eliminated/spectators
+    if (a.isActive && !a.isSpectator && !(b.isActive && !b.isSpectator)) return -1;
+    if (!(a.isActive && !a.isSpectator) && b.isActive && !b.isSpectator) return 1;
+
+    // If both are effectively eliminated (isActive: false, isSpectator: true due to losing lives)
+    // or both are still active non-winners, sort by lives (more lives = higher rank)
+    if ((!a.isActive && a.isSpectator) && (!b.isActive && b.isSpectator) || (a.isActive && b.isActive)) {
+      if (a.lives > b.lives) return -1;
+      if (a.lives < b.lives) return 1;
+    }
+    
+    // Finally, if one became a spectator by losing and the other was always a spectator
+    // (or some other tie-breaking for spectator status if needed)
+    // Prioritize players who lost over those who never played actively if lives are equal (e.g. 0)
+    // This part might need refinement based on exact definition of "isSpectator" vs "isActive"
+    // For now, if lives are equal, original spectators (potentially lives 0 and isActive false from start)
+    // might rank lower than players who lost all lives (lives 0, isActive became false).
+    // However, the primary sort keys (winner, active) should handle most cases.
+    // If `isSpectator` is true AND `isActive` is false, they are eliminated or joined as spectator.
+    // If `isSpectator` is true AND `isActive` is true (as per current Player interface), they are an active spectator.
+
+    return 0; // Keep original order for ties not covered above
+  });
+
   return {
     roomCode,
     startTime: room.startTime,
     endTime: new Date(),
-    players: room.players.map(player => ({
+    players: sortedPlayers.map(player => ({ // Use sortedPlayers here
       id: player.id,
       name: player.name,
       finalLives: player.lives,
       isSpectator: player.isSpectator,
-      isWinner: player.isActive && player.lives > 0
+      isActive: player.isActive, // Include isActive for better context in recap
+      isWinner: player.isActive && player.lives > 0 && room.players.filter(p => p.isActive && p.lives > 0).length === 1 && player.id === room.players.find(p => p.isActive && p.lives > 0)?.id // More robust winner check for recap
     })),
     rounds: room.questions.map((question, index) => {
       // Get all boards for this round
@@ -180,9 +212,20 @@ function generateGameRecap(roomCode) {
         }
       });
 
+      // Prepare question data for recap. Questions do not have their own drawingData.
+      const questionForRecap = {
+        id: question.id,
+        text: question.text,
+        type: question.type,
+        answer: question.answer, // Assuming answer is available on the question object
+        grade: question.grade,
+        subject: question.subject,
+        language: question.language
+      };
+
       return {
         roundNumber: index + 1,
-        question: question,
+        question: questionForRecap, // Use the prepared question object
         submissions: room.players.map(player => {
           const answer = player.answers[index];
           return {

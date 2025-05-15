@@ -39,6 +39,7 @@ export interface PlayerInRecap {
   finalLives: number;
   isSpectator: boolean;
   isWinner: boolean;
+  isActive: boolean;
   // TODO: Server's generateGameRecap in server/index.js needs to be updated
   // to include a score for each player if desired in the recap.
   // RecapModal.tsx might have displayed this.
