@@ -160,10 +160,15 @@ const EnlargedDrawingModal: React.FC<{
             <Modal.Title id="enlargedDrawingModalTitle">Drawing by: {playerName}</Modal.Title>
           </Modal.Header>
           <Modal.Body className="enlarged-drawing-modal-body">
-            <div
-              className="enlarged-drawing-svg-container"
-              dangerouslySetInnerHTML={{ __html: svgData }}
-            />
+            <div className="drawing-board-container" style={{ maxWidth: '80vw', margin: '0 auto' }}>
+              <div className="drawing-board" style={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div
+                  className="enlarged-drawing-svg-container"
+                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  dangerouslySetInnerHTML={{ __html: svgData }}
+                />
+              </div>
+            </div>
           </Modal.Body>
           <Modal.Footer className="enlarged-drawing-modal-footer">
             <Button variant="secondary" onClick={onHide} className="btn-schoolquiz-default">
@@ -244,15 +249,14 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                       {submission.hasDrawing && submission.drawingData && (
                         <div className="mt-2">
                           <small className="text-muted d-block mb-1">Submitted Drawing:</small>
-                          <div 
-                            className="recap-drawing-preview"
-                            onClick={() => setEnlargedDrawing({ svg: submission.drawingData!, playerName: submission.playerName })}
-                            role="button"
-                            tabIndex={0}
-                            onKeyPress={(e) => { if (e.key === 'Enter' || e.key === ' ') setEnlargedDrawing({ svg: submission.drawingData!, playerName: submission.playerName }); }}
-                            aria-label={`View drawing by ${submission.playerName}`}
-                          >
-                            <div className="recap-drawing-preview-inner-html" dangerouslySetInnerHTML={{ __html: submission.drawingData }} />
+                          <div className="drawing-board-container" style={{ maxWidth: 250, margin: '0 auto' }}>
+                            <div className="drawing-board" style={{ minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                              <div
+                                className="recap-drawing-preview-inner-html"
+                                style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                                dangerouslySetInnerHTML={{ __html: submission.drawingData }}
+                              />
+                            </div>
                           </div>
                         </div>
                       )}
