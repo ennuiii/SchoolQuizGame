@@ -162,6 +162,59 @@ function generateGameRecap(roomCode) {
   const room = gameRooms[roomCode];
   if (!room) return null;
 
+  // Find the last played round index (at least one player has an answer)
+  let lastPlayedRoundIndex = -1;
+  for (let i = 0; i < room.questions.length; i++) {
+    if (room.players.some(player => player.answers && player.answers[i])) {
+      lastPlayedRoundIndex = i;
+    }
+  }
+
+  // Only include rounds up to lastPlayedRoundIndex
+  const playedRounds = room.questions.slice(0, lastPlayedRoundIndex + 1).map((question, index) => {
+    // Get all boards for this round
+    const boardsForRound = {};
+    Object.entries(room.playerBoards || {}).forEach(([playerId, boardData]) => {
+      if (boardData.roundIndex === index) {
+        boardsForRound[playerId] = boardData.boardData;
+      }
+    });
+
+    // Prepare question data for recap. Questions do not have their own drawingData.
+    const questionForRecap = {
+      id: question.id,
+      text: question.text,
+      type: question.type,
+      answer: question.answer, // Assuming answer is available on the question object
+      grade: question.grade,
+      subject: question.subject,
+      language: question.language
+    };
+
+    return {
+      roundNumber: index + 1,
+      question: questionForRecap,
+      submissions: room.players.map(player => {
+        const answer = player.answers[index];
+        if (answer && answer.hasDrawing) {
+          console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${answer.drawingData?.length}`);
+        } else if (answer && !answer.hasDrawing) {
+          console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Submission hasDrawing is false.`);
+        } else if (!answer) {
+          console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: No answer found for this round.`);
+        }
+        return {
+          playerId: player.id,
+          playerName: player.name,
+          answer: answer ? answer.answer : null,
+          hasDrawing: answer ? answer.hasDrawing : false,
+          drawingData: answer && answer.hasDrawing ? answer.drawingData : null,
+          isCorrect: answer ? answer.isCorrect : null
+        };
+      })
+    };
+  });
+
   // Sort players for the recap
   const sortedPlayers = [...room.players].sort((a, b) => {
     // Winners first
@@ -197,58 +250,15 @@ function generateGameRecap(roomCode) {
     roomCode,
     startTime: room.startTime,
     endTime: new Date(),
-    players: sortedPlayers.map(player => ({ // Use sortedPlayers here
+    players: sortedPlayers.map(player => ({
       id: player.id,
       name: player.name,
       finalLives: player.lives,
       isSpectator: player.isSpectator,
-      isActive: player.isActive, // Include isActive for better context in recap
-      isWinner: player.isActive && player.lives > 0 && room.players.filter(p => p.isActive && p.lives > 0).length === 1 && player.id === room.players.find(p => p.isActive && p.lives > 0)?.id // More robust winner check for recap
+      isActive: player.isActive,
+      isWinner: player.isActive && player.lives > 0 && room.players.filter(p => p.isActive && p.lives > 0).length === 1 && player.id === room.players.find(p => p.isActive && p.lives > 0)?.id
     })),
-    rounds: room.questions.map((question, index) => {
-      // Get all boards for this round
-      const boardsForRound = {};
-      Object.entries(room.playerBoards || {}).forEach(([playerId, boardData]) => {
-        if (boardData.roundIndex === index) {
-          boardsForRound[playerId] = boardData.boardData;
-        }
-      });
-
-      // Prepare question data for recap. Questions do not have their own drawingData.
-      const questionForRecap = {
-        id: question.id,
-        text: question.text,
-        type: question.type,
-        answer: question.answer, // Assuming answer is available on the question object
-        grade: question.grade,
-        subject: question.subject,
-        language: question.language
-      };
-
-      return {
-        roundNumber: index + 1,
-        question: questionForRecap,
-        submissions: room.players.map(player => {
-          const answer = player.answers[index];
-          // Log the drawing data being retrieved for the recap
-          if (answer && answer.hasDrawing) {
-            console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${answer.drawingData?.length}`);
-          } else if (answer && !answer.hasDrawing) {
-            console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Submission hasDrawing is false.`);
-          } else if (!answer) {
-            console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: No answer found for this round.`);
-          }
-          return {
-            playerId: player.id,
-            playerName: player.name,
-            answer: answer ? answer.answer : null,
-            hasDrawing: answer ? answer.hasDrawing : false,
-            drawingData: answer && answer.hasDrawing ? answer.drawingData : null,
-            isCorrect: answer ? answer.isCorrect : null
-          };
-        })
-      };
-    })
+    rounds: playedRounds
   };
 }
 
