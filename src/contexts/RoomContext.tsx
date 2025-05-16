@@ -62,6 +62,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (spectatorStatus !== undefined) {
       setIsSpectator(spectatorStatus);
     }
+    // Always save session info for robust reload/rejoin
+    sessionStorage.setItem('roomCode', roomCode);
+    sessionStorage.setItem('playerName', playerName);
+    sessionStorage.setItem('isSpectator', (spectatorStatus ?? false).toString());
     // Ensure socket is connected before joining room
     const socket = socketService.connect();
     if (!socket) {
@@ -192,11 +196,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
         const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
 
-        if (savedRoomCode) {
+        if (savedRoomCode && savedPlayerName) {
           setRoomCode(savedRoomCode);
-          if (savedPlayerName) {
-            setPlayerName(savedPlayerName);
-          }
+          setPlayerName(savedPlayerName);
           setIsSpectator(savedIsSpectator);
 
           if (isGameMaster) {
@@ -208,6 +210,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
               isSpectator: savedIsSpectator
             });
           }
+          // Always request latest game state after rejoin
+          socket.emit('get_game_state', { roomCode: savedRoomCode });
         }
       } catch (error) {
         console.error('[RoomContext] Failed to setup socket listeners:', error);
