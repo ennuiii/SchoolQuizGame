@@ -10,6 +10,7 @@ import { GameProvider } from './contexts/GameContext';
 import { RoomProvider } from './contexts/RoomContext';
 import { AudioProvider } from './contexts/AudioContext';
 import { CanvasProvider } from './contexts/CanvasContext';
+import ReconnectionStatus from './components/shared/ReconnectionStatus';
 import 'bootstrap/dist/css/bootstrap.min.css';
 
 const App: React.FC = () => {
@@ -20,6 +21,7 @@ const App: React.FC = () => {
           <GameProvider>
             <CanvasProvider>
               <Container className="py-4">
+                <ReconnectionStatus />
                 <Routes>
                   <Route path="/" element={<Home />} />
                   <Route path="/gamemaster" element={<GameMaster />} />

@@ -21,6 +21,7 @@ interface RoomContextType {
   players: Player[];
   copied: boolean;
   currentPlayerId: string | null;
+  isReconnecting: boolean;
   createRoom: (roomCode: string) => void;
   
   // Actions
@@ -29,6 +30,7 @@ interface RoomContextType {
   setIsLoading: (loading: boolean) => void;
   setErrorMsg: (msg: string) => void;
   setCopied: (copied: boolean) => void;
+  setIsSpectator: (isSpectator: boolean) => void;
   joinRoom: (roomCode: string, playerName: string, isSpectator?: boolean) => void;
   leaveRoom: () => void;
 }
@@ -45,6 +47,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [players, setPlayers] = useState<Player[]>([]);
   const [copied, setCopied] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
+  const [isReconnecting, setIsReconnecting] = useState(false);
+  const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const MAX_RECONNECT_ATTEMPTS = 3;
 
   const createRoom = useCallback(async (roomCode: string) => {
     setIsLoading(true);
@@ -95,39 +100,66 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       try {
         const socket = await socketService.connect();
         if (!socket) {
-          console.log('[RoomContext] No socket available after connection attempt');
-          return;
+          throw new Error('Failed to connect to socket server');
         }
 
-        console.log('[RoomContext] Socket connected, registering event handlers');
-        
-        // --- Robust reconnection and rejoin logic ---
-        // Listen for reconnect event from socketService
-        socketService.onReconnect(() => {
-          console.log('[RoomContext] Detected socket reconnect. Attempting to rejoin room...');
+        // Handle disconnection
+        socket.on('disconnect', () => {
+          console.log('[RoomContext] Socket disconnected');
+          setIsReconnecting(true);
+          setReconnectAttempts(prev => prev + 1);
+        });
+
+        // Handle reconnection
+        socket.on('connect', () => {
+          console.log('[RoomContext] Socket reconnected');
+          setIsReconnecting(false);
+          
           const savedRoomCode = sessionStorage.getItem('roomCode');
           const savedPlayerName = sessionStorage.getItem('playerName');
           const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
           const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
-          if (savedRoomCode) {
+
+          if (savedRoomCode && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+            console.log('[RoomContext] Attempting to rejoin room:', {
+              roomCode: savedRoomCode,
+              isGameMaster,
+              isSpectator: savedIsSpectator,
+              attempt: reconnectAttempts
+            });
+
             if (isGameMaster) {
-              console.log('[RoomContext] Rejoining as gamemaster:', savedRoomCode);
               socket.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
             } else {
-              console.log('[RoomContext] Rejoining as player/spectator:', savedRoomCode, savedPlayerName, savedIsSpectator);
               socket.emit('rejoin_player', {
                 roomCode: savedRoomCode,
                 playerName: savedPlayerName,
                 isSpectator: savedIsSpectator
               });
             }
-            // Always request latest game state after rejoin
             socket.emit('get_game_state', { roomCode: savedRoomCode });
-          } else {
-            console.warn('[RoomContext] No saved room/session found on reconnect.');
+          } else if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
+            console.error('[RoomContext] Max reconnection attempts reached');
+            setErrorMsg('Failed to reconnect after multiple attempts. Please refresh the page.');
+            sessionStorage.clear();
+            navigate('/');
           }
         });
-        // --- End robust reconnection logic ---
+
+        // Handle reconnection errors
+        socket.on('error', (error: string) => {
+          console.error('[RoomContext] Socket error:', error);
+          setErrorMsg(error);
+          setIsLoading(false);
+          
+          if (error.includes('Invalid room code') || error.includes('not found')) {
+            console.error('[RoomContext] Rejoin failed:', error);
+            sessionStorage.clear();
+            setTimeout(() => {
+              navigate('/');
+            }, 2000);
+          }
+        });
 
         socket.on('room_created', (data: any) => {
           console.log('[RoomContext] room_created event received:', data);
@@ -165,19 +197,6 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         socket.on('players_update', (updatedPlayers: Player[]) => {
           setPlayers(updatedPlayers);
-        });
-
-        socket.on('error', (error: string) => {
-          setErrorMsg(error);
-          setIsLoading(false);
-          // --- Handle rejoin failure: log, clear session, redirect ---
-          if (error && (error.includes('Invalid room code') || error.includes('not found'))) {
-            console.error('[RoomContext] Rejoin failed:', error);
-            sessionStorage.clear();
-            setTimeout(() => {
-              navigate('/');
-            }, 2000);
-          }
         });
 
         socket.on('become_spectator', () => {
@@ -234,7 +253,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.off('become_spectator');
       }
     };
-  }, [navigate, playerName, isSpectator]);
+  }, [navigate, playerName, isSpectator, reconnectAttempts]);
 
   const value = {
     roomCode,
@@ -245,12 +264,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     players,
     copied,
     currentPlayerId,
+    isReconnecting,
     createRoom,
     setRoomCode,
     setPlayerName,
     setIsLoading,
     setErrorMsg,
     setCopied,
+    setIsSpectator,
     joinRoom,
     leaveRoom
   };
