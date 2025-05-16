@@ -1127,6 +1127,10 @@ io.on('connection', (socket) => {
       socket.emit('game_state_update', gameState);
       console.log(`[Rejoin] Sent complete game state to rejoining gamemaster`);
       // Also send players_update to ensure player list is up-to-date
+      console.log(`[Rejoin][DEBUG] Emitting players_update to gamemaster for room ${roomCode}. Player count: ${room.players.length}`);
+      room.players.forEach((p, idx) => {
+        console.log(`[Rejoin][DEBUG] Player ${idx + 1}: id=${p.id}, name=${p.name}`);
+      });
       socket.emit('players_update', room.players);
       console.log(`[Rejoin] Sent players_update to rejoining gamemaster`);
     }
