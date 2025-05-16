@@ -247,16 +247,13 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                          <div className="mt-1 fst-italic text-muted"><small>No text answer submitted.</small></div>
                       )}
                       {submission.hasDrawing && submission.drawingData && (
-                        <div className="mt-2">
-                          <small className="text-muted d-block mb-1">Submitted Drawing:</small>
-                          <div className="drawing-board-container" style={{ maxWidth: 250, margin: '0 auto' }}>
-                            <div className="drawing-board" style={{ minHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <div
-                                className="recap-drawing-preview-inner-html"
-                                style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                                dangerouslySetInnerHTML={{ __html: submission.drawingData }}
-                              />
-                            </div>
+                        <div className="drawing-board-container recap-drawing-landscape" style={{ width: 250, aspectRatio: '2 / 1', height: 125, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <div className="drawing-board" style={{ width: '100%', height: '100%', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <div
+                              className="recap-drawing-preview-inner-html"
+                              style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                              dangerouslySetInnerHTML={{ __html: submission.drawingData }}
+                            />
                           </div>
                         </div>
                       )}

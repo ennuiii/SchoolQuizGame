@@ -675,6 +675,9 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Always set the current socket as gamemaster on restart
+    room.gamemaster = socket.id;
+
     console.log(`[Server Restart] Attempting to restart game in room: ${roomCode}`);
     
     // Clear any active timers
