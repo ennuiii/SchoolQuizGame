@@ -181,28 +181,26 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         margin: '0 auto',
                         cursor: 'pointer',
                         transition: 'box-shadow 0.2s, border-color 0.2s',
-                        position: 'relative',
-                        border: '4px solid #8B4513',
-                        borderRadius: '4px',
-                        backgroundColor: '#0C6A35'
+                        position: 'relative'
                       }}
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
                     >
-                      <div
-                        className="drawing-board"
-                        dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          minHeight: 0,
-                          minWidth: 0,
-                          objectFit: 'contain',
-                          transform: 'scale(1)',
-                          transformOrigin: 'top left',
-                          background: 'transparent'
-                        }}
-                      />
+                      <div className="drawing-board-container">
+                        <div className="drawing-board" style={{ width: '100%', height: '100%' }}>
+                          <div
+                            dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              minHeight: 0,
+                              minWidth: 0,
+                              objectFit: 'contain',
+                              background: 'transparent'
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -251,28 +249,26 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                         margin: '0 auto',
                         cursor: 'pointer',
                         transition: 'box-shadow 0.2s, border-color 0.2s',
-                        position: 'relative',
-                        border: '4px solid #8B4513',
-                        borderRadius: '4px',
-                        backgroundColor: '#0C6A35'
+                        position: 'relative'
                       }}
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
                     >
-                      <div
-                        className="drawing-board"
-                        dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          minHeight: 0,
-                          minWidth: 0,
-                          objectFit: 'contain',
-                          transform: 'scale(1)',
-                          transformOrigin: 'top left',
-                          background: 'transparent'
-                        }}
-                      />
+                      <div className="drawing-board-container">
+                        <div className="drawing-board" style={{ width: '100%', height: '100%' }}>
+                          <div
+                            dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              minHeight: 0,
+                              minWidth: 0,
+                              objectFit: 'contain',
+                              background: 'transparent'
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

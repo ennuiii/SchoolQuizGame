@@ -119,51 +119,38 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
           </div>
         </div>
         {isVisible && (
-          <div
-            ref={containerRef}
-            className="board-container d-flex justify-content-center align-items-center"
-            style={{
-              width: '100%',
-              minWidth: '400px',
-              minHeight: '300px',
-              margin: '0 auto',
-              maxWidth: '100%',
-              position: 'relative',
-              overflow: 'hidden',
-              cursor: 'grab',
-              userSelect: 'none'
-            }}
-            onWheel={handleWheel}
-            onMouseDown={handleMouseDown}
-            tabIndex={0}
-          >
+          <div className="drawing-board-container">
             <div
-              className="drawing-board"
+              ref={containerRef}
+              className="board-container d-flex justify-content-center align-items-center"
               style={{
                 width: '100%',
-                height: '100%',
+                minWidth: '400px',
                 minHeight: '300px',
-                background: "#0C6A35 url('/assets/green-dust-and-scratches.png')",
-                border: '4px solid #8B4513',
-                borderRadius: 4,
+                margin: '0 auto',
+                maxWidth: '100%',
+                position: 'relative',
                 overflow: 'hidden',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                transform: `scale(${scale}) translate(${position.x}px, ${position.y}px)`
+                cursor: 'grab',
+                userSelect: 'none'
               }}
+              onWheel={handleWheel}
+              onMouseDown={handleMouseDown}
+              tabIndex={0}
             >
-              <div
-                dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  minHeight: 0,
-                  minWidth: 0,
-                  objectFit: 'contain',
-                  background: 'transparent'
-                }}
-              />
+              <div className="drawing-board" style={{ width: '100%', height: '100%', minHeight: '300px' }}>
+                <div
+                  dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    minHeight: 0,
+                    minWidth: 0,
+                    objectFit: 'contain',
+                    background: 'transparent'
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}
