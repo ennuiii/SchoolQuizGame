@@ -38,7 +38,8 @@ const GameMaster: React.FC = () => {
     setIsLoading: setIsRoomLoading,
     createRoom,
     players,
-    sessionRestored
+    sessionRestored,
+    setRoomCode
   } = useRoom();
 
   const {
@@ -270,6 +271,15 @@ const GameMaster: React.FC = () => {
     });
     setBoardTransforms(initialTransforms);
   }, [players]);
+
+  useEffect(() => {
+    if (!roomCode) {
+      const storedRoomCode = sessionStorage.getItem('roomCode');
+      if (storedRoomCode) {
+        setRoomCode(storedRoomCode);
+      }
+    }
+  }, [roomCode, setRoomCode]);
 
   if (!sessionRestored) {
     return (

@@ -56,6 +56,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const createRoom = useCallback(async (roomCode: string) => {
     setIsLoading(true);
     try {
+      // Set sessionStorage immediately for robust reload/rejoin
+      sessionStorage.setItem('roomCode', roomCode);
+      sessionStorage.setItem('isGameMaster', 'true');
       await socketService.createRoom(roomCode);
     } catch (error) {
       console.error('[RoomContext] Failed to create room:', error);
