@@ -258,6 +258,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           // Always request latest game state after rejoin
           socket.emit('get_game_state', { roomCode: savedRoomCode });
+          // Do NOT set sessionRestored here; wait for event
+        } else {
+          // No session to restore, set sessionRestored immediately
+          setSessionRestored(true);
         }
       } catch (error) {
         console.error('[RoomContext] Failed to setup socket listeners:', error);
