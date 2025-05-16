@@ -244,6 +244,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
         const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
 
+        // Ensure playerName state is set from sessionStorage if missing
+        if (!playerName && savedPlayerName) {
+          setPlayerName(savedPlayerName);
+        }
+
         if (savedRoomCode) {
           if (isGameMaster) {
             console.log('[RoomContext][DEBUG] Emitting rejoin_gamemaster for room', savedRoomCode);
