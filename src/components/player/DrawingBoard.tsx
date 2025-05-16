@@ -121,25 +121,27 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
           </button>
         )}
       </div>
-      <div
-        style={{
-          width: '100%',
-          maxWidth: '800px',
-          height: '400px',
-          overflow: 'hidden',
-          margin: '0 auto',
-          cursor: disabled ? 'default' : 'crosshair',
-          border: '4px solid #8B4513',
-          borderRadius: '4px'
-        }}
-      >
-        <canvas
-          ref={canvasRef}
+      <div className="drawing-board-canvas-container">
+        <div
           style={{
             width: '100%',
-            height: '100%'
+            maxWidth: '800px',
+            height: '400px',
+            overflow: 'hidden',
+            margin: '0 auto',
+            cursor: disabled ? 'default' : 'crosshair',
+            border: '4px solid #8B4513',
+            borderRadius: '4px'
           }}
-        />
+        >
+          <canvas
+            ref={canvasRef}
+            style={{
+              width: '100%',
+              height: '100%'
+            }}
+          />
+        </div>
       </div>
     </div>
   );
