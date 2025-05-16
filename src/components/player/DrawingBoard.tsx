@@ -130,8 +130,8 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
             overflow: 'hidden',
             margin: '0 auto',
             cursor: disabled ? 'default' : 'crosshair',
-            border: '4px solid #8B4513',
-            borderRadius: '4px'
+            border: '6px solid #8B4513',
+            borderRadius: '6px'
           }}
         >
           <canvas
