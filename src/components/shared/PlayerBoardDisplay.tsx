@@ -143,7 +143,7 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
                 width: '100%',
                 height: '100%',
                 minHeight: '300px',
-                background: '#0C6A35',
+                background: "#0C6A35 url('/assets/green-dust-and-scratches.png')",
                 border: '4px solid #8B4513',
                 borderRadius: 4,
                 overflow: 'hidden',
