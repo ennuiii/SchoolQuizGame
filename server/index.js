@@ -1364,17 +1364,21 @@ io.on('connection', (socket) => {
         room.playerBoards[socket.id] = room.playerBoards[oldId];
         delete room.playerBoards[oldId];
       }
-
       // Transfer any existing round answers
       if (room.roundAnswers[oldId]) {
         room.roundAnswers[socket.id] = room.roundAnswers[oldId];
         delete room.roundAnswers[oldId];
       }
-
       // Transfer any existing evaluated answers
       if (room.evaluatedAnswers[oldId]) {
         room.evaluatedAnswers[socket.id] = room.evaluatedAnswers[oldId];
         delete room.evaluatedAnswers[oldId];
+      }
+      // --- Clear disconnect timer for old socket ID ---
+      if (disconnectTimers[oldId]) {
+        clearTimeout(disconnectTimers[oldId]);
+        delete disconnectTimers[oldId];
+        console.log(`[GracePeriod] Player ${oldId} rejoined as ${socket.id} in room ${roomCode}. Grace period timer cancelled.`);
       }
     } else {
       // If player not found, add them as a new player
