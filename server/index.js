@@ -1105,6 +1105,13 @@ io.on('connection', (socket) => {
       const oldGamemasterId = gameRooms[roomCode].gamemaster;
       gameRooms[roomCode].gamemaster = socket.id;
       
+      // Clear disconnect timer for old gamemaster ID if it exists
+      if (disconnectTimers[oldGamemasterId]) {
+        clearTimeout(disconnectTimers[oldGamemasterId]);
+        delete disconnectTimers[oldGamemasterId];
+        console.log(`[Rejoin] Cleared disconnect timer for old gamemaster ${oldGamemasterId}`);
+      }
+      
       console.log(`[Rejoin] Updated gamemaster for room ${roomCode}: ${oldGamemasterId} -> ${socket.id}`);
     }
     
@@ -1434,10 +1441,20 @@ io.on('disconnect', (socket) => {
     const room = gameRooms[roomCode];
     
     if (room) {
-      // If user was gamemaster, end the game
+      // If user was gamemaster, start grace period
       if (room.gamemaster === socket.id) {
-        io.to(roomCode).emit('error', 'Game Master disconnected');
-        delete gameRooms[roomCode];
+        console.log(`[Disconnect] Gamemaster ${socket.id} disconnected from room ${roomCode}. Starting grace period.`);
+        // Store the old gamemaster ID for potential rejoin
+        const oldGamemasterId = socket.id;
+        
+        // Set a timer to delete the room if gamemaster doesn't rejoin
+        disconnectTimers[oldGamemasterId] = setTimeout(() => {
+          console.log(`[Disconnect] Grace period expired for gamemaster ${oldGamemasterId} in room ${roomCode}. Deleting room.`);
+          io.to(roomCode).emit('error', 'Game Master disconnected');
+          delete gameRooms[roomCode];
+          delete disconnectTimers[oldGamemasterId];
+        }, DISCONNECT_GRACE_PERIOD_MS);
+        
         return;
       }
       
