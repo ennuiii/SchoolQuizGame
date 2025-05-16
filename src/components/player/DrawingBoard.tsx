@@ -90,48 +90,50 @@ const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, control
   };
 
   return (
-    <div className="drawing-board-container">
-      <div className="drawing-board mb-4" key={key}>
-        <div className="drawing-board-controls mb-2 d-flex justify-content-end align-items-center" style={{ minHeight: 40 }}>
-          <input
-            type="color"
-            value={brushColor}
-            onChange={handleColorChange}
-            className="me-2"
-          />
-          <input
-            type="range"
-            min="1"
-            max="20"
-            value={brushSize}
-            onChange={handleSizeChange}
-            className="me-2"
-          />
-          {controls ? controls : (
-            <button
-              className="btn btn-outline-light me-2"
-              onClick={clearCanvas}
-              disabled={disabled}
-              style={{ 
-                backgroundColor: '#8B4513', 
-                borderColor: '#8B4513',
-                color: 'white'
-              }}
-            >
-              Clear Canvas
-            </button>
-          )}
-        </div>
-        <div style={{ width: '100%', maxWidth: '800px', height: '400px', overflow: 'hidden', margin: '0 auto', cursor: disabled ? 'default' : 'crosshair' }}>
-          <div className="canvas-container" style={{ width: 800, height: 400, position: 'relative', userSelect: 'none' }}>
-            <canvas
-              ref={canvasRef}
-              style={{ width: '100%', height: '100%' }}
-            />
+    <>
+      <div className="drawing-board-controls mb-2 d-flex justify-content-end align-items-center" style={{ minHeight: 40 }}>
+        <input
+          type="color"
+          value={brushColor}
+          onChange={handleColorChange}
+          className="me-2"
+        />
+        <input
+          type="range"
+          min="1"
+          max="20"
+          value={brushSize}
+          onChange={handleSizeChange}
+          className="me-2"
+        />
+        {controls ? controls : (
+          <button
+            className="btn btn-outline-light me-2"
+            onClick={clearCanvas}
+            disabled={disabled}
+            style={{ 
+              backgroundColor: '#8B4513', 
+              borderColor: '#8B4513',
+              color: 'white'
+            }}
+          >
+            Clear Canvas
+          </button>
+        )}
+      </div>
+      <div className="drawing-board-container">
+        <div className="drawing-board mb-4" key={key}>
+          <div style={{ width: '100%', maxWidth: '800px', height: '400px', overflow: 'hidden', margin: '0 auto', cursor: disabled ? 'default' : 'crosshair' }}>
+            <div className="canvas-container" style={{ width: 800, height: 400, position: 'relative', userSelect: 'none' }}>
+              <canvas
+                ref={canvasRef}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
           </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 

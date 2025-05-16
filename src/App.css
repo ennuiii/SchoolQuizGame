@@ -207,7 +207,8 @@ body {
   background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border-width: 20px;
   border-style: solid;
-  border-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png') 30 round;
+  border-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png') 5 round;
+  border-color: #8B4513; /* Fallback brown border for browsers that don't support border-image */
   border-radius: 12px;
   box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
   margin-bottom: 16px;
