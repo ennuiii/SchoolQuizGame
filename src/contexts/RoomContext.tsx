@@ -108,6 +108,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Failed to connect to socket server');
         }
 
+        let sessionRestoredOnce = false;
+
         // Handle disconnection
         socket.on('disconnect', () => {
           console.log('[RoomContext] Socket disconnected');
@@ -177,6 +179,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (window.location.pathname !== '/gamemaster') {
             navigate('/gamemaster');
           }
+          if (!sessionRestoredOnce) {
+            setSessionRestored(true);
+            sessionRestoredOnce = true;
+          }
         });
 
         socket.on('room_joined', (data: { roomCode: string }) => {
@@ -194,6 +200,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
           console.log('Navigating to:', isSpectator ? '/spectator' : '/player');
           navigate(isSpectator ? '/spectator' : '/player');
+          if (!sessionRestoredOnce) {
+            setSessionRestored(true);
+            sessionRestoredOnce = true;
+          }
         });
 
         socket.on('player_joined', (player: Player) => {
@@ -215,12 +225,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         socket.on('game_state_update', (gameState: any) => {
-          // If roomCode is empty but sessionStorage has it, set it
           if (!roomCode) {
             const storedRoomCode = sessionStorage.getItem('roomCode');
             if (storedRoomCode) {
               setRoomCode(storedRoomCode);
             }
+          }
+          if (!sessionRestoredOnce) {
+            setSessionRestored(true);
+            sessionRestoredOnce = true;
           }
           // ... existing code for handling game state ...
         });
@@ -246,13 +259,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Always request latest game state after rejoin
           socket.emit('get_game_state', { roomCode: savedRoomCode });
         }
-        // Mark session as restored after first attempt
-        setSessionRestored(true);
       } catch (error) {
         console.error('[RoomContext] Failed to setup socket listeners:', error);
         setErrorMsg('Failed to connect to game server');
         setIsLoading(false);
-        setSessionRestored(true); // Mark as restored even if failed
+        setSessionRestored(true); // Only set on error
       }
     };
 
