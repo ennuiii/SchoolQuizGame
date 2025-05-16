@@ -204,7 +204,7 @@ body {
 
 /* Drawing Board */
 .drawing-board-container {
-  background: #0C6A35 url('/assets/green-dust-and-scratches.png');
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border-width: 20px;
   border-style: solid;
   border-image: url('https://www.transparenttextures.com/patterns/wood-pattern.png') 30 round;
@@ -808,7 +808,7 @@ body {
   width: 100%;
   max-width: 900px;
   min-height: 110px;
-  background: #185c37 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border: 6px solid #fff;
   border-radius: 28px;
   box-shadow: 0 6px 24px #0004, 0 2px 8px #0002;
@@ -898,7 +898,7 @@ body {
   min-height: 90px;
   max-height: 120px;
   margin-bottom: 8px;
-  background: #0C6A35;
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
   border-radius: 8px;
   box-shadow: 0 1px 4px #0001;
   overflow: hidden;
@@ -1057,7 +1057,7 @@ body {
   min-height: 120px;
   max-height: 180px;
   margin-bottom: 8px;
-  background: #0C6A35;
+  background: #f5f5f5;
   border-radius: 8px;
   box-shadow: 0 1px 4px #0001;
   overflow: hidden;
