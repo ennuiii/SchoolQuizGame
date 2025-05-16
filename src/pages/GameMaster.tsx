@@ -409,8 +409,11 @@ const GameMaster: React.FC = () => {
                   {!isGameConcluded && (
                     <button 
                       className="btn btn-danger" 
-                      onClick={handleEndGameRequest}
-                      disabled={isRestarting || !gameStarted}
+                      onClick={() => {
+                        console.log('[GameMaster] End Game button clicked. Attempting to emit gmEndGameRequest. Room:', roomCode);
+                        handleEndGameRequest();
+                      }}
+                      disabled={isRestarting}
                     >
                       End Game
                     </button>
