@@ -126,7 +126,8 @@ function createGameRoom(roomCode, gamemasterId) {
     roundAnswers: {}, // Store current round answers separately
     evaluatedAnswers: {}, // Store evaluated answers
     submissionPhaseOver: false, // Initialize submission phase flag
-    isConcluded: false // Added isConcluded flag
+    isConcluded: false, // Added isConcluded flag
+    joinedAsSpectator: false // Track if joined as spectator
   };
 }
 
@@ -528,7 +529,8 @@ io.on('connection', (socket) => {
       lives: 3,
       answers: [],
       isActive: true,
-      isSpectator
+      isSpectator,
+      joinedAsSpectator: !!isSpectator // Track if joined as spectator
     };
     room.players.push(player);
 
@@ -678,15 +680,20 @@ io.on('connection', (socket) => {
     // Always set the current socket as gamemaster on restart
     room.gamemaster = socket.id;
 
+    // Reset isConcluded so the new game can be ended
+    room.isConcluded = false;
+
+    // Reset analytics/recap for this room if present
+    if (gameAnalytics && gameAnalytics.games && gameAnalytics.games[roomCode]) {
+      delete gameAnalytics.games[roomCode];
+    }
+
     console.log(`[Server Restart] Attempting to restart game in room: ${roomCode}`);
-    
     // Clear any active timers
     clearRoomTimer(roomCode);
-    
     // Reset the game state but keep the room and settings
     room.started = false;
     // DO NOT reset questions or timeLimit from room.questions and room.timeLimit
-    
     // Reset progress
     room.currentQuestionIndex = 0;
     if (room.questions && room.questions.length > 0) {
@@ -698,32 +705,34 @@ io.on('connection', (socket) => {
     room.roundAnswers = {};       // Clear current round's answers
     room.evaluatedAnswers = {};   // Clear evaluated answers
     room.submissionPhaseOver = false; // Reset submission phase flag
-    
     // Reset all players, but keep them in the room
     room.players.forEach(player => {
-      player.lives = 3;
-      player.answers = []; // Clear all answers from previous game
-      player.isActive = true; // Ensures they are active for the new game
-      // Spectators who joined as such might need specific handling if they shouldn't become active players.
-      // For now, this makes all non-GM participants active with full lives.
+      if (player.joinedAsSpectator) {
+        // True spectator: keep as spectator
+        player.lives = 0;
+        player.isActive = true;
+        player.isSpectator = true;
+        player.answers = [];
+      } else {
+        // Player or eliminated player: reset to active player
+        player.lives = 3;
+        player.answers = [];
+        player.isActive = true;
+        player.isSpectator = false;
+      }
     });
-    
     // Clear player boards (drawings)
     if (room.playerBoards) {
-        Object.keys(room.playerBoards).forEach(playerId => {
-            room.playerBoards[playerId] = {
-                boardData: '', // Clear the drawing data
-                // Other fields like roundIndex or timestamp could be reset or removed if not needed
-            };
-        });
+      Object.keys(room.playerBoards).forEach(playerId => {
+        room.playerBoards[playerId] = {
+          boardData: '', // Clear the drawing data
+        };
+      });
     }
-    
     // Notify everyone that the game has been restarted (optional, as broadcastGameState will update clients)
     io.to(roomCode).emit('game_restarted', { roomCode }); 
-    
     // Broadcast the complete updated (reset) game state
     broadcastGameState(roomCode);
-    
     console.log(`[Server Restart] Game restarted successfully in room: ${roomCode}. New state broadcasted.`);
   });
 
@@ -1219,7 +1228,8 @@ io.on('connection', (socket) => {
       lives: 0,
       answers: [],
       isActive: true,
-      isSpectator: true
+      isSpectator: true,
+      joinedAsSpectator: true // Track as true spectator
     };
 
     // Add spectator to players list
