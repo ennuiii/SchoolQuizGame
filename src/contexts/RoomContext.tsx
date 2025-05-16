@@ -214,6 +214,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         });
 
+        socket.on('game_state_update', (gameState: any) => {
+          // If roomCode is empty but sessionStorage has it, set it
+          if (!roomCode) {
+            const storedRoomCode = sessionStorage.getItem('roomCode');
+            if (storedRoomCode) {
+              setRoomCode(storedRoomCode);
+            }
+          }
+          // ... existing code for handling game state ...
+        });
+
         // Check for existing room session
         const savedRoomCode = sessionStorage.getItem('roomCode');
         const savedPlayerName = sessionStorage.getItem('playerName');
