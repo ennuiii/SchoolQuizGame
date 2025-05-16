@@ -1126,6 +1126,9 @@ io.on('connection', (socket) => {
     if (gameState) {
       socket.emit('game_state_update', gameState);
       console.log(`[Rejoin] Sent complete game state to rejoining gamemaster`);
+      // Also send players_update to ensure player list is up-to-date
+      socket.emit('players_update', room.players);
+      console.log(`[Rejoin] Sent players_update to rejoining gamemaster`);
     }
     
     // Send all player boards
