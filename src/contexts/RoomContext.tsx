@@ -220,14 +220,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
         const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
 
-        if (savedRoomCode && savedPlayerName) {
-          setRoomCode(savedRoomCode);
-          setPlayerName(savedPlayerName);
-          setIsSpectator(savedIsSpectator);
-
+        if (savedRoomCode) {
           if (isGameMaster) {
+            console.log('[RoomContext][DEBUG] Emitting rejoin_gamemaster for room', savedRoomCode);
             socket.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
-          } else {
+          } else if (savedPlayerName) {
+            console.log('[RoomContext][DEBUG] Emitting rejoin_player for room', savedRoomCode, 'as', savedPlayerName);
             socket.emit('rejoin_player', {
               roomCode: savedRoomCode,
               playerName: savedPlayerName,
