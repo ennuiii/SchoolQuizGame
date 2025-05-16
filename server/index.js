@@ -1428,27 +1428,23 @@ io.on('connection', (socket) => {
   });
 
   socket.on('gm_end_game_request', ({ roomCode }) => {
-    if (!gameRooms[roomCode] || gameRooms[roomCode].gamemaster !== socket.id) {
-      console.warn(`[Server gm_end_game_request] Unauthorized or room not found by ${socket.id} for ${roomCode}`);
+    const room = gameRooms[roomCode];
+    if (!room) {
+      console.warn(`[Server gm_end_game_request] Room not found for code: ${roomCode}`);
       return;
     }
-    const room = gameRooms[roomCode];
-    if (room && room.started /* && !room.isConcluded already checked by helper */) {
-      // room.isConcluded = true; // Handled by helper
-      // clearRoomTimer(roomCode); // Handled by helper
+    if (room.gamemaster !== socket.id) {
+      console.warn(`[Server gm_end_game_request] Unauthorized attempt by ${socket.id} for room ${roomCode}`);
+      return;
+    }
+    if (!room.isConcluded) {
+      // Allow ending the game as long as it is not already concluded
       console.log(`[Server gm_end_game_request] GM ${socket.id} ended game in room ${roomCode}.`);
-      
       const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
       const winnerPayload = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
-      
       concludeGameAndSendRecap(roomCode, winnerPayload);
-      // Old logic:
-      // io.to(roomCode).emit('game_over_pending_recap', { 
-      //   roomCode,
-      //   winner: winnerPayload
-      // });
     } else {
-      console.log(`[Server gm_end_game_request] Game in room ${roomCode} not started or already concluded.`);
+      console.log(`[Server gm_end_game_request] Game in room ${roomCode} already concluded. No action taken.`);
     }
   });
 
