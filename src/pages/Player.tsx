@@ -63,6 +63,7 @@ const Player: React.FC = () => {
     isSpectator: amISpectator,
     isLoading: isRoomLoading,
     errorMsg,
+    sessionRestored,
   } = useRoom();
 
   const { getCurrentCanvasSVG } = useCanvas();
@@ -227,6 +228,11 @@ const Player: React.FC = () => {
       navigate('/spectator');
     }
   }, [amISpectator, navigate]);
+
+  // Wait for session restoration before redirecting
+  if (!sessionRestored) {
+    return <LoadingOverlay isVisible={true} message="Restoring session..." />;
+  }
 
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');

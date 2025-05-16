@@ -22,6 +22,7 @@ interface RoomContextType {
   copied: boolean;
   currentPlayerId: string | null;
   isReconnecting: boolean;
+  sessionRestored: boolean;
   createRoom: (roomCode: string) => void;
   
   // Actions
@@ -49,6 +50,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [reconnectAttempts, setReconnectAttempts] = useState(0);
+  const [sessionRestored, setSessionRestored] = useState(false);
   const MAX_RECONNECT_ATTEMPTS = 3;
 
   const createRoom = useCallback(async (roomCode: string) => {
@@ -232,10 +234,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Always request latest game state after rejoin
           socket.emit('get_game_state', { roomCode: savedRoomCode });
         }
+        // Mark session as restored after first attempt
+        setSessionRestored(true);
       } catch (error) {
         console.error('[RoomContext] Failed to setup socket listeners:', error);
         setErrorMsg('Failed to connect to game server');
         setIsLoading(false);
+        setSessionRestored(true); // Mark as restored even if failed
       }
     };
 
@@ -265,6 +270,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     copied,
     currentPlayerId,
     isReconnecting,
+    sessionRestored,
     createRoom,
     setRoomCode,
     setPlayerName,

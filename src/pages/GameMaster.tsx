@@ -37,7 +37,8 @@ const GameMaster: React.FC = () => {
     isLoading: isRoomLoading,
     setIsLoading: setIsRoomLoading,
     createRoom,
-    players
+    players,
+    sessionRestored
   } = useRoom();
 
   const {
@@ -269,6 +270,19 @@ const GameMaster: React.FC = () => {
     });
     setBoardTransforms(initialTransforms);
   }, [players]);
+
+  if (!sessionRestored) {
+    return (
+      <div className="container mt-5">
+        <div className="text-center">
+          <h2>Restoring session...</h2>
+          <div className="spinner-border text-primary mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (!roomCode) {
     return (
