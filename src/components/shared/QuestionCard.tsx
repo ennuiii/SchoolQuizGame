@@ -1,54 +1,21 @@
-import React from 'react';
-
-interface Question {
-  id: number;
-  text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
-}
+import React, { useState, useEffect, ChangeEvent } from 'react';
+import type { Question } from '../../contexts/GameContext';
+import QuestionDisplayCard from './QuestionDisplayCard';
 
 interface QuestionCardProps {
-  currentQuestion: Question | null;
-  currentQuestionIndex?: number;
-  totalQuestions?: number;
-  showAnswer?: boolean;
+  question: Question | null;
+  timeRemaining: number | null;
+  onSubmit: (textAnswer: string) => void;
+  submitted: boolean;
 }
 
-const QuestionCard: React.FC<QuestionCardProps> = ({
-  currentQuestion,
-  currentQuestionIndex,
-  totalQuestions,
-  showAnswer = false
-}) => {
-  if (!currentQuestion) return null;
+const QuestionCard: React.FC<QuestionCardProps> = ({ question, timeRemaining, onSubmit, submitted }) => {
+  if (!question) {
+    return <QuestionDisplayCard question={null} showAnswer={false} title="Question" />;
+  }
 
   return (
-    <div className="card mb-4">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <h3 className="mb-0">Question</h3>
-        {currentQuestionIndex !== undefined && totalQuestions !== undefined && (
-          <span className="badge bg-primary">
-            Question {currentQuestionIndex + 1} of {totalQuestions}
-          </span>
-        )}
-      </div>
-      <div className="card-body">
-        <div className="question-container">
-          <p className="lead mb-1">{currentQuestion.text}</p>
-          <small>
-            Grade: {currentQuestion.grade} | Subject: {currentQuestion.subject}
-            {currentQuestion.language && ` | Language: ${currentQuestion.language}`}
-          </small>
-        </div>
-        {showAnswer && currentQuestion.answer && (
-          <div className="alert alert-info mt-3 mb-0">
-            <strong>Answer:</strong> {currentQuestion.answer}
-          </div>
-        )}
-      </div>
-    </div>
+    <QuestionDisplayCard question={question} showAnswer={false} title="Question" />
   );
 };
 

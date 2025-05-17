@@ -1,135 +1,139 @@
-import React, { useEffect, useRef } from 'react';
-import { fabric } from 'fabric';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useCanvas } from '../../contexts/CanvasContext';
 
-interface DrawingBoardProps {
-  canvasKey: number;
-  roomCode: string;
-  submittedAnswer: boolean;
-  onBoardUpdate: (svgData: string) => void;
+interface BoardData {
+  data: string;
+  timestamp: number;
 }
 
-const DrawingBoard: React.FC<DrawingBoardProps> = ({
-  canvasKey,
-  roomCode,
-  submittedAnswer,
-  onBoardUpdate
-}) => {
+interface DrawingBoardProps {
+  onUpdate: (boardData: BoardData) => Promise<void>;
+  disabled: boolean;
+  controls?: React.ReactNode; // Optional custom controls
+}
+
+const DrawingBoard: React.FC<DrawingBoardProps> = ({ onUpdate, disabled, controls }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
-  const boardContainerRef = useRef<HTMLDivElement>(null);
+  const [key, setKey] = useState(0);
+  const [brushColor, setBrushColor] = useState('#FFFFFF');
+  const [brushSize, setBrushSize] = useState(4);
+
+  const {
+    getFabricCanvas,
+    initializeCanvas,
+    disposeCanvas,
+    clearCanvas,
+    setDrawingEnabled,
+    updateBoard
+  } = useCanvas();
+
+  const updateBrush = useCallback(() => {
+    const fabricCanvas = getFabricCanvas();
+    if (fabricCanvas && fabricCanvas.freeDrawingBrush) {
+      fabricCanvas.freeDrawingBrush.color = brushColor;
+      fabricCanvas.freeDrawingBrush.width = brushSize;
+    }
+  }, [brushColor, brushSize, getFabricCanvas]);
 
   useEffect(() => {
-    if (canvasRef.current && !fabricCanvasRef.current) {
-      fabricCanvasRef.current = new fabric.Canvas(canvasRef.current, {
-        isDrawingMode: true,
+    updateBrush();
+  }, [updateBrush]);
+
+  // Initialize canvas when component mounts
+  useEffect(() => {
+    if (canvasRef.current) {
+      initializeCanvas(canvasRef.current, {
         width: 800,
         height: 400,
-        backgroundColor: '#0C6A35' // Classic chalkboard green
-      });
-      
-      // Set up drawing brush for chalk-like appearance
-      if (fabricCanvasRef.current.freeDrawingBrush) {
-        fabricCanvasRef.current.freeDrawingBrush.color = '#FFFFFF'; // White chalk color
-        fabricCanvasRef.current.freeDrawingBrush.width = 4; // Slightly thicker for chalk effect
-        fabricCanvasRef.current.freeDrawingBrush.opacity = 0.9; // Slightly transparent for chalk texture
-      }
-      
-      // Send canvas updates
-      fabricCanvasRef.current.on('path:created', () => {
-        if (fabricCanvasRef.current && roomCode && !submittedAnswer) {
-          const svgData = fabricCanvasRef.current.toSVG();
-          onBoardUpdate(svgData);
-        }
-      });
-      
-      // Also send updates during mouse movement for real-time drawing
-      fabricCanvasRef.current.on('mouse:move', () => {
-        if (fabricCanvasRef.current && roomCode && fabricCanvasRef.current.isDrawingMode && !submittedAnswer) {
-          const svgData = fabricCanvasRef.current.toSVG();
-          onBoardUpdate(svgData);
-        }
+        isDrawingEnabled: !disabled
       });
     }
-    
+
     return () => {
-      fabricCanvasRef.current?.dispose();
-      fabricCanvasRef.current = null;
+      disposeCanvas();
     };
-  }, [canvasKey, roomCode, submittedAnswer, onBoardUpdate]);
+  }, [initializeCanvas, disposeCanvas]);
 
-  // Add effect to disable canvas interaction after submission
+  // Handle submission state changes - only disable drawing, don't clear
   useEffect(() => {
-    if (fabricCanvasRef.current) {
-      if (submittedAnswer) {
-        // Disable all interactions
-        fabricCanvasRef.current.isDrawingMode = false;
-        (fabricCanvasRef.current as any).selection = false;
-        (fabricCanvasRef.current as any).forEachObject((obj: any) => {
-          obj.selectable = false;
-          obj.evented = false;
-        });
-        fabricCanvasRef.current.renderAll();
-      } else {
-        // Enable drawing mode if not submitted
-        fabricCanvasRef.current.isDrawingMode = true;
-      }
-    }
-  }, [submittedAnswer]);
+    setDrawingEnabled(!disabled);
+  }, [disabled, setDrawingEnabled]);
 
-  const clearCanvas = () => {
-    if (fabricCanvasRef.current && !submittedAnswer) {
-      fabricCanvasRef.current.clear();
-      fabricCanvasRef.current.backgroundColor = '#0C6A35';
-      fabricCanvasRef.current.renderAll();
+  // Handle board updates
+  useEffect(() => {
+    const updateInterval = setInterval(() => {
+      if (!canvasRef.current) return;
       
-      // Send empty canvas
-      const svgData = fabricCanvasRef.current.toSVG();
-      onBoardUpdate(svgData);
-    }
+      const mockRoomCode = 'TEMP'; // We don't actually use this
+      updateBoard(mockRoomCode, (svgData: string) => {
+        const boardData: BoardData = {
+          data: svgData,
+          timestamp: Date.now()
+        };
+        onUpdate(boardData);
+      });
+    }, 100);
+
+    return () => {
+      clearInterval(updateInterval);
+    };
+  }, [onUpdate, updateBoard]);
+
+  const handleColorChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBrushColor(e.target.value);
+    updateBrush();
+  };
+
+  const handleSizeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setBrushSize(parseInt(e.target.value));
+    updateBrush();
   };
 
   return (
-    <div className="card mb-4">
-      <div className="card-header d-flex justify-content-between align-items-center">
-        <h3 className="mb-0">Your Answer</h3>
-        <div>
-          <button 
+    <>
+      <div className="drawing-board-controls mb-2 d-flex justify-content-end align-items-center" style={{ minHeight: 40 }}>
+        <input
+          type="color"
+          value={brushColor}
+          onChange={handleColorChange}
+          className="me-2"
+        />
+        <input
+          type="range"
+          min="1"
+          max="20"
+          value={brushSize}
+          onChange={handleSizeChange}
+          className="me-2"
+        />
+        {controls ? controls : (
+          <button
             className="btn btn-outline-light me-2"
             onClick={clearCanvas}
+            disabled={disabled}
             style={{ 
               backgroundColor: '#8B4513', 
-              border: 'none',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+              borderColor: '#8B4513',
+              color: 'white'
             }}
           >
-            Erase Board
+            Clear Canvas
           </button>
+        )}
+      </div>
+      <div className="drawing-board-container">
+        <div className="drawing-board mb-4" key={key}>
+          <div style={{ width: '100%', maxWidth: '800px', height: '400px', overflow: 'hidden', margin: '0 auto', cursor: disabled ? 'default' : 'crosshair' }}>
+            <div className="canvas-container" style={{ width: 800, height: 400, position: 'relative', userSelect: 'none' }}>
+              <canvas
+                ref={canvasRef}
+                style={{ width: '100%', height: '100%' }}
+              />
+            </div>
+          </div>
         </div>
       </div>
-      <div className="card-body">
-        <div 
-          ref={boardContainerRef}
-          className="mb-4 drawing-board-container" 
-          style={{ 
-            width: '100%',
-            maxWidth: '800px',
-            height: 'auto',
-            minHeight: '250px',
-            position: 'relative',
-            overflow: 'hidden',
-            margin: '0 auto',
-          }}
-        >
-          <canvas 
-            ref={canvasRef} 
-            id={`canvas-${canvasKey}`} 
-            width="800" 
-            height="400" 
-            style={{ display: 'block', width: '100%', height: '100%' }} 
-          />
-        </div>
-      </div>
-    </div>
+    </>
   );
 };
 

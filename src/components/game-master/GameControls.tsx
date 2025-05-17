@@ -1,9 +1,7 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
 
 interface GameControlsProps {
-  gameStarted: boolean;
-  currentQuestionIndex: number;
-  totalQuestions: number;
   onStartGame: () => void;
   onNextQuestion: () => void;
   onRestartGame: () => void;
@@ -12,13 +10,9 @@ interface GameControlsProps {
   showEndRoundConfirm: boolean;
   onConfirmEndRound: () => void;
   onCancelEndRound: () => void;
-  hasPendingAnswers: boolean;
 }
 
 const GameControls: React.FC<GameControlsProps> = ({
-  gameStarted,
-  currentQuestionIndex,
-  totalQuestions,
   onStartGame,
   onNextQuestion,
   onRestartGame,
@@ -26,9 +20,11 @@ const GameControls: React.FC<GameControlsProps> = ({
   isRestarting,
   showEndRoundConfirm,
   onConfirmEndRound,
-  onCancelEndRound,
-  hasPendingAnswers
+  onCancelEndRound
 }) => {
+  const { gameStarted, currentQuestionIndex, questions, allAnswersThisRound } = useGame();
+  const hasPendingAnswers = Object.keys(allAnswersThisRound).length > 0;
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
@@ -48,7 +44,7 @@ const GameControls: React.FC<GameControlsProps> = ({
             <button
               className="btn btn-primary flex-grow-1"
               onClick={onNextQuestion}
-              disabled={currentQuestionIndex >= totalQuestions - 1 || hasPendingAnswers}
+              disabled={currentQuestionIndex >= questions.length - 1 || hasPendingAnswers}
             >
               Next Question
             </button>

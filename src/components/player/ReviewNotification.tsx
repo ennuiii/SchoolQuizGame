@@ -1,16 +1,19 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
 
 interface ReviewNotificationProps {
-  isCorrect: boolean;
-  message: string;
-  timestamp: number;
+  playerId: string;
 }
 
-const ReviewNotification: React.FC<ReviewNotificationProps> = ({
-  isCorrect,
-  message,
-  timestamp
-}) => {
+const ReviewNotification: React.FC<ReviewNotificationProps> = ({ playerId }) => {
+  const { evaluatedAnswers } = useGame();
+  const evaluation = evaluatedAnswers[playerId];
+
+  if (evaluation === undefined) return null;
+
+  const isCorrect = evaluation === true;
+  const message = isCorrect ? 'Correct!' : 'Incorrect!';
+
   return (
     <div className={`alert ${isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
       <div className="me-3">

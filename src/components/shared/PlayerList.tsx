@@ -1,4 +1,6 @@
 import React from 'react';
+import { useGame } from '../../contexts/GameContext';
+import { useRoom } from '../../contexts/RoomContext';
 
 interface Player {
   id: string;
@@ -10,20 +12,22 @@ interface Player {
 }
 
 interface PlayerListProps {
-  players: Player[];
   currentPlayerId?: string;
   onPlayerSelect?: (playerId: string) => void;
-  selectedPlayerId?: string | null;
+  selectedPlayerId?: string;
   title?: string;
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({
-  players,
-  currentPlayerId,
+  currentPlayerId: propCurrentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
   title = "Players"
 }) => {
+  const { players } = useGame();
+  const { currentPlayerId: contextCurrentPlayerId } = useRoom();
+  const currentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
@@ -40,7 +44,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
               <div
                 key={player.id}
                 className={`list-group-item d-flex justify-content-between align-items-center ${
-                  player.id === currentPlayerId ? 'bg-light' : ''
+                  player.id === currentPlayerId ? 'bg-highlight' : ''
                 } ${selectedPlayerId === player.id ? 'active' : ''}`}
                 onClick={() => onPlayerSelect?.(player.id)}
                 style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
@@ -48,7 +52,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
                 <div className="d-flex align-items-center">
                   <span className="me-2">{player.name}</span>
                   {player.id === currentPlayerId && (
-                    <span className="badge bg-primary rounded-pill">You</span>
+                    <span className="badge bg-primary rounded-pill ms-1">You</span>
                   )}
                   {player.isSpectator && (
                     <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>

@@ -1,24 +1,31 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRoom } from '../../contexts/RoomContext';
 
-interface RoomCodeProps {
-  roomCode: string;
-}
-
-const RoomCode: React.FC<RoomCodeProps> = ({ roomCode }) => {
+const RoomCode: React.FC = () => {
+  const { roomCode } = useRoom();
   const [copied, setCopied] = useState(false);
 
-  const handleCopy = () => {
+  const handleCopyCode = () => {
+    if (!roomCode) return;
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const handleCopyLink = () => {
+  const handleCopyInviteLink = () => {
+    if (!roomCode) return;
     const inviteLink = `${window.location.origin}/join?room=${roomCode}`;
     navigator.clipboard.writeText(inviteLink);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
+
+  // Reset copied state when room code changes
+  useEffect(() => {
+    setCopied(false);
+  }, [roomCode]);
+
+  if (!roomCode) return null;
 
   return (
     <div className="card mb-3">
@@ -26,35 +33,24 @@ const RoomCode: React.FC<RoomCodeProps> = ({ roomCode }) => {
         <h6 className="mb-0">Room Code</h6>
       </div>
       <div className="card-body">
-        <div className="d-flex align-items-center justify-content-between">
-          <div className="room-code-display">
-            <span className="h4 mb-0">{roomCode}</span>
+        <div className="d-flex flex-column gap-2">
+          <div className="room-code-display p-2 bg-light rounded text-center">
+            <h3 className="mb-0">{roomCode}</h3>
           </div>
           <div className="d-flex gap-2">
-            <button
-              className="btn btn-outline-primary"
-              onClick={handleCopy}
-              title="Copy room code"
+            <button 
+              className="btn btn-primary flex-grow-1"
+              onClick={handleCopyCode}
+              disabled={!roomCode}
             >
-              {copied ? (
-                <>
-                  <i className="bi bi-check2 me-1"></i>
-                  Copied!
-                </>
-              ) : (
-                <>
-                  <i className="bi bi-clipboard me-1"></i>
-                  Copy
-                </>
-              )}
+              {copied ? 'Copied!' : 'Copy Code'}
             </button>
-            <button
-              className="btn btn-outline-success"
-              onClick={handleCopyLink}
-              title="Copy invite link"
+            <button 
+              className="btn btn-outline-primary flex-grow-1"
+              onClick={handleCopyInviteLink}
+              disabled={!roomCode}
             >
-              <i className="bi bi-link-45deg me-1"></i>
-              Invite Link
+              {copied ? 'Copied!' : 'Copy Invite Link'}
             </button>
           </div>
         </div>

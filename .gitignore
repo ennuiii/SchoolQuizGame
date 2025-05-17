@@ -48,3 +48,7 @@ SUPABASE_*.md
 
 # AI Assistant instructions
 ai-instructions.txt
+
+# ABAP Integration Code
+/abap-code/
+*.abap

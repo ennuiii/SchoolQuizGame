@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import React, { useCallback, useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import socketService from '../services/socketService';
-import { supabaseService } from '../services/supabaseService';
-import audioService from '../services/audioService';
+import { useRoom } from '../contexts/RoomContext';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
+import MusicControl from '../components/shared/MusicControl';
 
 interface Player {
   id: string;
@@ -17,281 +17,223 @@ interface Player {
 
 const JoinGame: React.FC = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [roomCode, setRoomCode] = useState('');
-  const [playerName, setPlayerName] = useState('');
+  const [searchParams] = useSearchParams();
   const [isSpectator, setIsSpectator] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
-  const [volume, setVolume] = useState(audioService.getVolume());
-  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasJoined, setHasJoined] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
+  
+  const {
+    roomCode,
+    playerName,
+    isLoading,
+    errorMsg,
+    setRoomCode,
+    setPlayerName,
+    setErrorMsg,
+    joinRoom,
+    players
+  } = useRoom();
 
-  // Read room query parameter from URL and pre-fill room code input
+  // Read room code from URL when component mounts
   useEffect(() => {
-    const searchParams = new URLSearchParams(location.search);
-    const roomParam = searchParams.get('room');
-    if (roomParam) {
-      setRoomCodeInput(roomParam);
+    const roomFromUrl = searchParams.get('room');
+    if (roomFromUrl && !roomCode) {
+      setRoomCode(roomFromUrl.toUpperCase());
     }
-  }, [location]);
+  }, [searchParams, roomCode, setRoomCode]);
 
-  const handleToggleMute = () => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  };
-
-  const joinRoom = () => {
-    if (!roomCodeInput) {
-      setErrorMsg('Please enter a room code!');
-      return;
-    }
-    if (!playerName.trim()) {
-      setErrorMsg('Please enter your name!');
-      return;
-    }
-    setIsLoading(true);
-    if (isSpectator) {
-      socketService.joinAsSpectator(roomCodeInput, playerName);
-    } else {
-      socketService.joinRoom(roomCodeInput, playerName);
-    }
-
-    // Fallback navigation after 5 seconds if 'room_joined' is not received
-    fallbackTimeoutRef.current = setTimeout(() => {
-      if (isLoading && !roomCode) {
-        // Store player info in sessionStorage before navigation
-        sessionStorage.setItem('roomCode', roomCodeInput);
-        sessionStorage.setItem('playerName', playerName);
-        sessionStorage.setItem('isGameMaster', 'false');
-        sessionStorage.setItem('isSpectator', isSpectator.toString());
-        navigate(isSpectator ? '/spectator' : '/player');
-      }
-    }, 5000);
-  };
-
+  // Ensure socket is connected when component mounts
   useEffect(() => {
-    socketService.connect();
-
-    socketService.on('room_joined', (data: { roomCode: string }) => {
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
-      }
-      setRoomCode(data.roomCode);
-      // Store player info in sessionStorage
-      sessionStorage.setItem('roomCode', data.roomCode);
-      sessionStorage.setItem('playerName', playerName);
-      sessionStorage.setItem('isGameMaster', 'false');
-      sessionStorage.setItem('isSpectator', isSpectator.toString());
-      setIsLoading(false);
-      // Navigate to appropriate view after sessionStorage is set
-      setTimeout(() => {
-        navigate(isSpectator ? '/spectator' : '/player');
-      }, 0);
-    });
-
-    socketService.on('player_joined', (player: Player) => {
-      console.log('Player joined:', player);
-      setPlayers(prevPlayers => {
-        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
-        if (existingIndex >= 0) {
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingIndex] = player;
-          return updatedPlayers;
-        } else {
-          return [...prevPlayers, player];
+    const connectSocket = async () => {
+      try {
+        const socket = await socketService.connect();
+        if (!socket) {
+          console.error('Failed to connect to socket server');
+          return;
         }
-      });
-    });
+        
+        socket.on('connect', () => {
+          console.log('Socket connected successfully');
+          setIsConnecting(false);
+        });
 
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      console.log('Players updated:', updatedPlayers);
-      setPlayers(updatedPlayers);
-    });
+        socket.on('connect_error', (error: Error) => {
+          console.error('Socket connection error:', error);
+          setErrorMsg('Failed to connect to server. Please try again.');
+          setIsConnecting(false);
+        });
 
-    socketService.on('error', (msg: string) => {
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
+        return () => {
+          socket.off('connect');
+          socket.off('connect_error');
+        };
+      } catch (error) {
+        console.error('Socket connection error:', error);
+        setErrorMsg('Failed to connect to server. Please try again.');
+        setIsConnecting(false);
       }
-      setErrorMsg(msg);
-      setIsLoading(false);
-    });
+    };
 
-    const savedRoomCode = sessionStorage.getItem('roomCode');
-    const savedPlayerName = sessionStorage.getItem('playerName');
-    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-    if (savedRoomCode && savedPlayerName && !isGameMaster) {
-      console.log('Rejoining as player for room:', savedRoomCode);
-      setRoomCode(savedRoomCode);
-      socketService.emit('rejoin_player', { roomCode: savedRoomCode, playerName: savedPlayerName });
+    connectSocket();
+  }, [setErrorMsg]);
+
+  const handleJoinGame = useCallback(async () => {
+    if (!roomCode || !playerName) {
+      setErrorMsg('Please enter both room code and player name!');
+      return;
     }
 
-    return () => {
-      socketService.off('room_joined');
-      socketService.off('player_joined');
-      socketService.off('players_update');
-      socketService.off('error');
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
+    setIsConnecting(true);
+    try {
+      const socket = await socketService.connect();
+      if (!socket || !socket.connected) {
+        setErrorMsg('Not connected to server. Please try again.');
+        setIsConnecting(false);
+        return;
       }
-    };
-  }, [navigate, playerName, isSpectator]);
 
+      joinRoom(roomCode, playerName, isSpectator);
+    } catch (error) {
+      setErrorMsg('Failed to connect to server. Please try again.');
+      setIsConnecting(false);
+    }
+  }, [roomCode, playerName, isSpectator, joinRoom, setErrorMsg]);
+
+  // Listen for room_joined and error events to set hasJoined correctly
   useEffect(() => {
-    audioService.playBackgroundMusic();
-    return () => {
-      audioService.pauseBackgroundMusic();
-    };
+    const socketPromise = socketService.connect();
+    let socket: any = null;
+    socketPromise.then(s => {
+      socket = s;
+      if (!socket) return;
+      const handleRoomJoined = () => setHasJoined(true);
+      const handleError = () => setHasJoined(false);
+      socket.on('room_joined', handleRoomJoined);
+      socket.on('error', handleError);
+      // Cleanup
+      return () => {
+        socket.off('room_joined', handleRoomJoined);
+        socket.off('error', handleError);
+      };
+    });
+    // No cleanup needed for the promise itself
   }, []);
 
   return (
-    <div className="container-fluid px-2 px-md-4">
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-          <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
-          Join Game
+    <>
+      <MusicControl />
+      <div className="container-fluid px-2 px-md-4">
+        <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
+          <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
+            <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
+            {'Join Game'}
+          </div>
         </div>
-        <div className="d-flex align-items-center gap-2">
-          <input
-            type="range"
-            className="form-range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume}
-            onChange={handleVolumeChange}
-            style={{ width: '100px' }}
-            title="Volume"
-          />
-          <button
-            className="btn btn-outline-secondary"
-            onClick={handleToggleMute}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <i className="bi bi-volume-mute-fill"></i>
-            ) : (
-              <i className="bi bi-volume-up-fill"></i>
-            )}
-          </button>
-        </div>
+        
+        {!hasJoined ? (
+          <div className="row justify-content-center">
+            <div className="col-12 col-md-6">
+              <div className="card p-4 text-center">
+                <h3>Join a Game</h3>
+                <p>Enter the room code and your name to join the game.</p>
+                
+                <div className="form-check mb-3">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id="spectatorCheckbox"
+                    checked={isSpectator}
+                    onChange={(e) => setIsSpectator(e.target.checked)}
+                  />
+                  <label className="form-check-label" htmlFor="spectatorCheckbox">
+                    Join as Spectator
+                  </label>
+                </div>
+
+                <div className="form-group mb-3">
+                  <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
+                  <input
+                    type="text"
+                    id="roomCodeInput"
+                    className="form-control"
+                    placeholder="Enter room code"
+                    value={roomCode || ''}
+                    onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
+                    maxLength={6}
+                  />
+                </div>
+
+                <div className="form-group mb-3">
+                  <label htmlFor="playerNameInput" className="form-label">Your Name:</label>
+                  <input
+                    type="text"
+                    id="playerNameInput"
+                    className="form-control"
+                    placeholder="Enter your name"
+                    value={playerName}
+                    onChange={(e) => setPlayerName(e.target.value)}
+                  />
+                </div>
+
+                {errorMsg && (
+                  <div className="alert alert-danger" role="alert">
+                    {errorMsg}
+                    <button 
+                      type="button" 
+                      className="btn-close float-end" 
+                      onClick={() => setErrorMsg('')}
+                      aria-label="Close"
+                    ></button>
+                  </div>
+                )}
+
+                <button 
+                  className="btn btn-primary btn-lg mt-3"
+                  onClick={handleJoinGame}
+                  disabled={isLoading || isConnecting}
+                >
+                  {isLoading ? 'Processing...' : isConnecting ? 'Connecting...' : 'Join Game'}
+                </button>
+                <button 
+                  className="btn btn-outline-secondary mt-3"
+                  onClick={() => navigate('/')}
+                >
+                  Back to Home
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="game-master-container" style={{ 
+            backgroundImage: 'linear-gradient(to bottom right, #8B4513, #A0522D)', 
+            padding: '15px', 
+            borderRadius: '12px',
+            boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
+            backgroundSize: '100% 100%',
+            backgroundRepeat: 'no-repeat'
+          }}>
+            <div className="row g-3">
+              <div className="col-12 col-md-4">
+                <RoomCode />
+                <PlayerList title="Players" />
+              </div>
+              <div className="col-12 col-md-8">
+                <div className="card">
+                  <div className="card-header">
+                    <h3 className="mb-0">
+                      {'Waiting for Game Master'}
+                    </h3>
+                  </div>
+                  <div className="card-body">
+                    <p className="mb-4">You have joined the room. Please wait for the Game Master to start the game.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-      
-      {errorMsg && (
-        <div className="alert alert-danger" role="alert">
-          {errorMsg}
-          <button 
-            type="button" 
-            className="btn-close float-end" 
-            onClick={() => setErrorMsg('')}
-            aria-label="Close"
-          ></button>
-        </div>
-      )}
-      
-      {!roomCode ? (
-        <div className="row justify-content-center">
-          <div className="col-12 col-md-6">
-            <div className="card p-4 text-center">
-              <h3>Join a Game Room</h3>
-              <p>Enter the room code provided by the Game Master.</p>
-              <div className="form-group mb-3">
-                <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
-                <input
-                  type="text"
-                  id="roomCodeInput"
-                  className="form-control"
-                  placeholder="Enter room code"
-                  value={roomCodeInput}
-                  onChange={(e) => setRoomCodeInput(e.target.value)}
-                />
-              </div>
-              <div className="form-group mb-3">
-                <label htmlFor="playerName" className="form-label">Your Name:</label>
-                <input
-                  type="text"
-                  id="playerName"
-                  className="form-control"
-                  placeholder="Enter your name"
-                  value={playerName}
-                  onChange={(e) => setPlayerName(e.target.value)}
-                  maxLength={15}
-                />
-              </div>
-              <div className="form-check mb-3">
-                <input
-                  type="checkbox"
-                  className="form-check-input"
-                  id="spectatorCheck"
-                  checked={isSpectator}
-                  onChange={(e) => setIsSpectator(e.target.checked)}
-                />
-                <label className="form-check-label" htmlFor="spectatorCheck">
-                  Join as Spectator
-                </label>
-                <small className="form-text text-muted d-block mt-1">
-                  Spectators can watch the game without participating. You'll be able to see all players' answers and drawings.
-                </small>
-              </div>
-              <button 
-                className="btn btn-primary btn-lg mt-3"
-                onClick={joinRoom}
-                disabled={isLoading}
-              >
-                {isLoading ? 'Joining...' : 'Join Room'}
-              </button>
-              <button 
-                className="btn btn-outline-secondary mt-3"
-                onClick={() => navigate('/')}
-              >
-                Back to Home
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="game-master-container" style={{ 
-          backgroundImage: 'linear-gradient(to bottom right, #8B4513, #A0522D)', 
-          padding: '15px', 
-          borderRadius: '12px',
-          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
-          backgroundSize: '100% 100%',
-          backgroundRepeat: 'no-repeat'
-        }}>
-          <div className="row g-3">
-            <div className="col-12 col-md-4">
-              <RoomCode roomCode={roomCode} />
-              <PlayerList 
-                players={players}
-                onPlayerSelect={() => {}}
-                selectedPlayerId={null}
-                title="Players"
-              />
-            </div>
-            <div className="col-12 col-md-8">
-              <div className="card">
-                <div className="card-header">
-                  <h3 className="mb-0">Waiting for Game Master</h3>
-                </div>
-                <div className="card-body">
-                  <p className="mb-4">
-                    You have joined the room. Please wait for the Game Master to start the game.
-                  </p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 

@@ -38,6 +38,8 @@ class AudioService {
 
   public playBackgroundMusic(): void {
     if (this.backgroundMusic && !this.isMuted) {
+      // Ensure audio state is synchronized
+      this.backgroundMusic.volume = this.volume;
       this.backgroundMusic.play().catch(error => {
         console.warn('Auto-play prevented:', error);
       });

@@ -1,4 +1,7 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { useGame } from '../../contexts/GameContext';
+import { useCanvas } from '../../contexts/CanvasContext';
+import { fabric } from 'fabric';
 
 interface Player {
   id: string;
@@ -6,6 +9,7 @@ interface Player {
   lives: number;
   answers: string[];
   isActive: boolean;
+  isSpectator: boolean;
 }
 
 interface PlayerBoard {
@@ -27,41 +31,74 @@ interface PreviewModeState {
 }
 
 interface PreviewOverlayProps {
-  players: Player[];
-  playerBoards: PlayerBoard[];
-  allAnswersThisRound: Record<string, AnswerSubmission>;
-  evaluatedAnswers: Record<string, boolean | null>;
-  previewMode: PreviewModeState;
   onFocus: (playerId: string) => void;
   onClose: () => void;
   isGameMaster: boolean;
 }
 
 const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
-  players,
-  playerBoards,
-  allAnswersThisRound,
-  evaluatedAnswers,
-  previewMode,
   onFocus,
   onClose,
   isGameMaster
 }) => {
-  if (!previewMode.isActive) return null;
+  const context = useGame();
+  const { setDrawingEnabled } = useCanvas();
 
-  const currentIndex = previewMode.focusedPlayerId 
-    ? playerBoards.findIndex(board => board.playerId === previewMode.focusedPlayerId)
+  // Only show preview mode when active
+  if (!context.previewMode.isActive) return null;
+
+  // Get all active player boards (excluding spectators)
+  const activePlayerBoards = context.playerBoards.filter(board => {
+    const player = context.players.find(p => p.id === board.playerId);
+    return player && !player.isSpectator;
+  });
+
+  // Disable drawing when in preview mode
+  useEffect(() => {
+    setDrawingEnabled(false);
+    return () => setDrawingEnabled(true);
+  }, [setDrawingEnabled]);
+
+  // If no active boards, show a message
+  if (activePlayerBoards.length === 0) {
+    return (
+      <div className="preview-overlay" style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255, 255, 255, 0.95)',
+        zIndex: 1000,
+        padding: '20px',
+        overflow: 'auto'
+      }}>
+        <div className="d-flex justify-content-between align-items-center mb-4">
+          <h2 className="mb-0">Preview Mode</h2>
+          <button className="btn btn-primary" onClick={onClose}>
+            Close Preview
+          </button>
+        </div>
+        <div className="alert alert-info">
+          No player boards available to display.
+        </div>
+      </div>
+    );
+  }
+
+  const currentIndex = context.previewMode.focusedPlayerId 
+    ? activePlayerBoards.findIndex(board => board.playerId === context.previewMode.focusedPlayerId)
     : -1;
 
   const handlePrevious = () => {
     if (currentIndex > 0) {
-      onFocus(playerBoards[currentIndex - 1].playerId);
+      onFocus(activePlayerBoards[currentIndex - 1].playerId);
     }
   };
 
   const handleNext = () => {
-    if (currentIndex < playerBoards.length - 1) {
-      onFocus(playerBoards[currentIndex + 1].playerId);
+    if (currentIndex < activePlayerBoards.length - 1) {
+      onFocus(activePlayerBoards[currentIndex + 1].playerId);
     }
   };
 
@@ -84,14 +121,15 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
         </button>
       </div>
 
-      {previewMode.focusedPlayerId ? (
+      {context.previewMode.focusedPlayerId ? (
+        // Focused view of a single board
         <div className="focused-submission">
-          {playerBoards
-            .filter(board => board.playerId === previewMode.focusedPlayerId)
+          {activePlayerBoards
+            .filter(board => board.playerId === context.previewMode.focusedPlayerId)
             .map(board => {
-              const player = players.find(p => p.id === board.playerId);
-              const answer = allAnswersThisRound[board.playerId];
-              const evaluation = evaluatedAnswers[board.playerId];
+              const player = context.players.find(p => p.id === board.playerId);
+              const answer = context.allAnswersThisRound[board.playerId];
+              const evaluation = context.evaluatedAnswers[board.playerId];
               
               return (
                 <div key={board.playerId} className="card">
@@ -108,7 +146,7 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                       <button 
                         className="btn btn-outline-primary ms-3"
                         onClick={handleNext}
-                        disabled={currentIndex >= playerBoards.length - 1}
+                        disabled={currentIndex >= activePlayerBoards.length - 1}
                       >
                         Next →
                       </button>
@@ -148,20 +186,21 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
                     >
-                      <div
-                        className="drawing-board"
-                        dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          minHeight: 0,
-                          minWidth: 0,
-                          objectFit: 'contain',
-                          transform: 'scale(1)',
-                          transformOrigin: 'top left',
-                          background: 'transparent'
-                        }}
-                      />
+                      <div className="drawing-board-container">
+                        <div className="drawing-board" style={{ width: '100%', height: '100%' }}>
+                          <div
+                            dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              minHeight: 0,
+                              minWidth: 0,
+                              objectFit: 'contain',
+                              background: 'transparent'
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -169,11 +208,12 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
             })}
         </div>
       ) : (
+        // Grid view of all boards
         <div className="row">
-          {playerBoards.map(board => {
-            const player = players.find(p => p.id === board.playerId);
-            const answer = allAnswersThisRound[board.playerId];
-            const evaluation = evaluatedAnswers[board.playerId];
+          {activePlayerBoards.map(board => {
+            const player = context.players.find(p => p.id === board.playerId);
+            const answer = context.allAnswersThisRound[board.playerId];
+            const evaluation = context.evaluatedAnswers[board.playerId];
             
             return (
               <div key={board.playerId} className="col-md-6 mb-4">
@@ -214,20 +254,21 @@ const PreviewOverlay: React.FC<PreviewOverlayProps> = ({
                       onClick={() => onFocus(board.playerId)}
                       title="Click to enlarge"
                     >
-                      <div
-                        className="drawing-board"
-                        dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
-                        style={{
-                          width: '100%',
-                          height: '100%',
-                          minHeight: 0,
-                          minWidth: 0,
-                          objectFit: 'contain',
-                          transform: 'scale(1)',
-                          transformOrigin: 'top left',
-                          background: 'transparent'
-                        }}
-                      />
+                      <div className="drawing-board-container">
+                        <div className="drawing-board" style={{ width: '100%', height: '100%' }}>
+                          <div
+                            dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                            style={{
+                              width: '100%',
+                              height: '100%',
+                              minHeight: 0,
+                              minWidth: 0,
+                              objectFit: 'contain',
+                              background: 'transparent'
+                            }}
+                          />
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>

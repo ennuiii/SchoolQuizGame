@@ -1,101 +1,276 @@
 import { io, Socket } from 'socket.io-client';
 
+interface Question {
+  id: string;
+  text: string;
+  type: 'text' | 'drawing';
+  timeLimit?: number;
+  answer?: string;
+  grade: number;
+  subject: string;
+}
+
 // Determine the server URL based on environment
 const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 
   (process.env.NODE_ENV === 'production' 
     ? 'https://schoolquizgame.onrender.com' // Fallback for production
     : 'http://localhost:5000'); // Fallback for development
 
-class SocketService {
+export class SocketService {
   private socket: Socket | null = null;
-  private listeners: { [event: string]: ((...args: any[]) => void)[] } = {};
+  private connectionState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
+  private connectionPromise: Promise<Socket | null> | null = null;
+  private reconnectAttempts = 0;
+  private readonly maxReconnectAttempts = 5;
+  private reconnectTimer: NodeJS.Timeout | null = null;
+  private eventListeners: Map<string, Set<Function>> = new Map();
+  private connectionStateListeners: ((state: string) => void)[] = [];
+  private url: string;
+  private reconnectListeners: ((attemptNumber: number) => void)[] = [];
 
-  connect() {
-    if (!this.socket) {
-      console.log(`Connecting to socket server at: ${SOCKET_URL}`);
-      this.socket = io(SOCKET_URL);
-      
-      // Re-attach existing listeners
-      Object.entries(this.listeners).forEach(([event, callbacks]) => {
-        callbacks.forEach(callback => {
-          this.socket?.on(event, callback);
+  constructor() {
+    this.url = process.env.REACT_APP_SOCKET_URL || 'https://schoolquizgame.onrender.com';
+    console.log('[SocketService] Initializing with URL:', this.url);
+  }
+
+  // Add method to listen for connection state changes
+  onConnectionStateChange(callback: (state: string) => void) {
+    this.connectionStateListeners.push(callback);
+    // Immediately call with current state
+    callback(this.connectionState);
+  }
+
+  private updateConnectionState(newState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting') {
+    this.connectionState = newState;
+    this.connectionStateListeners.forEach(listener => listener(newState));
+  }
+
+  connect(): Promise<Socket | null> {
+    // If we're already connecting, return the existing promise
+    if (this.connectionPromise) {
+      console.log('[SocketService] Connection already in progress, reusing promise');
+      return this.connectionPromise;
+    }
+
+    // If we're already connected, return the existing socket
+    if (this.socket?.connected) {
+      console.log('[SocketService] Already connected, reusing socket');
+      return Promise.resolve(this.socket);
+    }
+
+    console.log('[SocketService] Attempting to connect to:', this.url);
+    this.updateConnectionState('connecting');
+
+    this.connectionPromise = new Promise((resolve, reject) => {
+      this.socket = io(this.url, {
+        transports: ['websocket', 'polling'],
+        reconnectionAttempts: this.maxReconnectAttempts,
+        timeout: 10000,
+        forceNew: false
+      });
+
+      this.socket.once('connect', () => {
+        console.log('[SocketService] Connected successfully:', {
+          socketId: this.socket?.id,
+          timestamp: new Date().toISOString(),
+          url: this.url
         });
+        this.updateConnectionState('connected');
+        this.reconnectAttempts = 0;
+        this.connectionPromise = null;
+        resolve(this.socket);
       });
-      
-      // Add connection event logging
-      this.socket.on('connect', () => {
-        console.log('Socket connected successfully');
+
+      this.socket.once('connect_error', (error) => {
+        console.error('[SocketService] Connection error:', error);
+        this.connectionPromise = null;
+        reject(error);
       });
-      
-      this.socket.on('connect_error', (error) => {
-        console.error('Socket connection error:', error);
+
+      this.setupEventHandlers();
+    });
+
+    return this.connectionPromise;
+  }
+
+  private setupEventHandlers() {
+    if (!this.socket) return;
+
+    this.socket.on('connect', () => {
+      console.log('[SocketService] Connected successfully:', {
+        socketId: this.socket?.id,
+        timestamp: new Date().toISOString(),
+        url: this.url
       });
-    }
-    return this.socket;
-  }
+      this.updateConnectionState('connected');
+      this.reconnectAttempts = 0;
+      this.emit('connection_established');
+    });
 
-  disconnect() {
-    if (this.socket) {
-      this.socket.disconnect();
-      this.socket = null;
-    }
-  }
+    this.socket.on('reconnect', (attemptNumber) => {
+      // This event is fired by socket.io-client after a successful reconnection
+      console.log(`[SocketService] Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
+      // Notify listeners (contexts) that a reconnect happened
+      if (this.reconnectListeners) {
+        this.reconnectListeners.forEach(cb => cb(attemptNumber));
+      }
+    });
 
-  on(event: string, callback: (...args: any[]) => void) {
-    if (!this.listeners[event]) {
-      this.listeners[event] = [];
-    }
-    this.listeners[event].push(callback);
-    this.socket?.on(event, callback);
-  }
+    this.socket.on('connect_error', (error) => {
+      console.error('[SocketService] Connection error:', {
+        error: error.message,
+        url: this.url,
+        attempt: this.reconnectAttempts + 1,
+        maxAttempts: this.maxReconnectAttempts,
+        timestamp: new Date().toISOString()
+      });
+      this.handleReconnect();
+    });
 
-  off(event: string, callback?: (...args: any[]) => void) {
-    if (callback && this.listeners[event]) {
-      this.listeners[event] = this.listeners[event].filter(c => c !== callback);
-      this.socket?.off(event, callback);
-    } else {
-      delete this.listeners[event];
-      this.socket?.off(event);
-    }
-  }
+    this.socket.on('disconnect', (reason) => {
+      console.log('[SocketService] Disconnected:', {
+        reason,
+        timestamp: new Date().toISOString()
+      });
+      this.updateConnectionState('disconnected');
+      this.handleReconnect();
+    });
 
-  emit(event: string, ...args: any[]) {
-    this.socket?.emit(event, ...args);
-  }
-
-  // GameMaster actions
-  createRoom(roomCode: string) {
-    this.emit('create_room', { roomCode });
-  }
-
-  startGame(roomCode: string, questions: any[], timeLimit?: number) {
-    this.emit('start_game', { roomCode, questions, timeLimit });
-  }
-
-  restartGame(roomCode: string) {
-    this.emit('restart_game', { roomCode });
-  }
-
-  evaluateAnswer(roomCode: string, playerId: string, isCorrect: boolean) {
-    this.emit('evaluate_answer', { roomCode, playerId, isCorrect });
-  }
-
-  nextQuestion(roomCode: string) {
-    this.emit('next_question', { roomCode });
-  }
-
-  endRoundEarly(roomCode: string) {
-    this.emit('end_round_early', { 
-      roomCode,
-      timestamp: Date.now()
+    this.socket.on('error', (error) => {
+      console.error('[SocketService] Socket error:', {
+        error,
+        timestamp: new Date().toISOString()
+      });
+      this.emit('error', error);
     });
   }
 
-  // Preview Mode actions
-  /**
-   * These preview mode events are broadcast to all clients in the room.
-   * GameMaster triggers, all Players and GameMaster receive.
-   */
+  private handleReconnect() {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('[SocketService] Max reconnection attempts reached:', {
+        attempts: this.reconnectAttempts,
+        maxAttempts: this.maxReconnectAttempts,
+        timestamp: new Date().toISOString()
+      });
+      this.updateConnectionState('disconnected');
+      this.emit('connection_failed');
+      return;
+    }
+
+    this.reconnectAttempts++;
+    this.updateConnectionState('reconnecting');
+    console.log(`[SocketService] Attempting to reconnect:`, {
+      attempt: this.reconnectAttempts,
+      maxAttempts: this.maxReconnectAttempts,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+    }
+
+    // Exponential backoff for reconnection attempts
+    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
+    
+    this.reconnectTimer = setTimeout(() => {
+      if (this.connectionState !== 'connected') {
+        console.log('[SocketService] Executing reconnection attempt:', {
+          attempt: this.reconnectAttempts,
+          delay,
+          timestamp: new Date().toISOString()
+        });
+        this.connect();
+      }
+    }, delay);
+  }
+
+  // Game-specific methods
+  async createRoom(roomCode: string) {
+    console.log('[SocketService] Creating room:', { roomCode, timestamp: new Date().toISOString() });
+    try {
+      const socket = await this.connect();
+      if (!socket) {
+        throw new Error('Failed to connect socket');
+      }
+      socket.emit('create_room', { roomCode, timestamp: new Date().toISOString() });
+    } catch (error) {
+      console.error('[SocketService] Failed to create room:', error);
+      throw error;
+    }
+  }
+
+  joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
+    console.log('[SocketService] Joining room:', {
+      roomCode,
+      playerName,
+      isSpectator,
+      timestamp: new Date().toISOString()
+    });
+    this.emit('join_room', { roomCode, playerName, isSpectator });
+  }
+
+  startGame(roomCode: string, questions: Question[], timeLimit: number): void {
+    this.emit('start_game', { roomCode, questions, timeLimit });
+  }
+
+  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false, drawingData?: string | null) {
+    console.log('[SocketService] Submitting answer:', {
+      roomCode,
+      answerLength: answer.length,
+      hasDrawing,
+      drawingDataLength: drawingData?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+    this.emit('submit_answer', { roomCode, answer, hasDrawing, drawingData });
+  }
+
+  updateBoard(roomCode: string, boardData: any) {
+    console.log('[SocketService] Updating board:', {
+      roomCode,
+      dataSize: boardData?.length || 0,
+      timestamp: new Date().toISOString()
+    });
+    this.emit('update_board', { roomCode, boardData });
+  }
+
+  requestGameState(roomCode: string) {
+    console.log('[SocketService] Requesting game state:', {
+      roomCode,
+      timestamp: new Date().toISOString()
+    });
+    this.emit('get_game_state', { roomCode });
+  }
+
+  // Event handling methods
+  on(event: string, callback: (...args: any[]) => void): void {
+    if (!this.socket) {
+      console.warn('[SocketService] Attempted to attach listener when socket not connected:', event);
+      return;
+    }
+    this.socket.on(event, callback);
+  }
+
+  off(event: string, callback?: (...args: any[]) => void): void {
+    if (!this.socket) {
+      console.warn('[SocketService] Attempted to detach listener when socket not connected:', event);
+      return;
+    }
+    if (callback) {
+      this.socket.off(event, callback);
+    } else {
+      this.socket.off(event);
+    }
+  }
+
+  public emit(event: string, data: any = {}): void {
+    if (!this.socket) {
+      console.error('[SocketService] Socket not connected');
+      return;
+    }
+    this.socket.emit(event, data);
+  }
+
+  // GameMaster actions
   startPreviewMode(roomCode: string) {
     this.emit('start_preview_mode', { roomCode });
   }
@@ -109,24 +284,9 @@ class SocketService {
   }
 
   // Player actions
-  joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
-    if (this.socket) {
-      this.socket.emit('join_room', { roomCode, playerName, isSpectator });
-    }
-  }
-
   joinAsSpectator(roomCode: string, playerName: string) {
     console.log(`Joining room ${roomCode} as spectator ${playerName}`);
     this.emit('join_as_spectator', { roomCode, playerName });
-  }
-
-  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false) {
-    this.emit('submit_answer', { roomCode, answer, hasDrawing });
-  }
-  
-  // Board update function
-  updateBoard(roomCode: string, boardData: string) {
-    this.emit('update_board', { roomCode, boardData });
   }
 
   switchToSpectator(roomCode: string, playerId: string) {
@@ -140,8 +300,64 @@ class SocketService {
       this.socket.emit('switch_to_player', { roomCode, playerName });
     }
   }
+
+  getSocketId() {
+    return this.socket?.id;
+  }
+
+  getConnectionState(): 'connected' | 'disconnected' | 'connecting' | 'reconnecting' {
+    return this.connectionState;
+  }
+
+  disconnect() {
+    console.log('[SocketService] Disconnecting');
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.socket?.disconnect();
+    this.socket = null;
+    this.updateConnectionState('disconnected');
+  }
+
+  // Add missing methods
+  nextQuestion(roomCode: string): void {
+    this.emit('next_question', { roomCode });
+  }
+
+  evaluateAnswer(roomCode: string, playerId: string, isCorrect: boolean): void {
+    this.emit('evaluate_answer', { roomCode, playerId, isCorrect });
+  }
+
+  endGame(roomCode: string): void {
+    this.emit('end_game', { roomCode });
+  }
+
+  restartGame(roomCode: string): void {
+    this.emit('restart_game', { roomCode });
+  }
+
+  endRoundEarly(roomCode: string): void {
+    this.emit('end_round_early', { roomCode });
+  }
+
+  onError(callback: (error: string) => void): void {
+    this.on('error', callback);
+  }
+
+  getSocket(): Socket | null {
+    return this.socket;
+  }
+
+  // --- Reconnect event subscription for contexts ---
+  /**
+   * Subscribe to socket reconnect events. Contexts can use this to trigger rejoin logic.
+   * @param callback Called with the attempt number after a successful reconnect.
+   */
+  onReconnect(callback: (attemptNumber: number) => void) {
+    this.reconnectListeners.push(callback);
+  }
 }
 
-// Create a singleton instance
 const socketService = new SocketService();
 export default socketService; 

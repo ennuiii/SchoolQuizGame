@@ -1,535 +1,269 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import { supabaseService } from '../services/supabaseService';
-import audioService from '../services/audioService';
-import PreviewOverlay from '../components/shared/PreviewOverlay';
+import PlayerList from '../components/shared/PlayerList';
+import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
+import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
 import QuestionSelector from '../components/game-master/QuestionSelector';
-import GameControls from '../components/game-master/GameControls';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
+import GameControls from '../components/game-master/GameControls';
 import AnswerList from '../components/game-master/AnswerList';
 import Timer from '../components/shared/Timer';
-import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
-import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
-
-interface Player {
-  id: string;
-  name: string;
-  lives: number;
-  answers: string[];
-  isActive: boolean;
-  isSpectator: boolean;
-}
-
-interface PlayerBoard {
-  playerId: string;
-  playerName: string;
-  boardData: string;
-}
-
-interface Question {
-  id: number;
-  text: string;
-  answer?: string;
-  grade: number;
-  subject: string;
-  language?: string;
-}
-
-interface AnswerSubmission {
-  playerId: string;
-  playerName: string;
-  answer: string;
-}
-
-interface PreviewModeState {
-  isActive: boolean;
-  focusedPlayerId: string | null;
-}
+import { useGame } from '../contexts/GameContext';
+import { useRoom } from '../contexts/RoomContext';
+import { useAudio } from '../contexts/AudioContext';
+import RoomSettings from '../components/game-master/RoomSettings';
+import RecapModal from '../components/shared/RecapModal';
+import { toast } from 'react-toastify';
+import { LoadingOverlay } from '../components/shared/LoadingOverlay';
+import { ConnectionStatus } from '../components/shared/ConnectionStatus';
+import type { Question } from '../contexts/GameContext';
+import MusicControl from '../components/shared/MusicControl';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
-  const [roomCodeInput, setRoomCodeInput] = useState('');
-  const [roomCode, setRoomCode] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
-  const [gameStarted, setGameStarted] = useState(false);
-  const [players, setPlayers] = useState<Player[]>([]);
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [currentQuestion, setCurrentQuestion] = useState<Question | null>(null);
-  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
-  const [playerBoards, setPlayerBoards] = useState<PlayerBoard[]>([]);
-  const [pendingAnswers, setPendingAnswers] = useState<AnswerSubmission[]>([]);
-  const [errorMsg, setErrorMsg] = useState('');
-  const [selectedPlayerId, setSelectedPlayerId] = useState<string | null>(null);
-  const [timeLimit, setTimeLimit] = useState<number | null>(null);
-  const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
-  const [isRestarting, setIsRestarting] = useState(false);
   const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-  const timerUpdateRef = useRef<number>(0);
-  const animationFrameRef = useRef<number>();
-  const [visibleBoards, setVisibleBoards] = useState<Set<string>>(new Set());
-  const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>(() => ({}));
-  const panState = useRef<{[playerId: string]: {panning: boolean, lastX: number, lastY: number}}>({});
-  const [isPreviewMode, setIsPreviewMode] = useState(false);
-  const [enlargedPlayerId, setEnlargedPlayerId] = useState<string | null>(null);
-  const [evaluatedAnswers, setEvaluatedAnswers] = useState<{[playerId: string]: boolean | null}>({});
-  const [allAnswersThisRound, setAllAnswersThisRound] = useState<{[playerId: string]: AnswerSubmission}>({});
-  const [isMuted, setIsMuted] = useState(audioService.isMusicMuted());
-  const [volume, setVolume] = useState(audioService.getVolume());
-  const [previewMode, setPreviewMode] = useState<PreviewModeState>({
-    isActive: false,
-    focusedPlayerId: null
-  });
-  const [isTimerRunning, setIsTimerRunning] = useState(false);
+  const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
+  const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [isRestarting, setIsRestarting] = useState(false);
+  const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
+  const [timeLimit, setTimeLimit] = useState(99999);
+  const [inputRoomCode, setInputRoomCode] = useState('');
+  
+  const {
+    roomCode,
+    isLoading: isRoomLoading,
+    setIsLoading: setIsRoomLoading,
+    createRoom,
+    players,
+    sessionRestored,
+    setRoomCode
+  } = useRoom();
 
-  const handleToggleMute = useCallback(() => {
-    const newMuteState = audioService.toggleMute();
-    setIsMuted(newMuteState);
-  }, []);
+  const {
+    gameStarted,
+    currentQuestion,
+    playerBoards,
+    visibleBoards,
+    previewMode,
+    questions,
+    setQuestions,
+    startGame,
+    nextQuestion,
+    evaluateAnswer,
+    restartGame,
+    endRoundEarly,
+    toggleBoardVisibility,
+    focusSubmission,
+    timeLimit: gameTimeLimit,
+    timeRemaining,
+    isTimerRunning,
+    isGameConcluded,
+    gmShowRecapToAll,
+    gmEndGameRequest,
+    gameRecapData,
+    recapSelectedRoundIndex,
+    recapSelectedTabKey,
+    gmNavigateRecapRound,
+    gmNavigateRecapTab,
+    hideRecap,
+    allAnswersThisRound,
+    evaluatedAnswers,
+    previewOverlayVersion,
+    setPreviewOverlayVersion
+  } = useGame();
 
-  const handleVolumeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const newVolume = parseFloat(e.target.value);
-    audioService.setVolume(newVolume);
-    setVolume(newVolume);
-  }, []);
+  const {
+    playBackgroundMusic
+  } = useAudio();
 
-  const createRoom = useCallback(() => {
-    console.log('Creating new room...');
-    setIsLoading(true);
-    socketService.createRoom(roomCodeInput);
-  }, [roomCodeInput]);
+  const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
+                              Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));
 
-  const startGame = useCallback(() => {
+  useEffect(() => {
+    if (!socketService.getConnectionState()) {
+      socketService.connect();
+      socketService.on('connect_error', (error: Error) => {
+        console.error('Socket connection error:', error);
+        navigate('/');
+      });
+      return () => {
+        socketService.off('connect_error');
+      };
+    }
+  }, [navigate]);
+
+  useEffect(() => {
+    playBackgroundMusic();
+  }, [playBackgroundMusic]);
+
+  const handleCreateRoom = useCallback(() => {
+    const newRoomCode = inputRoomCode.trim() || Math.random().toString(36).substring(2, 8).toUpperCase();
+    console.log('[GameMaster] Attempting to create room:', newRoomCode);
+    
+    const socket = socketService.connect();
+    if (!socket) {
+      console.error('[GameMaster] Failed to connect socket');
+      toast.error('Failed to connect to server. Please try again.');
+      return;
+    }
+
+    setIsRoomLoading(true);
+    createRoom(newRoomCode);
+  }, [createRoom, inputRoomCode, setIsRoomLoading]);
+
+  useEffect(() => {
+    console.log('[GameMaster] Game state changed:', {
+      started: gameStarted,
+      hasCurrentQuestion: !!currentQuestion,
+      questionIndex: currentQuestion?.id,
+      timeRemaining,
+      playerCount: players.length,
+      gameRecapAvailable: !!gameRecapData,
+      timestamp: new Date().toISOString()
+    });
+  }, [gameStarted, currentQuestion, timeRemaining, players, gameRecapData]);
+
+  const handleStartGame = async () => {
     if (!roomCode) {
-      setErrorMsg('Please enter a room code!');
+      console.error('[GameMaster] Cannot start game - No room code found');
+      toast.error('Room not found. Please create a room first.');
       return;
     }
-    
-    if (questions.length === 0) {
-      setErrorMsg('Please select at least one question!');
+    if (!questions || questions.length === 0) {
+      console.error('[GameMaster] Cannot start game - No questions selected');
+      toast.error('Please select questions before starting the game');
       return;
     }
+    try {
+      const effectiveTimeLimit = customTimeLimit === null || customTimeLimit === 0 ? 99999 : customTimeLimit;
+      console.log('[GameMaster] Starting game:', {
+        roomCode,
+        questionCount: questions.length,
+        timeLimit: effectiveTimeLimit,
+        socketId: socketService.getSocketId()
+      });
+      await startGame(roomCode, questions, effectiveTimeLimit);
+      console.log('[GameMaster] Game start request sent successfully');
+    } catch (error) {
+      console.error('[GameMaster] Failed to start game:', error);
+      toast.error('Failed to start game. Please try again.');
+    }
+  };
 
-    if (players.length === 0) {
-      setErrorMsg('Please wait for at least one player to join before starting the game!');
+  const handleNextQuestion = async () => {
+    if (!roomCode) return toast.error('Room code not found.');
+    try {
+      await nextQuestion(roomCode);
+    } catch (error) {
+      console.error('[GameMaster] Failed to move to next question:', error);
+      toast.error('Failed to proceed to next question.');
+    }
+  };
+
+  const handleStartPreview = () => {
+    if (!roomCode) return toast.error('Room code not found.');
+    socketService.startPreviewMode(roomCode);
+  };
+
+  const handleStopPreview = () => {
+    if (!roomCode) return toast.error('Room code not found.');
+    socketService.stopPreviewMode(roomCode);
+  };
+
+  const handleEvaluateAnswer = async (playerId: string, isCorrect: boolean) => {
+    if (!roomCode) return toast.error('Room code not found.');
+    try {
+      await evaluateAnswer(roomCode, playerId, isCorrect);
+    } catch (error) {
+      console.error('[GameMaster] Failed to evaluate answer:', error);
+      toast.error('Failed to evaluate answer.');
+    }
+  };
+
+  const handleEndGameRequest = async () => {
+    if (!roomCode) return toast.error('Room code not found.');
+    try {
+      gmEndGameRequest(roomCode);
+    } catch (error) {
+      console.error('[GameMaster] Failed to request end game:', error);
+      toast.error('Failed to request end game.');
+    }
+  };
+
+  const handleShowRecapButtonClick = () => {
+    if (!roomCode) return toast.error('Room code not found.');
+    if (!isGameConcluded) {
+      toast.warn('Game must be concluded before showing recap.');
       return;
     }
-    
-    // Sort questions by grade before starting the game
-    const gradeSortedQuestions = [...questions].sort((a, b) => a.grade - b.grade);
-    setQuestions(gradeSortedQuestions);
-    setCurrentQuestion(gradeSortedQuestions[0]);
-    setCurrentQuestionIndex(0);
-    
-    // Start the game with the existing room
-    setIsLoading(true);
-    // If timeLimit is null or blank, set it to 99999 internally but don't show it
-    const effectiveTimeLimit = timeLimit === null ? 99999 : timeLimit;
-    socketService.startGame(roomCode, gradeSortedQuestions, effectiveTimeLimit);
-    setGameStarted(true);
-  }, [roomCode, questions, timeLimit, players]);
+    gmShowRecapToAll(roomCode);
+    toast.info('Broadcasting game recap to all players.');
+  };
 
-  const nextQuestion = useCallback(() => {
-    if (currentQuestionIndex < questions.length - 1) {
-      // Do NOT update currentQuestionIndex or currentQuestion here!
-      setPendingAnswers([]);
-      setTimeRemaining(null);
-      setIsTimerRunning(false);
-      socketService.nextQuestion(roomCode);
-    } else {
-      alert('No more questions available!');
-    }
-  }, [currentQuestionIndex, questions.length, roomCode]);
-
-  const evaluateAnswer = useCallback((playerId: string, isCorrect: boolean) => {
-    socketService.evaluateAnswer(roomCode, playerId, isCorrect);
-    setPendingAnswers(prev => prev.filter(a => a.playerId !== playerId));
-    setEvaluatedAnswers(prev => ({ ...prev, [playerId]: isCorrect }));
-  }, [roomCode]);
-
-  const restartGame = useCallback(() => {
+  const handleRestartGame = async () => {
+    if (!roomCode) return toast.error("No room code found to restart the game.");
     setIsRestarting(true);
-    socketService.restartGame(roomCode);
-  }, [roomCode]);
+    try {
+      await restartGame(roomCode);
+      toast.success("Game is restarting!");
+    } catch (error) {
+      console.error("[GameMaster] Failed to restart game:", error);
+      toast.error("Failed to restart game. Please try again.");
+    } finally {
+      setIsRestarting(false);
+    }
+  };
 
-  const handleEndRoundEarly = useCallback(() => {
+  const handleEndRoundEarlyAction = useCallback(() => {
     setShowEndRoundConfirm(true);
   }, []);
 
   const confirmEndRoundEarly = useCallback(() => {
-    socketService.endRoundEarly(roomCode);
+    if (!roomCode) return;
+    endRoundEarly(roomCode);
     setShowEndRoundConfirm(false);
-  }, [roomCode]);
+  }, [roomCode, endRoundEarly]);
 
   const cancelEndRoundEarly = useCallback(() => {
     setShowEndRoundConfirm(false);
   }, []);
 
-  const toggleBoardVisibility = useCallback((playerId: string) => {
-    setVisibleBoards(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(playerId)) {
-        newSet.delete(playerId);
-      } else {
-        newSet.add(playerId);
-        // Initialize transform for this board if it doesn't exist
-        setBoardTransforms(prevTransforms => ({
-          ...prevTransforms,
-          [playerId]: prevTransforms[playerId] || { scale: 0.4, x: 0, y: 0 }
-        }));
-      }
-      return newSet;
-    });
-  }, []);
-
-  const updateBoardTransform = useCallback((playerId: string, update: (t: {scale: number, x: number, y: number}) => {scale: number, x: number, y: number}) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: update(prev[playerId] || {scale: 1, x: 0, y: 0})
-    }));
-  }, []);
-
-  const fitToScreen = useCallback((playerId: string) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: {scale: 1, x: 0, y: 0}
-    }));
-  }, []);
-
-  const handleStartPreviewMode = useCallback(() => {
-    socketService.startPreviewMode(roomCode);
-    setPreviewMode(prev => ({ ...prev, isActive: true }));
-  }, [roomCode]);
-
-  const handleStopPreviewMode = useCallback(() => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
-  }, [roomCode]);
-
-  const handleFocusSubmission = useCallback((playerId: string) => {
-    socketService.focusSubmission(roomCode, playerId);
-  }, [roomCode]);
-
-  const handleBoardScale = useCallback((playerId: string, scale: number) => {
-    updateBoardTransform(playerId, transform => ({
-      ...transform,
-      scale: scale
-    }));
-  }, [updateBoardTransform]);
-
-  const handleBoardPan = useCallback((playerId: string, dx: number, dy: number) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: {
-        ...prev[playerId],
-        x: (prev[playerId]?.x || 0) + dx,
-        y: (prev[playerId]?.y || 0) + dy
-      }
-    }));
-  }, []);
-
-  const handleBoardReset = useCallback((playerId: string) => {
-    setBoardTransforms(prev => ({
-      ...prev,
-      [playerId]: { scale: 1, x: 0, y: 0 }
-    }));
-  }, []);
+  const handleFocusSubmissionInternal = useCallback((playerId: string) => {
+    if (!roomCode) return;
+    focusSubmission(roomCode, playerId);
+  }, [roomCode, focusSubmission]);
 
   const handlePlayerSelect = useCallback((playerId: string) => {
     setSelectedPlayerId(playerId);
     toggleBoardVisibility(playerId);
+  }, [toggleBoardVisibility]);
+
+  const handleBoardScale = useCallback((playerId: string, scale: number) => {
+    setBoardTransforms(prev => ({ ...prev, [playerId]: { ...(prev[playerId] || { scale: 1, x: 0, y: 0 }), scale } }));
   }, []);
 
-  // Add state for show/hide all
+  const handleBoardPan = useCallback((playerId: string, dx: number, dy: number) => {
+    setBoardTransforms(prev => ({ ...prev, [playerId]: { scale: prev[playerId]?.scale || 1, x: (prev[playerId]?.x || 0) + dx, y: (prev[playerId]?.y || 0) + dy } }));
+  }, []);
+
+  const handleBoardReset = useCallback((playerId: string) => {
+    setBoardTransforms(prev => ({ ...prev, [playerId]: { scale: 1, x: 0, y: 0 } }));
+  }, []);
+
   const showAllBoards = useCallback(() => {
-    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
-  }, [players]);
+    const activePlayerBoardIds = playerBoards
+      .filter(b => players.find(p => p.id === b.playerId && !p.isSpectator))
+      .map(b => b.playerId);
+    toggleBoardVisibility(new Set(activePlayerBoardIds));
+  }, [playerBoards, players, toggleBoardVisibility]);
+
   const hideAllBoards = useCallback(() => {
-    setVisibleBoards(new Set());
-  }, []);
+    toggleBoardVisibility(new Set());
+  }, [toggleBoardVisibility]);
 
-  useEffect(() => {
-    // Connect to socket server
-    socketService.connect();
-
-    // Set up listeners
-    socketService.on('room_created', (data: { roomCode: string }) => {
-      console.log('Room created:', data.roomCode);
-      setRoomCode(data.roomCode);
-    });
-
-    socketService.on('player_joined', (player: Player) => {
-      console.log('Player joined:', player);
-      // Update players list when a player joins
-      setPlayers(prevPlayers => {
-        // Check if player already exists
-        const existingIndex = prevPlayers.findIndex(p => p.id === player.id);
-        if (existingIndex >= 0) {
-          // Replace the existing player
-          const updatedPlayers = [...prevPlayers];
-          updatedPlayers[existingIndex] = player;
-          return updatedPlayers;
-        } else {
-          // Add new player
-          return [...prevPlayers, player];
-        }
-      });
-    });
-
-    socketService.on('players_update', (updatedPlayers: Player[]) => {
-      console.log('Players updated:', updatedPlayers);
-      setPlayers(updatedPlayers);
-    });
-
-    socketService.on('game_started', (data) => {
-      console.log('Game started event received:', data);
-      if (data && data.question) {
-        // Ensure the question object has the expected structure
-        const questionObj: Question = {
-          id: data.question.id || 0,
-          text: data.question.text || '',
-          answer: data.question.answer,
-          grade: data.question.grade || 0,
-          subject: data.question.subject || '',
-          language: data.question.language || 'de'
-        };
-        
-        console.log('Setting current question:', questionObj);
-        setCurrentQuestion(questionObj);
-        setGameStarted(true);
-        setCurrentQuestionIndex(0);
-        
-        // Initialize timer if timeLimit is set
-        if (data.timeLimit) {
-          setTimeLimit(data.timeLimit);
-          setTimeRemaining(data.timeLimit);
-          
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
-        }
-      }
-    });
-    
-    socketService.on('new_question', (data) => {
-      console.log('New question event received:', data);
-      if (data && data.question) {
-        // Ensure the question object has the expected structure
-        const questionObj: Question = {
-          id: data.question.id || 0,
-          text: data.question.text || '',
-          answer: data.question.answer,
-          grade: data.question.grade || 0,
-          subject: data.question.subject || '',
-          language: data.question.language || 'de'
-        };
-        
-        console.log('Setting next question:', questionObj);
-        setCurrentQuestion(questionObj);
-        setCurrentQuestionIndex(prev => prev + 1);
-        setPendingAnswers([]);
-        setAllAnswersThisRound({});
-        setEvaluatedAnswers({});
-        // Reset timer for new question if time limit is set
-        if (data.timeLimit) {
-          setTimeLimit(data.timeLimit);
-          setTimeRemaining(data.timeLimit);
-          
-          const timer = setInterval(() => {
-            setTimeRemaining(prev => {
-              if (prev !== null && prev > 0) {
-                return prev - 1;
-              } else {
-                clearInterval(timer);
-                return 0;
-              }
-            });
-          }, 1000);
-        }
-      }
-    });
-
-    socketService.on('player_board_update', (data: PlayerBoard) => {
-      console.log(`Received board update from ${data.playerName}`);
-      setPlayerBoards(prevBoards => {
-        const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
-        if (existingIndex >= 0) {
-          const updatedBoards = [...prevBoards];
-          updatedBoards[existingIndex] = data;
-          return updatedBoards;
-        } else {
-          return [...prevBoards, data];
-        }
-      });
-
-      // If this player is currently selected, ensure the DOM is updated
-      if (selectedPlayerId === data.playerId) {
-        setTimeout(() => {
-          const boardElement = document.querySelector('.drawing-board');
-          if (boardElement) {
-            boardElement.innerHTML = data.boardData;
-          }
-        }, 10);
-      }
-    });
-
-    socketService.on('board_update', (data: PlayerBoard) => {
-      setPlayerBoards(prevBoards => {
-        const existingIndex = prevBoards.findIndex(b => b.playerId === data.playerId);
-        if (existingIndex >= 0) {
-          const updatedBoards = [...prevBoards];
-          updatedBoards[existingIndex] = data;
-          return updatedBoards;
-        } else {
-          return [...prevBoards, data];
-        }
-      });
-    });
-
-    socketService.on('answer_submitted', (submission: AnswerSubmission) => {
-      console.log(`Answer received from ${submission.playerName}:`, submission.answer);
-      
-      setAllAnswersThisRound(prev => ({ ...prev, [submission.playerId]: submission }));
-      setPendingAnswers(prev => {
-        const existingIndex = prev.findIndex(a => a.playerId === submission.playerId);
-        if (existingIndex >= 0) {
-          const updatedAnswers = [...prev];
-          updatedAnswers[existingIndex] = submission;
-          return updatedAnswers;
-        } else {
-          return [...prev, submission];
-        }
-      });
-    });
-
-    socketService.on('error', (msg: string) => {
-      setErrorMsg(msg);
-      setIsLoading(false);
-    });
-    
-    socketService.on('game_restarted', () => {
-      // Reset game state on restart
-      setGameStarted(false);
-      setCurrentQuestion(null);
-      setCurrentQuestionIndex(0);
-      setPlayerBoards([]);
-      setPendingAnswers([]);
-      setTimeRemaining(null);
-      setIsRestarting(false);
-      setAllAnswersThisRound({});
-      setEvaluatedAnswers({});
-    });
-    
-    socketService.on('timer_update', (data: { timeRemaining: number }) => {
-      const now = performance.now();
-      // Only update if at least 900ms have passed since last update
-      if (now - timerUpdateRef.current >= 900) {
-        // Use requestAnimationFrame for smooth updates
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-        }
-        
-        animationFrameRef.current = requestAnimationFrame(() => {
-          setTimeRemaining(data.timeRemaining);
-          setIsTimerRunning(true);
-          timerUpdateRef.current = now;
-        });
-      }
-    });
-
-    socketService.on('time_up', () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      requestAnimationFrame(() => {
-        setTimeRemaining(0);
-        setIsTimerRunning(false);
-        timerUpdateRef.current = performance.now();
-      });
-    });
-
-    socketService.on('end_round_early', () => {
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-      
-      requestAnimationFrame(() => {
-        setTimeRemaining(0);
-        setIsTimerRunning(false);
-        timerUpdateRef.current = performance.now();
-      });
-    });
-
-    // Check if returning from a refresh (restore state)
-    const savedRoomCode = sessionStorage.getItem('roomCode');
-    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-    
-    if (savedRoomCode && isGameMaster) {
-      console.log('Rejoining as gamemaster for room:', savedRoomCode);
-      setRoomCode(savedRoomCode);
-      // Re-join as gamemaster to ensure we get the current state
-      socketService.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
-    }
-
-    // Add preview mode event listeners
-    socketService.on('focus_submission', (data: { playerId: string }) => {
-      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId }));
-    });
-
-    return () => {
-      // Clean up listeners
-      socketService.off('room_created');
-      socketService.off('player_joined');
-      socketService.off('players_update');
-      socketService.off('game_started');
-      socketService.off('new_question');
-      socketService.off('player_board_update');
-      socketService.off('answer_submitted');
-      socketService.off('error');
-      socketService.off('game_restarted');
-      socketService.off('timer_update');
-      socketService.off('time_up');
-      socketService.off('end_round_early');
-      socketService.off('focus_submission');
-      socketService.off('board_update');
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
-    };
-  }, [navigate]);
-
-  useEffect(() => {
-    // Start playing background music when component mounts
-    audioService.playBackgroundMusic();
-
-    // Cleanup when component unmounts
-    return () => {
-      audioService.pauseBackgroundMusic();
-    };
-  }, []);
-
-  // Format time remaining with smooth transitions
-  const formatTime = (seconds: number | null) => {
-    if (seconds === null) return '--:--';
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
-  };
-
-  // Add a function to check if all answers are in
-  const allAnswersIn = players.length > 0 && pendingAnswers.length === 0 && gameStarted;
-
-  // Set initial scale to 1 for each board
   useEffect(() => {
     const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
     players.forEach(player => {
@@ -538,115 +272,31 @@ const GameMaster: React.FC = () => {
     setBoardTransforms(initialTransforms);
   }, [players]);
 
-  // Add toggle scale on click
-  const toggleBoardScale = useCallback((playerId: string) => {
-    setBoardTransforms(prev => {
-      const current = prev[playerId] || { scale: 0.4, x: 0, y: 0 };
-      const newScale = current.scale === 0.4 ? 1.0 : 0.4;
-      return {
-        ...prev,
-        [playerId]: { ...current, scale: newScale }
-      };
-    });
-  }, []);
-
-  // Initialize visibleBoards when players join
   useEffect(() => {
-    const newVisibleBoards = new Set<string>();
-    players.forEach(player => {
-      if (visibleBoards.has(player.id)) {
-        newVisibleBoards.add(player.id);
+    if (!roomCode) {
+      const storedRoomCode = sessionStorage.getItem('roomCode');
+      if (storedRoomCode) {
+        setRoomCode(storedRoomCode);
       }
-    });
-    setVisibleBoards(newVisibleBoards);
-  }, [players]);
-
-  // Reset visibleBoards when game restarts
-  useEffect(() => {
-    if (isRestarting) {
-      setVisibleBoards(new Set());
     }
-  }, [isRestarting]);
+  }, [roomCode, setRoomCode]);
 
-  // Add a function to check if preview can be started
-  const canStartPreview = gameStarted && (
-    (players.length > 0 && pendingAnswers.length === 0) ||
-    (timeLimit !== null && timeRemaining === 0 && pendingAnswers.length > 0)
-  );
-
-  useEffect(() => {
-    if (gameStarted) {
-      // Show all boards of active players (non-spectators) when game starts
-      setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
-    }
-  }, [gameStarted, players]);
-
-  return (
-    <div className="container-fluid px-2 px-md-4">
-      <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
-        <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
-          <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
-          Game Master Dashboard
-        </div>
-        <div className="d-flex align-items-center gap-2">
-          <input
-            type="range"
-            className="form-range"
-            min="0"
-            max="1"
-            step="0.01"
-            value={volume}
-            onChange={handleVolumeChange}
-            style={{ width: '100px' }}
-            title="Volume"
-          />
-          <button
-            className="btn btn-outline-secondary"
-            onClick={handleToggleMute}
-            title={isMuted ? "Unmute" : "Mute"}
-          >
-            {isMuted ? (
-              <i className="bi bi-volume-mute-fill"></i>
-            ) : (
-              <i className="bi bi-volume-up-fill"></i>
-            )}
-          </button>
-        </div>
-      </div>
-      
-      {errorMsg && (
-        <div className="alert alert-danger" role="alert">
-          {errorMsg}
-          <button 
-            type="button" 
-            className="btn-close float-end" 
-            onClick={() => setErrorMsg('')}
-            aria-label="Close"
-          ></button>
-        </div>
-      )}
-      
-      {showEndRoundConfirm && (
-        <div className="modal fade show" style={{ display: 'block' }} tabIndex={-1}>
-          <div className="modal-dialog">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">End Round Early?</h5>
-                <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
-              </div>
-              <div className="modal-body">
-                <p>Are you sure you want to end this round early? All players' current answers will be submitted automatically.</p>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
-                <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
-              </div>
-            </div>
+  if (!sessionRestored) {
+    return (
+      <div className="container mt-5">
+        <div className="text-center">
+          <h2>Restoring session...</h2>
+          <div className="spinner-border text-primary mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
           </div>
         </div>
-      )}
-      
-      {!roomCode ? (
+      </div>
+    );
+  }
+
+  if (!roomCode) {
+    return (
+      <div className="container mt-5">
         <div className="row justify-content-center">
           <div className="col-12 col-md-6">
             <div className="card p-4 text-center">
@@ -659,19 +309,22 @@ const GameMaster: React.FC = () => {
                   id="roomCodeInput"
                   className="form-control"
                   placeholder="Leave blank for random code"
-                  value={roomCodeInput}
-                  onChange={(e) => setRoomCodeInput(e.target.value)}
+                  value={inputRoomCode}
+                  onChange={e => setInputRoomCode(e.target.value.toUpperCase())}
+                  maxLength={6}
                 />
-                <small className="text-muted">You can specify a custom room code or leave it blank for a random one.</small>
+                <small className="text-muted">
+                  You can specify a custom room code or leave it blank for a random one.
+                </small>
               </div>
-              <button 
+              <button
                 className="btn btn-primary btn-lg mt-3"
-                onClick={createRoom}
-                disabled={isLoading}
+                onClick={handleCreateRoom}
+                disabled={isRoomLoading}
               >
-                {isLoading ? 'Creating...' : 'Create Room'}
+                {isRoomLoading ? 'Creating...' : 'Create Room'}
               </button>
-              <button 
+              <button
                 className="btn btn-outline-secondary mt-3"
                 onClick={() => navigate('/')}
               >
@@ -680,214 +333,221 @@ const GameMaster: React.FC = () => {
             </div>
           </div>
         </div>
-      ) : (
-        <div className="game-master-container" style={{ 
-          backgroundImage: 'linear-gradient(to bottom right, #8B4513, #A0522D)', 
-          padding: '15px', 
-          borderRadius: '12px',
-          boxShadow: '0 8px 20px rgba(0, 0, 0, 0.3)',
-          backgroundSize: '100% 100%',
-          backgroundRepeat: 'no-repeat'
-        }}>
-          <div className="row g-3">
-            <div className="col-12 col-md-4">
-              <RoomCode roomCode={roomCode} />
-              {!previewMode.isActive && (
-                <div className="mb-3">
-                  <button
-                    className="btn btn-primary w-100"
-                    onClick={handleStartPreviewMode}
-                    disabled={!canStartPreview}
-                  >
-                    Start Preview Mode
-                  </button>
-                </div>
-              )}
-              <PlayerList 
-                players={players}
-                onPlayerSelect={handlePlayerSelect}
-                selectedPlayerId={selectedPlayerId}
-                title="Players"
-              />
-            </div>
-            
-            <div className="col-12 col-md-8">
-              <GameControls
-                gameStarted={gameStarted}
-                currentQuestionIndex={currentQuestionIndex}
-                totalQuestions={questions.length}
-                onStartGame={startGame}
-                onNextQuestion={nextQuestion}
-                onRestartGame={restartGame}
-                onEndRoundEarly={handleEndRoundEarly}
-                isRestarting={isRestarting}
-                showEndRoundConfirm={showEndRoundConfirm}
-                onConfirmEndRound={confirmEndRoundEarly}
-                onCancelEndRound={cancelEndRoundEarly}
-                hasPendingAnswers={pendingAnswers.length > 0}
-              />
-              
-              {gameStarted ? (
-                <>
-                  {currentQuestion && (
-                    <div className="card mb-4">
-                      <div className="card-body">
-                        <QuestionDisplay
-                          question={currentQuestion}
-                        />
-                        <Timer
-                          timeLimit={timeLimit}
-                          timeRemaining={timeRemaining}
-                          isActive={isTimerRunning}
-                        />
-                      </div>
-                    </div>
-                  )}
+      </div>
+    );
+  }
 
-                  <div className="card mb-4">
-                    <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">Player Boards</h5>
-                      <div className="d-flex gap-2">
-                        <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
-                        <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+  if (!socketService.getConnectionState() || socketService.getConnectionState() === 'connecting') {
+    return (
+      <div className="container mt-5">
+        <div className="text-center">
+          <h2>Connecting to Game Server...</h2>
+          <div className="spinner-border text-primary mt-3" role="status">
+            <span className="visually-hidden">Loading...</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <MusicControl />
+      <div className="container-fluid py-4">
+        <LoadingOverlay isVisible={isRoomLoading} />
+        <ConnectionStatus />
+        {showEndRoundConfirm && (
+          <div className="modal show d-block" tabIndex={-1}>
+            <div className="modal-dialog">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">End Round Early?</h5>
+                  <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
+                </div>
+                <div className="modal-body">
+                  <p>Are you sure you want to end this round early? All players who haven't submitted will receive no points.</p>
+                </div>
+                <div className="modal-footer">
+                  <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
+                  <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="row g-3">
+          <div className="col-12 col-md-4">
+            <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
+            <RoomCode />
+            {gameStarted && !previewMode.isActive && (
+              <div className="mb-3">
+                <button className="btn btn-primary w-100" onClick={handleStartPreview}>
+                  Start Preview Mode
+                </button>
+              </div>
+            )}
+            <PlayerList 
+              title="Players"
+              onPlayerSelect={handlePlayerSelect}
+              selectedPlayerId={selectedPlayerId}
+            />
+            <div className="d-grid gap-2 mt-3">
+              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
+              {!gameStarted ? (
+                <button 
+                  className="btn btn-success" 
+                  onClick={handleStartGame}
+                  disabled={isConnecting || questions.length === 0 || players.filter(p => !p.isSpectator).length < 1}
+                  title={
+                    isConnecting ? "Connecting to server..." :
+                    players.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
+                    questions.length === 0 ? "Please select questions first" : ""
+                  }
+                >
+                  {isConnecting ? "Connecting..." : `Start Game (${players.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
+                </button>
+              ) : (
+                <>
+                  <button 
+                    className="btn btn-primary" 
+                    onClick={handleNextQuestion}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated}
+                    title={currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? (Object.keys(allAnswersThisRound).length === 0 ? "Waiting for players to submit answers for this round." : "All submitted answers must be evaluated before proceeding.") : ""}
+                  >
+                    Next Question
+                  </button>
+                  <button 
+                    className="btn btn-warning" 
+                    onClick={handleEndRoundEarlyAction}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded}
+                  >
+                    End Round Early
+                  </button>
+                  <button 
+                    className="btn btn-info"
+                    onClick={handleRestartGame}
+                    disabled={isRestarting || !gameStarted}
+                  >
+                    {isRestarting ? 'Restarting...' : 'Restart Game'}
+                  </button>
+                  {!isGameConcluded && (
+                    <button 
+                      className="btn btn-danger" 
+                      onClick={() => {
+                        console.log('[GameMaster] End Game button clicked. Attempting to emit gmEndGameRequest. Room:', roomCode);
+                        handleEndGameRequest();
+                      }}
+                      disabled={isRestarting}
+                    >
+                      End Game
+                    </button>
+                  )}
+                  {isGameConcluded && (
+                    <button
+                      className="btn btn-success"
+                      onClick={handleShowRecapButtonClick}
+                      disabled={isRestarting}
+                    >
+                      Show Game Recap For All
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          </div>
+          <div className="col-12 col-md-8">
+            {!gameStarted ? (
+              <QuestionSelector
+                onQuestionsSelected={setQuestions}
+                selectedQuestions={questions}
+                onSelectedQuestionsChange={setQuestions}
+              />
+            ) : (
+              <>
+                <div className="card mb-3">
+                  <div className="card-body">
+                    <QuestionDisplay question={currentQuestion} />
+                    {gameTimeLimit !== null && gameTimeLimit < 99999 && (
+                      <div className="mt-3">
+                        <Timer isActive={isTimerRunning} showSeconds={true} />
                       </div>
+                    )}
+                  </div>
+                </div>
+
+                <AnswerList onEvaluate={handleEvaluateAnswer} />
+                
+                <div className="card mb-3">
+                  <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                    <h5 className="mb-0">Player Boards</h5>
+                    <div className="d-flex gap-2">
+                      <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
+                      <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
                     </div>
-                    <div className="card-body">
-                      <div
-                        className="board-row"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                          gap: '20px',
-                          width: '100%',
-                          overflowX: 'auto',
-                          alignItems: 'stretch',
-                        }}
-                      >
-                        {playerBoards.map(board => (
+                  </div>
+                  <div className="card-body">
+                    <div
+                      className="board-row"
+                      style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                        gap: '20px',
+                        width: '100%',
+                        overflowX: 'auto',
+                        alignItems: 'stretch',
+                      }}
+                    >
+                      {players.filter(player => !player.isSpectator).map(player => {
+                        const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                        const boardForDisplay = {
+                          playerId: player.id,
+                          playerName: player.name,
+                          boardData: boardEntry ? boardEntry.boardData : ''
+                        };
+                        return (
                           <PlayerBoardDisplay
-                            key={board.playerId}
-                            board={board}
-                            isVisible={visibleBoards.has(board.playerId)}
-                            onToggleVisibility={toggleBoardVisibility}
-                            transform={boardTransforms[board.playerId] || { scale: 1, x: 0, y: 0 }}
+                            key={player.id}
+                            board={boardForDisplay}
+                            isVisible={visibleBoards.has(player.id)}
+                            onToggleVisibility={id => toggleBoardVisibility(id)}
+                            transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
                             onScale={handleBoardScale}
                             onPan={handleBoardPan}
                             onReset={handleBoardReset}
                           />
-                        ))}
-                      </div>
+                        );
+                      })}
                     </div>
-                  </div>
-
-                  <AnswerList
-                    answers={pendingAnswers}
-                    onEvaluate={evaluateAnswer}
-                    evaluatedAnswers={evaluatedAnswers}
-                  />
-                </>
-              ) : (
-                <div className="card">
-                  <div className="card-header">
-                    <h3 className="mb-0">Getting Started</h3>
-                  </div>
-                  <div className="card-body">
-                    <p className="mb-4">
-                      Welcome to the Game Master dashboard! Share the room code with your players and prepare your questions. When everyone is ready, start the game!
-                    </p>
-                    
-                    <div className="mb-4">
-                      <h5>Current Players:</h5>
-                      {players.length === 0 ? (
-                        <p className="text-center text-muted">No players have joined yet</p>
-                      ) : (
-                        <ul className="list-group">
-                          {players.map(player => (
-                            <li key={player.id} className="list-group-item">
-                              {player.name}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    
-                    <div className="mb-3">
-                      <h5>Room Settings:</h5>
-                      <div className="mb-3">
-                        <label htmlFor="timeLimitInput" className="form-label">Time Limit per Question (seconds):</label>
-                        <input
-                          type="number"
-                          id="timeLimitInput"
-                          className="form-control"
-                          placeholder="No time limit"
-                          min="5"
-                          max="300"
-                          value={timeLimit === null ? '' : timeLimit}
-                          onChange={(e) => setTimeLimit(e.target.value ? parseInt(e.target.value) : null)}
-                        />
-                      </div>
-                    </div>
-                    
-                    <QuestionSelector
-                      onQuestionsSelected={setQuestions}
-                      selectedQuestions={questions}
-                      onSelectedQuestionsChange={setQuestions}
-                    />
                   </div>
                 </div>
-              )}
-            </div>
+              </>
+            )}
           </div>
         </div>
-      )}
 
-      {previewMode.isActive && (
-        <div className="preview-mode-controls mt-3" style={{
-          display: 'flex',
-          gap: '10px',
-          alignItems: 'center',
-          justifyContent: 'center',
-          position: 'fixed',
-          bottom: '20px',
-          left: '50%',
-          transform: 'translateX(-50%)',
-          zIndex: 1000,
-          background: 'rgba(255, 255, 255, 0.9)',
-          padding: '10px 20px',
-          borderRadius: '8px',
-          boxShadow: '0 2px 10px rgba(0,0,0,0.1)',
-          width: '90%',
-          maxWidth: '500px'
-        }}>
-          <button
-            className="btn btn-secondary w-100"
-            onClick={handleStopPreviewMode}
-          >
-            Stop Preview Mode
-          </button>
-          {previewMode.focusedPlayerId && (
-            <button
-              className="btn btn-outline-primary w-100"
-              onClick={() => handleFocusSubmission('')}
-            >
-              Back to Gallery
-            </button>
-          )}
-        </div>
-      )}
+        {previewMode.isActive && (
+          <PreviewOverlayV2
+            onFocus={handleFocusSubmissionInternal}
+            onClose={handleStopPreview}
+            isGameMaster={true}
+            onEvaluate={handleEvaluateAnswer}
+          />
+        )}
 
-      {/* Preview Mode Overlay */}
-      <PreviewOverlay
-        players={players}
-        playerBoards={playerBoards}
-        allAnswersThisRound={allAnswersThisRound}
-        evaluatedAnswers={evaluatedAnswers}
-        previewMode={previewMode}
-        onFocus={handleFocusSubmission}
-        onClose={handleStopPreviewMode}
-        isGameMaster={true}
-      />
-    </div>
+        {gameRecapData && roomCode && (
+          <RecapModal
+            show={!!gameRecapData}
+            onHide={() => hideRecap()}
+            recap={gameRecapData}
+            selectedRoundIndex={recapSelectedRoundIndex ?? 0}
+            onRoundChange={(index) => gmNavigateRecapRound(roomCode, index)}
+            isControllable={true}
+            activeTabKey={recapSelectedTabKey}
+            onTabChange={(tabKey) => gmNavigateRecapTab(roomCode, tabKey)}
+          />
+        )}
+      </div>
+    </>
   );
 };
 

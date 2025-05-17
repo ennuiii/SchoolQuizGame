@@ -1,21 +1,20 @@
 import React from 'react';
+import { useRoom } from '../../contexts/RoomContext';
 
 interface RoomSettingsProps {
   timeLimit: number | null;
   onTimeLimitChange: (timeLimit: number | null) => void;
-  roomCode: string;
 }
 
-const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange, roomCode }) => {
+const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange }) => {
+  const { roomCode } = useRoom();
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
         <h6 className="mb-0">Room Settings</h6>
       </div>
       <div className="card-body">
-        <div className="mb-3">
-          <label className="form-label">Room Code: <strong>{roomCode}</strong></label>
-        </div>
         <div className="mb-3">
           <label htmlFor="timeLimit" className="form-label">Time Limit (seconds)</label>
           <div className="input-group">
@@ -41,7 +40,7 @@ const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChang
             </button>
           </div>
           <div className="form-text">
-            Set to 0 for no time limit
+            Leave empty or set to 0 for no time limit. Actual value for no limit will be 99999.
           </div>
         </div>
       </div>

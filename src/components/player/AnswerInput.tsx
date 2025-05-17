@@ -1,22 +1,18 @@
-import React from 'react';
+import React, { useEffect } from 'react';
+import { useGame } from '../../contexts/GameContext';
 
 interface AnswerInputProps {
   answer: string;
-  submittedAnswer: boolean;
-  timeLimit: number | null;
-  timeRemaining: number | null;
   onAnswerChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmitAnswer: () => void;
 }
 
 const AnswerInput: React.FC<AnswerInputProps> = ({
   answer,
-  submittedAnswer,
-  timeLimit,
-  timeRemaining,
   onAnswerChange,
   onSubmitAnswer
 }) => {
+  const { timeLimit, timeRemaining, submittedAnswer } = useGame();
   const isDisabled = submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0));
 
   return (
