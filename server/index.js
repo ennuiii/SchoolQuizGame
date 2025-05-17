@@ -14,7 +14,8 @@ const app = express();
 const allowedOrigins = [
   'http://localhost:3000',
   'https://schoolquizgame-1.onrender.com',
-  'https://schoolquizgame.onrender.com'
+  'https://schoolquizgame.onrender.com',
+  'https://schoolquizgame-admin.onrender.com'
 ];
 
 app.use(cors({
@@ -24,7 +25,7 @@ app.use(cors({
     
     if (allowedOrigins.indexOf(origin) === -1) {
       console.log('CORS blocked origin:', origin);
-      return callback(null, false);
+      return callback(new Error('Not allowed by CORS'), false);
     }
     return callback(null, true);
   },
