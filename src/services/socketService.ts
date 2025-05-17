@@ -118,60 +118,9 @@ export class SocketService {
         });
         this.emit('error', error);
       });
-
-      this.setupEventHandlers();
     });
 
     return this.connectionPromise;
-  }
-
-  private setupEventHandlers() {
-    if (!this.socket) return;
-
-    this.socket.on('connect', () => {
-      console.log('[SocketService] Connected successfully:', {
-        socketId: this.socket?.id,
-        timestamp: new Date().toISOString(),
-        url: this.url
-      });
-      this.updateConnectionState('connected');
-      this.emit('connection_established');
-    });
-
-    this.socket.on('reconnect', (attemptNumber) => {
-      console.log(`[SocketService] Socket.IO Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
-      this.updateConnectionState('connected');
-      this.emit('reconnected_by_library', { attemptNumber });
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('[SocketService] Connection error:', {
-        error: error.message,
-        url: this.url,
-        timestamp: new Date().toISOString()
-      });
-    });
-
-    this.socket.on('disconnect', (reason) => {
-      console.log('[SocketService] Disconnected:', {
-        reason,
-        timestamp: new Date().toISOString()
-      });
-      this.updateConnectionState('disconnected');
-      if (reason === "io client disconnect") {
-        // This was intentional, do nothing further.
-      } else {
-        console.log('[SocketService] Unexpected disconnect. Socket.IO will attempt to reconnect.');
-      }
-    });
-
-    this.socket.on('error', (error) => {
-      console.error('[SocketService] Socket error:', {
-        error,
-        timestamp: new Date().toISOString()
-      });
-      this.emit('error', error);
-    });
   }
 
   // Game-specific methods
