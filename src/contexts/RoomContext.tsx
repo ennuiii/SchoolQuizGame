@@ -162,6 +162,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.on('player_joined', (player: Player) => {
           console.log('[RoomContext] player_joined event received. Player:', JSON.stringify(player, null, 2));
           setPlayers(prev => {
+            console.log('[RoomContext] setPlayers (player_joined) - PREV state:', JSON.stringify(prev, null, 2));
             const existingPlayerIndex = prev.findIndex(p => p.id === player.id);
             let newPlayersState;
             if (existingPlayerIndex !== -1) {
@@ -170,7 +171,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
             } else {
               newPlayersState = [...prev, player];
             }
-            console.log('[RoomContext] Updated players state after player_joined:', JSON.stringify(newPlayersState, null, 2));
+            console.log('[RoomContext] setPlayers (player_joined) - NEW state:', JSON.stringify(newPlayersState, null, 2));
             return newPlayersState;
           });
         });
@@ -178,7 +179,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[RoomContext] Attempting to attach players_update listener');
         socket.on('players_update', (updatedPlayers: Player[]) => {
           console.log('[RoomContext] players_update event received. All players:', JSON.stringify(updatedPlayers, null, 2));
-          setPlayers(updatedPlayers);
+          setPlayers(prev => {
+            console.log('[RoomContext] setPlayers (players_update) - PREV state:', JSON.stringify(prev, null, 2));
+            console.log('[RoomContext] setPlayers (players_update) - Setting NEW state based on received updatedPlayers.');
+            return updatedPlayers; // Directly use the authoritative list from the server
+          });
         });
 
         console.log('[RoomContext] Attempting to attach become_spectator listener');
@@ -237,7 +242,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.off('game_state_update');
       }
     };
-  }, [navigate]);
+  }, [navigate, roomCode]);
 
   const value = {
     roomCode,
