@@ -91,7 +91,7 @@ const GameMaster: React.FC = () => {
     playBackgroundMusic
   } = useAudio();
 
-  const handleKickPlayer = useCallback((playerId: string) => {
+  const handleKickPlayer = useCallback((persistentPlayerId: string) => {
     if (!roomCode) {
       toast.error("Room code not found. Cannot kick player.");
       return;
@@ -100,9 +100,9 @@ const GameMaster: React.FC = () => {
       toast.error("Kick player function not available.");
       return;
     }
-    console.log(`[GameMaster] Request to kick player ${playerId} from room ${roomCode}`);
-    kickPlayer(playerId);
-    toast.info(`Kicking player ${playerId}...`);
+    console.log(`[GameMaster] Request to kick player ${persistentPlayerId} from room ${roomCode}`);
+    kickPlayer(persistentPlayerId);
+    toast.info(`Kicking player ${persistentPlayerId}...`);
   }, [roomCode, kickPlayer]);
 
   const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
@@ -260,24 +260,24 @@ const GameMaster: React.FC = () => {
     toggleBoardVisibility(playerId);
   }, [toggleBoardVisibility]);
 
-  const handleBoardScale = useCallback((playerId: string, scale: number) => {
-    setBoardTransforms(prev => ({ ...prev, [playerId]: { ...(prev[playerId] || { scale: 1, x: 0, y: 0 }), scale } }));
+  const handleBoardScale = useCallback((persistentPlayerId: string, scale: number) => {
+    setBoardTransforms(prev => ({ ...prev, [persistentPlayerId]: { ...(prev[persistentPlayerId] || { scale: 1, x: 0, y: 0 }), scale } }));
   }, []);
 
-  const handleBoardPan = useCallback((playerId: string, dx: number, dy: number) => {
-    setBoardTransforms(prev => ({ ...prev, [playerId]: { scale: prev[playerId]?.scale || 1, x: (prev[playerId]?.x || 0) + dx, y: (prev[playerId]?.y || 0) + dy } }));
+  const handleBoardPan = useCallback((persistentPlayerId: string, dx: number, dy: number) => {
+    setBoardTransforms(prev => ({ ...prev, [persistentPlayerId]: { scale: prev[persistentPlayerId]?.scale || 1, x: (prev[persistentPlayerId]?.x || 0) + dx, y: (prev[persistentPlayerId]?.y || 0) + dy } }));
   }, []);
 
-  const handleBoardReset = useCallback((playerId: string) => {
-    setBoardTransforms(prev => ({ ...prev, [playerId]: { scale: 1, x: 0, y: 0 } }));
+  const handleBoardReset = useCallback((persistentPlayerId: string) => {
+    setBoardTransforms(prev => ({ ...prev, [persistentPlayerId]: { scale: 1, x: 0, y: 0 } }));
   }, []);
 
   const showAllBoards = useCallback(() => {
-    const activePlayerBoardIds = playerBoards
-      .filter(b => players.find(p => p.id === b.playerId && !p.isSpectator))
-      .map(b => b.playerId);
-    toggleBoardVisibility(new Set(activePlayerBoardIds));
-  }, [playerBoards, players, toggleBoardVisibility]);
+    const activePlayerPIds = gamePlayers
+      .filter(p => p.isActive && !p.isSpectator)
+      .map(p => p.persistentPlayerId);
+    toggleBoardVisibility(new Set(activePlayerPIds));
+  }, [gamePlayers, toggleBoardVisibility]);
 
   const hideAllBoards = useCallback(() => {
     toggleBoardVisibility(new Set());
@@ -285,11 +285,11 @@ const GameMaster: React.FC = () => {
 
   useEffect(() => {
     const initialTransforms: {[playerId: string]: {scale: number, x: number, y: number}} = {};
-    players.forEach(player => {
-      initialTransforms[player.id] = { scale: 1, x: 0, y: 0 };
+    gamePlayers.forEach(player => {
+      initialTransforms[player.persistentPlayerId] = { scale: 1, x: 0, y: 0 };
     });
     setBoardTransforms(initialTransforms);
-  }, [players]);
+  }, [gamePlayers]);
 
   useEffect(() => {
     if (!roomCode) {
@@ -395,7 +395,7 @@ const GameMaster: React.FC = () => {
             <PlayerList 
               title="Players"
               onPlayerSelect={handlePlayerSelect}
-              selectedPlayerId={selectedPlayerId}
+              selectedPlayerPersistentId={selectedPlayerId}
               isGameMasterView={true}
               onKickPlayer={handleKickPlayer}
             />
@@ -506,19 +506,19 @@ const GameMaster: React.FC = () => {
                       }}
                     >
                       {gamePlayers.filter(player => !player.isSpectator).map(player => {
-                        const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                        const boardEntry = playerBoards.find(b => b.persistentPlayerId === player.persistentPlayerId);
                         const boardForDisplay = {
-                          playerId: player.id,
+                          persistentPlayerId: player.persistentPlayerId,
                           playerName: player.name,
                           boardData: boardEntry ? boardEntry.boardData : ''
                         };
                         return (
                           <PlayerBoardDisplay
-                            key={player.id}
+                            key={player.persistentPlayerId}
                             board={boardForDisplay}
-                            isVisible={visibleBoards.has(player.id)}
+                            isVisible={visibleBoards.has(player.persistentPlayerId)}
                             onToggleVisibility={toggleBoardVisibility}
-                            transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
+                            transform={boardTransforms[player.persistentPlayerId] || { scale: 1, x: 0, y: 0 }}
                             onScale={handleBoardScale}
                             onPan={handleBoardPan}
                             onReset={handleBoardReset}

@@ -2,38 +2,30 @@ import React from 'react';
 import { useGame } from '../../contexts/GameContext';
 import { useRoom } from '../../contexts/RoomContext';
 
-interface Player {
-  id: string;
-  name: string;
-  lives: number;
-  answers: string[];
-  isActive: boolean;
-  isSpectator?: boolean;
-}
-
 interface PlayerListProps {
-  currentPlayerId?: string;
-  onPlayerSelect?: (playerId: string) => void;
-  selectedPlayerId?: string;
+  currentPlayerPersistentId?: string;
+  onPlayerSelect?: (persistentPlayerId: string) => void;
+  selectedPlayerPersistentId?: string;
   title?: string;
-  onKickPlayer?: (playerId: string) => void;
+  onKickPlayer?: (persistentPlayerId: string) => void;
   isGameMasterView?: boolean;
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({
-  currentPlayerId: propCurrentPlayerId,
+  currentPlayerPersistentId: propCurrentPlayerPersistentId,
   onPlayerSelect,
-  selectedPlayerId,
+  selectedPlayerPersistentId,
   title = "Players",
   onKickPlayer,
   isGameMasterView = false
 }) => {
   const { players } = useGame();
-  const { currentPlayerId: contextCurrentPlayerId } = useRoom();
-  const actualCurrentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
+  const { persistentPlayerId: contextCurrentPlayerPersistentId, isGameMaster } = useRoom();
+  
+  const actualCurrentPlayerPersistentId = propCurrentPlayerPersistentId || contextCurrentPlayerPersistentId;
 
   return (
-    <div className="card mb-3">
+    <div className="card mb-3 player-list-card">
       <div className="card-header bg-light">
         <h6 className="mb-0">{title}</h6>
       </div>
@@ -46,38 +38,46 @@ const PlayerList: React.FC<PlayerListProps> = ({
           ) : (
             players.map(player => (
               <div
-                key={player.id}
+                key={player.persistentPlayerId}
                 className={`list-group-item d-flex justify-content-between align-items-center ${
-                  player.id === actualCurrentPlayerId ? 'bg-highlight' : ''
-                } ${selectedPlayerId === player.id ? 'active' : ''}`}
-                onClick={() => onPlayerSelect?.(player.id)}
-                style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
+                  player.persistentPlayerId === actualCurrentPlayerPersistentId ? 'bg-highlight' : ''
+                } ${selectedPlayerPersistentId === player.persistentPlayerId ? 'active' : ''}`}
+                onClick={() => onPlayerSelect?.(player.persistentPlayerId)}
+                style={{
+                  cursor: onPlayerSelect ? 'pointer' : 'default',
+                  opacity: player.isActive ? 1 : 0.6,
+                  transition: 'opacity 0.3s ease',
+                }}
               >
                 <div className="d-flex align-items-center">
-                  <span className="me-2">{player.name}</span>
-                  {player.id === actualCurrentPlayerId && !isGameMasterView && (
+                  <span className="me-2 player-name">{player.name}</span>
+                  {player.persistentPlayerId === actualCurrentPlayerPersistentId && !isGameMasterView && (
                     <span className="badge bg-primary rounded-pill ms-1">You</span>
                   )}
                   {player.isSpectator && (
                     <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
                   )}
+                  {!player.isActive && (
+                    <span className="badge bg-warning text-dark rounded-pill ms-1">Disconnected</span>
+                  )}
                 </div>
                 
                 <div className="d-flex align-items-center">
-                  {!player.isSpectator && (
+                  {!player.isSpectator && player.isActive && (
                     <div className="lives-display me-2">
                       {[...Array(player.lives)].map((_, i) => (
                         <span key={i} className="life" role="img" aria-label="heart">❤</span>
                       ))}
                     </div>
                   )}
-                  {isGameMasterView && player.id !== actualCurrentPlayerId && onKickPlayer && (
+                  {isGameMasterView && isGameMaster && player.persistentPlayerId !== contextCurrentPlayerPersistentId && onKickPlayer && (
                     <button 
-                      className="btn btn-danger btn-sm p-1 ms-2" 
+                      className="btn btn-danger btn-sm p-1 ms-2 kick-button"
                       onClick={(e) => { 
                         e.stopPropagation();
-                        onKickPlayer(player.id); 
+                        onKickPlayer(player.persistentPlayerId);
                       }}
+                      disabled={!player.isActive}
                       title={`Kick ${player.name}`}
                     >
                       <i className="bi bi-person-dash-fill"></i>

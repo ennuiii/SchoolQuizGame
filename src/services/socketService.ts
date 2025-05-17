@@ -16,39 +16,136 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
   ? 'https://schoolquizgame.onrender.com' // The deployed backend URL
   : 'http://localhost:5000'; // Use port 5000 to match server
 
+export type ConnectionStatusType = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'reconnect_failed' | 'error';
+
 export class SocketService {
   private socket: Socket | null = null;
-  private connectionState: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
   private connectionPromise: Promise<Socket | null> | null = null;
-  private eventListeners: Map<string, Set<Function>> = new Map();
-  private connectionStateListeners: ((state: string) => void)[] = [];
+  private connectionStateListeners: ((state: ConnectionStatusType, details?: any) => void)[] = [];
   private url: string;
 
+  // New state for CSR and persistent ID
+  private persistentPlayerId: string | null = null;
+  private currentSessionPlayerName: string | null = null;
+  private tempRoomCodeForGM: string | null = null;
+  private tempIsGameMasterQuery: boolean = false;
+  private connectionState: ConnectionStatusType = 'disconnected';
+
   constructor() {
-    this.url = process.env.REACT_APP_SOCKET_URL || 'https://schoolquizgame.onrender.com';
+    this.url = process.env.REACT_APP_SOCKET_URL || SOCKET_URL;
     console.log('[SocketService] Initializing with URL:', this.url);
+    this.loadPersistentPlayerId();
   }
 
-  // Add method to listen for connection state changes
-  onConnectionStateChange(callback: (state: string) => void) {
+  private loadPersistentPlayerId(): void {
+    try {
+      const storedId = localStorage.getItem('persistentPlayerId_schoolquiz');
+      if (storedId) {
+        this.persistentPlayerId = storedId;
+        console.log('[SocketService] Loaded persistentPlayerId from localStorage:', storedId);
+      }
+    } catch (e) {
+      console.warn('[SocketService] Could not access localStorage for persistentPlayerId:', e);
+    }
+  }
+
+  private setPersistentPlayerId(id: string | null): void {
+    if (id) {
+      this.persistentPlayerId = id;
+      try {
+        localStorage.setItem('persistentPlayerId_schoolquiz', id);
+        console.log('[SocketService] Saved persistentPlayerId to localStorage:', id);
+      } catch (e) {
+        console.warn('[SocketService] Could not save persistentPlayerId to localStorage:', e);
+      }
+    } else {
+        this.persistentPlayerId = null;
+        try {
+            localStorage.removeItem('persistentPlayerId_schoolquiz');
+        } catch (e) {
+            console.warn('[SocketService] Could not remove persistentPlayerId from localStorage:', e);
+        }
+    }
+  }
+
+  public getPersistentPlayerId(): string | null {
+    return this.persistentPlayerId;
+  }
+
+  public setPlayerDetails(playerName: string): void {
+    this.currentSessionPlayerName = playerName;
+    console.log('[SocketService] Player details set for auth. Name:', playerName);
+  }
+
+  public setGMConnectionDetails(isGM: boolean, roomCode?: string): void {
+    this.tempIsGameMasterQuery = isGM;
+    this.tempRoomCodeForGM = roomCode || null;
+    console.log('[SocketService] GM connection details set for query. IsGM:', isGM, 'RoomCode:', roomCode);
+  }
+
+  onConnectionStateChange(callback: (state: ConnectionStatusType, details?: any) => void): () => void {
     this.connectionStateListeners.push(callback);
-    // Immediately call with current state
-    callback(this.connectionState);
+    callback(this.connectionState); // Immediately call with current state
+    return () => {
+      this.connectionStateListeners = this.connectionStateListeners.filter(cb => cb !== callback);
+    };
   }
 
-  private updateConnectionState(newState: 'connected' | 'disconnected' | 'connecting') {
+  private updateConnectionState(newState: ConnectionStatusType, details?: any): void {
+    if (this.connectionState === newState && details === undefined) return; // Avoid redundant updates without new details
     this.connectionState = newState;
-    this.connectionStateListeners.forEach(listener => listener(newState));
+    console.log(`[SocketService] Connection state updated to: ${newState}`, details || '');
+    this.connectionStateListeners.forEach(listener => listener(newState, details));
+  }
+
+  private generateAnswerAttemptId(): string {
+    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+      return crypto.randomUUID();
+    }
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+  }
+
+  private async ensureConnected(): Promise<Socket> {
+    if (this.socket?.connected) {
+      return this.socket;
+    }
+    if (this.connectionPromise) {
+      const socket = await this.connectionPromise;
+      if (!socket) throw new Error('Socket connection failed during ensureConnected');
+      return socket;
+    }
+    const socket = await this.connect();
+    if (!socket) throw new Error('Socket connection failed during ensureConnected (new attempt)');
+    return socket;
+  }
+
+  public async robustEmit(event: string, data: any = {}): Promise<void> {
+    try {
+      const socket = await this.ensureConnected();
+      socket.emit(event, data);
+      console.log(`[SocketService] RobustEmit sent '${event}'`, data);
+    } catch (error) {
+      console.error(`[SocketService] RobustEmit failed for event '${event}':`, error, data);
+      // Optionally, re-throw or handle specific errors (e.g., notify UI)
+      throw error; 
+    }
+  }
+  
+  // Volatile emit for non-critical, high-frequency updates
+  public async volatileEmitIfConnected(event: string, data: any = {}): Promise<void> {
+    if (this.socket?.connected) {
+      this.socket.volatile.emit(event, data);
+      // console.log(`[SocketService] VolatileEmit sent '${event}'`, data); // Can be too noisy
+    } else {
+      console.warn(`[SocketService] VolatileEmit skipped for '${event}' (not connected)`);
+    }
   }
 
   connect(): Promise<Socket | null> {
-    // If we're already connecting, return the existing promise
     if (this.connectionPromise) {
       console.log('[SocketService] Connection already in progress, reusing promise');
       return this.connectionPromise;
     }
-
-    // If we're already connected, return the existing socket
     if (this.socket?.connected) {
       console.log('[SocketService] Already connected, reusing socket');
       return Promise.resolve(this.socket);
@@ -58,133 +155,246 @@ export class SocketService {
     this.updateConnectionState('connecting');
 
     this.connectionPromise = new Promise((resolve, reject) => {
+      const queryParams: { [key: string]: string } = {};
+      if (this.tempIsGameMasterQuery) {
+        queryParams.isGameMaster = "true";
+        if (this.tempRoomCodeForGM) {
+          queryParams.roomCode = this.tempRoomCodeForGM;
+        }
+      }
+
+      // Clean up temp GM details after use
+      this.tempIsGameMasterQuery = false;
+      this.tempRoomCodeForGM = null;
+
       this.socket = io(this.url, {
-        reconnectionAttempts: 3,
-        timeout: 10000,
-        transports: ['websocket'],
-      });
-      console.log('[SocketService] io() called, socket instance created:', this.socket ? 'Exists' : 'Null', 'ID before connect event:', this.socket?.id);
-
-      this.socket.on('connect', () => {
-        console.log('[SocketService] Connected successfully:', {
-          socketId: this.socket?.id,
-          timestamp: new Date().toISOString(),
-          url: this.url
-        });
-        this.updateConnectionState('connected');
-        this.connectionPromise = null;
-        this.connectionStateListeners.forEach(listener => listener('connected'));
-        resolve(this.socket);
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
+        timeout: 20000, // Connection timeout
+        transports: ['websocket', 'polling'], // Retain polling as fallback
+        auth: (cb) => {
+          const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
+          if (this.persistentPlayerId) payload.persistentPlayerId = this.persistentPlayerId;
+          if (this.currentSessionPlayerName) payload.playerName = this.currentSessionPlayerName;
+          console.log('[SocketService] Auth callback sending:', payload);
+          cb(payload);
+        },
+        query: queryParams
       });
 
-      this.socket.on('connect_error', (error: Error) => {
-        console.error('[SocketService] Connection Error:', error.message, error.stack);
-        // this.socket might be null or trying to reconnect based on options
-        // If we want to stop further attempts after initial connect_error:
-        if (this.socket && !this.socket.active) { // Check if it's not already trying to recover
-          this.socket.disconnect();
-        }
-        this.connectionState = 'disconnected';
-        this.connectionPromise = null;
-        // Don't reject here if using built-in retries; let 'disconnect' handle final failure.
-        // If we want to fail fast for the initial connect() call:
-        reject(new Error(`Connection failed: ${error.message}`)); 
-        this.connectionStateListeners.forEach(listener => listener('disconnected'));
-      });
-
-      this.socket.on('reconnect', (attemptNumber) => {
-        console.log(`[SocketService] Socket.IO Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
-        this.updateConnectionState('connected');
-        this.emit('reconnected_by_library', { attemptNumber });
-      });
-
-      this.socket.on('disconnect', (reason: Socket.DisconnectReason) => {
-        console.log('[SocketService] Disconnected:', {
-          reason,
-          timestamp: new Date().toISOString()
-        });
-        this.updateConnectionState('disconnected');
-        if (reason === "io client disconnect") {
-          // This was intentional, do nothing further.
-        } else {
-          console.log('[SocketService] Unexpected disconnect. Socket.IO will attempt to reconnect.');
-        }
-      });
-
-      this.socket.on('error', (error) => {
-        console.error('[SocketService] Socket error:', {
-          error,
-          timestamp: new Date().toISOString()
-        });
-        this.emit('error', error);
-      });
+      this.setupCommonEventHandlers(this.socket, resolve, reject);
     });
 
     return this.connectionPromise;
   }
 
-  // Game-specific methods
-  async createRoom(roomCode: string) {
-    console.log('[SocketService] Creating room:', { roomCode, timestamp: new Date().toISOString() });
-    try {
-      const socket = await this.connect();
-      if (!socket) {
-        throw new Error('Failed to connect socket');
-      }
-      socket.emit('create_room', { roomCode, timestamp: new Date().toISOString() });
-    } catch (error) {
-      console.error('[SocketService] Failed to create room:', error);
-      throw error;
+  private setupCommonEventHandlers(socketInstance: Socket, resolveConnectPromise?: (value: Socket | null) => void, rejectConnectPromise?: (reason?: any) => void) {
+    // Clear previous listeners if any (though new socket instance is usually created)
+    socketInstance.removeAllListeners();
+    if (socketInstance.io) {
+        socketInstance.io.removeAllListeners();
     }
-  }
 
-  joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
-    console.log('[SocketService] Joining room:', {
-      roomCode,
-      playerName,
-      isSpectator,
-      timestamp: new Date().toISOString()
+    socketInstance.on('connect', () => {
+      console.log('[SocketService] Connected successfully:', {
+        socketId: socketInstance.id,
+        recovered: socketInstance.recovered,
+        timestamp: new Date().toISOString(),
+      });
+      this.updateConnectionState('connected', { recovered: socketInstance.recovered });
+      this.connectionPromise = null; 
+      if (resolveConnectPromise) resolveConnectPromise(socketInstance);
     });
-    this.emit('join_room', { roomCode, playerName, isSpectator });
-  }
 
-  startGame(roomCode: string, questions: Question[], timeLimit: number): void {
-    this.emit('start_game', { roomCode, questions, timeLimit });
-  }
-
-  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false, drawingData?: string | null) {
-    console.log('[SocketService] Submitting answer:', {
-      roomCode,
-      answerLength: answer.length,
-      hasDrawing,
-      drawingDataLength: drawingData?.length || 0,
-      timestamp: new Date().toISOString()
+    socketInstance.on('connect_error', (error: Error) => {
+      console.error('[SocketService] Connection Error:', error.message, error.stack);
+      this.updateConnectionState('error', { message: error.message });
+      // For certain fatal errors, disconnect and reject the initial connection promise
+      // Example: if (error.message.includes('Auth failed critical')) { socketInstance.disconnect(); if (rejectConnectPromise) rejectConnectPromise(error); }
+      if (rejectConnectPromise) rejectConnectPromise(error); // Let initial connect() call fail for connect_error
+      this.connectionPromise = null;
     });
-    this.emit('submit_answer', { roomCode, answer, hasDrawing, drawingData });
-  }
 
-  updateBoard(roomCode: string, boardData: any) {
-    console.log('[SocketService] Updating board:', {
-      roomCode,
-      dataSize: boardData?.length || 0,
-      timestamp: new Date().toISOString()
+    socketInstance.on('disconnect', (reason: Socket.DisconnectReason, description?: any) => {
+      console.log('[SocketService] Disconnected:', { reason, description, timestamp: new Date().toISOString() });
+      if (reason === 'io server disconnect' || reason === 'io client disconnect') {
+        this.updateConnectionState('disconnected', { reason });
+        if (reason === 'io server disconnect' && socketInstance.io?.opts) {
+            // socketInstance.io.opts.reconnection = false; // Example: Stop auto-reconnect on server-side kick
+        }
+      } else {
+        this.updateConnectionState('reconnecting', { reason }); // Assume other reasons lead to reconnection attempts
+      }
     });
-    this.emit('update_board', { roomCode, boardData });
-  }
 
-  requestGameState(roomCode: string) {
-    console.log('[SocketService] Requesting game state:', {
-      roomCode,
-      timestamp: new Date().toISOString()
+    // Manager listeners for reconnection events
+    if (socketInstance.io) {
+      socketInstance.io.on('reconnect_attempt', (attempt) => {
+        console.log(`[SocketService] Reconnect attempt ${attempt} at`, new Date().toISOString());
+        this.updateConnectionState('reconnecting', { attempt });
+      });
+
+      socketInstance.io.on('reconnect_failed', () => {
+        console.error('[SocketService] Reconnect failed after maximum attempts.');
+        this.updateConnectionState('reconnect_failed');
+      });
+
+      socketInstance.io.on('reconnect_error', (error: Error) => {
+        console.error('[SocketService] Reconnect error:', error.message);
+        // State might remain 'reconnecting' or go to 'error' depending on flow
+      });
+
+      socketInstance.io.on('reconnect', (attempt) => {
+        console.log(`[SocketService] Reconnected successfully after ${attempt} attempts. Recovered: ${socketInstance.recovered}`);
+        this.updateConnectionState('connected', { recovered: socketInstance.recovered, attempts: attempt });
+      });
+    }
+
+    socketInstance.on('error', (errorData: any) => {
+      const message = typeof errorData === 'string' ? errorData : errorData?.message || 'Unknown socket error';
+      console.error('[SocketService] Socket error event:', message, errorData);
+      this.updateConnectionState('error', { message });
+      // Propagate this to a general error listener if needed via this.emit('custom_error_event', ...)
     });
-    this.emit('get_game_state', { roomCode });
+
+    socketInstance.on('persistent_id_assigned', (data: { persistentPlayerId: string }) => {
+      if (data.persistentPlayerId) {
+        console.log('[SocketService] Received persistent_id_assigned:', data.persistentPlayerId);
+        this.setPersistentPlayerId(data.persistentPlayerId);
+      } else {
+        console.warn('[SocketService] Received persistent_id_assigned but ID was null/undefined.');
+      }
+    });
+
+    socketInstance.on('session_not_fully_recovered_join_manually', () => {
+      console.warn('[SocketService] Received session_not_fully_recovered_join_manually. Client needs to rejoin.');
+      this.updateConnectionState('connected', { recoveryStatus: 'needs_manual_join' });
+      // Emitting a custom local event or letting contexts handle this via connection state change
+    });
+
+    // Generic event proxy to internal event bus (optional, if needed for decoupling contexts from direct socket.on)
+    // This is ALREADY handled by the on() / off() / emit() methods of this service if contexts use those.
+  }
+  
+  disconnect(): void {
+    if (this.socket) {
+      console.log('[SocketService] Disconnecting socket explicitly. ID:', this.socket.id);
+      this.socket.disconnect();
+      // State update will happen via 'disconnect' event listener
+    }
+    this.socket = null;
+    this.connectionPromise = null;
+    this.updateConnectionState('disconnected', { reason: 'client_manual_disconnect' });
   }
 
-  // Event handling methods
+  // Game-specific methods using robustEmit
+  async createRoom(roomCodeInput?: string) { // roomCode is optional
+    const roomCode = roomCodeInput || ''; // Server generates if empty
+    console.log('[SocketService] Creating room:', { roomCode, timestamp: new Date().toISOString() });
+    await this.robustEmit('create_room', { roomCode });
+  }
+
+  async joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
+    console.log('[SocketService] Joining room:', { roomCode, playerName, isSpectator });
+    this.setPlayerDetails(playerName); // Ensure playerName is set for auth on this connection
+    await this.robustEmit('join_room', { roomCode, playerName, isSpectator });
+  }
+
+  async startGame(roomCode: string, questions: Question[], timeLimit: number): Promise<void> {
+    await this.robustEmit('start_game', { roomCode, questions, timeLimit });
+  }
+
+  async submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false, drawingData?: string | null) {
+    const answerAttemptId = this.generateAnswerAttemptId();
+    console.log('[SocketService] Submitting answer:', { roomCode, answerLength: answer.length, hasDrawing, drawingDataLength: drawingData?.length, answerAttemptId });
+    await this.robustEmit('submit_answer', { roomCode, answer, hasDrawing, drawingData, answerAttemptId });
+  }
+
+  async updateBoard(roomCode: string, boardData: any) {
+    // Board updates can be frequent; volatile emit if connected, otherwise skip or queue (robustEmit would queue)
+    // For simplicity with current plan, let's use robustEmit to ensure it eventually sends or fails clearly.
+    // If it becomes a performance issue, switch to volatileEmitIfConnected.
+    console.log('[SocketService] Queuing board update (via robustEmit):', { roomCode, dataSize: boardData?.length });
+    await this.robustEmit('update_board', { roomCode, boardData });
+  }
+
+  async requestGameState(roomCode: string) {
+    await this.robustEmit('get_game_state', { roomCode });
+  }
+
+  // --- Other emit methods to be updated to use robustEmit ---
+  async nextQuestion(roomCode: string): Promise<void> {
+    await this.robustEmit('next_question', { roomCode });
+  }
+
+  async evaluateAnswer(roomCode: string, playerId: string, isCorrect: boolean): Promise<void> { // playerId should be persistentPlayerId
+    await this.robustEmit('evaluate_answer', { roomCode, playerId, isCorrect });
+  }
+
+  async endGame(roomCode: string): Promise<void> { // Deprecated or GM only?
+      console.warn('[SocketService] endGame called. Ensure this is GM-only or handled by gmEndGameRequest.');
+      await this.robustEmit('gm_end_game_request', { roomCode }); // Assuming this is what it should be
+  }
+
+  async restartGame(roomCode: string): Promise<void> {
+    await this.robustEmit('restart_game', { roomCode });
+  }
+
+  async endRoundEarly(roomCode: string): Promise<void> {
+    await this.robustEmit('end_round_early', { roomCode });
+  }
+
+  async startPreviewMode(roomCode: string) {
+    await this.robustEmit('start_preview_mode', { roomCode });
+  }
+
+  async stopPreviewMode(roomCode: string) {
+    await this.robustEmit('stop_preview_mode', { roomCode });
+  }
+
+  async focusSubmission(roomCode: string, playerId: string) { // playerId should be persistentPlayerId
+    await this.robustEmit('focus_submission', { roomCode, playerId });
+  }
+  
+  async gmShowRecapToAll(roomCode: string) {
+    await this.robustEmit('gm_show_recap_to_all', { roomCode });
+  }
+
+  async gmEndGameRequest(roomCode: string) {
+    await this.robustEmit('gm_end_game_request', { roomCode });
+  }
+
+  async gmNavigateRecapRound(roomCode: string, roundIndex: number) {
+    await this.robustEmit('gm_navigate_recap_round', { roomCode, selectedRoundIndex: roundIndex });
+  }
+
+  async gmNavigateRecapTab(roomCode: string, tabKey: string) {
+    await this.robustEmit('gm_navigate_recap_tab', { roomCode, selectedTabKey: tabKey });
+  }
+
+  async kickPlayer(roomCode: string, playerIdToKick: string) { // playerIdToKick is persistentPlayerId
+    await this.robustEmit('kick_player', { roomCode, playerIdToKick });
+  }
+  
+  async previewOverlayVersionChanged(version: 'v1' | 'v2') {
+      // This event seems to be missing roomCode. Assuming it's broadcast or not room-specific.
+      // If room-specific, roomCode needs to be passed here.
+      await this.robustEmit('preview_overlay_version_changed', { version }); 
+  }
+
+  // Event handling methods (on/off should be used by contexts to listen to events received from server)
+  // The existing on/off methods are fine, they attach to the current `this.socket` instance.
+  // `setupCommonEventHandlers` handles core lifecycle and specific CSR events.
   on(event: string, callback: (...args: any[]) => void): void {
     if (!this.socket) {
       console.warn('[SocketService] Attempted to attach listener when socket not connected:', event);
-      return;
+      // Consider queuing listeners if socket is not yet available, or let connect() handle re-attaching.
+      // For now, if called before connect, it might not attach.
+      // However, ensureConnected in robustEmit means socket WILL be available when contexts call this after an emit.
+      // If contexts call .on() proactively, they should do so after connection or be prepared for no-op.
+      return; 
     }
     this.socket.on(event, callback);
   }
@@ -201,83 +411,12 @@ export class SocketService {
     }
   }
 
-  public emit(event: string, data: any = {}): void {
-    if (!this.socket) {
-      console.error('[SocketService] Socket not connected');
-      return;
-    }
-    this.socket.emit(event, data);
+  getSocketId(): string | null {
+    return this.socket?.id || null;
   }
 
-  // GameMaster actions
-  startPreviewMode(roomCode: string) {
-    this.emit('start_preview_mode', { roomCode });
-  }
-
-  stopPreviewMode(roomCode: string) {
-    this.emit('stop_preview_mode', { roomCode });
-  }
-
-  focusSubmission(roomCode: string, playerId: string) {
-    this.emit('focus_submission', { roomCode, playerId });
-  }
-
-  // Player actions
-  joinAsSpectator(roomCode: string, playerName: string) {
-    console.log(`Joining room ${roomCode} as spectator ${playerName}`);
-    this.emit('join_as_spectator', { roomCode, playerName });
-  }
-
-  switchToSpectator(roomCode: string, playerId: string) {
-    if (this.socket) {
-      this.socket.emit('switch_to_spectator', { roomCode, playerId });
-    }
-  }
-
-  switchToPlayer(roomCode: string, playerName: string) {
-    if (this.socket) {
-      this.socket.emit('switch_to_player', { roomCode, playerName });
-    }
-  }
-
-  getSocketId() {
-    return this.socket?.id;
-  }
-
-  getConnectionState(): 'connected' | 'disconnected' | 'connecting' {
+  getConnectionState(): ConnectionStatusType {
     return this.connectionState;
-  }
-
-  disconnect() {
-    console.log('[SocketService] Disconnecting');
-    this.socket?.disconnect();
-    this.socket = null;
-    this.updateConnectionState('disconnected');
-  }
-
-  // Add missing methods
-  nextQuestion(roomCode: string): void {
-    this.emit('next_question', { roomCode });
-  }
-
-  evaluateAnswer(roomCode: string, playerId: string, isCorrect: boolean): void {
-    this.emit('evaluate_answer', { roomCode, playerId, isCorrect });
-  }
-
-  endGame(roomCode: string): void {
-    this.emit('end_game', { roomCode });
-  }
-
-  restartGame(roomCode: string): void {
-    this.emit('restart_game', { roomCode });
-  }
-
-  endRoundEarly(roomCode: string): void {
-    this.emit('end_round_early', { roomCode });
-  }
-
-  onError(callback: (error: string) => void): void {
-    this.on('error', callback);
   }
 
   getSocket(): Socket | null {

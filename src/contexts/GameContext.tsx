@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import socketService from '../services/socketService';
+import socketService, { ConnectionStatusType } from '../services/socketService';
 import { supabaseService } from '../services/supabaseService';
 import type { GameRecapData } from '../types/recap'; // Import GameRecapData
 
@@ -16,6 +16,7 @@ export interface Question {
 
 interface Player {
   id: string;
+  persistentPlayerId: string;
   name: string;
   lives: number;
   answers: string[];
@@ -24,16 +25,20 @@ interface Player {
 }
 
 export interface PlayerBoard {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   boardData: string;
 }
 
 interface AnswerSubmission {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   answer: string;
   timestamp?: number;
+  hasDrawing?: boolean;
+  drawingData?: string | null;
+  isCorrect?: boolean | null;
+  answerAttemptId?: string;
 }
 
 interface PreviewModeState {
@@ -89,15 +94,16 @@ interface GameContextType {
   previewOverlayVersion: 'v1' | 'v2';
   
   // Actions
-  startGame: (roomCode: string, questions: Question[], timeLimit: number) => void;
-  nextQuestion: (roomCode: string) => void;
-  evaluateAnswer: (roomCode: string, playerId: string, isCorrect: boolean) => void;
-  restartGame: (roomCode: string) => void;
-  endRoundEarly: (roomCode: string) => void;
+  startGame: (roomCode: string, questions: Question[], timeLimit: number) => Promise<void>;
+  nextQuestion: (roomCode: string) => Promise<void>;
+  submitAnswer: (roomCode: string, answer: string, answerAttemptId: string, hasDrawing?: boolean, drawingData?: string | null) => Promise<void>;
+  evaluateAnswer: (roomCode: string, persistentPlayerId: string, isCorrect: boolean) => Promise<void>;
+  restartGame: (roomCode: string) => Promise<void>;
+  endRoundEarly: (roomCode: string) => Promise<void>;
   toggleBoardVisibility: (playerIdOrSet: string | Set<string>) => void;
-  startPreviewMode: (roomCode: string) => void;
-  stopPreviewMode: (roomCode: string) => void;
-  focusSubmission: (roomCode: string, playerId: string) => void;
+  startPreviewMode: (roomCode: string) => Promise<void>;
+  stopPreviewMode: (roomCode: string) => Promise<void>;
+  focusSubmission: (roomCode: string, persistentPlayerId: string) => Promise<void>;
   setQuestions: (questions: Question[]) => void;
   setSelectedSubject: (subject: string) => void;
   setSelectedGrade: (grade: number | '') => void;
@@ -112,15 +118,17 @@ interface GameContextType {
   clearAllSelectedQuestions: () => void;
   organizeSelectedQuestions: () => void;
   addCustomQuestion: () => void;
-  gmShowRecapToAll: (roomCode: string) => void;
-  gmEndGameRequest: (roomCode: string) => void;
-  gmNavigateRecapRound: (roomCode: string, roundIndex: number) => void;
+  gmShowRecapToAll: (roomCode: string) => Promise<void>;
+  gmEndGameRequest: (roomCode: string) => Promise<void>;
+  gmNavigateRecapRound: (roomCode: string, roundIndex: number) => Promise<void>;
   hideRecap: () => void;
-  gmNavigateRecapTab: (roomCode: string, tabKey: string) => void;
+  gmNavigateRecapTab: (roomCode: string, tabKey: string) => Promise<void>;
   
   // Preview Overlay Version
-  setPreviewOverlayVersion: (version: 'v1' | 'v2') => void;
-  togglePreviewOverlayVersion: () => void;
+  setPreviewOverlayVersion: (version: 'v1' | 'v2') => Promise<void>;
+  togglePreviewOverlayVersion: () => Promise<void>;
+  
+  connectionStatus: ConnectionStatusType;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -175,7 +183,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [questionErrorMsg, setQuestionErrorMsg] = useState<string>('');
   const [randomCount, setRandomCount] = useState<number>(5);
   const [isLoadingRandom, setIsLoadingRandom] = useState<boolean>(false);
-  const [socketConnectionStatus, setSocketConnectionStatus] = useState<SocketConnectionState>(socketService.getConnectionState() as SocketConnectionState);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>(socketService.getConnectionState());
 
   // Preview Overlay Version (sync across clients)
   const [previewOverlayVersion, setPreviewOverlayVersionState] = useState<'v1' | 'v2'>('v1');
@@ -183,7 +191,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
     console.log('[GameContext] board_update received', updatedBoard);
     setPlayerBoards(prevBoards => {
-      const index = prevBoards.findIndex(b => b.playerId === updatedBoard.playerId);
+      const index = prevBoards.findIndex(b => b.persistentPlayerId === updatedBoard.persistentPlayerId);
       if (index !== -1) {
         // Update existing board
         const newBoards = [...prevBoards];
@@ -199,58 +207,78 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // New useEffect to default boards to visible when players list changes
   useEffect(() => {
     setVisibleBoards(prevVisibleBoards => {
-      const newVisibleBoards = new Set(prevVisibleBoards); // Start with GM's explicit settings
+      const newVisibleBoards = new Set<string>(); // Stores persistentPlayerId
       let changed = false;
 
-      // Ensure all current active, non-spectator players are visible by default
-      // unless the GM has *explicitly* hidden them using toggleBoardVisibility.
-      // This means if a player is active and not a spectator, they should be in the set.
       players.forEach(player => {
         if (player.isActive && !player.isSpectator) {
-          if (!newVisibleBoards.has(player.id)) {
-            newVisibleBoards.add(player.id);
-            changed = true;
+          // If GM hasn't explicitly hidden, default to visible.
+          // boardVisibility stores GM's explicit choices (persistentPlayerId -> boolean)
+          if (boardVisibility[player.persistentPlayerId] !== false) {
+            if (!prevVisibleBoards.has(player.persistentPlayerId)) {
+              newVisibleBoards.add(player.persistentPlayerId);
+              changed = true;
+            }
+          } else if (prevVisibleBoards.has(player.persistentPlayerId)) {
+            // Was visible, but GM has now hidden it, so respect that.
+            // This case might be redundant if boardVisibility update also triggers this effect
+            // or if toggleBoardVisibility directly updates visibleBoards.
+            // For now, ensure consistency.
           }
-        }
-      });
-
-      // Remove players from visibleBoards if they are no longer active/non-spectators or not in the players list
-      // This also ensures that if a player was in prevVisibleBoards but is no longer valid, they are removed.
-      const activePlayerIds = new Set(players.filter(p => p.isActive && !p.isSpectator).map(p => p.id));
-      prevVisibleBoards.forEach(visiblePlayerId => {
-        if (!activePlayerIds.has(visiblePlayerId)) {
-          if (newVisibleBoards.has(visiblePlayerId)) { // Check if it was in the set we are building
-            newVisibleBoards.delete(visiblePlayerId);
+        } else {
+          // Not active or is spectator, ensure not in visible set
+          if (prevVisibleBoards.has(player.persistentPlayerId)) {
+            // No need to add to newVisibleBoards, effectively removing it
             changed = true;
           }
         }
       });
       
-      if (changed) {
-        console.log('[GameContext] Updated visibleBoards by default logic:', newVisibleBoards);
-        return newVisibleBoards;
-      }
-      return prevVisibleBoards; // No change, return the original set
-    });
-  }, [players]); // Depends on GameContext's internal players list
+      // Add back any boards that were in prevVisibleBoards and still correspond to active players
+      // and haven't been explicitly hidden by the GM.
+      prevVisibleBoards.forEach(pid => {
+        const player = players.find(p => p.persistentPlayerId === pid);
+        if (player && player.isActive && !player.isSpectator && boardVisibility[pid] !== false) {
+          if (!newVisibleBoards.has(pid)) {
+             newVisibleBoards.add(pid);
+             // `changed` should already be true if this makes a difference from initial scan
+          }
+        }
+      });
 
-  // Effect to subscribe to socket connection state changes
+      // Ensure all items in newVisibleBoards correspond to an actual player to prevent stale entries.
+      const currentPlayerPIDs = new Set(players.map(p => p.persistentPlayerId));
+      let finalBoardsChanged = false;
+      const finalVisibleBoards = new Set<string>();
+      newVisibleBoards.forEach(pid => {
+        if(currentPlayerPIDs.has(pid)){
+          finalVisibleBoards.add(pid);
+        } else {
+          finalBoardsChanged = true; // An invalid PID was about to be added
+        }
+      });
+
+      if (changed || finalBoardsChanged) {
+        console.log('[GameContext] Updated visibleBoards by default logic:', finalVisibleBoards);
+        return finalVisibleBoards;
+      }
+      return prevVisibleBoards;
+    });
+  }, [players, boardVisibility]); // Depends on GameContext's internal players list and GM visibility settings
+
+  // Effect to sync with socketService connection state
   useEffect(() => {
-    const handleConnectionChange = (state: string) => {
-      console.log('[GameContext] Socket connection state changed from service:', state);
-      setSocketConnectionStatus(state as SocketConnectionState);
-    };
-    // Subscribe to connection state changes
-    socketService.onConnectionStateChange(handleConnectionChange);
-    
-    // Cleanup: How to unsubscribe from onConnectionStateChange?
-    // Assuming there isn't a direct return, and no specific offConnectionStateChange is visible in socketService
-    // This listener might be intended to persist or needs a specific method in socketService to unregister.
-    // For now, no direct cleanup call if 'unsubscribe' wasn't a function.
-    return () => {
-        console.log('[GameContext] Cleanup for onConnectionStateChange listener (no specific off method called).');
-    };
-  }, []); // Empty dependency array means this runs once on mount and cleans up on unmount
+    const cleanup = socketService.onConnectionStateChange((state, details) => {
+      console.log('[GameContext] Connection state changed via socketService:', state, details);
+      setConnectionStatus(state);
+      // Potentially handle 'error' or 'reconnect_failed' states here too for GameContext specific UI
+      if (state === 'connected') {
+        // Potentially re-sync or fetch game state if needed after a reconnect
+        console.log('[GameContext] Reconnected to server.');
+      }
+    });
+    return cleanup;
+  }, []);
 
   // Helper function to get player name
   const getPlayerName = useCallback((playerId: string) => {
@@ -259,88 +287,156 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [players]);
 
   // Actions
-  const startGame = useCallback((roomCode: string, questions: Question[], timeLimit: number) => {
-    if (!questions || questions.length === 0) {
-      setQuestionErrorMsg('Cannot start game: No questions selected');
+  const startGame = useCallback(async (roomCode: string, gameQuestions: Question[], gameTimeLimit: number) => {
+    if (gameQuestions.length > 0) {
+      setQuestions(gameQuestions);
+      setTimeLimit(gameTimeLimit);
+      // Reset relevant game states
+      setGameStarted(false); // Will be set to true by server event
+      setGameOver(false);
+      setIsWinner(false);
+      setCurrentQuestion(null);
+      setCurrentQuestionIndex(0);
+      setTimeRemaining(null);
+      setIsTimerRunning(false);
+      setSubmittedAnswer(false);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setPlayerBoards([]); // Player boards might be sent on game_started or game_state_update
+      setGameRecapData(null);
+      setPreviewMode({ isActive: false, focusedPlayerId: null });
+
+      await socketService.robustEmit('start_game', { roomCode, questions: gameQuestions, timeLimit: gameTimeLimit });
+      console.log('[GameContext] startGame emitted');
+    } else {
+      console.error('[GameContext] No questions selected to start the game.');
+      setQuestionErrorMsg('Please select questions before starting the game.');
       setTimeout(() => setQuestionErrorMsg(''), 3000);
-      return;
     }
-    socketService.startGame(roomCode, questions, timeLimit);
   }, []);
 
-  const nextQuestion = useCallback((roomCode: string) => {
-    socketService.nextQuestion(roomCode);
+  const nextQuestion = useCallback(async (roomCode: string) => {
+    setSubmittedAnswer(false); // Reset for the new question
+    setAllAnswersThisRound({}); // Clear answers from previous question
+    setEvaluatedAnswers({}); // Clear evaluations from previous question
+    await socketService.robustEmit('next_question', { roomCode });
+    console.log('[GameContext] nextQuestion emitted');
   }, []);
 
-  const evaluateAnswer = useCallback((roomCode: string, playerId: string, isCorrect: boolean) => {
-    socketService.evaluateAnswer(roomCode, playerId, isCorrect);
+  const submitAnswer = useCallback(async (roomCode: string, answer: string, answerAttemptId: string, hasDrawing?: boolean, drawingData?: string | null) => {
+    if (currentQuestion && !submittedAnswer) {
+      await socketService.robustEmit('submit_answer', {
+        roomCode,
+        answerData: {
+          answer,
+          questionId: currentQuestion.id,
+          answerAttemptId, // Include the attempt ID
+          hasDrawing: !!hasDrawing,
+          drawingData: hasDrawing ? drawingData : null,
+        }
+      });
+      // Optimistically set submittedAnswer to true, or wait for server confirmation via answer_received_confirmation
+      // setSubmittedAnswer(true); // Decided to use server event 'answer_received_confirmation' to set this
+      console.log('[GameContext] submitAnswer emitted with attemptId:', answerAttemptId);
+    }
+  }, [currentQuestion, submittedAnswer]);
+
+  const evaluateAnswer = useCallback(async (roomCode: string, persistentPlayerId: string, isCorrect: boolean) => {
+    // GM action: persistentPlayerId is the ID of the player whose answer is being evaluated.
+    await socketService.robustEmit('evaluate_answer', { roomCode, playerId: persistentPlayerId, isCorrect });
+    console.log('[GameContext] evaluateAnswer emitted for player:', persistentPlayerId);
   }, []);
 
-  const restartGame = useCallback((roomCode: string) => {
-    // Reset recap and conclusion state on restart
-    setIsGameConcluded(false);
+  const restartGame = useCallback(async (roomCode: string) => {
+    await socketService.robustEmit('restart_game', { roomCode });
+    // Reset local state immediately for responsiveness, server will confirm with game_state_update
+    setGameStarted(false);
+    setGameOver(false);
+    setIsWinner(false);
+    setCurrentQuestion(null);
+    setCurrentQuestionIndex(0);
+    setTimeRemaining(null);
+    setIsTimerRunning(false);
+    setSubmittedAnswer(false);
+    setAllAnswersThisRound({});
+    setEvaluatedAnswers({});
+    setPlayerBoards([]);
     setGameRecapData(null);
-    setRecapSelectedRoundIndex(0);
-    setRecapSelectedTabKey('overallResults');
-    socketService.restartGame(roomCode);
+    setPreviewMode({ isActive: false, focusedPlayerId: null });
+    console.log('[GameContext] restartGame emitted');
   }, []);
 
-  const endRoundEarly = useCallback((roomCode: string) => {
-    socketService.endRoundEarly(roomCode);
+  const endRoundEarly = useCallback(async (roomCode: string) => {
+    await socketService.robustEmit('end_round_early', { roomCode });
+    console.log('[GameContext] endRoundEarly emitted');
   }, []);
 
-  const gmShowRecapToAll = useCallback((roomCode: string) => {
-    socketService.emit('gm_show_recap_to_all', { roomCode });
+  const gmShowRecapToAll = useCallback(async (roomCode: string) => {
+    await socketService.robustEmit('gm_show_recap', { roomCode });
+    console.log('[GameContext] gmShowRecapToAll emitted');
   }, []);
 
-  const gmEndGameRequest = useCallback((roomCode: string) => {
-    socketService.emit('gm_end_game_request', { roomCode });
+  const gmEndGameRequest = useCallback(async (roomCode: string) => {
+    await socketService.robustEmit('gm_end_game', { roomCode });
+    console.log('[GameContext] gmEndGameRequest emitted');
+    // Expect server to handle actual game end and send 'game_over' or similar.
   }, []);
 
-  const gmNavigateRecapRound = useCallback((roomCode: string, roundIndex: number) => {
-    socketService.emit('gm_navigate_recap_round', { roomCode, selectedRoundIndex: roundIndex });
+  const gmNavigateRecapRound = useCallback(async (roomCode: string, roundIndex: number) => {
+    setRecapSelectedRoundIndex(roundIndex); // Optimistic update
+    await socketService.robustEmit('gm_navigate_recap_round', { roomCode, roundIndex });
+    console.log('[GameContext] gmNavigateRecapRound emitted');
+  }, []);
+
+  const gmNavigateRecapTab = useCallback(async (roomCode: string, tabKey: string) => {
+    setRecapSelectedTabKey(tabKey); // Optimistic update
+    await socketService.robustEmit('gm_navigate_recap_tab', { roomCode, tabKey });
+    console.log('[GameContext] gmNavigateRecapTab emitted');
   }, []);
 
   const hideRecap = useCallback(() => {
     setGameRecapData(null);
-    // Potentially reset other recap-related states if necessary
+    setRecapSelectedRoundIndex(0);
+    setRecapSelectedTabKey('overallResults');
+    console.log('[GameContext] Recap hidden locally.');
   }, []);
 
-  const gmNavigateRecapTab = useCallback((roomCode: string, tabKey: string) => {
-    socketService.emit('gm_navigate_recap_tab', { roomCode, selectedTabKey: tabKey });
-  }, []);
-
+  // Toggle board visibility (local GM state)
   const toggleBoardVisibility = useCallback((playerIdOrSet: string | Set<string>) => {
-    setVisibleBoards(prev => {
-      const newSet = new Set(prev);
-      if (typeof playerIdOrSet === 'string') {
-        if (newSet.has(playerIdOrSet)) {
-          newSet.delete(playerIdOrSet);
-        } else {
-          newSet.add(playerIdOrSet);
-        }
-      } else {
-        // If it's a Set, replace the current set with the new one
-        return playerIdOrSet;
-      }
-      return newSet;
+    // playerIdOrSet is persistentPlayerId
+    setBoardVisibility(prev => {
+      const newVisibility = { ...prev };
+      const idsToToggle = typeof playerIdOrSet === 'string' ? [playerIdOrSet] : Array.from(playerIdOrSet);
+      
+      idsToToggle.forEach(pid => {
+        newVisibility[pid] = !prev[pid]; // Toggle: if undefined (never set), becomes true.
+      });
+      return newVisibility;
     });
+
+    // Update visibleBoards based on new boardVisibility and current players
+    // This logic is now primarily handled by the useEffect watching [players, boardVisibility]
+    // However, we can provide an immediate hint for local responsiveness if needed.
+    // For simplicity, relying on the useEffect might be cleaner.
   }, []);
 
-  const startPreviewMode = useCallback((roomCode: string) => {
-    socketService.startPreviewMode(roomCode); // This emits to server, server broadcasts 'start_preview_mode'
-    // Client will react to 'start_preview_mode' event via startPreviewModeHandler above.
-    // No direct state change to visibleBoards here.
+  const startPreviewMode = useCallback(async (roomCode: string) => {
+    await socketService.robustEmit('start_preview_mode', { roomCode });
+    console.log('[GameContext] startPreviewMode emitted');
+    // Server will send 'start_preview_mode' event to all clients to update their state.
   }, []);
 
-  const stopPreviewMode = useCallback((roomCode: string) => {
-    socketService.stopPreviewMode(roomCode); // This emits to server, server broadcasts 'stop_preview_mode'
-    // Client will react to 'stop_preview_mode' event via stopPreviewModeHandler above.
+  const stopPreviewMode = useCallback(async (roomCode: string) => {
+    await socketService.robustEmit('stop_preview_mode', { roomCode });
+    console.log('[GameContext] stopPreviewMode emitted');
+    // Server will send 'stop_preview_mode' event to all clients.
   }, []);
 
-  const focusSubmission = useCallback((roomCode: string, playerId: string) => {
-    socketService.focusSubmission(roomCode, playerId);
-    setPreviewMode(prev => ({ ...prev, focusedPlayerId: playerId }));
+  const focusSubmission = useCallback(async (roomCode: string, persistentPlayerId: string) => {
+    // GM action: persistentPlayerId is the ID of the player submission to focus on.
+    await socketService.robustEmit('focus_submission', { roomCode, playerId: persistentPlayerId });
+    console.log('[GameContext] focusSubmission emitted for player:', persistentPlayerId);
+    // Server will send 'focus_submission' event to all clients.
   }, []);
 
   // Load questions based on filters
@@ -414,15 +510,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Socket event handlers
   React.useEffect(() => {
-    if (socketConnectionStatus !== 'connected') {
-      console.log('[GameContext] Socket not connected, skipping event listener setup. Status:', socketConnectionStatus);
+    if (connectionStatus !== 'connected') {
+      console.log('[GameContext] Socket not connected, skipping event listener setup. Status:', connectionStatus);
       return () => {
         // No cleanup action needed here as listeners are attached conditionally
       };
     }
 
     console.log('[GameContext] Socket connected, setting up socket event listeners:', {
-      isSocketConnected: socketConnectionStatus,
+      isSocketConnected: connectionStatus,
       timestamp: new Date().toISOString()
     });
 
@@ -487,72 +583,40 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const gameStateUpdateHandler = (state: any) => {
-      console.log('[GameContext] Game state update received:', JSON.stringify(state, null, 2)); // Log entire state
-      try {
-        if (state.started !== gameStarted) {
-          console.log('[GameContext] Updating gameStarted state:', { from: gameStarted, to: state.started, timestamp: new Date().toISOString() });
-          setGameStarted(state.started);
-        }
-        if (state.currentQuestion && (!currentQuestion || currentQuestion.text !== state.currentQuestion.text)) {
-          console.log('[GameContext] Updating currentQuestion:', { from: currentQuestion?.text, to: state.currentQuestion.text, timestamp: new Date().toISOString() });
-          setCurrentQuestion(state.currentQuestion);
-        }
-        if (state.timeLimit !== timeLimit) {
-          console.log('[GameContext] Updating timeLimit:', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
-          setTimeLimit(state.timeLimit);
-        }
-        
-        const newPlayers = state.players || [];
-        // Detailed logging for players update in GameContext
-        setPlayers(prevPlayers => {
-          console.log('[GameContext] setPlayers (gameStateUpdate) - PREV players:', JSON.stringify(prevPlayers, null, 2));
-          console.log('[GameContext] setPlayers (gameStateUpdate) - RECEIVED players from event:', JSON.stringify(newPlayers, null, 2));
-          // Basic check: if newPlayers is substantially different, log more, or always log for now
-          if (JSON.stringify(prevPlayers) !== JSON.stringify(newPlayers)) {
-            console.log('[GameContext] setPlayers (gameStateUpdate) - Players array IS different. Updating.');
-          } else {
-            console.log('[GameContext] setPlayers (gameStateUpdate) - Players array is the same. No change to player list itself.');
-          }
-          return newPlayers; // Update with the new list from server
-        });
-
-        setAllAnswersThisRound(state.roundAnswers || {});
-        setEvaluatedAnswers(state.evaluatedAnswers || {});
-
-        // Update visible boards for new non-spectator players if game has started
-        if (state.started) {
-          const newNonSpectatorPlayerIds = newPlayers
-            .filter((p: Player) => !p.isSpectator)
-            .map((p: Player) => p.id);
-          
-          setVisibleBoards(prevVisibleBoards => {
-            const updatedVisibleBoards = new Set(prevVisibleBoards);
-            let boardsUpdated = false;
-            newNonSpectatorPlayerIds.forEach((id: string) => {
-              if (!updatedVisibleBoards.has(id)) {
-                updatedVisibleBoards.add(id);
-                boardsUpdated = true;
-              }
-            });
-            if (boardsUpdated) {
-              console.log('[GameContext] Added new players to visible boards:', updatedVisibleBoards);
-            }
-            return updatedVisibleBoards;
-          });
-        }
-        
-        if (state.isConcluded !== undefined && state.isConcluded !== isGameConcluded) {
-          setIsGameConcluded(state.isConcluded);
-        }
-        if (state.started === false && gameStarted === true && state.isConcluded === false) { 
-          setIsGameConcluded(false);
-          setGameOver(false);
-          setIsWinner(false);
-        }
-        console.log('[GameContext] State update complete:', { gameStarted: state.started, hasQuestion: !!state.currentQuestion, playerCount: state.players?.length, timestamp: new Date().toISOString() });
-      } catch (error: any) {
-        console.error('[GameContext] Error handling game state update:', { error: error.message, stack: error.stack, timestamp: new Date().toISOString() });
+      console.log('[GameContext] game_state_update received', state);
+      setGameStarted(state.gameStarted);
+      setGameOver(state.gameOver);
+      setCurrentQuestion(state.currentQuestion);
+      setCurrentQuestionIndex(state.currentQuestionIndex);
+      setTimeLimit(state.timeLimit);
+      setTimeRemaining(state.timeRemaining);
+      setPlayers(state.players); // Assuming server sends full player list with persistentPlayerId
+      setPlayerBoards(state.playerBoards); // Assuming server sends boards keyed by persistentPlayerId
+      setIsWinner(state.isWinner || false); // Ensure isWinner is boolean
+      setSubmittedAnswer(state.submittedAnswer || false);
+      setIsGameConcluded(state.isGameConcluded || false);
+      setAllAnswersThisRound(state.allAnswersThisRound || {}); // Keyed by persistentPlayerId
+      setEvaluatedAnswers(state.evaluatedAnswers || {}); // Keyed by persistentPlayerId
+      
+      if (state.previewMode) {
+        setPreviewMode(state.previewMode); // Server sends { isActive, focusedPlayerId (persistent) }
       }
+
+      if (state.gameRecapData) {
+        setGameRecapData(state.gameRecapData);
+      }
+      if (typeof state.recapSelectedRoundIndex === 'number') {
+        setRecapSelectedRoundIndex(state.recapSelectedRoundIndex);
+      }
+      if (typeof state.recapSelectedTabKey === 'string') {
+        setRecapSelectedTabKey(state.recapSelectedTabKey);
+      }
+      if (state.previewOverlayVersion) {
+        setPreviewOverlayVersionState(state.previewOverlayVersion);
+      }
+      // Update boardVisibility based on players from state if needed
+      // This might be complex if GM settings are preserved client-side only
+      // For now, assume server state is authoritative or GM updates boardVisibility directly
     };
     
     const newQuestionHandler = (data: { question: Question, timeLimit: number }) => { 
@@ -569,7 +633,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
     const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };
-    const gameWinnerHandler = (data: { playerId: string }) => { setIsWinner(data.playerId === socketService.getSocketId()); setGameOver(true); setIsTimerRunning(false); };
+    const gameWinnerHandler = (data: { persistentPlayerId: string; playerName?: string }) => {
+      console.log('[GameContext] Game winner announced:', data);
+      // Assuming RoomContext provides the current user's persistentPlayerId
+      // For now, we can't directly check if *this* client is the winner without access to that.
+      // The server might set a flag on the player object itself, or RoomContext can handle it.
+      // For GameContext, we just record that a winner was announced.
+      // The actual "isWinner" for *this* client might be better managed in RoomContext
+      // or by the server sending a specific "you_are_the_winner" event or a player property.
+      // For now, if the server sends a global `isWinner` flag in game_state_update, that's used.
+      // This handler might be more for a specific "winner_announced" event.
+      setGameOver(true);
+      setIsTimerRunning(false);
+      // If a general isWinner field is not enough, then the game_state_update needs to send player specific isWinner flag
+      // or this client needs its own persistentPlayerId to compare.
+      // For now, this handler mostly signals game over, winner detail is in data.
+    };
     const timerUpdateHandler = (data: { timeRemaining: number }) => { console.log('[GameContext] Timer update:', { timeRemaining: data.timeRemaining, timestamp: new Date().toISOString() }); setTimeRemaining(data.timeRemaining); setIsTimerRunning(data.timeRemaining > 0); };
     const timeUpHandler = () => { 
         console.log('[GameContext] Time up event received by context'); 
@@ -587,9 +666,37 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPreviewMode({ isActive: false, focusedPlayerId: null }); 
         // DO NOT alter visibleBoards here either.
     };
-    const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
-    const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
-    const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 
+    const focusSubmissionHandler = (data: { persistentPlayerId: string }) => {
+      console.log('[GameContext] Focusing submission:', {
+        persistentPlayerId: data.persistentPlayerId,
+        playerName: players.find(p => p.persistentPlayerId === data.persistentPlayerId)?.name
+      });
+      setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.persistentPlayerId }));
+    };
+    const answerEvaluatedHandler = (data: { persistentPlayerId: string, isCorrect: boolean, score?: number, lives?: number }) => {
+      console.log('[GameContext] answer_evaluated received', data);
+      setEvaluatedAnswers(prev => ({ ...prev, [data.persistentPlayerId]: data.isCorrect }));
+      // Update player score/lives if provided
+      setPlayers(prevPlayers => prevPlayers.map(p => {
+        if (p.persistentPlayerId === data.persistentPlayerId) {
+          return {
+            ...p,
+            ...(typeof data.score === 'number' && { score: data.score }),
+            ...(typeof data.lives === 'number' && { lives: data.lives }),
+          };
+        }
+        return p;
+      }));
+    };
+    const roundOverHandler = (data: { roundAnswers: Record<string, AnswerSubmission>, evaluatedAnswersUpdate?: Record<string, boolean | null> }) => {
+      console.log('[GameContext] round_over received', data);
+      setAllAnswersThisRound(prev => ({...prev, ...data.roundAnswers})); // Merge, server is source of truth for this round's final answers
+      if (data.evaluatedAnswersUpdate) {
+         setEvaluatedAnswers(prev => ({...prev, ...data.evaluatedAnswersUpdate}));
+      }
+      setIsTimerRunning(false);
+      // Any other round-specific cleanup
+    }; 
 
     const gameOverPendingRecapHandler = (data: { roomCode: string, winner?: {id: string, name: string} }) => {
       console.log('[GameContext] game_over_pending_recap received:', data);
@@ -622,6 +729,26 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRecapSelectedTabKey(data.selectedTabKey);
     };
 
+    // Preview Overlay Version Handler
+    const previewOverlayVersionChangedHandler = (data: { version: 'v1' | 'v2' }) => {
+      setPreviewOverlayVersionState(data.version);
+    };
+
+    const allAnswersSubmittedHandler = (data: { allAnswersThisRound: Record<string, AnswerSubmission> }) => {
+      console.log('[GameContext] all_answers_submitted_for_round received', data);
+      setAllAnswersThisRound(data.allAnswersThisRound);
+      // Potentially trigger UI change indicating evaluation is pending
+    };
+
+    const answerReceivedHandler = (data: { persistentPlayerId: string, answerAttemptId: string, message?: string }) => {
+      console.log('[GameContext] answer_received_confirmation received', data);
+      // If we need to give feedback based on answerAttemptId, we can do it here.
+      // For now, mainly a server ack. If it includes player's answer, update allAnswersThisRound.
+      // This is useful if the GM sees answers live.
+      // setAllAnswersThisRound(prev => ({ ...prev, [data.persistentPlayerId]: { /* update if server sends full answer data */ } }));
+      setSubmittedAnswer(true); // Generic flag, might need to be per-player if context tracks multiple players' submissions
+    };
+
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
@@ -641,10 +768,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('game_recap', gameRecapHandler);
     socketService.on('recap_round_changed', recapRoundChangedHandler);
     socketService.on('recap_tab_changed', recapTabChangedHandler);
+    socketService.on('preview_overlay_version_changed', previewOverlayVersionChangedHandler);
+    socketService.on('all_answers_submitted_for_round', allAnswersSubmittedHandler);
+    socketService.on('answer_received_confirmation', answerReceivedHandler);
 
     // Cleanup
     return () => {
-      console.log('[GameContext] Cleaning up ALL socket event listeners (connection status on cleanup:', socketConnectionStatus, ')');
+      console.log('[GameContext] Cleaning up ALL socket event listeners (connection status on cleanup:', connectionStatus, ')');
       // According to linter, .off might only take the event name
       socketService.off('game_started');
       socketService.off('game_state_update');
@@ -665,10 +795,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('game_recap');
       socketService.off('recap_round_changed');
       socketService.off('recap_tab_changed');
+      socketService.off('preview_overlay_version_changed');
+      socketService.off('all_answers_submitted_for_round');
+      socketService.off('answer_received_confirmation');
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
-  }, [socketConnectionStatus, boardUpdateHandler]); // Simplified dependency array
+  }, [connectionStatus, boardUpdateHandler, players]); // Added players to dependencies for focusSubmissionHandler name lookup
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
@@ -760,15 +893,19 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [questions]);
 
   // Action to set version and emit to others (GameMaster only)
-  const setPreviewOverlayVersion = useCallback((version: 'v1' | 'v2') => {
+  const setPreviewOverlayVersion = useCallback(async (version: 'v1' | 'v2') => {
     setPreviewOverlayVersionState(version);
-    socketService.emit('preview_overlay_version_changed', { version });
+    await socketService.robustEmit('gm_set_preview_overlay_version', { version });
+    console.log('[GameContext] gm_set_preview_overlay_version emitted with version:', version);
   }, []);
 
   // Action to toggle version
-  const togglePreviewOverlayVersion = useCallback(() => {
-    setPreviewOverlayVersion(previewOverlayVersion === 'v1' ? 'v2' : 'v1');
-  }, [previewOverlayVersion, setPreviewOverlayVersion]);
+  const togglePreviewOverlayVersion = useCallback(async () => {
+    const newVersion = previewOverlayVersion === 'v1' ? 'v2' : 'v1';
+    setPreviewOverlayVersionState(newVersion);
+    await socketService.robustEmit('gm_set_preview_overlay_version', { version: newVersion });
+    console.log('[GameContext] gm_set_preview_overlay_version (toggled) emitted with version:', newVersion);
+  }, [previewOverlayVersion]);
 
   // Listen for version changes from server
   useEffect(() => {
@@ -825,6 +962,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     loadRandomQuestions,
     startGame,
     nextQuestion,
+    submitAnswer,
     evaluateAnswer,
     restartGame,
     endRoundEarly,
@@ -841,7 +979,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     gmEndGameRequest,
     previewOverlayVersion,
     setPreviewOverlayVersion,
-    togglePreviewOverlayVersion
+    togglePreviewOverlayVersion,
+    connectionStatus
   };
 
   return (
@@ -859,21 +998,26 @@ export const useGame = () => {
   return context;
 };
 
-// Helper function for grade comparison
+// Helper function to sort questions by grade, then by subject, then by text
 const sortByGrade = (a: Question, b: Question) => {
-  const gradeA = Number(a.grade) || 0;
-  const gradeB = Number(b.grade) || 0;
-  return gradeA - gradeB;
+  if (a.grade !== b.grade) {
+    return a.grade - b.grade;
+  }
+  if (a.subject !== b.subject) {
+    return a.subject.localeCompare(b.subject);
+  }
+  return a.text.localeCompare(b.text);
 };
 
-// Helper function for question type conversion
+// Helper function to convert Supabase question format to local Question type
+// Ensure this aligns with your actual Supabase structure and Question interface
 const convertSupabaseQuestion = (q: any): Question => ({
-  id: q.id.toString(),
-  text: q.text,
-  type: q.type || 'text',
-  timeLimit: q.timeLimit,
-  answer: q.answer,
-  grade: parseInt(q.grade, 10) || 0,
-  subject: q.subject,
-  language: q.language
+  id: q.id.toString(), // Supabase ID might be number
+  text: q.question_text,
+  type: q.question_type as 'text' | 'drawing', // Ensure this cast is safe
+  timeLimit: q.time_limit || undefined,
+  answer: q.correct_answer || '', // Assuming a field for the correct answer
+  grade: parseInt(q.grade_level, 10) || 0, // Assuming grade_level is a string
+  subject: q.subject || 'General',
+  language: q.language || 'en',
 }); 

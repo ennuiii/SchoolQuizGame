@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 
 interface PlayerBoard {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   boardData: string;
 }
@@ -9,15 +9,15 @@ interface PlayerBoard {
 interface PlayerBoardDisplayProps {
   board: PlayerBoard;
   isVisible: boolean;
-  onToggleVisibility: (playerId: string) => void;
+  onToggleVisibility: (persistentPlayerId: string) => void;
   transform: {
     scale: number;
     x: number;
     y: number;
   };
-  onScale: (playerId: string, scale: number) => void;
-  onPan: (playerId: string, dx: number, dy: number) => void;
-  onReset: (playerId: string) => void;
+  onScale: (persistentPlayerId: string, scale: number) => void;
+  onPan: (persistentPlayerId: string, dx: number, dy: number) => void;
+  onReset: (persistentPlayerId: string) => void;
 }
 
 const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
@@ -32,8 +32,8 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isPanning = useRef(false);
   const lastMousePos = useRef({ x: 0, y: 0 });
-  const [scale, setScale] = useState(1);
-  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [scale, setScale] = useState(transform?.scale || 1);
+  const [position, setPosition] = useState({ x: transform?.x || 0, y: transform?.y || 0 });
 
   const handleWheel = (e: React.WheelEvent<HTMLDivElement>) => {
     if (!e.altKey) return;
@@ -48,15 +48,18 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     const mouseX = e.clientX - rect.left;
     const mouseY = e.clientY - rect.top;
 
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newScale = Math.max(0.1, Math.min(5, scale * zoomFactor));
+    const currentScale = scale;
+    const currentPosition = position;
 
-    const newX = position.x - (mouseX - position.x) * (zoomFactor - 1);
-    const newY = position.y - (mouseY - position.y) * (zoomFactor - 1);
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const newScale = Math.max(0.1, Math.min(5, currentScale * zoomFactor));
+
+    const newX = currentPosition.x - (mouseX - currentPosition.x) * (newScale / currentScale - 1);
+    const newY = currentPosition.y - (mouseY - currentPosition.y) * (newScale / currentScale - 1);
 
     setScale(newScale);
     setPosition({ x: newX, y: newY });
-    onScale(board.playerId, newScale);
+    onScale(board.persistentPlayerId, newScale);
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
@@ -83,12 +86,11 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     const dx = e.clientX - lastMousePos.current.x;
     const dy = e.clientY - lastMousePos.current.y;
 
-    setPosition(prev => ({
-      x: prev.x + dx,
-      y: prev.y + dy
-    }));
+    const newPositionX = position.x + dx;
+    const newPositionY = position.y + dy;
 
-    onPan(board.playerId, dx, dy);
+    setPosition({ x: newPositionX, y: newPositionY });
+    onPan(board.persistentPlayerId, dx, dy);
     lastMousePos.current = { x: e.clientX, y: e.clientY };
   };
 
@@ -112,9 +114,20 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
           <div className="btn-group flex-wrap">
             <button
               className="btn btn-sm btn-outline-primary"
-              onClick={() => onToggleVisibility(board.playerId)}
+              onClick={() => onToggleVisibility(board.persistentPlayerId)}
             >
               {isVisible ? 'Hide' : 'Show'}
+            </button>
+            <button 
+              className="btn btn-sm btn-outline-secondary ms-2"
+              onClick={() => {
+                setScale(1);
+                setPosition({ x: 0, y: 0 });
+                onReset(board.persistentPlayerId);
+              }}
+              title="Reset pan/zoom"
+            >
+              Reset View
             </button>
           </div>
         </div>
@@ -138,7 +151,15 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
               onMouseDown={handleMouseDown}
               tabIndex={0}
             >
-              <div className="drawing-board" style={{ width: '100%', height: '100%', minHeight: '300px' }}>
+              <div className="drawing-board" 
+                style={{
+                  width: '100%', 
+                  height: '100%', 
+                  minHeight: '300px',
+                  transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                  transformOrigin: 'top left',
+                  transition: isPanning.current ? 'none' : 'transform 0.1s ease-out',
+                }}>
                 <div
                   dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
                   style={{
