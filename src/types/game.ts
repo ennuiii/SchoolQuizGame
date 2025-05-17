@@ -17,13 +17,13 @@ export interface Player {
 }
 
 export interface PlayerBoard {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   boardData: string;
 }
 
 export interface AnswerSubmission {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   answer: string;
   timestamp?: number;

@@ -43,14 +43,15 @@ const Spectator: React.FC = () => {
   const handleJoinAsPlayer = useCallback(() => {
     if (!roomCode || !playerName) return;
     sessionStorage.setItem('isSpectator', 'false');
-    socketService.switchToPlayer(roomCode, playerName);
+    socketService.setPlayerDetails(playerName);
+    socketService.disconnect();
     navigate('/player');
   }, [roomCode, playerName, navigate]);
 
   const showAllBoards = useCallback(() => {
     const activePlayerBoardIds = playerBoards
-      .filter(b => players.find(p => p.id === b.playerId && !p.isSpectator))
-      .map(b => b.playerId);
+      .filter(b => players.find(p => p.persistentPlayerId === b.persistentPlayerId && !p.isSpectator))
+      .map(b => b.persistentPlayerId);
     toggleBoardVisibility(new Set(activePlayerBoardIds));
   }, [playerBoards, players, toggleBoardVisibility]);
 
@@ -140,18 +141,18 @@ const Spectator: React.FC = () => {
                     }}
                   >
                     {players.filter(player => !player.isSpectator).map(player => {
-                      const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                      const boardEntry = playerBoards.find(b => b.persistentPlayerId === player.persistentPlayerId);
                       const boardForDisplay = {
-                        playerId: player.id,
+                        persistentPlayerId: player.persistentPlayerId,
                         playerName: player.name,
                         boardData: boardEntry ? boardEntry.boardData : ''
                       };
                       return (
                         <PlayerBoardDisplay
-                          key={player.id}
+                          key={player.persistentPlayerId}
                           board={boardForDisplay}
-                          isVisible={visibleBoards.has(player.id)}
-                          onToggleVisibility={id => toggleBoardVisibility(id)}
+                          isVisible={visibleBoards.has(player.persistentPlayerId)}
+                          onToggleVisibility={() => toggleBoardVisibility(player.persistentPlayerId)}
                           transform={{ scale: 1, x: 0, y: 0 }}
                           onScale={() => {}}
                           onPan={() => {}}
