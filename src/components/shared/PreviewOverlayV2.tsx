@@ -113,7 +113,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
       >
         {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
           const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
-          const boardData = boardSubmission?.boardData || ''; // Get boardData or empty string
+          const actualBoardData = boardSubmission?.boardData;
           const answer = context.allAnswersThisRound[player.id];
           const evaluation = context.evaluatedAnswers[player.id];
           const borderColor = boardColors[idx % boardColors.length];
@@ -133,12 +133,12 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 </div>
                 <div
                   className="classroom-whiteboard-svg"
-                  style={{ minHeight: 120, maxHeight: 180, background: '#0C6A35', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{ minHeight: 120, maxHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 >
                   {/* Ensure SVG is scaled to fit the container */}
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      dangerouslySetInnerHTML={{ __html: boardData }} // Use fetched boardData
+                      dangerouslySetInnerHTML={{ __html: actualBoardData || '' }} // Use actualBoardData or empty string
                     />
                   </div>
                 </div>
