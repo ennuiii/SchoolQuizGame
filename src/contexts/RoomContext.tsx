@@ -159,10 +159,23 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         socket.on('player_joined', (player: Player) => {
-          setPlayers(prev => [...prev, player]);
+          console.log('[RoomContext] player_joined event received. Player:', JSON.stringify(player, null, 2));
+          setPlayers(prev => {
+            const existingPlayerIndex = prev.findIndex(p => p.id === player.id);
+            let newPlayersState;
+            if (existingPlayerIndex !== -1) {
+              newPlayersState = [...prev];
+              newPlayersState[existingPlayerIndex] = player;
+            } else {
+              newPlayersState = [...prev, player];
+            }
+            console.log('[RoomContext] Updated players state after player_joined:', JSON.stringify(newPlayersState, null, 2));
+            return newPlayersState;
+          });
         });
 
         socket.on('players_update', (updatedPlayers: Player[]) => {
+          console.log('[RoomContext] players_update event received. All players:', JSON.stringify(updatedPlayers, null, 2));
           setPlayers(updatedPlayers);
         });
 
