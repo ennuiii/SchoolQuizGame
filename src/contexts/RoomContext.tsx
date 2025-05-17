@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { Socket } from 'socket.io-client';
+import KickedNotificationModal from '../components/shared/KickedNotificationModal';
 
 interface Player {
   id: string;
@@ -23,6 +24,8 @@ interface RoomContextType {
   copied: boolean;
   currentPlayerId: string | null;
   currentSocket: Socket | null; // Added for direct access if needed, though primarily internal
+  isKickedModalOpen: boolean; // New state for modal visibility
+  kickReason: string; // New state for kick reason
   createRoom: (roomCode: string) => void;
   kickPlayer: (playerIdToKick: string) => void;
   
@@ -35,6 +38,7 @@ interface RoomContextType {
   setIsSpectator: (isSpectator: boolean) => void;
   joinRoom: (roomCode: string, playerName: string, isSpectator?: boolean) => void;
   leaveRoom: () => void;
+  acknowledgeKick: () => void; // New action to handle modal close and navigation
 }
 
 const RoomContext = createContext<RoomContextType | undefined>(undefined);
@@ -50,6 +54,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [copied, setCopied] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
   const [currentSocket, setCurrentSocket] = useState<Socket | null>(null); // New state for the socket instance
+  const [isKickedModalOpen, setIsKickedModalOpen] = useState(false); // New state
+  const [kickReason, setKickReason] = useState(''); // New state
 
   const createRoom = useCallback(async (newRoomCode: string) => {
     setIsLoading(true);
@@ -165,6 +171,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setPlayers([]);
     setCopied(false);
     setCurrentPlayerId(null);
+    setIsKickedModalOpen(false); // Ensure modal is closed if leaving room for other reasons
+    setKickReason('');
     // Clear session storage related to room
     sessionStorage.removeItem('roomCode');
     sessionStorage.removeItem('playerName');
@@ -187,6 +195,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log(`[RoomContext] Emitting kick_player event for player ${playerIdToKick} in room ${roomCode}`);
     currentSocket.emit('kick_player', { roomCode, playerIdToKick });
   }, [currentSocket, roomCode, setErrorMsg]);
+
+  const acknowledgeKick = useCallback(() => {
+    setIsKickedModalOpen(false);
+    setKickReason('');
+    leaveRoom(); // Calls all cleanup including socket disconnect
+    navigate('/'); // Navigate to home after acknowledging
+  }, [leaveRoom, navigate]);
 
   // Main useEffect for setting up persistent socket event listeners
   useEffect(() => {
@@ -312,17 +327,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const onKickedFromRoomHandler = ({ reason }: { reason: string }) => {
         console.warn(`[RoomContext] Kicked from room. Reason: ${reason}`);
-        setErrorMsg(`You have been kicked: ${reason}`);
-        // Use toast for a more visible notification
-        // Make sure toast is imported and available in this scope or pass it down/use a global toast service
-        // For now, direct toast call assuming it might be available or you'll adapt this:
-        if (typeof window !== 'undefined' && (window as any).toast) {
-            (window as any).toast.error(`You have been kicked: ${reason}`);
-        } else {
-            alert(`You have been kicked: ${reason}`); // Fallback
-        }
-        leaveRoom(); // This will clear local state and navigate
-        navigate('/'); // Explicitly navigate to home after being kicked
+        setKickReason(reason);
+        setIsKickedModalOpen(true);
+        // Do not call leaveRoom() or navigate('/') here anymore. acknowledgeKick will handle it.
       };
 
       // Attach listeners
@@ -386,6 +393,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     copied,
     currentPlayerId,
     currentSocket, // Expose currentSocket if needed by consumers, though not primary API
+    isKickedModalOpen, // Expose new state
+    kickReason, // Expose new state
     createRoom,
     setRoomCode,
     setPlayerName,
@@ -395,12 +404,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsSpectator,
     joinRoom,
     leaveRoom,
-    kickPlayer
+    kickPlayer,
+    acknowledgeKick // Expose new action
   };
 
   return (
     <RoomContext.Provider value={value}>
       {children}
+      <KickedNotificationModal 
+        isOpen={isKickedModalOpen}
+        reason={kickReason}
+        onAcknowledge={acknowledgeKick}
+      />
     </RoomContext.Provider>
   );
 };
