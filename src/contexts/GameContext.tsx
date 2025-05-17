@@ -450,12 +450,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const gameStateUpdateHandler = (state: any) => {
-      console.log('[GameContext] Game state update received:', {
-        started: state.started, currentGameStarted: gameStarted, hasQuestion: !!state.currentQuestion,
-        currentQuestion: state.currentQuestion?.text, timeLimit: state.timeLimit,
-        playerCount: state.players?.length, answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
-        timestamp: new Date().toISOString()
-      });
+      console.log('[GameContext] Game state update received:', JSON.stringify(state, null, 2)); // Log entire state
       try {
         if (state.started !== gameStarted) {
           console.log('[GameContext] Updating gameStarted state:', { from: gameStarted, to: state.started, timestamp: new Date().toISOString() });
@@ -469,8 +464,21 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[GameContext] Updating timeLimit:', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
           setTimeLimit(state.timeLimit);
         }
+        
         const newPlayers = state.players || [];
-        setPlayers(newPlayers);
+        // Detailed logging for players update in GameContext
+        setPlayers(prevPlayers => {
+          console.log('[GameContext] setPlayers (gameStateUpdate) - PREV players:', JSON.stringify(prevPlayers, null, 2));
+          console.log('[GameContext] setPlayers (gameStateUpdate) - RECEIVED players from event:', JSON.stringify(newPlayers, null, 2));
+          // Basic check: if newPlayers is substantially different, log more, or always log for now
+          if (JSON.stringify(prevPlayers) !== JSON.stringify(newPlayers)) {
+            console.log('[GameContext] setPlayers (gameStateUpdate) - Players array IS different. Updating.');
+          } else {
+            console.log('[GameContext] setPlayers (gameStateUpdate) - Players array is the same. No change to player list itself.');
+          }
+          return newPlayers; // Update with the new list from server
+        });
+
         setAllAnswersThisRound(state.roundAnswers || {});
         setEvaluatedAnswers(state.evaluatedAnswers || {});
 
