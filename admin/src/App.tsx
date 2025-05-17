@@ -6,7 +6,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Questions from './pages/Questions';
 import BulkUpload from './pages/BulkUpload';
-import ServerStats from './pages/ServerStats';
+// import ServerStats from './pages/ServerStats';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 
 const theme = createTheme({
@@ -57,14 +57,14 @@ const App: React.FC = () => {
               </PrivateRoute>
             }
           />
-          <Route
+          {/* <Route
             path="/server-stats"
             element={
               <PrivateRoute>
                 <ServerStats />
               </PrivateRoute>
             }
-          />
+          /> */}
         </Routes>
       </AuthProvider>
     </ThemeProvider>

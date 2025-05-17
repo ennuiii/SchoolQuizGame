@@ -133,7 +133,13 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 </div>
                 <div
                   className="classroom-whiteboard-svg"
-                  style={{ minHeight: 120, maxHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  style={{
+                    height: 150,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    backgroundColor: '#314C32',
+                  }}
                 >
                   {/* Ensure SVG is scaled to fit the container */}
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
