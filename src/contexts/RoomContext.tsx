@@ -158,6 +158,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           navigate(isSpectator ? '/spectator' : '/player');
         });
 
+        console.log('[RoomContext] Attempting to attach player_joined listener');
         socket.on('player_joined', (player: Player) => {
           console.log('[RoomContext] player_joined event received. Player:', JSON.stringify(player, null, 2));
           setPlayers(prev => {
@@ -174,11 +175,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           });
         });
 
+        console.log('[RoomContext] Attempting to attach players_update listener');
         socket.on('players_update', (updatedPlayers: Player[]) => {
           console.log('[RoomContext] players_update event received. All players:', JSON.stringify(updatedPlayers, null, 2));
           setPlayers(updatedPlayers);
         });
 
+        console.log('[RoomContext] Attempting to attach become_spectator listener');
         socket.on('become_spectator', () => {
           console.log('[RoomContext] Received become_spectator event');
           setIsSpectator(true);
@@ -188,6 +191,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           }
         });
 
+        console.log('[RoomContext] Attempting to attach game_state_update listener');
         socket.on('game_state_update', (gameState: any) => {
           if (!roomCode) {
             const storedRoomCode = sessionStorage.getItem('roomCode');
@@ -230,6 +234,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.off('players_update');
         socket.off('error');
         socket.off('become_spectator');
+        socket.off('game_state_update');
       }
     };
   }, [navigate, playerName, isSpectator]);

@@ -82,7 +82,8 @@ const GameMaster: React.FC = () => {
     allAnswersThisRound,
     evaluatedAnswers,
     previewOverlayVersion,
-    setPreviewOverlayVersion
+    setPreviewOverlayVersion,
+    players: gamePlayers
   } = useGame();
 
   const {
@@ -394,14 +395,14 @@ const GameMaster: React.FC = () => {
                 <button 
                   className="btn btn-success" 
                   onClick={handleStartGame}
-                  disabled={isConnecting || questions.length === 0 || players.filter(p => !p.isSpectator).length < 1}
+                  disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1}
                   title={
                     isConnecting ? "Connecting to server..." :
-                    players.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
+                    gamePlayers.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
                     questions.length === 0 ? "Please select questions first" : ""
                   }
                 >
-                  {isConnecting ? "Connecting..." : `Start Game (${players.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
+                  {isConnecting ? "Connecting..." : `Start Game (${gamePlayers.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
                 </button>
               ) : (
                 <>
