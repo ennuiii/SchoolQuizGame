@@ -70,10 +70,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
 
   if (!context.previewMode.isActive) return null;
 
-  const activePlayerBoards = context.playerBoards.filter(board => {
-    const player = context.players.find(p => p.id === board.playerId);
-    return player && !player.isSpectator;
-  });
+  // Iterate over active players, not just those with boards
+  const displayablePlayers = context.players.filter(p => p.isActive && !p.isSpectator);
 
   useEffect(() => {
     setDrawingEnabled(false);
@@ -86,16 +84,16 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
     <div className="preview-overlay-v2 classroom-preview-overlay">
       {/* Close button overlays music button */}
       <button className="btn btn-danger classroom-preview-close-btn" onClick={onClose}>
-        ×
+        <i className="bi bi-x-lg"></i>
       </button>
       {/* Chalkboard question at the top, not absolutely positioned */}
       <div className="classroom-chalkboard" style={{ position: 'static', margin: '0 auto', left: 'unset', top: 'unset', width: '100%', maxWidth: 900, marginBottom: 48 }}>
         <div className="classroom-chalkboard-content">
           <div className="classroom-chalkboard-grade">
-            {currentQuestion ? `${currentQuestion.grade}. Klasse – ${currentQuestion.subject}` : ''}
+            {currentQuestion ? <><i className="bi bi-easel me-2"></i>{`${currentQuestion.grade}. Klasse – ${currentQuestion.subject}`}</> : ''}
           </div>
           <div className="classroom-chalkboard-question">
-            {currentQuestion ? currentQuestion.text : 'No question'}
+            {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : 'No question'}
           </div>
         </div>
         {/* Removed sponge */}
@@ -105,25 +103,26 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
         className="classroom-whiteboard-grid"
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(auto-fit, minmax(${activePlayerBoards.length <= 3 ? 380 : 320}px, 1fr))`,
-          gap: activePlayerBoards.length <= 3 ? 48 : 36,
+          gridTemplateColumns: `repeat(auto-fit, minmax(${displayablePlayers.length <= 3 ? 380 : 320}px, 1fr))`,
+          gap: displayablePlayers.length <= 3 ? 48 : 36,
           marginTop: 0,
           justifyItems: 'center',
           width: '100%',
           maxWidth: 1400,
         }}
       >
-        {activePlayerBoards.map((board, idx) => {
-          const player = context.players.find(p => p.id === board.playerId);
-          const answer = context.allAnswersThisRound[board.playerId];
-          const evaluation = context.evaluatedAnswers[board.playerId];
+        {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
+          const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
+          const boardData = boardSubmission?.boardData || ''; // Get boardData or empty string
+          const answer = context.allAnswersThisRound[player.id];
+          const evaluation = context.evaluatedAnswers[player.id];
           const borderColor = boardColors[idx % boardColors.length];
           const tapeColor = getRandomTapeColor(idx);
           return (
             <div
-              key={board.playerId}
+              key={player.id} // Use player.id as key
               className="classroom-whiteboard-card"
-              style={{ borderColor, minWidth: activePlayerBoards.length <= 3 ? 340 : 300, maxWidth: activePlayerBoards.length <= 3 ? 420 : 400, minHeight: 260 }}
+              style={{ borderColor, minWidth: displayablePlayers.length <= 3 ? 340 : 300, maxWidth: displayablePlayers.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
               <div className="classroom-whiteboard-content">
                 {/* Player lives */}
@@ -139,31 +138,35 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                   {/* Ensure SVG is scaled to fit the container */}
                   <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                     <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      dangerouslySetInnerHTML={{ __html: board.boardData || '' }}
+                      dangerouslySetInnerHTML={{ __html: boardData }} // Use fetched boardData
                     />
                   </div>
                 </div>
                 {/* Answer with notepad effect */}
                 {answer && (
                   <div className="notepad-answer mt-2 mb-2">
-                    <span className="notepad-label">Answer:</span>
+                    <span className="notepad-label">
+                      <i className="bi bi-card-text me-1"></i>Answer:
+                    </span>
                     <span className="notepad-text ms-2">{answer.answer}</span>
                   </div>
                 )}
                 {/* Correct/Incorrect buttons for GameMaster */}
                 {isGameMaster && answer && evaluation === undefined && onEvaluate && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
-                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(board.playerId, true)}>Correct</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(board.playerId, false)}>Incorrect</button>
+                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(player.id, true)}><i className="bi bi-check-circle-fill me-1"></i>Correct</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(player.id, false)}><i className="bi bi-x-circle-fill me-1"></i>Incorrect</button>
                   </div>
                 )}
                 {/* Show badge if evaluated */}
                 {evaluation !== undefined && (
-                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>{evaluation ? 'Correct' : 'Incorrect'}</span>
+                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>
+                    {evaluation ? <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>}
+                  </span>
                 )}
               </div>
               <div className="classroom-whiteboard-label">
-                <span className="classroom-whiteboard-name">{player?.name || ''}</span>
+                <span className="classroom-whiteboard-name"><i className="bi bi-person-fill me-2"></i>{player?.name || ''}</span>
                 <span className="classroom-whiteboard-tape classroom-whiteboard-tape-left" style={{ background: tapeColor }} />
                 <span className="classroom-whiteboard-tape classroom-whiteboard-tape-right" style={{ background: tapeColor }} />
               </div>
