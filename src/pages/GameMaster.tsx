@@ -488,7 +488,7 @@ const GameMaster: React.FC = () => {
                         alignItems: 'stretch',
                       }}
                     >
-                      {players.filter(player => !player.isSpectator).map(player => {
+                      {gamePlayers.filter(player => !player.isSpectator).map(player => {
                         const boardEntry = playerBoards.find(b => b.playerId === player.id);
                         const boardForDisplay = {
                           playerId: player.id,
@@ -500,7 +500,7 @@ const GameMaster: React.FC = () => {
                             key={player.id}
                             board={boardForDisplay}
                             isVisible={visibleBoards.has(player.id)}
-                            onToggleVisibility={id => toggleBoardVisibility(id)}
+                            onToggleVisibility={toggleBoardVisibility}
                             transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
                             onScale={handleBoardScale}
                             onPan={handleBoardPan}
