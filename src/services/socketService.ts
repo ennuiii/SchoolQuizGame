@@ -59,12 +59,13 @@ export class SocketService {
 
     this.connectionPromise = new Promise((resolve, reject) => {
       this.socket = io(this.url, {
-        transports: ['websocket', 'polling'],
+        reconnectionAttempts: 3,
         timeout: 10000,
-        forceNew: false
+        transports: ['websocket'],
       });
+      console.log('[SocketService] io() called, socket instance created:', this.socket ? 'Exists' : 'Null', 'ID before connect event:', this.socket?.id);
 
-      this.socket.once('connect', () => {
+      this.socket.on('connect', () => {
         console.log('[SocketService] Connected successfully:', {
           socketId: this.socket?.id,
           timestamp: new Date().toISOString(),
@@ -72,16 +73,50 @@ export class SocketService {
         });
         this.updateConnectionState('connected');
         this.connectionPromise = null;
+        this.connectionStateListeners.forEach(listener => listener('connected'));
         resolve(this.socket);
       });
 
-      this.socket.once('connect_error', (error) => {
-        console.error('[SocketService] Connection error:', {
-          error: error.message,
-          url: this.url,
+      this.socket.on('connect_error', (error: Error) => {
+        console.error('[SocketService] Connection Error:', error.message, error.stack);
+        // this.socket might be null or trying to reconnect based on options
+        // If we want to stop further attempts after initial connect_error:
+        if (this.socket && !this.socket.active) { // Check if it's not already trying to recover
+          this.socket.disconnect();
+        }
+        this.connectionState = 'disconnected';
+        this.connectionPromise = null;
+        // Don't reject here if using built-in retries; let 'disconnect' handle final failure.
+        // If we want to fail fast for the initial connect() call:
+        reject(new Error(`Connection failed: ${error.message}`)); 
+        this.connectionStateListeners.forEach(listener => listener('disconnected'));
+      });
+
+      this.socket.on('reconnect', (attemptNumber) => {
+        console.log(`[SocketService] Socket.IO Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
+        this.updateConnectionState('connected');
+        this.emit('reconnected_by_library', { attemptNumber });
+      });
+
+      this.socket.on('disconnect', (reason: Socket.DisconnectReason) => {
+        console.log('[SocketService] Disconnected:', {
+          reason,
           timestamp: new Date().toISOString()
         });
         this.updateConnectionState('disconnected');
+        if (reason === "io client disconnect") {
+          // This was intentional, do nothing further.
+        } else {
+          console.log('[SocketService] Unexpected disconnect. Socket.IO will attempt to reconnect.');
+        }
+      });
+
+      this.socket.on('error', (error) => {
+        console.error('[SocketService] Socket error:', {
+          error,
+          timestamp: new Date().toISOString()
+        });
+        this.emit('error', error);
       });
 
       this.setupEventHandlers();
