@@ -14,7 +14,7 @@ export interface Question {
   language?: string;
 }
 
-interface Player {
+export interface Player {
   id: string;
   persistentPlayerId: string;
   name: string;
