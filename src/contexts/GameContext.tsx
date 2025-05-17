@@ -618,7 +618,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
-  }, [gameStarted, currentQuestion, timeLimit, players, socketConnectionStatus, boardUpdateHandler]); // Added boardUpdateHandler to dependencies
+  }, [socketConnectionStatus, boardUpdateHandler]); // Simplified dependency array
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {

@@ -237,7 +237,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.off('game_state_update');
       }
     };
-  }, [navigate, playerName, isSpectator]);
+  }, [navigate]);
 
   const value = {
     roomCode,
