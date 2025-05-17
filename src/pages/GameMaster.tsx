@@ -114,13 +114,6 @@ const GameMaster: React.FC = () => {
     const newRoomCode = inputRoomCode.trim() || Math.random().toString(36).substring(2, 8).toUpperCase();
     console.log('[GameMaster] Attempting to create room:', newRoomCode);
     
-    const socket = socketService.connect();
-    if (!socket) {
-      console.error('[GameMaster] Failed to connect socket');
-      toast.error('Failed to connect to server. Please try again.');
-      return;
-    }
-
     setIsRoomLoading(true);
     createRoom(newRoomCode);
   }, [createRoom, inputRoomCode, setIsRoomLoading]);
