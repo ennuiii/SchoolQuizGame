@@ -18,15 +18,11 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
 
 export class SocketService {
   private socket: Socket | null = null;
-  private connectionState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
+  private connectionState: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
   private connectionPromise: Promise<Socket | null> | null = null;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
-  private reconnectTimer: NodeJS.Timeout | null = null;
   private eventListeners: Map<string, Set<Function>> = new Map();
   private connectionStateListeners: ((state: string) => void)[] = [];
   private url: string;
-  private reconnectListeners: ((attemptNumber: number) => void)[] = [];
 
   constructor() {
     this.url = process.env.REACT_APP_SOCKET_URL || 'https://schoolquizgame.onrender.com';
@@ -40,7 +36,7 @@ export class SocketService {
     callback(this.connectionState);
   }
 
-  private updateConnectionState(newState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting') {
+  private updateConnectionState(newState: 'connected' | 'disconnected' | 'connecting') {
     this.connectionState = newState;
     this.connectionStateListeners.forEach(listener => listener(newState));
   }
@@ -64,7 +60,6 @@ export class SocketService {
     this.connectionPromise = new Promise((resolve, reject) => {
       this.socket = io(this.url, {
         transports: ['websocket', 'polling'],
-        reconnectionAttempts: this.maxReconnectAttempts,
         timeout: 10000,
         forceNew: false
       });
@@ -76,15 +71,17 @@ export class SocketService {
           url: this.url
         });
         this.updateConnectionState('connected');
-        this.reconnectAttempts = 0;
         this.connectionPromise = null;
         resolve(this.socket);
       });
 
       this.socket.once('connect_error', (error) => {
-        console.error('[SocketService] Connection error:', error);
-        this.connectionPromise = null;
-        reject(error);
+        console.error('[SocketService] Connection error:', {
+          error: error.message,
+          url: this.url,
+          timestamp: new Date().toISOString()
+        });
+        this.updateConnectionState('disconnected');
       });
 
       this.setupEventHandlers();
@@ -103,28 +100,21 @@ export class SocketService {
         url: this.url
       });
       this.updateConnectionState('connected');
-      this.reconnectAttempts = 0;
       this.emit('connection_established');
     });
 
     this.socket.on('reconnect', (attemptNumber) => {
-      // This event is fired by socket.io-client after a successful reconnection
-      console.log(`[SocketService] Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
-      // Notify listeners (contexts) that a reconnect happened
-      if (this.reconnectListeners) {
-        this.reconnectListeners.forEach(cb => cb(attemptNumber));
-      }
+      console.log(`[SocketService] Socket.IO Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
+      this.updateConnectionState('connected');
+      this.emit('reconnected_by_library', { attemptNumber });
     });
 
     this.socket.on('connect_error', (error) => {
       console.error('[SocketService] Connection error:', {
         error: error.message,
         url: this.url,
-        attempt: this.reconnectAttempts + 1,
-        maxAttempts: this.maxReconnectAttempts,
         timestamp: new Date().toISOString()
       });
-      this.handleReconnect();
     });
 
     this.socket.on('disconnect', (reason) => {
@@ -133,7 +123,11 @@ export class SocketService {
         timestamp: new Date().toISOString()
       });
       this.updateConnectionState('disconnected');
-      this.handleReconnect();
+      if (reason === "io client disconnect") {
+        // This was intentional, do nothing further.
+      } else {
+        console.log('[SocketService] Unexpected disconnect. Socket.IO will attempt to reconnect.');
+      }
     });
 
     this.socket.on('error', (error) => {
@@ -143,45 +137,6 @@ export class SocketService {
       });
       this.emit('error', error);
     });
-  }
-
-  private handleReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[SocketService] Max reconnection attempts reached:', {
-        attempts: this.reconnectAttempts,
-        maxAttempts: this.maxReconnectAttempts,
-        timestamp: new Date().toISOString()
-      });
-      this.updateConnectionState('disconnected');
-      this.emit('connection_failed');
-      return;
-    }
-
-    this.reconnectAttempts++;
-    this.updateConnectionState('reconnecting');
-    console.log(`[SocketService] Attempting to reconnect:`, {
-      attempt: this.reconnectAttempts,
-      maxAttempts: this.maxReconnectAttempts,
-      timestamp: new Date().toISOString()
-    });
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-    }
-
-    // Exponential backoff for reconnection attempts
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
-    
-    this.reconnectTimer = setTimeout(() => {
-      if (this.connectionState !== 'connected') {
-        console.log('[SocketService] Executing reconnection attempt:', {
-          attempt: this.reconnectAttempts,
-          delay,
-          timestamp: new Date().toISOString()
-        });
-        this.connect();
-      }
-    }, delay);
   }
 
   // Game-specific methods
@@ -305,16 +260,12 @@ export class SocketService {
     return this.socket?.id;
   }
 
-  getConnectionState(): 'connected' | 'disconnected' | 'connecting' | 'reconnecting' {
+  getConnectionState(): 'connected' | 'disconnected' | 'connecting' {
     return this.connectionState;
   }
 
   disconnect() {
     console.log('[SocketService] Disconnecting');
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
-    }
     this.socket?.disconnect();
     this.socket = null;
     this.updateConnectionState('disconnected');
@@ -347,15 +298,6 @@ export class SocketService {
 
   getSocket(): Socket | null {
     return this.socket;
-  }
-
-  // --- Reconnect event subscription for contexts ---
-  /**
-   * Subscribe to socket reconnect events. Contexts can use this to trigger rejoin logic.
-   * @param callback Called with the attempt number after a successful reconnect.
-   */
-  onReconnect(callback: (attemptNumber: number) => void) {
-    this.reconnectListeners.push(callback);
   }
 }
 

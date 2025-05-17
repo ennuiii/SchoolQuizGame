@@ -38,7 +38,6 @@ const GameMaster: React.FC = () => {
     setIsLoading: setIsRoomLoading,
     createRoom,
     players,
-    sessionRestored,
     setRoomCode
   } = useRoom();
 
@@ -280,19 +279,6 @@ const GameMaster: React.FC = () => {
       }
     }
   }, [roomCode, setRoomCode]);
-
-  if (!sessionRestored) {
-    return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <h2>Restoring session...</h2>
-          <div className="spinner-border text-primary mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (!roomCode) {
     return (

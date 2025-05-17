@@ -34,7 +34,6 @@ const Spectator: React.FC = () => {
   const {
     roomCode,
     playerName,
-    sessionRestored
   } = useRoom();
 
   useEffect(() => {
@@ -58,19 +57,6 @@ const Spectator: React.FC = () => {
   const hideAllBoardsAction = useCallback(() => {
     toggleBoardVisibility(new Set());
   }, [toggleBoardVisibility]);
-
-  if (!sessionRestored) {
-    return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <h2>Restoring session...</h2>
-          <div className="spinner-border text-primary mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   if (isGameConcluded && !gameRecapData) {
     return (

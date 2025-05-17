@@ -21,8 +21,6 @@ interface RoomContextType {
   players: Player[];
   copied: boolean;
   currentPlayerId: string | null;
-  isReconnecting: boolean;
-  sessionRestored: boolean;
   createRoom: (roomCode: string) => void;
   
   // Actions
@@ -48,10 +46,6 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [players, setPlayers] = useState<Player[]>([]);
   const [copied, setCopied] = useState(false);
   const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
-  const [isReconnecting, setIsReconnecting] = useState(false);
-  const [reconnectAttempts, setReconnectAttempts] = useState(0);
-  const [sessionRestored, setSessionRestored] = useState(false);
-  const MAX_RECONNECT_ATTEMPTS = 3;
 
   const createRoom = useCallback(async (roomCode: string) => {
     setIsLoading(true);
@@ -108,63 +102,30 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           throw new Error('Failed to connect to socket server');
         }
 
-        let sessionRestoredOnce = false;
-
         // Handle disconnection
         socket.on('disconnect', () => {
           console.log('[RoomContext] Socket disconnected');
-          setIsReconnecting(true);
-          setReconnectAttempts(prev => prev + 1);
         });
 
-        // Handle reconnection
+        // Handle reconnection - simplified, no auto-rejoin logic from here
         socket.on('connect', () => {
           console.log('[RoomContext] Socket reconnected');
-          setIsReconnecting(false);
           
           const savedRoomCode = sessionStorage.getItem('roomCode');
-          const savedPlayerName = sessionStorage.getItem('playerName');
-          const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-          const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
 
-          if (savedRoomCode && reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
-            console.log('[RoomContext] Attempting to rejoin room:', {
-              roomCode: savedRoomCode,
-              isGameMaster,
-              isSpectator: savedIsSpectator,
-              attempt: reconnectAttempts
-            });
-
-            if (isGameMaster) {
-              socket.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
-            } else {
-              socket.emit('rejoin_player', {
-                roomCode: savedRoomCode,
-                playerName: savedPlayerName,
-                isSpectator: savedIsSpectator
-              });
-            }
-            socket.emit('get_game_state', { roomCode: savedRoomCode });
-          } else if (reconnectAttempts > MAX_RECONNECT_ATTEMPTS) {
-            console.error('[RoomContext] Max reconnection attempts reached');
-            setErrorMsg('Failed to reconnect after multiple attempts. Please refresh the page.');
-            sessionStorage.clear();
-            navigate('/');
+          if (savedRoomCode) {
+            console.log('[RoomContext] Reconnected. Room code from session:', savedRoomCode);
           }
         });
 
-        // Handle reconnection errors
+        // Handle reconnection errors (generic error handling)
         socket.on('error', (error: string) => {
           console.error('[RoomContext] Socket error:', error);
           setErrorMsg(error);
           setIsLoading(false);
           
           if (error.includes('Invalid room code') || error.includes('not found')) {
-            console.error('[RoomContext] Rejoin failed:', error);
-            sessionStorage.clear();
-            setTimeout(() => {
-              navigate('/');
-            }, 2000);
+            console.error('[RoomContext] Error indicates invalid room:', error);
           }
         });
 
@@ -179,10 +140,6 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (window.location.pathname !== '/gamemaster') {
             navigate('/gamemaster');
           }
-          if (!sessionRestoredOnce) {
-            setSessionRestored(true);
-            sessionRestoredOnce = true;
-          }
         });
 
         socket.on('room_joined', (data: { roomCode: string }) => {
@@ -194,16 +151,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           sessionStorage.setItem('isSpectator', isSpectator.toString());
           setIsLoading(false);
           setErrorMsg('');
-          // Set the current player ID when joining a room
           if (socket && socket.id) {
             setCurrentPlayerId(socket.id);
           }
           console.log('Navigating to:', isSpectator ? '/spectator' : '/player');
           navigate(isSpectator ? '/spectator' : '/player');
-          if (!sessionRestoredOnce) {
-            setSessionRestored(true);
-            sessionRestoredOnce = true;
-          }
         });
 
         socket.on('player_joined', (player: Player) => {
@@ -218,7 +170,6 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[RoomContext] Received become_spectator event');
           setIsSpectator(true);
           sessionStorage.setItem('isSpectator', 'true');
-          // Optional: navigate to spectator view if not already there or if current page is Player page
           if (window.location.pathname === '/player') {
             navigate('/spectator');
           }
@@ -231,48 +182,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
               setRoomCode(storedRoomCode);
             }
           }
-          if (!sessionRestoredOnce) {
-            setSessionRestored(true);
-            sessionRestoredOnce = true;
-          }
           // ... existing code for handling game state ...
         });
 
-        // Check for existing room session
+        // Check for existing room session - simplified, no auto-rejoin emit
         const savedRoomCode = sessionStorage.getItem('roomCode');
         const savedPlayerName = sessionStorage.getItem('playerName');
-        const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
-        const savedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
 
-        // Ensure playerName state is set from sessionStorage if missing
         if (!playerName && savedPlayerName) {
           setPlayerName(savedPlayerName);
         }
 
         if (savedRoomCode) {
-          if (isGameMaster) {
-            console.log('[RoomContext][DEBUG] Emitting rejoin_gamemaster for room', savedRoomCode);
-            socket.emit('rejoin_gamemaster', { roomCode: savedRoomCode });
-          } else if (savedPlayerName) {
-            console.log('[RoomContext][DEBUG] Emitting rejoin_player for room', savedRoomCode, 'as', savedPlayerName);
-            socket.emit('rejoin_player', {
-              roomCode: savedRoomCode,
-              playerName: savedPlayerName,
-              isSpectator: savedIsSpectator
-            });
-          }
-          // Always request latest game state after rejoin
-          socket.emit('get_game_state', { roomCode: savedRoomCode });
-          // Do NOT set sessionRestored here; wait for event
+          console.log('[RoomContext] Found saved session for room:', savedRoomCode);
         } else {
-          // No session to restore, set sessionRestored immediately
-          setSessionRestored(true);
+          // No session to restore
         }
       } catch (error) {
         console.error('[RoomContext] Failed to setup socket listeners:', error);
         setErrorMsg('Failed to connect to game server');
         setIsLoading(false);
-        setSessionRestored(true); // Only set on error
       }
     };
 
@@ -290,7 +219,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socket.off('become_spectator');
       }
     };
-  }, [navigate, playerName, isSpectator, reconnectAttempts]);
+  }, [navigate, playerName, isSpectator]);
 
   const value = {
     roomCode,
@@ -301,8 +230,6 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     players,
     copied,
     currentPlayerId,
-    isReconnecting,
-    sessionRestored,
     createRoom,
     setRoomCode,
     setPlayerName,

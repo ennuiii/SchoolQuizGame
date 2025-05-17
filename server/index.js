@@ -468,9 +468,6 @@ function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
     }
 }
 
-// --- Grace period for disconnects ---
-const disconnectTimers = {};
-
 io.on('connection', (socket) => {
   console.log(`[Server] User connected: ${socket.id}`);
 
@@ -1089,183 +1086,6 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('focus_submission', { playerId });
   });
 
-  // Rejoin as gamemaster (when refreshing)
-  socket.on('rejoin_gamemaster', ({ roomCode }) => {
-    console.log(`[Rejoin] Attempt to rejoin as gamemaster for room: ${roomCode}`);
-    
-    if (!gameRooms[roomCode]) {
-      console.log(`[Rejoin] Room ${roomCode} not found for gamemaster rejoin`);
-      
-      // Create a new room with the same code if it doesn't exist
-      gameRooms[roomCode] = createGameRoom(roomCode, socket.id);
-      
-      console.log(`[Rejoin] Created new room ${roomCode} for gamemaster ${socket.id}`);
-      socket.emit('room_created', { roomCode });
-    } else {
-      // Update gamemaster ID
-      const oldGamemasterId = gameRooms[roomCode].gamemaster;
-      gameRooms[roomCode].gamemaster = socket.id;
-      
-      // Clear disconnect timer for old gamemaster ID if it exists
-      if (disconnectTimers[oldGamemasterId]) {
-        clearTimeout(disconnectTimers[oldGamemasterId]);
-        delete disconnectTimers[oldGamemasterId];
-        console.log(`[Rejoin] Cleared disconnect timer for old gamemaster ${oldGamemasterId}`);
-      }
-      
-      console.log(`[Rejoin] Updated gamemaster for room ${roomCode}: ${oldGamemasterId} -> ${socket.id}`);
-    }
-    
-    // Join the room
-    socket.join(roomCode);
-    socket.roomCode = roomCode;
-    
-    const room = gameRooms[roomCode];
-    
-    // Send complete game state
-    const gameState = getGameState(roomCode);
-    if (gameState) {
-      socket.emit('game_state_update', gameState);
-      console.log(`[Rejoin] Sent complete game state to rejoining gamemaster`);
-      // Also send players_update to ensure player list is up-to-date
-      console.log(`[Rejoin][DEBUG] Emitting players_update to gamemaster for room ${roomCode}. Player count: ${room.players.length}`);
-      room.players.forEach((p, idx) => {
-        console.log(`[Rejoin][DEBUG] Player ${idx + 1}: id=${p.id}, name=${p.name}`);
-      });
-      socket.emit('players_update', room.players);
-      console.log(`[Rejoin] Sent players_update to rejoining gamemaster`);
-    }
-    
-    // Send all player boards
-    if (room.playerBoards) {
-      Object.keys(room.playerBoards).forEach(playerId => {
-        const player = room.players.find(p => p.id === playerId);
-        if (player) {
-          socket.emit('board_update', {
-            playerId,
-            playerName: player.name,
-            boardData: room.playerBoards[playerId].boardData
-          });
-        }
-      });
-      console.log(`[Rejoin] Sent all player boards to rejoining gamemaster`);
-    }
-    
-    // If game is concluded, send recap
-    if (room.isConcluded) {
-      const recap = generateGameRecap(roomCode);
-      if (recap) {
-        socket.emit('game_recap', recap);
-        console.log(`[Rejoin] Sent game recap to rejoining gamemaster`);
-      }
-    }
-    
-    console.log(`[Rejoin] Gamemaster successfully rejoined room: ${roomCode}`);
-  });
-
-  // Handle player rejoining
-  socket.on('rejoin_player', ({ roomCode, playerName, isSpectator }) => {
-    console.log(`[Rejoin] Player ${playerName} (${socket.id}) rejoining room ${roomCode}`);
-    
-    if (!gameRooms[roomCode]) {
-      console.error(`[Rejoin] Room ${roomCode} not found for player rejoin`);
-      socket.emit('error', 'Invalid room code');
-      return;
-    }
-
-    // Add player back to room
-    socket.join(roomCode);
-    socket.roomCode = roomCode;
-
-    const room = gameRooms[roomCode];
-    const playerIndex = room.players.findIndex(p => p.name === playerName);
-    
-    if (playerIndex >= 0) {
-      // Update existing player's socket ID and maintain their state
-      const player = room.players[playerIndex];
-      const oldId = player.id;
-      player.id = socket.id;
-      
-      // Transfer all player data to new socket ID
-      if (room.playerBoards[oldId]) {
-        room.playerBoards[socket.id] = room.playerBoards[oldId];
-        delete room.playerBoards[oldId];
-      }
-      if (room.roundAnswers[oldId]) {
-        room.roundAnswers[socket.id] = room.roundAnswers[oldId];
-        delete room.roundAnswers[oldId];
-      }
-      if (room.evaluatedAnswers[oldId]) {
-        room.evaluatedAnswers[socket.id] = room.evaluatedAnswers[oldId];
-        delete room.evaluatedAnswers[oldId];
-      }
-      
-      // Clear disconnect timer for old socket ID
-      if (disconnectTimers[oldId]) {
-        clearTimeout(disconnectTimers[oldId]);
-        delete disconnectTimers[oldId];
-        console.log(`[Rejoin] Cleared disconnect timer for old socket ${oldId}`);
-      }
-      
-      console.log(`[Rejoin] Updated existing player ${playerName} with new socket ID: ${socket.id}`);
-    } else {
-      // Add as new player if not found
-      const player = {
-        id: socket.id,
-        name: playerName,
-        lives: 3,
-        answers: [],
-        isActive: true,
-        isSpectator: isSpectator || false,
-        joinedAsSpectator: isSpectator || false
-      };
-      room.players.push(player);
-      console.log(`[Rejoin] Added new player ${playerName} to room ${roomCode}`);
-    }
-
-    // Send complete game state
-    const gameState = getGameState(roomCode);
-    if (gameState) {
-      socket.emit('game_state_update', gameState);
-      console.log(`[Rejoin] Sent complete game state to rejoining player`);
-    }
-    
-    // Send all player boards
-    if (room.playerBoards) {
-      Object.keys(room.playerBoards).forEach(playerId => {
-        const boardPlayer = room.players.find(p => p.id === playerId);
-        if (boardPlayer) {
-          socket.emit('board_update', {
-            playerId,
-            playerName: boardPlayer.name,
-            boardData: room.playerBoards[playerId].boardData
-          });
-        }
-      });
-      console.log(`[Rejoin] Sent all player boards to rejoining player`);
-    }
-
-    // If game is concluded, send recap
-    if (room.isConcluded) {
-      const recap = generateGameRecap(roomCode);
-      if (recap) {
-        socket.emit('game_recap', recap);
-        console.log(`[Rejoin] Sent game recap to rejoining player`);
-      }
-    }
-
-    // Broadcast updated player list
-    io.to(roomCode).emit('players_update', room.players);
-    console.log(`[Rejoin] Player ${playerName} successfully rejoined room ${roomCode}`);
-
-    // Clear any existing disconnect timer
-    if (disconnectTimers[socket.id]) {
-      clearTimeout(disconnectTimers[socket.id]);
-      delete disconnectTimers[socket.id];
-      console.log(`[Rejoin] Cleared disconnect timer for socket ${socket.id}`);
-    }
-  });
-
   // Get current game state for a room
   socket.on('get_game_state', ({ roomCode }) => {
     const room = gameRooms[roomCode];
@@ -1440,43 +1260,36 @@ function clearRoomTimer(roomCode) {
 }
 
 // Handle disconnection
+// Simplified disconnect logic
 io.on('disconnect', (socket) => {
-  console.log(`User disconnected: ${socket.id}`);
+//   console.log(`User disconnected: ${socket.id}`);
   
-  // If user was in a room, handle cleanup
-  if (socket.roomCode) {
-    const roomCode = socket.roomCode;
-    const room = gameRooms[roomCode];
+//   // If user was in a room, handle cleanup
+//   if (socket.roomCode) {
+//     const roomCode = socket.roomCode;
+//     const room = gameRooms[roomCode];
     
-    if (room) {
-      // If user was gamemaster, start grace period
-      if (room.gamemaster === socket.id) {
-        console.log(`[Disconnect] Gamemaster ${socket.id} disconnected from room ${roomCode}. Starting grace period.`);
-        // Store the old gamemaster ID for potential rejoin
-        const oldGamemasterId = socket.id;
-        
-        // Set a timer to delete the room if gamemaster doesn't rejoin
-        disconnectTimers[oldGamemasterId] = setTimeout(() => {
-          console.log(`[Disconnect] Grace period expired for gamemaster ${oldGamemasterId} in room ${roomCode}. Deleting room.`);
-          io.to(roomCode).emit('error', 'Game Master disconnected');
-          delete gameRooms[roomCode];
-          delete disconnectTimers[oldGamemasterId];
-        }, DISCONNECT_GRACE_PERIOD_MS);
-        
-        return;
-      }
+//     if (room) {
+//       // If user was gamemaster, start grace period
+//       if (room.gamemaster === socket.id) {
+//         console.log(`[Disconnect] Gamemaster ${socket.id} disconnected from room ${roomCode}.`);
+//         // REMOVED GRACE PERIOD AND ROOM DELETION LOGIC
+//         // delete gameRooms[roomCode]; // Example: Or mark room as inactive
+//         // io.to(roomCode).emit('error', 'Game Master disconnected. The room may no longer be active.');
+//         return; // Game master disconnect handled (or simply logged)
+//       }
       
-      // If user was a player, remove them
-      const playerIndex = room.players.findIndex(p => p.id === socket.id);
-      if (playerIndex !== -1) {
-        room.players.splice(playerIndex, 1);
-        delete room.playerBoards[socket.id];
+//       // If user was a player, remove them
+//       const playerIndex = room.players.findIndex(p => p.id === socket.id);
+//       if (playerIndex !== -1) {
+//         room.players.splice(playerIndex, 1);
+//         delete room.playerBoards[socket.id];
         
-        // Notify remaining players
-        io.to(roomCode).emit('players_update', room.players);
-      }
-    }
-  }
+//         // Notify remaining players
+//         io.to(roomCode).emit('players_update', room.players);
+//       }
+//     }
+//   }
 });
 
 // Add analytics endpoints
