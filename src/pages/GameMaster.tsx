@@ -38,7 +38,8 @@ const GameMaster: React.FC = () => {
     setIsLoading: setIsRoomLoading,
     createRoom,
     players,
-    setRoomCode
+    setRoomCode,
+    kickPlayer
   } = useRoom();
 
   // DEBUG: Log players from useRoom to understand the button's player count
@@ -89,6 +90,20 @@ const GameMaster: React.FC = () => {
   const {
     playBackgroundMusic
   } = useAudio();
+
+  const handleKickPlayer = useCallback((playerId: string) => {
+    if (!roomCode) {
+      toast.error("Room code not found. Cannot kick player.");
+      return;
+    }
+    if (!kickPlayer) {
+      toast.error("Kick player function not available.");
+      return;
+    }
+    console.log(`[GameMaster] Request to kick player ${playerId} from room ${roomCode}`);
+    kickPlayer(playerId);
+    toast.info(`Kicking player ${playerId}...`);
+  }, [roomCode, kickPlayer]);
 
   const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
                               Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));
@@ -381,6 +396,8 @@ const GameMaster: React.FC = () => {
               title="Players"
               onPlayerSelect={handlePlayerSelect}
               selectedPlayerId={selectedPlayerId}
+              isGameMasterView={true}
+              onKickPlayer={handleKickPlayer}
             />
             <div className="d-grid gap-2 mt-3">
               <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>

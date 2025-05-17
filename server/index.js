@@ -1188,6 +1188,59 @@ io.on('connection', (socket) => {
     console.log(`[Server gm_navigate_recap_tab] GM ${socket.id} navigated recap to tab ${selectedTabKey} for room ${roomCode}`);
     io.to(roomCode).emit('recap_tab_changed', { selectedTabKey });
   });
+
+  socket.on('kick_player', ({ roomCode, playerIdToKick }) => {
+    try {
+      const room = gameRooms[roomCode];
+      if (!room) {
+        console.error(`[Server Kick] Kick failed: Room ${roomCode} not found.`);
+        socket.emit('error', { message: `Room ${roomCode} not found.` });
+        return;
+      }
+
+      if (socket.id !== room.gamemaster) {
+        console.error(`[Server Kick] Kick failed: Socket ${socket.id} is not the GM of room ${roomCode}.`);
+        socket.emit('error', { message: 'Only the Game Master can kick players.' });
+        return;
+      }
+
+      if (playerIdToKick === room.gamemaster) {
+        console.error(`[Server Kick] Kick failed: GM ${socket.id} cannot kick themselves from room ${roomCode}.`);
+        socket.emit('error', { message: 'Game Master cannot kick themselves.' });
+        return;
+      }
+
+      const playerIndex = room.players.findIndex(p => p.id === playerIdToKick);
+      if (playerIndex === -1) {
+        console.warn(`[Server Kick] Player ${playerIdToKick} not found in room ${roomCode} for kicking. Broadcasting current state.`);
+        // Player not found, maybe already left. Still good to broadcast current state.
+      } else {
+        const kickedPlayer = room.players.splice(playerIndex, 1)[0];
+        console.log(`[Server Kick] Player ${kickedPlayer.name} (ID: ${playerIdToKick}) kicked from room ${roomCode} by GM ${socket.id}`);
+
+        // Notify the kicked player
+        const kickedPlayerSocket = io.sockets.sockets.get(playerIdToKick);
+        if (kickedPlayerSocket) {
+          kickedPlayerSocket.emit('kicked_from_room', { roomCode, reason: 'Kicked by Game Master' });
+          kickedPlayerSocket.leave(roomCode); 
+          console.log(`[Server Kick] Notified player ${playerIdToKick} and made them leave room ${roomCode}.`);
+        }
+
+        // Clean up player boards
+        if (room.playerBoards && room.playerBoards[playerIdToKick]) {
+          delete room.playerBoards[playerIdToKick];
+          console.log(`[Server Kick] Removed playerBoard for kicked player ${playerIdToKick} in room ${roomCode}.`);
+        }
+      }
+      // Broadcast updated game state which includes player list
+      broadcastGameState(roomCode);
+      console.log(`[Server Kick] Broadcasted game state for room ${roomCode} after kicking attempt.`);
+
+    } catch (error) {
+      console.error(`[Server Kick] Error handling kick_player for room ${roomCode}, player ${playerIdToKick}:`, error);
+      socket.emit('error', { message: 'An internal server error occurred while trying to kick the player.' });
+    }
+  });
 });
 
 // Helper function to get player name from room

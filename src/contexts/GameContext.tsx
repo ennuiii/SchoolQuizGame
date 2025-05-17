@@ -196,6 +196,44 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  // New useEffect to default boards to visible when players list changes
+  useEffect(() => {
+    setVisibleBoards(prevVisibleBoards => {
+      const newVisibleBoards = new Set(prevVisibleBoards); // Start with GM's explicit settings
+      let changed = false;
+
+      // Ensure all current active, non-spectator players are visible by default
+      // unless the GM has *explicitly* hidden them using toggleBoardVisibility.
+      // This means if a player is active and not a spectator, they should be in the set.
+      players.forEach(player => {
+        if (player.isActive && !player.isSpectator) {
+          if (!newVisibleBoards.has(player.id)) {
+            newVisibleBoards.add(player.id);
+            changed = true;
+          }
+        }
+      });
+
+      // Remove players from visibleBoards if they are no longer active/non-spectators or not in the players list
+      // This also ensures that if a player was in prevVisibleBoards but is no longer valid, they are removed.
+      const activePlayerIds = new Set(players.filter(p => p.isActive && !p.isSpectator).map(p => p.id));
+      prevVisibleBoards.forEach(visiblePlayerId => {
+        if (!activePlayerIds.has(visiblePlayerId)) {
+          if (newVisibleBoards.has(visiblePlayerId)) { // Check if it was in the set we are building
+            newVisibleBoards.delete(visiblePlayerId);
+            changed = true;
+          }
+        }
+      });
+      
+      if (changed) {
+        console.log('[GameContext] Updated visibleBoards by default logic:', newVisibleBoards);
+        return newVisibleBoards;
+      }
+      return prevVisibleBoards; // No change, return the original set
+    });
+  }, [players]); // Depends on GameContext's internal players list
+
   // Effect to subscribe to socket connection state changes
   useEffect(() => {
     const handleConnectionChange = (state: string) => {
@@ -290,15 +328,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const startPreviewMode = useCallback((roomCode: string) => {
-    socketService.startPreviewMode(roomCode);
-    setPreviewMode(prev => ({ ...prev, isActive: true }));
-    // Make all non-spectator player boards visible when entering preview mode
-    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
-  }, [players]);
+    socketService.startPreviewMode(roomCode); // This emits to server, server broadcasts 'start_preview_mode'
+    // Client will react to 'start_preview_mode' event via startPreviewModeHandler above.
+    // No direct state change to visibleBoards here.
+  }, []);
 
   const stopPreviewMode = useCallback((roomCode: string) => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
+    socketService.stopPreviewMode(roomCode); // This emits to server, server broadcasts 'stop_preview_mode'
+    // Client will react to 'stop_preview_mode' event via stopPreviewModeHandler above.
   }, []);
 
   const focusSubmission = useCallback((roomCode: string, playerId: string) => {
@@ -540,11 +577,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsTimerRunning(false);
     };
     const startPreviewModeHandler = () => { 
-        console.log('[GameContext] Starting preview mode'); setPreviewMode(prev => ({ ...prev, isActive: true }));
-        const nonSpectatorIds = players.filter(p => !p.isSpectator).map(p => p.id);
-        setVisibleBoards(new Set(nonSpectatorIds));
+        console.log('[GameContext] Starting preview mode (socket event)'); 
+        setPreviewMode(prev => ({ ...prev, isActive: true }));
+        // DO NOT alter visibleBoards here; let GM control visibility via toggleBoardVisibility
+        // The useEffect above will ensure new/active players are visible by default.
     };
-    const stopPreviewModeHandler = () => { console.log('[GameContext] Stopping preview mode'); setPreviewMode({ isActive: false, focusedPlayerId: null }); };
+    const stopPreviewModeHandler = () => { 
+        console.log('[GameContext] Stopping preview mode (socket event)'); 
+        setPreviewMode({ isActive: false, focusedPlayerId: null }); 
+        // DO NOT alter visibleBoards here either.
+    };
     const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
     const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
     const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 

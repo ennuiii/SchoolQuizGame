@@ -24,6 +24,7 @@ interface RoomContextType {
   currentPlayerId: string | null;
   currentSocket: Socket | null; // Added for direct access if needed, though primarily internal
   createRoom: (roomCode: string) => void;
+  kickPlayer: (playerIdToKick: string) => void;
   
   // Actions
   setRoomCode: (code: string) => void;
@@ -172,6 +173,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   }, [currentSocket]);
 
+  const kickPlayer = useCallback((playerIdToKick: string) => {
+    if (!currentSocket || !currentSocket.connected) {
+      console.error('[RoomContext] Cannot kick player: Socket not connected.');
+      setErrorMsg('Not connected to server. Cannot kick player.');
+      return;
+    }
+    if (!roomCode) {
+      console.error('[RoomContext] Cannot kick player: No room code.');
+      setErrorMsg('No room active. Cannot kick player.');
+      return;
+    }
+    console.log(`[RoomContext] Emitting kick_player event for player ${playerIdToKick} in room ${roomCode}`);
+    currentSocket.emit('kick_player', { roomCode, playerIdToKick });
+  }, [currentSocket, roomCode, setErrorMsg]);
+
   // Main useEffect for setting up persistent socket event listeners
   useEffect(() => {
     console.log('[RoomContext] Main useEffect triggered. RoomCode:', roomCode, 'Socket ID:', currentSocket?.id, 'Connected:', currentSocket?.connected);
@@ -294,6 +310,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
+      const onKickedFromRoomHandler = ({ reason }: { reason: string }) => {
+        console.warn(`[RoomContext] Kicked from room. Reason: ${reason}`);
+        setErrorMsg(`You have been kicked: ${reason}`);
+        // Use toast for a more visible notification
+        // Make sure toast is imported and available in this scope or pass it down/use a global toast service
+        // For now, direct toast call assuming it might be available or you'll adapt this:
+        if (typeof window !== 'undefined' && (window as any).toast) {
+            (window as any).toast.error(`You have been kicked: ${reason}`);
+        } else {
+            alert(`You have been kicked: ${reason}`); // Fallback
+        }
+        leaveRoom(); // This will clear local state and navigate
+        navigate('/'); // Explicitly navigate to home after being kicked
+      };
+
       // Attach listeners
       socketToUse.on('room_created', onRoomCreated); // GM specific
       socketToUse.on('room_joined', onRoomJoined);   // Player/Spectator specific
@@ -304,6 +335,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketToUse.on('error', onErrorHandler);
       socketToUse.on('disconnect', onDisconnectHandler);
       socketToUse.on('connect', onConnectHandler); 
+      socketToUse.on('kicked_from_room', onKickedFromRoomHandler); // Add new listener
 
       // Initial state restoration attempt from session if not already set
       if (!playerName) {
@@ -330,6 +362,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketToUse.off('error', onErrorHandler);
         socketToUse.off('disconnect', onDisconnectHandler);
         socketToUse.off('connect', onConnectHandler);
+        socketToUse.off('kicked_from_room', onKickedFromRoomHandler); // Cleanup new listener
       };
     } else {
       console.log('[RoomContext] Main useEffect: No roomCode or socket not connected/present. Listeners not set.');
@@ -361,7 +394,8 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setCopied,
     setIsSpectator,
     joinRoom,
-    leaveRoom
+    leaveRoom,
+    kickPlayer
   };
 
   return (

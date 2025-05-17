@@ -16,17 +16,21 @@ interface PlayerListProps {
   onPlayerSelect?: (playerId: string) => void;
   selectedPlayerId?: string;
   title?: string;
+  onKickPlayer?: (playerId: string) => void;
+  isGameMasterView?: boolean;
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({
   currentPlayerId: propCurrentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
-  title = "Players"
+  title = "Players",
+  onKickPlayer,
+  isGameMasterView = false
 }) => {
   const { players } = useGame();
   const { currentPlayerId: contextCurrentPlayerId } = useRoom();
-  const currentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
+  const actualCurrentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
 
   return (
     <div className="card mb-3">
@@ -44,27 +48,42 @@ const PlayerList: React.FC<PlayerListProps> = ({
               <div
                 key={player.id}
                 className={`list-group-item d-flex justify-content-between align-items-center ${
-                  player.id === currentPlayerId ? 'bg-highlight' : ''
+                  player.id === actualCurrentPlayerId ? 'bg-highlight' : ''
                 } ${selectedPlayerId === player.id ? 'active' : ''}`}
                 onClick={() => onPlayerSelect?.(player.id)}
                 style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
               >
                 <div className="d-flex align-items-center">
                   <span className="me-2">{player.name}</span>
-                  {player.id === currentPlayerId && (
+                  {player.id === actualCurrentPlayerId && !isGameMasterView && (
                     <span className="badge bg-primary rounded-pill ms-1">You</span>
                   )}
                   {player.isSpectator && (
                     <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
                   )}
                 </div>
-                {!player.isSpectator && (
-                  <div className="lives-display">
-                    {[...Array(player.lives)].map((_, i) => (
-                      <span key={i} className="life" role="img" aria-label="heart">❤</span>
-                    ))}
-                  </div>
-                )}
+                
+                <div className="d-flex align-items-center">
+                  {!player.isSpectator && (
+                    <div className="lives-display me-2">
+                      {[...Array(player.lives)].map((_, i) => (
+                        <span key={i} className="life" role="img" aria-label="heart">❤</span>
+                      ))}
+                    </div>
+                  )}
+                  {isGameMasterView && player.id !== actualCurrentPlayerId && onKickPlayer && (
+                    <button 
+                      className="btn btn-danger btn-sm p-1 ms-2" 
+                      onClick={(e) => { 
+                        e.stopPropagation();
+                        onKickPlayer(player.id); 
+                      }}
+                      title={`Kick ${player.name}`}
+                    >
+                      <i className="bi bi-person-dash-fill"></i>
+                    </button>
+                  )}
+                </div>
               </div>
             ))
           )}
