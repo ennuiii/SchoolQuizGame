@@ -41,6 +41,17 @@ const GameMaster: React.FC = () => {
     setRoomCode
   } = useRoom();
 
+  // DEBUG: Log players from useRoom to understand the button's player count
+  useEffect(() => {
+    console.log('[GameMaster] Debug: useRoom().players updated:', JSON.stringify(players, null, 2));
+    const nonSpectators = players.filter(p => !p.isSpectator);
+    console.log(
+      '[GameMaster] Debug: Non-spectators from useRoom():', 
+      nonSpectators.length, 
+      nonSpectators.map(p => ({ id: p.id, name: p.name, isSpectator: p.isSpectator }))
+    );
+  }, [players]);
+
   const {
     gameStarted,
     currentQuestion,
