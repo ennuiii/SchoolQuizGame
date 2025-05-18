@@ -49,7 +49,11 @@ declare module 'fabric' {
       isDrawingMode: boolean;
       selection: boolean;
       interactive: boolean;
+      skipTargetFind: boolean;
       forEachObject(callback: (obj: fabric.Object) => void): void;
+      setWidth(value: number): fabric.Canvas;
+      setHeight(value: number): fabric.Canvas;
+      setDimensions(dimensions: {width: number, height: number}): fabric.Canvas;
     }
   }
 }
@@ -74,36 +78,102 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   const [lastSvgDataReactive, setLastSvgDataReactive] = useState<string | null>(null);
 
   const setupCanvasHandlers = useCallback((canvas: fabric.Canvas) => {
+    // Completely disable object selection and manipulation
+    canvas.selection = false;
+    canvas.skipTargetFind = true;
+    canvas.preserveObjectStacking = true;
+    
+    // Disable all events on objects by default
+    canvas.forEachObject((obj: fabric.Object) => {
+      obj.selectable = false;
+      obj.evented = false;
+      obj.lockMovementX = true;
+      obj.lockMovementY = true;
+    });
+    
+    // Override the _handleEvent method to prevent object dragging
+    const originalHandleEvent = (canvas as any)._handleEvent;
+    if (originalHandleEvent) {
+      (canvas as any)._handleEvent = function(e: Event, eventType: string) {
+        // Only allow drawing-related events when in drawing mode
+        if (this.isDrawingMode) {
+          if (eventType === 'down' || eventType === 'move' || eventType === 'up' || eventType === 'over' || eventType === 'out') {
+            originalHandleEvent.call(this, e, eventType);
+          }
+        } else {
+          // Pass through all events if not in drawing mode
+          originalHandleEvent.call(this, e, eventType);
+        }
+      };
+    }
+
     // Event handler for when a user starts drawing
-    canvas.on('mouse:down', () => {
+    canvas.on('mouse:down', (opt: any) => {
       if (canvas.isDrawingMode) {
         isDrawingInternalRef.current = true;
-        setIsDrawingReactive(true); // Update reactive state
-        updateQueuedRef.current = false; // Reset queue flag
+        setIsDrawingReactive(true);
+        updateQueuedRef.current = false;
+        
+        // Ensure we're not interacting with an object
+        if (opt.target) {
+          opt.target.selectable = false;
+          opt.target.evented = false;
+        }
       }
     });
 
     // Event handler for mouse movement while drawing
-    canvas.on('mouse:move', () => {
-      // This check is mostly for internal logic, isDrawingReactive handles UI updates
+    canvas.on('mouse:move', (opt: any) => {
       if (isDrawingInternalRef.current && canvas.isDrawingMode) {
-        // No need to set isDrawingInternalRef.current = true again here, it's already true
+        // Ensure no object is selectable during drawing
+        if (opt.target) {
+          opt.target.selectable = false;
+          opt.target.evented = false;
+        }
       }
     });
 
     // Event handler for when a user stops drawing
-    canvas.on('mouse:up', () => {
+    canvas.on('mouse:up', (opt: any) => {
       if (canvas.isDrawingMode) {
         isDrawingInternalRef.current = false;
-        setIsDrawingReactive(false); // Update reactive state
-        updateQueuedRef.current = true; // Queue an update
+        setIsDrawingReactive(false);
+        updateQueuedRef.current = true;
+        
+        // Force render to ensure drawn path is fixed in place
+        canvas.renderAll();
+        
+        // Re-disable selection globally to ensure nothing can be selected
+        canvas.selection = false;
+        canvas.skipTargetFind = true;
       }
     });
 
     // Event handler for when a path (drawing) is created
-    canvas.on('path:created', () => {
-      if (canvas.isDrawingMode) {
-        updateQueuedRef.current = true; // Queue an update
+    canvas.on('path:created', (e: any) => {
+      if (e.path) {
+        // Lock the path and prevent any interaction
+        e.path.selectable = false;
+        e.path.evented = false;
+        e.path.lockMovementX = true;
+        e.path.lockMovementY = true;
+        e.path.hasControls = false;
+        e.path.hasBorders = false;
+        
+        updateQueuedRef.current = true;
+      }
+    });
+
+    // Handle all object added events
+    canvas.on('object:added', (e: any) => {
+      if (e.target) {
+        // Lock every new object
+        e.target.selectable = false;
+        e.target.evented = false;
+        e.target.lockMovementX = true;
+        e.target.lockMovementY = true;
+        e.target.hasControls = false;
+        e.target.hasBorders = false;
       }
     });
 
@@ -111,11 +181,17 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     canvas.on('mouse:out', () => {
       if (isDrawingInternalRef.current && canvas.isDrawingMode) {
         isDrawingInternalRef.current = false;
-        setIsDrawingReactive(false); // Update reactive state
-        updateQueuedRef.current = true; // Queue an update
+        setIsDrawingReactive(false);
+        updateQueuedRef.current = true;
+        
+        // Force render to ensure drawn path is fixed in place
+        canvas.renderAll();
       }
     });
-  }, []); // Empty dependency array: this function is stable and doesn't depend on component scope variables that change
+    
+    // Immediately render to apply settings
+    canvas.renderAll();
+  }, []);
 
   const initializeCanvas = useCallback((container: HTMLElement, width = 800, height = 400) => {
     // Clean up any existing canvas
@@ -123,19 +199,36 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       canvas.dispose();
     }
 
-    // Create canvas container div if it doesn't exist
-    let canvasEl = container.querySelector('canvas');
-    if (!canvasEl) {
-      canvasEl = document.createElement('canvas');
-      container.appendChild(canvasEl);
-    }
+    // Clear all content from the container first to avoid nested canvas containers
+    container.innerHTML = '';
 
-    // Initialize new canvas
+    // Create canvas element
+    const canvasEl = document.createElement('canvas');
+    container.appendChild(canvasEl);
+
+    // Apply textured background to container
+    container.style.background = '#0C6A35 url("https://www.transparenttextures.com/patterns/green-dust-and-scratches.png")';
+
+    // Calculate actual container size
+    const containerRect = container.getBoundingClientRect();
+    const actualWidth = containerRect.width || width;
+    const actualHeight = containerRect.height || height;
+
+    // Since the container is absolutely positioned, don't try to set explicit dimensions
+    // as they may conflict with the layout
+
+    // Initialize new canvas with exact dimensions
     const fabricCanvas = new fabric.Canvas(canvasEl, {
-      width,
-      height,
-      backgroundColor: '#fff',
-      isDrawingMode: true
+      width: actualWidth,
+      height: actualHeight,
+      backgroundColor: null,
+      isDrawingMode: true,
+      selection: false, // Disable group selection
+      skipTargetFind: true, // Ignore all object selection
+      preserveObjectStacking: true, // Keep objects in their stacking order
+      renderOnAddRemove: true, // Ensure immediate rendering
+      interactive: false, // Disable interactive mode for all objects
+      stateful: false // Disable state tracking which can cause issues
     });
 
     // Set up drawing brush
@@ -163,6 +256,20 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     
     try {
       canvas.loadFromJSON(jsonData, () => {
+        // Make all objects non-selectable and non-movable
+        canvas.selection = false;
+        canvas.skipTargetFind = true;
+        canvas.preserveObjectStacking = true;
+        
+        canvas.forEachObject((obj: fabric.Object) => {
+          obj.selectable = false;
+          obj.evented = false;
+          obj.lockMovementX = true;
+          obj.lockMovementY = true;
+          obj.hasControls = false;
+          obj.hasBorders = false;
+        });
+        
         canvas.renderAll();
         console.log('[CanvasContext] Successfully loaded canvas from JSON');
       });
@@ -174,7 +281,14 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   const clear = useCallback(() => {
     if (canvas) {
       canvas.clear();
-      canvas.backgroundColor = '#fff';
+      
+      // Restore canvas settings after clear
+      canvas.backgroundColor = null;
+      canvas.selection = false;
+      canvas.skipTargetFind = true;
+      canvas.preserveObjectStacking = true;
+      canvas.isDrawingMode = true;
+      
       canvas.renderAll();
     }
   }, [canvas]);

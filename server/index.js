@@ -1335,69 +1335,86 @@ io.on('connection', (socket) => {
     }
 
     try {
-      // playerId is now expected to be a persistentPlayerId
-      const player = room.players.find(p => p.persistentPlayerId === playerId);
-      if (!player) {
-        console.error('[Server EVal] Player not found for evaluation:', { roomCode, persistentPlayerId: playerId });
+      const persistentPlayerIdFromClient = playerId; // Use this clear name for the ID from client
+      const playerObjInRoom = room.players.find(p => p.persistentPlayerId === persistentPlayerIdFromClient);
+      const submittedAnswerData = room.roundAnswers[persistentPlayerIdFromClient];
+
+      if (!submittedAnswerData) {
+        console.warn(`[Server EVal] No answer submission found in roundAnswers for persistentPlayerId: ${persistentPlayerIdFromClient} in room ${roomCode}. Evaluation aborted.`);
+        // Optionally, inform GM that this player didn't submit or answer already cleared.
+        socket.emit('info', { message: `No answer found for player to evaluate.` });
         return;
       }
 
-      console.log('[Server Eval] Player found:', { persistentPlayerId: player.persistentPlayerId, name: player.name, initialLives: player.lives });
+      // Update the canonical answer record in roundAnswers and evaluatedAnswers
+      submittedAnswerData.isCorrect = isCorrect;
+      room.evaluatedAnswers[persistentPlayerIdFromClient] = isCorrect;
 
-      // Update both answer storages - player.answers is indexed by round, room.roundAnswers is keyed by persistentPlayerId
-      const answer = player.answers[room.currentQuestionIndex];
-      const roundAnswer = room.roundAnswers[player.persistentPlayerId];
+      if (playerObjInRoom) {
+        // Player is still actively in the room.players array, update their specific records and lives
+        console.log('[Server Eval] Player found in room.players:', { persistentPlayerId: playerObjInRoom.persistentPlayerId, name: playerObjInRoom.name, currentLives: playerObjInRoom.lives });
+        
+        // Update player's answer array (indexed by question number)
+        const playerSpecificAnswerRecord = playerObjInRoom.answers[room.currentQuestionIndex];
+        if (playerSpecificAnswerRecord) {
+            playerSpecificAnswerRecord.isCorrect = isCorrect;
+        } else {
+            // This case should ideally not happen if roundAnswers has the submission,
+            // but as a fallback, ensure the player's answer array is updated.
+            // This assumes player.answers is an array initialized for each question.
+            if (playerObjInRoom.answers && room.currentQuestionIndex !== undefined) {
+                 playerObjInRoom.answers[room.currentQuestionIndex] = { 
+                    ...(submittedAnswerData), // copy data from roundAnswer
+                    isCorrect: isCorrect 
+                };
+            }
+        }
 
-      if (answer) answer.isCorrect = isCorrect;
-      if (roundAnswer) roundAnswer.isCorrect = isCorrect;
-
-      // Update player state
-      if (!isCorrect) {
-        console.log('[Server Eval] Answer marked incorrect. Decrementing lives for player:', { persistentPlayerId: player.persistentPlayerId, currentLives: player.lives });
-        player.lives--;
-        console.log('[Server Eval] Player lives after decrement:', { persistentPlayerId: player.persistentPlayerId, newLives: player.lives });
-        if (player.lives <= 0) {
-          player.isActive = false;
-          player.isSpectator = true;
-          console.log('[Server Eval] Player has no lives left. Setting to spectator.', { persistentPlayerId: player.persistentPlayerId });
-          io.to(player.id).emit('become_spectator');
+        if (!isCorrect) {
+          playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);
+          console.log('[Server Eval] Player lives after decrement:', { persistentPlayerId: playerObjInRoom.persistentPlayerId, newLives: playerObjInRoom.lives });
+          if (playerObjInRoom.lives <= 0) {
+            playerObjInRoom.isActive = false;
+            playerObjInRoom.isSpectator = true;
+            const playerSocket = io.sockets.sockets.get(playerObjInRoom.id);
+            if (playerSocket) {
+                playerSocket.emit('become_spectator');
+                console.log('[Server Eval] Notified player socket ${playerObjInRoom.id} to become spectator.');
+            } else {
+                console.warn('[Server Eval] Could not find active socket for player ${playerObjInRoom.id} to notify become_spectator.');
+            }
+            console.log('[Server Eval] Player has no lives left. Setting to spectator.', { persistentPlayerId: playerObjInRoom.persistentPlayerId });
+          }
         }
       } else {
-        console.log('[Server Eval] Answer marked correct. No change to lives for player:', { persistentPlayerId: player.persistentPlayerId, currentLives: player.lives });
+        console.log(`[Server EVal] Player object for persistentPlayerId ${persistentPlayerIdFromClient} not found in room.players. Evaluation recorded in roundAnswers/evaluatedAnswers, but lives/player-specific answer array not updated directly on a player object.`);
       }
 
-      // Store evaluation keyed by persistentPlayerId
-      room.evaluatedAnswers[player.persistentPlayerId] = isCorrect;
-
-      // Check for game over
+      // Game over check (based on players still actively in room.players)
       const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
-      console.log(`[Server Eval] Active players remaining: ${activePlayers.length}`);
+      console.log(`[Server Eval] Active players remaining in room.players: ${activePlayers.length}`);
 
-      if (activePlayers.length <= 1) {
-        // Game is over
-        const winner = activePlayers.length === 1 ? { 
-          id: activePlayers[0].id, 
-          persistentPlayerId: activePlayers[0].persistentPlayerId,
-          name: activePlayers[0].name 
-        } : null;
-        concludeGameAndSendRecap(roomCode, winner);
+      if (room.started && activePlayers.length <= 1 && room.players.length > 0) {
+        if (!room.isConcluded) {
+            const winner = activePlayers.length === 1 ? { 
+                id: activePlayers[0].id, 
+                persistentPlayerId: activePlayers[0].persistentPlayerId,
+                name: activePlayers[0].name 
+            } : null;
+            console.log(`[Server Eval] Game ending condition met. Winner: ${winner ? winner.name : 'None (draw or all out)'}`);
+            concludeGameAndSendRecap(roomCode, winner);
+        }
       }
 
-      // Broadcast updated game state
       broadcastGameState(roomCode);
-      console.log('[Server Eval] Broadcasted game state after evaluation. Updated player data should include:', { 
-        persistentPlayerId: player.persistentPlayerId, 
-        lives: player.lives, 
-        isActive: player.isActive, 
-        isSpectator: player.isSpectator 
-      });
+      console.log('[Server Eval] Broadcasted game state after evaluation for persistentPlayerId:', persistentPlayerIdFromClient);
 
-      const responseTime = Date.now() - room.questionStartTime;
-      gameAnalytics.recordAnswer(roomCode, player.persistentPlayerId, answer.answer, isCorrect, responseTime);
+      const responseTime = Date.now() - (room.questionStartTime || Date.now());
+      gameAnalytics.recordAnswer(roomCode, persistentPlayerIdFromClient, submittedAnswerData.answer, isCorrect, responseTime);
 
     } catch (error) {
-      console.error('Error evaluating answer:', error);
-      socket.emit('error', 'Failed to evaluate answer');
+      console.error('Error evaluating answer:', { error: error.message, stack: error.stack, roomCode, persistentPlayerIdFromClient: playerId });
+      socket.emit('error', 'Failed to evaluate answer due to server error.');
     }
   });
 

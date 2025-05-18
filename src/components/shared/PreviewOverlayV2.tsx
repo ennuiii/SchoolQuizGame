@@ -1,9 +1,9 @@
 // Copy of PreviewOverlay for alternate design testing
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '../../contexts/GameContext';
-import type { Player, PlayerBoard } from '../../types/game';
+import type { Player } from '../../types/game';
 import { useCanvas } from '../../contexts/CanvasContext';
-import { fabric } from 'fabric';
+import FabricJsonToSvg from '../shared/FabricJsonToSvg';
 
 interface AnswerSubmission {
   persistentPlayerId: string;
@@ -98,10 +98,11 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
         }}
       >
         {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
-          const boardSubmission = context.playerBoards.find(b => b.playerId === player.persistentPlayerId);
+          // Use player.id (which is the socket.id) to match PlayerBoard.playerId
+          const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
           const actualBoardData = boardSubmission?.boardData;
-          const answer = context.allAnswersThisRound[player.persistentPlayerId];
-          const evaluation = context.evaluatedAnswers[player.persistentPlayerId];
+          const answer = context.allAnswersThisRound[player.persistentPlayerId]; // Answers are keyed by persistentPlayerId
+          const evaluation = context.evaluatedAnswers[player.persistentPlayerId]; // Evaluations are keyed by persistentPlayerId
           const borderColor = boardColors[idx % boardColors.length];
           const tapeColor = getRandomTapeColor(idx);
           return (
@@ -121,18 +122,19 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                   className="classroom-whiteboard-svg"
                   style={{
                     height: 150,
+                    width: '100%',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    backgroundColor: '#314C32',
+                    backgroundColor: '#FFFFFF',
+                    borderRadius: '4px',
+                    padding: '5px'
                   }}
                 >
-                  {/* Ensure SVG is scaled to fit the container */}
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      dangerouslySetInnerHTML={{ __html: actualBoardData || '' }} // Use actualBoardData or empty string
-                    />
-                  </div>
+                  <FabricJsonToSvg 
+                    jsonData={actualBoardData}
+                    className="scaled-svg-preview"
+                  />
                 </div>
                 {/* Answer with notepad effect */}
                 {answer && (

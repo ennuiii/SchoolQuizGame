@@ -28,6 +28,8 @@ export interface PlayerBoard {
   playerId: string;
   playerName: string;
   boardData: string;
+  roundIndex?: number;
+  timestamp?: number;
 }
 
 interface AnswerSubmission {

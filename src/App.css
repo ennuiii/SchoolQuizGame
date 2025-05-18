@@ -208,51 +208,60 @@ body {
   border: 4px solid #8B4513;
   border-radius: 12px;
   box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
-  margin-bottom: 16px;
+  margin-bottom: 0;
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
 }
 
-.drawing-board-canvas-container {
-    background: #0C6A35;
-    border-width: 20px;
-    border-style: solid;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
-    margin-bottom: 16px;
-    position: relative;
-    overflow: hidden;
-  }
-
-.drawing-board-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 20px 20px,
-    linear-gradient(0deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 20px 20px;
-  pointer-events: none;
-}
-
-.drawing-board {
-  min-height: 300px;
-  background: transparent;
+/* This is the direct child of drawing-board-container, where Fabric will initialize */
+.drawing-board-container .canvas-container {
   position: relative;
+  width: 100%;
+  flex-grow: 1;
+  min-height: 0;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
 }
 
-.drawing-board::after {
-  content: '';
+/* Remove overlay styles as controls are now external */
+/* .drawing-controls-overlay { ... } - This class and its rules are removed */
+
+/* Styles for the new external controls container */
+.drawing-board-external-controls {
+  /* Bootstrap classes d-flex justify-content-end w-100 mt-2 mb-2 handle most of this */
+  padding-right: 15px; /* Add some padding if needed, or rely on parent container's padding */
+}
+
+/* Position the submitted overlay */
+.drawing-submitted-overlay {
   position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  opacity: 0.1;
-  pointer-events: none;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: 80%;
+  text-align: center;
+}
+
+/* Ensure nested Fabric canvas elements are sized correctly */
+.drawing-board-container .canvas-container .canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+  position: absolute !important;
+}
+
+.drawing-board-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+  display: block;
 }
 
 /* Preview Mode Controls */
@@ -1261,4 +1270,157 @@ body {
   padding: 18px 12px 36px 12px;
   overflow: visible;
   margin-bottom: 32px;
+}
+
+/* PlayerBoardDisplay Styles */
+.player-board-display-wrapper {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-board-header {
+  padding: 0.25rem 0; /* Minimal padding around the name banner */
+  margin-bottom: 8px;
+  display: flex; /* Already there, but confirm */
+  justify-content: space-between; /* Already there */
+  align-items: center; /* Already there */
+}
+
+.player-board-header .player-name {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.2rem; /* Ensure it's not too small */
+  font-weight: bold;
+  letter-spacing: 1px;
+  background: #ffe066; 
+  color: #2d4739;    
+  padding: 6px 18px;   /* Adjusted padding */
+  border-radius: 8px; 
+  border: 2px solid #ffd166; /* Solid border might be more visible */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  display: inline-block; 
+  margin-right: auto; 
+  line-height: 1.4; /* Ensure text isn't cut off if padding is tight */
+}
+
+.player-board-header .board-controls {
+  /* Controls (Hide/Reset) are already flexed by parent, ensure they don't interfere */
+  white-space: nowrap; /* Prevent buttons from wrapping */
+}
+
+/* This is the visual chalkboard area on the GM page */
+.player-board-display-wrapper .drawing-board-container {
+  width: 100%; 
+  aspect-ratio: 2 / 1; /* Match player's typical 800x400 like ratio */
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative; 
+}
+
+/* Ensure the board-render-area within it fills this aspect-ratio container */
+.player-board-display-wrapper .board-render-area {
+  width: 100%;
+  height: 100%; /* Fill the parent that now has aspect-ratio controlled height */
+  flex-grow: 0; /* No longer needed if parent has explicit aspect ratio and height is 100% */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.player-board-display-wrapper .svg-display-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-board-display-wrapper .svg-display-wrapper svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* This is key for scaling SVG content proportionally within its 100x100 box */
+}
+
+/* Fullscreen adjustments */
+.player-board-display-wrapper.fullscreen-wrapper .drawing-board-container {
+  min-height: 80vh;
+  height: auto; /* Allow it to grow in fullscreen */
+  padding: 20px;
+  border-width: 8px !important;
+}
+
+.player-board-display-wrapper.fullscreen-wrapper .player-board-header {
+  background-color: rgba(0,0,0,0.3);
+}
+
+/* PlayerBoardDisplay styles */
+.player-board-display.drawing-board-container {
+  /* This is the main wrapper for each player's board on GM screen */
+  /* It inherits .drawing-board-container for background/border */
+  margin-bottom: 20px;
+  min-height: 200px; /* Adjust as needed for GM view */
+  height: auto; /* Allow content to define height, or set a fixed one if preferred */
+  padding: 10px; /* Inner padding for the player name header */
+  display: flex;
+  flex-direction: column; /* Stack header and board-render-area */
+}
+
+.player-board-display .player-name-header {
+  /* Styling for the player name bar */
+  font-size: 1rem;
+  color: #ffe066; /* Chalk-like color for text on green board */
+  text-shadow: 1px 1px 0 #2d4739;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 2px dashed rgba(255, 224, 102, 0.5); /* Dashed line under name */
+}
+
+.player-board-display .board-render-area {
+  /* This div contains the svg-display-wrapper. It should fill available space */
+  width: 100%;
+  flex-grow: 1; /* Takes up remaining vertical space in the flex column */
+  position: relative; /* For potential absolute positioning of SVG if needed, and for pan/zoom container */
+  display: flex; /* To center its child (svg-display-wrapper) */
+  justify-content: center;
+  align-items: center;
+  overflow: hidden; /* Clip the scaled/panned content */
+  min-height: 150px; /* Minimum drawing area height */
+}
+
+.player-board-display .svg-display-wrapper {
+  /* This div is what gets transformed (scaled/panned) */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-board-display .svg-display-wrapper svg {
+  /* The actual SVG element */
+  display: block;
+  width: 100%;    /* Force SVG to take full width of its wrapper */
+  height: 100%;   /* Force SVG to take full height of its wrapper */
+  /* Aspect ratio will be maintained by the browser based on the viewBox if width/height are 100% */
+  /* If the SVG itself has width/height attributes, these % values will be relative to that, */
+  /* so ensure toSVG() generates a scalable SVG, preferably without fixed root width/height or with them set to 100% */
+  object-fit: contain; /* Ensures the entire content of the SVG is scaled down to fit, maintaining aspect ratio */
+}
+
+/* Styles for the external controls container for PlayerPage drawing board */
+.drawing-board-external-controls {
+  padding-top: 10px; /* Add some space above the button */
+  padding-bottom: 10px; /* Add some space below the button */
+  /* d-flex justify-content-end w-100 from component handles alignment */
+}
+
+/* Ensure fullscreen PlayerBoardDisplay also has the chalkboard look */
+.player-board-display.fullscreen.drawing-board-container {
+  padding: 20px; /* More padding when fullscreen */
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 8px solid #8B4513 !important;
 } 

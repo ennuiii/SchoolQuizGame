@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { CanvasProvider, useCanvas } from '../../contexts/CanvasContext';
 import { useGame } from '../../contexts/GameContext';
+import type { PlayerBoard } from '../../types/game';
 import { useRoom } from '../../contexts/RoomContext';
 import socketService from '../../services/socketService';
 import { fabric } from 'fabric';
@@ -30,7 +31,7 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   height = 400,
   width = 600
 }) => {
-  const { canvas, initializeCanvas, loadFromJSON, getCanvasState } = useCanvas();
+  const { canvas, initializeCanvas, loadFromJSON, getCanvasState, clear } = useCanvas();
   const canvasContainerRef = useRef<HTMLDivElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const { gameStarted, gameOver, submittedAnswer, currentQuestionIndex, playerBoards } = useGame();
@@ -50,23 +51,17 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
         
         // Only send if the state has changed and is not empty
         if (currentState && currentState !== lastSentState && currentState !== '{"objects":[]}') {
-          // Update local reference of what we've sent
           setLastSentState(currentState);
-          
-          // Call the prop callback if provided
           if (onUpdate) {
             onUpdate({
               data: currentState,
               timestamp: Date.now()
             });
           }
-          
-          // Send to server directly
           socketService.updateBoard(roomCode, currentState);
-          console.log('[DrawingBoard] Sent canvas update to server');
         }
       }
-    }, 500); // Update every 500ms while drawing
+    }, 500);
 
     return () => clearInterval(interval);
   }, [canvas, getCanvasState, isDrawing, gameStarted, gameOver, disabled, submittedAnswer, roomCode, lastSentState, onUpdate, connectionStatus]);
@@ -82,14 +77,9 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   useEffect(() => {
     if (!canvas) return;
 
-    const handleMouseDown = () => {
-      setIsDrawing(true);
-    };
-
+    const handleMouseDown = () => setIsDrawing(true);
     const handleMouseUp = () => {
       setIsDrawing(false);
-      
-      // Send final state when stopped drawing
       const currentState = getCanvasState();
       if (currentState && currentState !== lastSentState && currentState !== '{"objects":[]}' && roomCode) {
         setLastSentState(currentState);
@@ -100,7 +90,6 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
           });
         }
         socketService.updateBoard(roomCode, currentState);
-        console.log('[DrawingBoard] Sent final canvas update to server after drawing stopped');
       }
     };
 
@@ -115,160 +104,124 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
     };
   }, [canvas, getCanvasState, lastSentState, onUpdate, roomCode]);
 
-  // Set canvas interactivity based on disabled prop
+  // Set canvas interactivity
   useEffect(() => {
     if (!canvas) return;
-    
-    // Set canvas interactivity - disable if disabled or answer already submitted
     canvas.isDrawingMode = !disabled && !submittedAnswer;
     canvas.selection = !disabled && !submittedAnswer;
     canvas.interactive = !disabled && !submittedAnswer;
-    
-    // Also loop through objects and set them as not selectable if disabled
     canvas.forEachObject((obj: fabric.Object) => {
       obj.selectable = !disabled && !submittedAnswer;
       obj.evented = !disabled && !submittedAnswer;
     });
-    
     canvas.renderAll();
   }, [canvas, disabled, submittedAnswer]);
 
-  // Load initial board data if provided
+  // Load initial or server-restored board data
   useEffect(() => {
-    if (canvas && initialBoardData && !boardRestored) {
-      loadFromJSON(initialBoardData);
-      setBoardRestored(true);
-      console.log('[DrawingBoard] Loaded initial board data provided via props');
-    }
-  }, [canvas, initialBoardData, loadFromJSON, boardRestored]);
+    if (!canvas || !roomCode || boardRestored) return;
 
-  // Try to restore drawing from server on reconnect or question change
-  useEffect(() => {
-    if (!canvas || !roomCode || !persistentPlayerId || boardRestored) {
-      return;
-    }
-    
-    // Find player's own board data from the playerBoards list in GameContext
     const mySocketId = socketService.getSocketId();
-    if (!mySocketId) {
-      console.log('[DrawingBoard] No socket ID yet, cannot restore board');
+    if (!mySocketId && !initialBoardData) return; // No way to identify or load
+
+    if (initialBoardData) {
+      loadFromJSON(initialBoardData);
+      setLastSentState(initialBoardData);
+      setBoardRestored(true);
       return;
     }
-
-    // Look for my board matching current round
-    const myBoard = playerBoards.find(b => 
-      b.playerId === mySocketId && 
-      (b.roundIndex === undefined || b.roundIndex === currentQuestionIndex)
-    );
     
-    if (myBoard && myBoard.boardData && myBoard.boardData !== '') {
-      console.log('[DrawingBoard] Restoring saved drawing from server for the current round:', currentQuestionIndex);
-      loadFromJSON(myBoard.boardData);
-      setLastSentState(myBoard.boardData);
-      setBoardRestored(true);
-    } else {
-      console.log('[DrawingBoard] No saved drawing found on server for this round');
-      // Start with a fresh canvas
-      if (canvas) {
-        canvas.clear();
-        canvas.renderAll();
+    if (mySocketId) {
+      const myBoard = playerBoards.find(b => 
+        b.playerId === mySocketId && 
+        (b.roundIndex === undefined || b.roundIndex === currentQuestionIndex)
+      );
+      if (myBoard && myBoard.boardData && myBoard.boardData !== '') {
+        loadFromJSON(myBoard.boardData);
+        setLastSentState(myBoard.boardData);
+        setBoardRestored(true);
       }
     }
-  }, [canvas, roomCode, persistentPlayerId, connectionStatus, playerBoards, currentQuestionIndex, loadFromJSON, boardRestored]);
+  }, [canvas, initialBoardData, roomCode, playerBoards, currentQuestionIndex, loadFromJSON, boardRestored]);
 
-  // Reset the board when question changes
+  // Reset board on question change
   useEffect(() => {
     if (!canvas) return;
-    
-    setBoardRestored(false); // Allow restoring from server for the new question
-    
-    // The actual restore will happen in the previous useEffect
-    console.log('[DrawingBoard] Question changed, will attempt to restore drawing for new question');
+    setBoardRestored(false); // Allow restoring for new question
   }, [canvas, currentQuestionIndex]);
-
-  // Add drawing tools
-  const clearCanvas = useCallback(() => {
-    if (canvas) {
-      canvas.clear();
-      canvas.renderAll();
-      
-      // Send empty board to server
-      if (roomCode && !disabled && !submittedAnswer) {
-        const emptyState = '{"objects":[]}';
-        setLastSentState(emptyState);
-        if (onUpdate) {
-          onUpdate({
-            data: emptyState,
-            timestamp: Date.now()
+  
+  // Handle window resize
+  useEffect(() => {
+    const handleResize = () => {
+      if (canvasContainerRef.current && canvas) {
+        const containerRect = canvasContainerRef.current.getBoundingClientRect();
+        if (containerRect.width > 10 && containerRect.height > 10) {
+          canvas.setDimensions({
+            width: containerRect.width,
+            height: containerRect.height
           });
+          canvas.renderAll();
         }
-        socketService.updateBoard(roomCode, emptyState);
-        console.log('[DrawingBoard] Sent clear canvas to server');
       }
-    }
-  }, [canvas, roomCode, disabled, submittedAnswer, onUpdate]);
-
-  const setStrokeColor = useCallback((color: string) => {
-    if (canvas) {
-      canvas.freeDrawingBrush.color = color;
-    }
+    };
+    window.addEventListener('resize', handleResize);
+    const initialResizeTimeout = setTimeout(handleResize, 100);
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      clearTimeout(initialResizeTimeout);
+    };
   }, [canvas]);
-
-  const setStrokeWidth = useCallback((width: number) => {
-    if (canvas) {
-      canvas.freeDrawingBrush.width = width;
+  
+  const clearCanvas = useCallback(() => {
+    if (clear) clear(); // Use clear from context
+    if (roomCode && !disabled && !submittedAnswer) {
+      const emptyState = '{"objects":[]}';
+      setLastSentState(emptyState);
+      if (onUpdate) {
+        onUpdate({ data: emptyState, timestamp: Date.now() });
+      }
+      socketService.updateBoard(roomCode, emptyState);
     }
-  }, [canvas]);
+  }, [clear, roomCode, disabled, submittedAnswer, onUpdate]);
 
   return (
-    <div className="drawing-board-container">
-      {boardLabel && <div className="board-label">{boardLabel}</div>}
-      <div className="canvas-container mb-2" ref={canvasContainerRef} style={{ height, width }}></div>
-      
-      {/* Use custom controls if provided, otherwise show default controls */}
+    <>
+      <div className="drawing-board-container" style={{ height: height, position: 'relative' }}>
+        {boardLabel && <div className="board-label">{boardLabel}</div>}
+        <div 
+          className="canvas-container" 
+          ref={canvasContainerRef}
+          // Inline styles removed, CSS handles flex sizing
+        ></div>
+        {/* The submittedAnswer overlay can stay inside if it's styled as an overlay itself */}
+        {submittedAnswer && (
+          <div className="alert alert-info drawing-submitted-overlay">
+            Drawing submitted! You cannot make further changes.
+          </div>
+        )}
+      </div>
+
+      {/* Controls are now OUTSIDE the drawing-board-container */}
       {controls ? controls : (
         !disabled && !submittedAnswer && (
-          <div className="drawing-tools d-flex gap-2 mb-3">
-            <div className="btn-group">
-              <button type="button" className="btn btn-sm btn-light" onClick={() => setStrokeColor('#000')}>
-                Black
-              </button>
-              <button type="button" className="btn btn-sm btn-primary" onClick={() => setStrokeColor('#0d6efd')}>
-                Blue
-              </button>
-              <button type="button" className="btn btn-sm btn-danger" onClick={() => setStrokeColor('#dc3545')}>
-                Red
-              </button>
-              <button type="button" className="btn btn-sm btn-success" onClick={() => setStrokeColor('#198754')}>
-                Green
-              </button>
-            </div>
-            
-            <div className="btn-group">
-              <button type="button" className="btn btn-sm btn-light" onClick={() => setStrokeWidth(2)}>
-                Thin
-              </button>
-              <button type="button" className="btn btn-sm btn-light" onClick={() => setStrokeWidth(5)}>
-                Medium
-              </button>
-              <button type="button" className="btn btn-sm btn-light" onClick={() => setStrokeWidth(10)}>
-                Thick
-              </button>
-            </div>
-            
-            <button type="button" className="btn btn-sm btn-warning" onClick={clearCanvas}>
-              Clear
+          <div className="drawing-board-external-controls d-flex justify-content-end w-100 mt-2 mb-2">
+            <button 
+              className="btn" 
+              onClick={clearCanvas}
+              style={{
+                backgroundColor: '#8B4513',
+                borderColor: '#8B4513',
+                color: 'white',
+                minWidth: '120px',
+                fontWeight: 'bold'
+              }}
+            >
+              Clear Canvas
             </button>
           </div>
         )
       )}
-
-      {submittedAnswer && (
-        <div className="alert alert-info">
-          Drawing submitted! You cannot make further changes.
-        </div>
-      )}
-    </div>
+    </>
   );
 };
 
