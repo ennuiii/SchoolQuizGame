@@ -244,10 +244,15 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
       </div>
       
       {/* This div now solely represents the visual chalkboard */}
-      <div className={`drawing-board-container ${fullscreen ? 'fullscreen-drawing-area' : ''}`}>
+      <div 
+        className={`drawing-board-container ${fullscreen ? 'fullscreen-drawing-area' : ''} ${!isVisible ? 'hidden' : ''}`}
+        style={{
+          transition: 'height 0.3s ease-in-out, opacity 0.3s ease-in-out'
+        }}
+      >
         <div 
           ref={containerRef} 
-          className={`board-render-area ${isVisible ? '' : 'invisible'}`}
+          className={`board-render-area`}
           style={{ 
             width: '100%',
             height: '100%',

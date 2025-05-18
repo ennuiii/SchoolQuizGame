@@ -1168,87 +1168,54 @@ body {
 
 /* PlayerBoardDisplay Styles */
 .player-board-display-wrapper {
-  margin-bottom: 20px;
-  display: flex;
-  flex-direction: column;
+  margin-bottom: 15px;
+  border: 1px solid #eee;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #fafafa;
 }
 
 .player-board-header {
-  padding: 0.25rem 0; /* Minimal padding around the name banner */
-  margin-bottom: 8px;
-  display: flex; /* Already there, but confirm */
-  justify-content: space-between; /* Already there */
-  align-items: center; /* Already there */
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background-color: #f5f5f5;
+  padding: 8px 12px;
+  border-bottom: 1px solid #eee;
 }
 
 .player-board-header .player-name {
-  font-family: 'Schoolbell', 'Patrick Hand', cursive;
-  font-size: 1.2rem; /* Ensure it's not too small */
   font-weight: bold;
-  letter-spacing: 1px;
-  background: #ffe066; 
-  color: #2d4739;    
-  padding: 6px 18px;   /* Adjusted padding */
-  border-radius: 8px; 
-  border: 2px solid #ffd166; /* Solid border might be more visible */
-  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
-  display: inline-block; 
-  margin-right: auto; 
-  line-height: 1.4; /* Ensure text isn't cut off if padding is tight */
+  font-size: 1rem;
+  color: #333;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
 }
 
 .player-board-header .board-controls {
-  /* Controls (Hide/Reset) are already flexed by parent, ensure they don't interfere */
-  white-space: nowrap; /* Prevent buttons from wrapping */
+  display: flex;
+  align-items: center;
+  gap: 5px;
 }
 
-/* This is the visual chalkboard area on the GM page */
 .player-board-display-wrapper .drawing-board-container {
-  width: 100%; 
-  aspect-ratio: 2 / 1; /* Match player's typical 800x400 like ratio */
-  padding: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative; 
-}
-
-/* Ensure the board-render-area within it fills this aspect-ratio container */
-.player-board-display-wrapper .board-render-area {
-  width: 100%;
-  height: 100%; /* Fill the parent that now has aspect-ratio controlled height */
-  flex-grow: 0; /* No longer needed if parent has explicit aspect ratio and height is 100% */
   position: relative;
-  display: flex;
-  justify-content: center;
-  align-items: center;
+  width: 100%;
+  background-color: white;
+  border-radius: 0 0 8px 8px;
   overflow: hidden;
+  height: 200px; /* Default height */
+  transition: height 0.3s ease, opacity 0.3s ease;
 }
 
-.player-board-display-wrapper .svg-display-wrapper {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-}
-
-.player-board-display-wrapper .svg-display-wrapper svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: contain; /* This is key for scaling SVG content proportionally within its 100x100 box */
-}
-
-/* Fullscreen adjustments */
-.player-board-display-wrapper.fullscreen-wrapper .drawing-board-container {
-  min-height: 80vh;
-  height: auto; /* Allow it to grow in fullscreen */
-  padding: 20px;
-  border-width: 8px !important;
-}
-
-.player-board-display-wrapper.fullscreen-wrapper .player-board-header {
-  background-color: rgba(0,0,0,0.3);
+.player-board-display-wrapper .drawing-board-container.hidden {
+  height: 0;
+  opacity: 0;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 /* PlayerBoardDisplay styles */
