@@ -29,7 +29,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
   onKickPlayer,
   isGameMasterView = false
 }) => {
-  const { players } = useGame();
+  const { players, allAnswersThisRound } = useGame();
   const { persistentPlayerId: contextPersistentPlayerId } = useRoom();
   const actualPersistentPlayerId = propPersistentPlayerId || contextPersistentPlayerId;
 
@@ -73,6 +73,8 @@ const PlayerList: React.FC<PlayerListProps> = ({
             players.map(player => {
               // Always show kick button for GameMaster view, regardless of other conditions
               const shouldShowKickButton = isGameMasterView && !!onKickPlayer;
+              // Check if player has submitted an answer for the current question
+              const hasSubmittedAnswer = Boolean(allAnswersThisRound[player.persistentPlayerId]);
               
               if (isGameMasterView && onKickPlayer) {
                 console.log(`[PlayerList] Player ${player.name} (${player.persistentPlayerId}) kick button:`, {
@@ -101,6 +103,9 @@ const PlayerList: React.FC<PlayerListProps> = ({
                     )}
                     {!player.isActive && (
                       <span className="badge bg-warning rounded-pill ms-1">Disconnected</span>
+                    )}
+                    {hasSubmittedAnswer && !player.isSpectator && player.isActive && (
+                      <span className="badge bg-success rounded-pill ms-1">Submitted</span>
                     )}
                   </div>
                   
