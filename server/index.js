@@ -33,6 +33,11 @@ app.use(cors({
   credentials: true
 }));
 
+// Health check endpoint
+app.get('/', (req, res) => {
+  res.status(200).send('Server is healthy and running!');
+});
+
 // Store active game rooms and game recaps
 const gameRooms = {};
 
@@ -607,7 +612,6 @@ io.on('connection', (socket) => {
 
   // Create a new game room (Gamemaster)
   socket.on('create_room', ({ roomCode: requestedRoomCode } = {}) => {
-    // Use persistentPlayerId and playerName from socket.data (assigned by middleware)
     const { persistentPlayerId: gmPersistentId, playerName: gmName, isGameMaster } = socket.data;
 
     if (!isGameMaster) {
@@ -624,7 +628,23 @@ io.on('connection', (socket) => {
     }
 
     const finalRoomCode = requestedRoomCode || generateRoomCode();
-    console.log(`[Server CreateRoom] GM ${gmName} (${gmPersistentId}, socket ${socket.id}) creating room: ${finalRoomCode}`);
+    console.log(`[Server CreateRoom] GM ${gmName} (${gmPersistentId}, socket ${socket.id}) attempting to create room: ${finalRoomCode}`);
+
+    // Check if the room code is already in use
+    if (gameRooms[finalRoomCode]) {
+        if (requestedRoomCode) { // If the GM explicitly requested this code
+            console.warn(`[Server CreateRoom] Attempt by GM ${gmName} (${gmPersistentId}) to create room '${finalRoomCode}' which already exists.`);
+            socket.emit('error', { message: `Room code "${finalRoomCode}" is already in use. Please choose a different one or leave it blank for a random code.` });
+            return;
+        } else {
+            // If the server generated a code that happens to be a duplicate (extremely rare)
+            // A more robust solution might try to regenerate, but for now, log and potentially error.
+            // This scenario is highly improbable with 36^6 combinations.
+            console.error(`[Server CreateRoom] Extremely rare: Server generated a duplicate room code '${finalRoomCode}'. Collision occurred.`);
+            socket.emit('error', { message: 'Server error: Could not generate a unique room code. Please try again.'});
+            return; 
+        }
+    }
     
     // createGameRoom now takes (roomCode, gamemasterPersistentId, gamemasterSocketId)
     gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, gmPersistentId, socket.id);
