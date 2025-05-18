@@ -272,6 +272,7 @@ function generateGameRecap(roomCode) {
 }
 
 // Determine the correct build path based on environment
+/*
 let buildPath = path.join(__dirname, '../build');
 if (process.env.NODE_ENV === 'production') {
   // Check multiple possible locations for build files (for render.com deployment)
@@ -308,6 +309,7 @@ if (process.env.NODE_ENV === 'production') {
   
   app.use(express.static(buildPath));
 }
+*/
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -1542,5 +1544,5 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`Build path: ${buildPath}`);
+  // console.log(`Build path: ${buildPath}`);
 });
