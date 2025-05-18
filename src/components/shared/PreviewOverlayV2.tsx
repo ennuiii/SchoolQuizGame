@@ -1,26 +1,12 @@
 // Copy of PreviewOverlay for alternate design testing
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '../../contexts/GameContext';
+import type { Player, PlayerBoard } from '../../contexts/GameContext';
 import { useCanvas } from '../../contexts/CanvasContext';
 import { fabric } from 'fabric';
 
-interface Player {
-  id: string;
-  name: string;
-  lives: number;
-  answers: string[];
-  isActive: boolean;
-  isSpectator: boolean;
-}
-
-interface PlayerBoard {
-  playerId: string;
-  playerName: string;
-  boardData: string;
-}
-
 interface AnswerSubmission {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   answer: string;
   timestamp?: number;
@@ -112,15 +98,15 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
         }}
       >
         {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
-          const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
+          const boardSubmission = context.playerBoards.find(b => b.persistentPlayerId === player.persistentPlayerId);
           const actualBoardData = boardSubmission?.boardData;
-          const answer = context.allAnswersThisRound[player.id];
-          const evaluation = context.evaluatedAnswers[player.id];
+          const answer = context.allAnswersThisRound[player.persistentPlayerId];
+          const evaluation = context.evaluatedAnswers[player.persistentPlayerId];
           const borderColor = boardColors[idx % boardColors.length];
           const tapeColor = getRandomTapeColor(idx);
           return (
             <div
-              key={player.id} // Use player.id as key
+              key={player.persistentPlayerId} // Use player.persistentPlayerId as key
               className="classroom-whiteboard-card"
               style={{ borderColor, minWidth: displayablePlayers.length <= 3 ? 340 : 300, maxWidth: displayablePlayers.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
@@ -160,8 +146,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 {/* Correct/Incorrect buttons for GameMaster */}
                 {isGameMaster && answer && evaluation === undefined && onEvaluate && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
-                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(player.id, true)}><i className="bi bi-check-circle-fill me-1"></i>Correct</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(player.id, false)}><i className="bi bi-x-circle-fill me-1"></i>Incorrect</button>
+                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(player.persistentPlayerId, true)}><i className="bi bi-check-circle-fill me-1"></i>Correct</button>
+                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(player.persistentPlayerId, false)}><i className="bi bi-x-circle-fill me-1"></i>Incorrect</button>
                   </div>
                 )}
                 {/* Show badge if evaluated */}

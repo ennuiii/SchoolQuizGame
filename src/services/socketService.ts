@@ -21,7 +21,7 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
 
 // For testing/debugging: force local server during development
 // Comment out this line to use production server
-const FORCE_LOCAL_SERVER = true;
+//const FORCE_LOCAL_SERVER = true;
 
 // Timeout for connection attempts (in milliseconds)
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
@@ -41,9 +41,12 @@ export class SocketService {
   private tempIsGameMasterQuery: boolean = false;
 
   constructor() {
-    // Use FORCE_LOCAL_SERVER to override production URLs during development
-    this.url = process.env.REACT_APP_SOCKET_URL || 
-      (FORCE_LOCAL_SERVER && process.env.NODE_ENV !== 'production' ? 'http://localhost:5000' : SOCKET_URL);
+    // Always use local server in development
+    if (process.env.NODE_ENV !== 'production') {
+      this.url = 'http://localhost:5001';
+    } else {
+      this.url = process.env.REACT_APP_SOCKET_URL || SOCKET_URL;
+    }
     
     console.log('[SocketService] Initializing with URL:', this.url);
     
