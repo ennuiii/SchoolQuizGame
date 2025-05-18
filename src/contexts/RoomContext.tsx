@@ -29,7 +29,8 @@ interface RoomContextType {
   currentSocket: Socket | null;
   isKickedModalOpen: boolean;
   kickReason: string;
-  createRoom: (roomCode: string) => void;
+  isStreamerMode: boolean;
+  createRoom: (roomCode: string, isStreamerMode?: boolean) => void;
   kickPlayer: (playerSocketId: string) => void;
   
   // Actions
@@ -39,6 +40,7 @@ interface RoomContextType {
   setErrorMsg: (msg: string) => void;
   setCopied: (copied: boolean) => void;
   setIsSpectator: (isSpectator: boolean) => void;
+  setIsStreamerMode: (isStreamerMode: boolean) => void;
   joinRoom: (roomCode: string, playerName: string, isSpectator?: boolean) => void;
   leaveRoom: () => void;
   acknowledgeKick: () => void;
@@ -48,9 +50,18 @@ const RoomContext = createContext<RoomContextType | undefined>(undefined);
 
 export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const navigate = useNavigate();
-  const [roomCode, setRoomCode] = useState('');
-  const [playerName, setPlayerName] = useState('');
-  const [isSpectator, setIsSpectator] = useState(false);
+  const [roomCode, setRoomCode] = useState<string>(() => {
+    const stored = sessionStorage.getItem('roomCode');
+    return stored || '';
+  });
+  const [playerName, setPlayerName] = useState<string>(() => {
+    const stored = sessionStorage.getItem('playerName');
+    return stored || '';
+  });
+  const [isSpectator, setIsSpectator] = useState<boolean>(() => {
+    const stored = sessionStorage.getItem('isSpectator');
+    return stored === 'true';
+  });
   const [isLoading, setIsLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
   const [players, setPlayers] = useState<Player[]>([]);
@@ -60,8 +71,16 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isKickedModalOpen, setIsKickedModalOpen] = useState(false);
   const [kickReason, setKickReason] = useState('');
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>(socketService.getConnectionState());
+  const [isStreamerMode, setIsStreamerMode] = useState<boolean>(() => {
+    const stored = sessionStorage.getItem('isStreamerMode');
+    console.log('[RoomContext] Initializing streamer mode state:', {
+      storedValue: stored,
+      parsedValue: stored === 'true',
+      timestamp: new Date().toISOString()
+    });
+    return stored === 'true';
+  });
   const [isGameMaster, setIsGameMaster] = useState<boolean>(() => {
-    // Initialize from sessionStorage if available
     const storedValue = sessionStorage.getItem('isGameMaster');
     return storedValue ? storedValue === 'true' : false;
   });
@@ -93,11 +112,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const createRoom = useCallback(async (roomCode: string) => {
+  const createRoom = useCallback(async (roomCode: string, isStreamerMode: boolean = false) => {
     console.log('[RoomContext] createRoom: Setting player details');
     setIsLoading(true);
     setErrorMsg('');
-    socketService.setPlayerDetails('GameMaster'); // GM doesn't need a specific name
+    socketService.setPlayerDetails('GameMaster');
     console.log('[RoomContext] createRoom: Setting GM connection details');
     socketService.setGMConnectionDetails(true);
     
@@ -110,19 +129,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       console.log('[RoomContext] createRoom: Socket connected. Socket ID:', socket.id);
       
-      setCurrentSocket(socket); // Update the socket reference in state
-      
-      // Set roomCode state immediately to prevent race condition
+      setCurrentSocket(socket);
       setRoomCode(roomCode);
+      setIsStreamerMode(isStreamerMode);
       
       console.log('[RoomContext] createRoom: Creating room:', roomCode);
-      socketService.createRoom(roomCode);
+      socketService.createRoom(roomCode, isStreamerMode);
       console.log('[RoomContext] createRoom: Room creation request sent, waiting for confirmation...');
       
-      // Don't wait for the server's room_created event to set these initial values
-      // This helps prevent race conditions with the useEffect
       sessionStorage.setItem('roomCode', roomCode);
       sessionStorage.setItem('isGameMaster', 'true');
+      sessionStorage.setItem('isStreamerMode', isStreamerMode.toString());
       setIsGameMaster(true);
       
     } catch (error) {
@@ -316,37 +333,40 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       };
 
-      const onRoomJoined = (data: { roomCode: string, playerId?: string, initialPlayers?: Player[] }) => { // Server might send initial players
+      const onRoomJoined = (data: { roomCode: string, playerId?: string, initialPlayers?: Player[], isStreamerMode?: boolean }) => {
         console.log('[RoomContext] main useEffect: room_joined event. Data:', data, 'Current PlayerName:', playerName, 'IsSpectator:', isSpectator);
-        setRoomCode(data.roomCode); // Ensure context roomCode is updated from server
-        sessionStorage.setItem('roomCode', data.roomCode);
         
-        const nameToUse = playerName || sessionStorage.getItem('playerName') || '';
-        if (!playerName && nameToUse) setPlayerName(nameToUse); // Restore if not set
-        sessionStorage.setItem('playerName', nameToUse);
-
-        sessionStorage.setItem('isGameMaster', 'false');
-        setIsGameMaster(false);
-        sessionStorage.setItem('isSpectator', isSpectator.toString()); // isSpectator state should be correct by now
-        
-        let idToSet: string | null = null;
+        // Set room code and player ID
+        setRoomCode(data.roomCode);
         if (data.playerId) {
-            idToSet = data.playerId;
-            setPersistentPlayerId(idToSet);
-        } else if (socketService.getPersistentPlayerId()) {
-            idToSet = socketService.getPersistentPlayerId();
-            setPersistentPlayerId(idToSet);
+          setPersistentPlayerId(data.playerId);
+          sessionStorage.setItem('persistentPlayerId', data.playerId);
         }
-
+        
+        // Set streamer mode if provided
+        if (data.isStreamerMode !== undefined) {
+          console.log('[RoomContext] Setting streamer mode from server:', {
+            isStreamerMode: data.isStreamerMode,
+            previousValue: isStreamerMode,
+            timestamp: new Date().toISOString()
+          });
+          setIsStreamerMode(data.isStreamerMode);
+          sessionStorage.setItem('isStreamerMode', data.isStreamerMode.toString());
+        } else {
+          console.log('[RoomContext] No streamer mode value provided in room_joined event');
+        }
+        
+        // Set initial players if provided
         if (data.initialPlayers) {
-            console.log('[RoomContext] main useEffect: Setting initial players from room_joined event:', data.initialPlayers);
-            setPlayers(data.initialPlayers);
+          setPlayers(data.initialPlayers);
         }
-
-        setIsLoading(false);
-        setErrorMsg('');
-        console.log('[RoomContext] Navigating to:', isSpectator ? '/spectator' : '/player');
-        navigate(isSpectator ? '/spectator' : '/player');
+        
+        // Navigate to appropriate page
+        if (isSpectator) {
+          navigate('/spectator');
+        } else {
+          navigate('/player');
+        }
       };
 
       const onPlayerJoined = (player: Player) => {
@@ -535,6 +555,25 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [connectionStatus, roomCode]);
 
+  // Add debug logging for streamer mode state changes
+  useEffect(() => {
+    console.log('[RoomContext] Streamer mode state changed:', {
+      isStreamerMode,
+      timestamp: new Date().toISOString()
+    });
+  }, [isStreamerMode]);
+
+  // Add debug logging for state changes
+  useEffect(() => {
+    console.log('[RoomContext] State updated:', {
+      roomCode,
+      playerName,
+      isSpectator,
+      isStreamerMode,
+      timestamp: new Date().toISOString()
+    });
+  }, [roomCode, playerName, isSpectator, isStreamerMode]);
+
   const value: RoomContextType = {
     roomCode,
     playerName,
@@ -549,6 +588,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     currentSocket,
     isKickedModalOpen,
     kickReason,
+    isStreamerMode,
     createRoom,
     setRoomCode,
     setPlayerName,
@@ -556,6 +596,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setErrorMsg,
     setCopied,
     setIsSpectator,
+    setIsStreamerMode,
     joinRoom,
     leaveRoom,
     kickPlayer,

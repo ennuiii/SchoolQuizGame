@@ -2,8 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
 
 const RoomCode: React.FC = () => {
-  const { roomCode } = useRoom();
+  const { roomCode, isStreamerMode } = useRoom();
   const [copied, setCopied] = useState(false);
+
+  // Debug logging
+  useEffect(() => {
+    console.log('[RoomCode] Component rendered with:', {
+      roomCode,
+      isStreamerMode,
+      timestamp: new Date().toISOString()
+    });
+  }, [roomCode, isStreamerMode]);
 
   const handleCopyCode = () => {
     if (!roomCode) return;
@@ -35,7 +44,9 @@ const RoomCode: React.FC = () => {
       <div className="card-body">
         <div className="d-flex flex-column gap-2">
           <div className="room-code-display p-2 bg-light rounded text-center">
-            <h3 className="mb-0">{roomCode}</h3>
+            <h3 className="mb-0">
+              {isStreamerMode ? '••••••' : roomCode}
+            </h3>
           </div>
           <div className="d-flex gap-2">
             <button 

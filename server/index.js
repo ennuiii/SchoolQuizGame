@@ -129,9 +129,10 @@ function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
     questionStartTime: null,
     roundAnswers: {},
     evaluatedAnswers: {},
-    playerBoards: {}, // Initialize playerBoards as empty object, not null
+    playerBoards: {},
     submissionPhaseOver: false,
-    isConcluded: false
+    isConcluded: false,
+    isStreamerMode: false
   };
 }
 
@@ -682,12 +683,13 @@ io.on('connection', (socket) => {
   }
 
   // Create a new game room (Gamemaster)
-  socket.on('create_room', ({ roomCode } = {}) => {
+  socket.on('create_room', ({ roomCode, isStreamerMode } = {}) => {
     const finalRoomCode = roomCode || generateRoomCode();
     console.log(`[Server] Creating room:`, {
       roomCode: finalRoomCode,
       gamemaster: socket.id,
       persistentGamemasterId: socket.data.persistentPlayerId,
+      isStreamerMode,
       timestamp: new Date().toISOString()
     });
     
@@ -698,15 +700,18 @@ io.on('connection', (socket) => {
       return;
     }
     
-    gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId);
+    const room = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId);
+    room.isStreamerMode = isStreamerMode || false;
+    gameRooms[finalRoomCode] = room;
 
     socket.join(finalRoomCode);
     socket.roomCode = finalRoomCode;
-    socket.emit('room_created', { roomCode: finalRoomCode });
+    socket.emit('room_created', { roomCode: finalRoomCode, isStreamerMode: room.isStreamerMode });
     console.log(`[Server] Room created successfully:`, {
       roomCode: finalRoomCode,
       gamemaster: socket.id,
       persistentGamemasterId: socket.data.persistentPlayerId,
+      isStreamerMode: room.isStreamerMode,
       timestamp: new Date().toISOString()
     });
   });
@@ -781,7 +786,8 @@ io.on('connection', (socket) => {
         // Emit events
         socket.emit('room_joined', { 
           roomCode,
-          playerId: persistentPlayerId
+          playerId: persistentPlayerId,
+          isStreamerMode: room.isStreamerMode
         });
         
         // Notify room of player reconnection
@@ -823,7 +829,8 @@ io.on('connection', (socket) => {
         // Send room and game state
         socket.emit('room_joined', { 
           roomCode,
-          playerId: persistentPlayerId
+          playerId: persistentPlayerId,
+          isStreamerMode: room.isStreamerMode
         });
         
         const gameState = getGameState(roomCode);
@@ -879,7 +886,16 @@ io.on('connection', (socket) => {
     // Send full game state to the joining player
     socket.emit('room_joined', { 
       roomCode,
-      playerId: persistentPlayerId
+      playerId: persistentPlayerId,
+      isStreamerMode: room.isStreamerMode
+    });
+    
+    console.log(`[Server] Sent room_joined event to player:`, {
+      roomCode,
+      playerId: socket.id,
+      persistentPlayerId,
+      isStreamerMode: room.isStreamerMode,
+      timestamp: new Date().toISOString()
     });
     
     const gameState = getGameState(roomCode);

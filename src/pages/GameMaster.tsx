@@ -33,6 +33,7 @@ const GameMaster: React.FC = () => {
   const [timeLimit, setTimeLimit] = useState(99999);
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [hasRestoredVisibilityOnConnect, setHasRestoredVisibilityOnConnect] = useState(false);
+  const [isStreamerMode, setIsStreamerMode] = useState(false);
   
   const {
     roomCode,
@@ -284,8 +285,8 @@ const GameMaster: React.FC = () => {
     console.log('[GameMaster] Attempting to create room:', newRoomCode);
     
     setIsRoomLoading(true);
-    createRoom(newRoomCode);
-  }, [createRoom, inputRoomCode, setIsRoomLoading, connectionStatus]);
+    createRoom(newRoomCode, isStreamerMode);
+  }, [createRoom, inputRoomCode, setIsRoomLoading, connectionStatus, isStreamerMode]);
 
   useEffect(() => {
     console.log('[GameMaster] Game state changed:', {
@@ -529,6 +530,21 @@ const GameMaster: React.FC = () => {
                 />
                 <small className="text-muted">
                   You can specify a custom room code or leave it blank for a random one.
+                </small>
+              </div>
+              <div className="form-check mb-3">
+                <input
+                  type="checkbox"
+                  className="form-check-input"
+                  id="streamerModeCheckbox"
+                  checked={isStreamerMode}
+                  onChange={(e) => setIsStreamerMode(e.target.checked)}
+                />
+                <label className="form-check-label" htmlFor="streamerModeCheckbox">
+                  Streamer Mode (Hide Room Code)
+                </label>
+                <small className="d-block text-muted">
+                  When enabled, the room code will be hidden but still copyable.
                 </small>
               </div>
               <button
