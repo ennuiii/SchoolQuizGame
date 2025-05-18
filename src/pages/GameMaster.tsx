@@ -150,12 +150,20 @@ const GameMaster: React.FC = () => {
   useEffect(() => {
     if (connectionStatus === 'connected' && roomCode) {
       console.log('[GameMaster] Connected with room code, requesting game state update...');
+      
+      // Join the room first if reconnecting
+      if (socketService.getConnectionState() === 'connected' && !isRoomLoading) {
+        console.log('[GameMaster] Attempting to rejoin room after reconnection:', roomCode);
+        socketService.rejoinRoom(roomCode, true); // true = isGameMaster
+      }
+      
+      // Request game state
       socketService.requestGameState(roomCode);
       
       // Also explicitly request current player list
       socketService.requestPlayers(roomCode);
     }
-  }, [connectionStatus, roomCode]);
+  }, [connectionStatus, roomCode, isRoomLoading]);
 
   // Explicitly listen for player updates
   useEffect(() => {

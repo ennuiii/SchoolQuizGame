@@ -34,11 +34,26 @@ const Spectator: React.FC = () => {
   const {
     roomCode,
     playerName,
+    connectionStatus,
   } = useRoom();
 
   useEffect(() => {
     playBackgroundMusic();
   }, [playBackgroundMusic]);
+
+  // Handle reconnection
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomCode) {
+      console.log('[Spectator] Connected with room code, attempting to rejoin:', roomCode);
+      
+      // Rejoin the room
+      socketService.rejoinRoom(roomCode, false); // false = not GM
+      
+      // Request current state
+      socketService.requestGameState(roomCode);
+      socketService.requestPlayers(roomCode);
+    }
+  }, [connectionStatus, roomCode]);
 
   const handleJoinAsPlayer = useCallback(() => {
     if (!roomCode || !playerName) return;

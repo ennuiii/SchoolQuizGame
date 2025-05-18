@@ -1090,6 +1090,7 @@ io.on('connection', (socket) => {
     console.log(`[Server] Received request_players for room:`, {
       roomCode,
       socketId: socket.id,
+      persistentPlayerId: socket.data.persistentPlayerId,
       timestamp: new Date().toISOString()
     });
     
@@ -1101,24 +1102,65 @@ io.on('connection', (socket) => {
     }
 
     // Check if socket is the gamemaster or a player in this room
-    const isGameMaster = room.gamemaster === socket.id;
-    const isPlayerInRoom = room.players.some(p => p.id === socket.id);
+    // Use persistentPlayerId to identify rather than socket.id
+    const isPotentialGameMaster = room.gamemasterPersistentId === socket.data.persistentPlayerId;
+    const isPlayerInRoom = room.players.some(p => p.persistentPlayerId === socket.data.persistentPlayerId);
     
-    if (!isGameMaster && !isPlayerInRoom && !socket.rooms.has(roomCode)) {
+    console.log(`[Server] request_players authorization check:`, {
+      roomCode,
+      socketId: socket.id,
+      isPotentialGameMaster,
+      isPlayerInRoom,
+      persistentPlayerId: socket.data.persistentPlayerId,
+      gmPersistentId: room.gamemasterPersistentId,
+      isGameMaster: socket.data.isGameMaster,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (!isPotentialGameMaster && !isPlayerInRoom && !socket.rooms.has(roomCode)) {
       console.error('[Server] request_players access denied:', {
         roomCode,
         socketId: socket.id,
-        isGameMaster,
+        isPotentialGameMaster,
         isPlayerInRoom,
+        persistentPlayerId: socket.data.persistentPlayerId,
         timestamp: new Date().toISOString()
       });
       socket.emit('error', { message: 'Not authorized to request players for this room' });
       return;
     }
+    
+    if (isPotentialGameMaster && room.gamemaster !== socket.id) {
+      // This is the game master reconnecting, update the gamemaster socket id
+      room.gamemaster = socket.id;
+      room.gamemasterSocketId = socket.id;
+      
+      if (room.gamemasterDisconnected) {
+        // Clear any disconnect timer
+        if (room.gamemasterDisconnectTimer) {
+          clearTimeout(room.gamemasterDisconnectTimer);
+          room.gamemasterDisconnectTimer = null;
+        }
+        room.gamemasterDisconnected = false;
+        
+        // Notify everyone that GM is back
+        io.to(roomCode).emit('gm_disconnected_status', { disconnected: false });
+      }
+      
+      // Add socket to the room
+      socket.join(roomCode);
+      
+      console.log(`[Server] Game master re-authenticated:`, {
+        roomCode, 
+        socketId: socket.id,
+        persistentPlayerId: socket.data.persistentPlayerId
+      });
+    }
 
     // Send the current player list to the requesting client
     console.log(`[Server] Sending players_update to ${socket.id} with ${room.players.length} players:`, 
       room.players.map(p => ({ id: p.id, name: p.name, isSpectator: p.isSpectator })));
+    
     socket.emit('players_update', room.players);
   });
 
@@ -1773,6 +1815,126 @@ io.on('connection', (socket) => {
         }
       }
     }
+  });
+
+  // Handle rejoin_room for reconnections (especially after F5)
+  socket.on('rejoin_room', ({ roomCode, isGameMaster, persistentPlayerId }) => {
+    console.log(`[Server] Received rejoin_room request:`, {
+      roomCode,
+      socketId: socket.id,
+      persistentPlayerId: persistentPlayerId || socket.data.persistentPlayerId,
+      isGameMaster,
+      timestamp: new Date().toISOString()
+    });
+    
+    const room = gameRooms[roomCode];
+    if (!room) {
+      console.error('[Server] rejoin_room failed - Room not found:', roomCode);
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+    
+    // Get the persistent ID (prefer the one passed in the event, fallback to socket.data)
+    const actualPersistentId = persistentPlayerId || socket.data.persistentPlayerId;
+    
+    // Handle game master rejoining
+    if (isGameMaster && room.gamemasterPersistentId === actualPersistentId) {
+      // This is indeed the game master, update references
+      room.gamemaster = socket.id;
+      room.gamemasterSocketId = socket.id;
+      
+      // Add socket to the room
+      socket.join(roomCode);
+      socket.roomCode = roomCode;
+      
+      // Clear GM disconnect status if needed
+      if (room.gamemasterDisconnected) {
+        if (room.gamemasterDisconnectTimer) {
+          clearTimeout(room.gamemasterDisconnectTimer);
+          room.gamemasterDisconnectTimer = null;
+        }
+        room.gamemasterDisconnected = false;
+        io.to(roomCode).emit('gm_disconnected_status', { disconnected: false });
+      }
+      
+      console.log(`[Server] Game master rejoined room ${roomCode}:`, {
+        socketId: socket.id,
+        persistentPlayerId: actualPersistentId
+      });
+      
+      // Confirm room joined
+      socket.emit('room_created', { roomCode });
+      
+      // Send the current game state
+      const gameState = getGameState(roomCode);
+      if (gameState) {
+        socket.emit('game_state_update', gameState);
+      }
+      
+      // Send the current player list
+      socket.emit('players_update', room.players);
+      return;
+    }
+    
+    // Handle player rejoining
+    const playerIndex = room.players.findIndex(p => p.persistentPlayerId === actualPersistentId);
+    if (playerIndex !== -1) {
+      // Found the player, update their socket info
+      const player = room.players[playerIndex];
+      const oldSocketId = player.id;
+      
+      // Update player info
+      player.id = socket.id;
+      player.isActive = true;
+      
+      // Clear any disconnect timer
+      if (player.disconnectTimer) {
+        clearTimeout(player.disconnectTimer);
+        player.disconnectTimer = null;
+      }
+      
+      // Add socket to the room
+      socket.join(roomCode);
+      socket.roomCode = roomCode;
+      
+      console.log(`[Server] Player rejoined room ${roomCode}:`, {
+        socketId: socket.id,
+        oldSocketId,
+        playerName: player.name,
+        persistentPlayerId: actualPersistentId
+      });
+      
+      // Notify everyone about reconnection
+      io.to(roomCode).emit('player_reconnected_status', {
+        playerId: socket.id,
+        persistentPlayerId: actualPersistentId,
+        isActive: true
+      });
+      
+      // Confirm room joined
+      socket.emit('room_joined', { 
+        roomCode,
+        playerId: actualPersistentId
+      });
+      
+      // Send the current game state
+      const gameState = getGameState(roomCode);
+      if (gameState) {
+        socket.emit('game_state_update', gameState);
+      }
+      
+      // Send the current player list
+      socket.emit('players_update', room.players);
+      return;
+    }
+    
+    // If we get here, the persistent ID doesn't match any GM or player
+    console.error('[Server] rejoin_room failed - Unauthorized:', {
+      roomCode,
+      socketId: socket.id,
+      persistentPlayerId: actualPersistentId
+    });
+    socket.emit('error', { message: 'Not authorized to rejoin this room' });
   });
 });
 

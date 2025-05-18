@@ -497,6 +497,14 @@ export class SocketService {
   async requestPlayers(roomCode: string): Promise<void> {
     await this.robustEmit('request_players', { roomCode });
   }
+
+  async rejoinRoom(roomCode: string, isGameMaster: boolean = false): Promise<void> {
+    await this.robustEmit('rejoin_room', { 
+      roomCode, 
+      isGameMaster, 
+      persistentPlayerId: this.persistentPlayerId
+    });
+  }
 }
 
 const socketService = new SocketService();

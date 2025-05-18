@@ -243,11 +243,19 @@ const Player: React.FC = () => {
 
   // If we have a stored roomCode but connection is lost, request game state update upon reconnection
   useEffect(() => {
-    if (connectionStatus === 'connected' && roomCode && gameStarted) {
-      // Only request state update after a reconnection
+    if (connectionStatus === 'connected' && roomCode) {
+      // Attempt to rejoin the room
+      console.log('[Player] Connected with room code, attempting to rejoin:', roomCode);
+      
+      if (!isRoomLoading) {
+        socketService.rejoinRoom(roomCode, false); // false = not GM
+      }
+      
+      // Request the latest state
       socketService.requestGameState(roomCode);
+      socketService.requestPlayers(roomCode);
     }
-  }, [connectionStatus, roomCode, gameStarted]);
+  }, [connectionStatus, roomCode, isRoomLoading]);
 
   // Add a connection effect that initializes when component mounts
   useEffect(() => {
