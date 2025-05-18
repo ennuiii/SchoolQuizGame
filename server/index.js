@@ -345,6 +345,12 @@ io.use((socket, next) => {
     const roomCodeQuery = query.roomCode;
     const isInitialConnection = query.isInitialConnection === "true";
 
+    console.log(`[AUTH] Socket ${socket.id} authentication check:`, {
+      query,
+      isInitialConnection,
+      auth
+    });
+
     // Initialize socket.data property
     socket.data = socket.data || {};
     

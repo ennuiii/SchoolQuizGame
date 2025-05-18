@@ -50,6 +50,17 @@ const JoinGame: React.FC = () => {
         // Mark this as an initial connection to bypass player name requirement
         socketService.setConnectionParams({ isInitialConnection: true });
         
+        // Set player details if available from previous session
+        const savedPlayerName = sessionStorage.getItem('playerName');
+        if (savedPlayerName) {
+          socketService.setPlayerDetails(savedPlayerName);
+        }
+        
+        console.log('[JoinGame] Connecting with initial parameters:', { 
+          isInitialConnection: true,
+          playerName: savedPlayerName || null
+        });
+        
         const socket = await socketService.connect();
         if (!socket) {
           console.error('Failed to connect to socket server');
@@ -89,11 +100,20 @@ const JoinGame: React.FC = () => {
 
     setIsConnecting(true);
     try {
+      // Save player name to sessionStorage for persistence
+      sessionStorage.setItem('playerName', playerName);
+      
       // Set player details for the actual join attempt
       socketService.setPlayerDetails(playerName);
       
       // Reset connection params (no longer an initial connection)
       socketService.setConnectionParams({ isInitialConnection: false });
+      
+      console.log('[JoinGame] Attempting to join room with params:', {
+        roomCode,
+        playerName,
+        isInitialConnection: false
+      });
       
       const socket = await socketService.connect();
       if (!socket || !socket.connected) {
@@ -181,7 +201,14 @@ const JoinGame: React.FC = () => {
                     className="form-control"
                     placeholder="Enter your name"
                     value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      setPlayerName(newName);
+                      // Update player details in socketService when name is entered
+                      if (newName) {
+                        socketService.setPlayerDetails(newName);
+                      }
+                    }}
                   />
                 </div>
 

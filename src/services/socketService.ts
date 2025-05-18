@@ -128,10 +128,13 @@ export class SocketService {
     console.log('[SocketService] Attempting to connect to:', this.url);
     this.updateConnectionState('connecting');
 
-    // Prepare query parameters for connection
-    const queryParams: any = {
-      ...this.connectionParams
-    };
+    // Prepare query parameters for connection - stringify all boolean values
+    const queryParams: Record<string, string> = {};
+    
+    // Convert connectionParams values to strings
+    Object.entries(this.connectionParams).forEach(([key, value]) => {
+      queryParams[key] = typeof value === 'boolean' ? String(value) : value;
+    });
     
     if (this.tempIsGameMasterQuery) {
       queryParams.isGameMaster = "true";
@@ -139,6 +142,8 @@ export class SocketService {
         queryParams.roomCode = this.tempRoomCodeForGM;
       }
     }
+
+    console.log('[SocketService] Connecting with query params:', queryParams);
 
     this.connectionPromise = new Promise((resolve, reject) => {
       // Setup connection timeout
