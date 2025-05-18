@@ -635,6 +635,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // This handler can be used for immediate client-side only logic if needed,
         // or for things not covered by the main game state object from server.
         setSubmittedAnswer(false); // Reset context-level submission flag (likely for GM UI)
+        
+        // Explicitly reset answers for new question to ensure drawing isn't disabled
+        console.log('[GameContext] Explicitly clearing allAnswersThisRound in newQuestionHandler');
+        setAllAnswersThisRound({});
     };
     const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
     const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };

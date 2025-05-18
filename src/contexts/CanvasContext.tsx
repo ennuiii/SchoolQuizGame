@@ -196,11 +196,13 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
   const initializeCanvas = useCallback((container: HTMLElement, width = 800, height = 400) => {
     // Clean up any existing canvas
     if (canvas) {
+      console.log('[CanvasContext] initializeCanvas: Disposing existing canvas before creating new one');
       canvas.dispose();
     }
 
     // Clear all content from the container first to avoid nested canvas containers
     container.innerHTML = '';
+    console.log('[CanvasContext] initializeCanvas: Cleared container content, creating new canvas element');
 
     // Create canvas element
     const canvasEl = document.createElement('canvas');
@@ -213,6 +215,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     const containerRect = container.getBoundingClientRect();
     const actualWidth = containerRect.width || width;
     const actualHeight = containerRect.height || height;
+    console.log('[CanvasContext] initializeCanvas: Creating canvas with dimensions', { actualWidth, actualHeight });
 
     // Since the container is absolutely positioned, don't try to set explicit dimensions
     // as they may conflict with the layout
@@ -231,10 +234,35 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       stateful: false // Disable state tracking which can cause issues
     });
 
-    // Set up drawing brush
+    console.log('[CanvasContext] initializeCanvas: Canvas created successfully', { 
+      width: fabricCanvas.width, 
+      height: fabricCanvas.height,
+      isDrawingMode: fabricCanvas.isDrawingMode
+    });
+
+    // Set up drawing brush with chalk-like style
     fabricCanvas.freeDrawingBrush = new fabric.PencilBrush(fabricCanvas);
-    fabricCanvas.freeDrawingBrush.width = 5;
-    fabricCanvas.freeDrawingBrush.color = '#000';
+    fabricCanvas.freeDrawingBrush.width = 8; // Medium chalk width
+    fabricCanvas.freeDrawingBrush.color = '#FFFFFF'; // White chalk by default
+    
+    // Add chalk-like effect
+    if ('shadow' in fabricCanvas.freeDrawingBrush) {
+      // @ts-ignore - TypeScript might not know about shadow property
+      fabricCanvas.freeDrawingBrush.shadow = new fabric.Shadow({
+        blur: 1,
+        offsetX: 1,
+        offsetY: 1,
+        color: 'rgba(0,0,0,0.3)'
+      });
+    }
+    
+    // Add slight opacity for more chalk-like appearance
+    if ('opacity' in fabricCanvas.freeDrawingBrush) {
+      // @ts-ignore - TypeScript might not know about opacity property
+      fabricCanvas.freeDrawingBrush.opacity = 0.9;
+    }
+    
+    console.log('[CanvasContext] initializeCanvas: Drawing brush configured with chalk-like style');
 
     // Store canvas in both state and ref
     setCanvas(fabricCanvas);
@@ -242,6 +270,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     
     // Set up event handlers
     setupCanvasHandlers(fabricCanvas);
+    console.log('[CanvasContext] initializeCanvas: Canvas handlers set up, canvas is ready for drawing');
     
     return fabricCanvas;
   }, [canvas, setupCanvasHandlers]);
@@ -331,13 +360,6 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     fabricCanvasRef.current = null;
   }, [canvas]);
 
-  const getCurrentCanvasSVG = useCallback((): string | null => {
-    if (fabricCanvasRef.current) {
-      return fabricCanvasRef.current.toSVG();
-    }
-    return null;
-  }, []); // No dependencies
-
   const contextValue = React.useMemo(() => ({
     canvas,
     initializeCanvas,
@@ -350,18 +372,34 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     updateBoard,
     setDrawingEnabled,
     disposeCanvas,
-    getCurrentCanvasSVG
+    getCurrentCanvasSVG: (): string | null => {
+      if (fabricCanvasRef.current) {
+        const canvasInstance = fabricCanvasRef.current;
+        const objects = canvasInstance.getObjects();
+        console.log(`[CanvasContext] getCurrentCanvasSVG (direct from contextValue): Canvas instance exists. Number of objects: ${objects.length}`);
+        if (objects.length === 0) {
+          console.warn("[CanvasContext] getCurrentCanvasSVG (direct from contextValue): No objects on canvas, toSVG() will likely be empty or minimal.");
+        }
+        const svgData = canvasInstance.toSVG();
+        if (!svgData || !svgData.includes('<path') && objects.length > 0) {
+            console.warn("[CanvasContext] getCurrentCanvasSVG (direct from contextValue): toSVG() produced an SVG without <path> elements, despite objects being present. SVG data (first 100 chars):", svgData ? svgData.substring(0,100) : "NULL");
+        }
+        return svgData;
+      }
+      console.warn("[CanvasContext] getCurrentCanvasSVG (direct from contextValue): fabricCanvasRef.current is null.");
+      return null;
+    }
   }), [
+      canvas,
       isDrawingReactive, 
       lastSvgDataReactive,
-      initializeCanvas, 
+      initializeCanvas,
       getCanvasState, 
       loadFromJSON, 
       clear, 
       updateBoard, 
       setDrawingEnabled, 
-      disposeCanvas, 
-      getCurrentCanvasSVG
+      disposeCanvas
     ]
   );
 

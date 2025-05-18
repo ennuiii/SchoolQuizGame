@@ -22,6 +22,25 @@ interface DrawingBoardProps {
   width?: number;
 }
 
+// Define preset chalk colors for the drawing board
+const CHALK_COLORS = [
+  '#FFFFFF', // White chalk
+  '#FFE66D', // Yellow chalk
+  '#7BDFF2', // Blue chalk
+  '#FF6B6B', // Red chalk
+  '#B1E77B', // Green chalk
+  '#F7AEF8', // Pink chalk
+];
+
+// Define preset brush sizes
+const BRUSH_SIZES = [
+  { name: 'XS', value: 2 },
+  { name: 'S', value: 4 },
+  { name: 'M', value: 8 },
+  { name: 'L', value: 12 },
+  { name: 'XL', value: 16 },
+];
+
 const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   onUpdate,
   disabled,
@@ -38,6 +57,32 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   const { connectionStatus, roomCode, persistentPlayerId } = useRoom();
   const [lastSentState, setLastSentState] = useState('');
   const [boardRestored, setBoardRestored] = useState(false);
+  
+  // Add state for brush color and size
+  const [brushColor, setBrushColor] = useState(CHALK_COLORS[0]); // Default white chalk
+  const [brushSize, setBrushSize] = useState(BRUSH_SIZES[2].value); // Default medium size
+  
+  // Apply brush settings whenever they change or canvas changes
+  useEffect(() => {
+    if (!canvas) return;
+    if (canvas.freeDrawingBrush) {
+      canvas.freeDrawingBrush.color = brushColor;
+      canvas.freeDrawingBrush.width = brushSize;
+      
+      // For chalk effect - make the brush have a subtle shadow and opacity
+      if (canvas.freeDrawingBrush.shadow) {
+        canvas.freeDrawingBrush.shadow.blur = 1;
+        canvas.freeDrawingBrush.shadow.offsetX = 1;
+        canvas.freeDrawingBrush.shadow.offsetY = 1;
+        canvas.freeDrawingBrush.shadow.color = 'rgba(0,0,0,0.3)';
+      }
+      
+      // Set the opacity slightly less than 1 for chalk effect
+      if (canvas.freeDrawingBrush.opacity !== undefined) {
+        canvas.freeDrawingBrush.opacity = 0.9;
+      }
+    }
+  }, [canvas, brushColor, brushSize]);
   
   // Get canvas state and send to server periodically
   useEffect(() => {
@@ -67,10 +112,25 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
 
   // Initialize canvas
   useEffect(() => {
-    if (canvasContainerRef.current && !canvas) {
-      initializeCanvas(canvasContainerRef.current, width, height);
+    console.log('[FabricDrawingBoard] Init useEffect running. Context canvas:', canvas);
+    if (canvasContainerRef.current) {
+      console.log('[FabricDrawingBoard] canvasContainerRef is available.');
+      if (!canvas) {
+        console.log('[FabricDrawingBoard] Context canvas is null, calling initializeCanvas.');
+        initializeCanvas(canvasContainerRef.current, width, height);
+      } else {
+        // 'canvas' here is the fabric.Canvas instance from the context
+        console.log('[FabricDrawingBoard] Context canvas already exists. Instance:', canvas);
+        // Ensure drawing mode is correctly set if canvas already exists (e.g., on re-render)
+        // This is important because the `disabled` or `submittedAnswer` prop might have changed
+        canvas.isDrawingMode = !disabled && !submittedAnswer;
+        console.log('[FabricDrawingBoard] Existing canvas isDrawingMode synced to:', canvas.isDrawingMode);
+        canvas.renderAll(); // Re-render to apply drawing mode change if any
+      }
+    } else {
+      console.warn('[FabricDrawingBoard] canvasContainerRef is NOT available yet for initialization.');
     }
-  }, [canvas, initializeCanvas, width, height]);
+  }, [canvas, initializeCanvas, width, height, disabled, submittedAnswer]);
 
   // Handle drawing state
   useEffect(() => {
@@ -181,6 +241,77 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
     }
   }, [clear, roomCode, disabled, submittedAnswer, onUpdate]);
 
+  // Custom drawing control panel
+  const renderDrawingControls = () => {
+    if (disabled || submittedAnswer) return null;
+    
+    return (
+      <div className="drawing-board-external-controls d-flex justify-content-between w-100 mt-2 mb-2">
+        <div className="drawing-controls-left d-flex align-items-center gap-2">
+          <div className="brush-size-controls">
+            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>Size:</label>
+            <div className="btn-group">
+              {BRUSH_SIZES.map((size) => (
+                <button
+                  key={size.name}
+                  className={`btn btn-sm ${brushSize === size.value ? 'btn-light' : 'btn-outline-light'}`}
+                  onClick={() => setBrushSize(size.value)}
+                  title={`${size.name} Brush (${size.value}px)`}
+                >
+                  {size.name}
+                </button>
+              ))}
+            </div>
+          </div>
+          
+          <div className="color-palette d-flex align-items-center ms-3">
+            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>Color:</label>
+            <div className="d-flex gap-1">
+              {CHALK_COLORS.map((color) => (
+                <button
+                  key={color}
+                  className="btn btn-sm color-button p-0"
+                  onClick={() => setBrushColor(color)}
+                  title={color === '#FFFFFF' ? 'White Chalk' : 
+                         color === '#FFE66D' ? 'Yellow Chalk' : 
+                         color === '#7BDFF2' ? 'Blue Chalk' : 
+                         color === '#FF6B6B' ? 'Red Chalk' : 
+                         color === '#B1E77B' ? 'Green Chalk' : 'Pink Chalk'}
+                  style={{
+                    width: '24px',
+                    height: '24px',
+                    backgroundColor: color,
+                    border: color === brushColor ? '2px solid #fff' : '1px solid rgba(255,255,255,0.5)',
+                    borderRadius: '50%',
+                    boxShadow: color === brushColor ? '0 0 0 2px #0C6A35' : 'none'
+                  }}
+                >
+                  <span className="visually-hidden">{color}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+        
+        <div className="drawing-controls-right">
+          <button 
+            className="btn" 
+            onClick={clearCanvas}
+            style={{
+              backgroundColor: '#8B4513',
+              borderColor: '#8B4513',
+              color: 'white',
+              minWidth: '120px',
+              fontWeight: 'bold'
+            }}
+          >
+            Clear Canvas
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <>
       <div className="drawing-board-container" style={{ height: height, position: 'relative' }}>
@@ -199,25 +330,7 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
       </div>
 
       {/* Controls are now OUTSIDE the drawing-board-container */}
-      {controls ? controls : (
-        !disabled && !submittedAnswer && (
-          <div className="drawing-board-external-controls d-flex justify-content-end w-100 mt-2 mb-2">
-            <button 
-              className="btn" 
-              onClick={clearCanvas}
-              style={{
-                backgroundColor: '#8B4513',
-                borderColor: '#8B4513',
-                color: 'white',
-                minWidth: '120px',
-                fontWeight: 'bold'
-              }}
-            >
-              Clear Canvas
-            </button>
-          </div>
-        )
-      )}
+      {controls ? controls : renderDrawingControls()}
     </>
   );
 };

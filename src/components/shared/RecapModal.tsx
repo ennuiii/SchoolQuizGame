@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { Modal, Button, Nav, Tab, ListGroup } from 'react-bootstrap';
 import type { GameRecapData, RoundInRecap, PlayerInRecap, SubmissionInRecap, QuestionInRecap } from '../../types/recap'; // Adjusted import path
 import QuestionDisplayCard from './QuestionDisplayCard'; // Import the new component
@@ -44,6 +44,13 @@ const RecapModal: React.FC<RecapModalProps> = ({
   
   // Determine the winner for display
   const winner = recap.players.find(p => p.isWinner);
+
+  // Filter out players who were only ever spectators and didn't actively participate or get eliminated
+  const participatingPlayers = recap.players.filter(player => 
+    player.isWinner || // Always show the winner
+    (player.isActive && player.finalLives > 0) || // Show active players with lives
+    (!player.isActive && player.finalLives === 0 && !player.joinedAsSpectator) // Show eliminated players who didn't join as spectators initially
+  );
 
   return (
     <div className="modal show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}> {/* Added tabIndex and background */}
@@ -91,7 +98,7 @@ const RecapModal: React.FC<RecapModalProps> = ({
                    )}
                   <h5>Player Standings:</h5>
                   <ListGroup>
-                    {recap.players.map((player, index) => (
+                    {participatingPlayers.map((player, index) => (
                       <ListGroup.Item key={player.id} variant={player.isWinner ? 'success' : player.isActive && player.finalLives > 0 ? 'light' : player.finalLives === 0 ? 'danger' : 'secondary'}>
                         <div className="d-flex justify-content-between align-items-center">
                           <div>
@@ -189,13 +196,29 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
 }) => {
   const [enlargedDrawing, setEnlargedDrawing] = useState<{ svg: string; playerName: string } | null>(null);
 
+  console.log(`[RecapModal] RoundDetailsContent rendering. Selected Round Index: ${currentSelectedRoundIndex}`); // Added log
+
   if (!recap.rounds || recap.rounds.length === 0 || !recap.rounds[currentSelectedRoundIndex]) {
+    console.warn("[RecapModal] RoundDetailsContent: No round data or invalid round index."); // Added log
     return <p>No round data available to display or selected round is invalid.</p>;
   }
   
   const currentRoundData: RoundInRecap = recap.rounds[currentSelectedRoundIndex];
 
-  // Function to handle clicking on a drawing to enlarge it
+  const getPlayerDetails = useCallback((persistentId: string) => {
+    return recap.players.find(p => p.persistentPlayerId === persistentId);
+  }, [recap.players]);
+
+  // Filter submissions to exclude those from players who were only ever spectators
+  const filteredSubmissions = currentRoundData.submissions.filter(submission => {
+    const playerDetail = getPlayerDetails(submission.persistentPlayerId);
+    // Show submission if player detail exists and they didn't join as a pure spectator,
+    // or if player detail couldn't be found (fallback to show, though unlikely).
+    return playerDetail ? !playerDetail.joinedAsSpectator : true;
+  });
+
+  console.log(`[RecapModal] Round ${currentRoundData.roundNumber}: Filtered Submissions Count: ${filteredSubmissions.length}`, filteredSubmissions); // Added log
+
   const handleEnlargeDrawing = (svgData: string, playerName: string) => {
     setEnlargedDrawing({ svg: svgData, playerName });
   };
@@ -213,7 +236,7 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                   onSelectRound(index);
                 }
               }}
-              disabled={!isControllable} // Disable if not controllable
+              disabled={!isControllable}
             >
               Round {round.roundNumber}
             </button>
@@ -226,53 +249,75 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
           <QuestionDisplayCard question={currentRoundData.question} showAnswer={true} title="Question Details" />
           <h5>Submissions</h5>
           <div className="list-group">
-            {currentRoundData.submissions.map((submission: SubmissionInRecap) => {
-              // Log submission data just before rendering
+            {filteredSubmissions.map((submission: SubmissionInRecap, idx: number) => { // Use filteredSubmissions
+              const playerDetails = getPlayerDetails(submission.persistentPlayerId);
+              const playerLives = playerDetails?.finalLives ?? 0;
+              const playerName = submission.playerName || playerDetails?.name || 'Unknown Player';
+
+              // Logging for drawing data
               if (submission.hasDrawing) {
-                console.log(`[RecapModal DEBUG] Player ${submission.playerName}: Rendering submission. HasDrawing: ${submission.hasDrawing}, DrawingData Length: ${submission.drawingData?.length}`);
-                if (submission.drawingData && submission.drawingData.length < 200) { // Log short SVGs
-                    console.log(`[RecapModal DEBUG] Player ${submission.playerName}: DrawingData content (short): ${submission.drawingData}`);
+                if (submission.drawingData && submission.drawingData.length > 0) {
+                  console.log(`[RecapModal] Player: ${playerName}, Round: ${currentRoundData.roundNumber}, Submission hasDrawing=true. DrawingData (first 100 chars):`, submission.drawingData.substring(0,100));
+                } else {
+                  console.warn(`[RecapModal] Player: ${playerName}, Round: ${currentRoundData.roundNumber}, Submission hasDrawing=true, BUT drawingData is NULL or EMPTY.`);
                 }
-              } else if (submission.answer && !submission.hasDrawing) {
-                console.log(`[RecapModal DEBUG] Player ${submission.playerName}: Rendering submission. HasDrawing: false, Answer: "${submission.answer}"`);
               }
 
               return (
-                <div
-                  key={submission.playerId}
-                  className="list-group-item"
+                <div 
+                  key={submission.persistentPlayerId || idx}
+                  className="classroom-whiteboard-card list-group-item mb-3"
+                  style={{ borderColor: '#ccc', minWidth: 300, maxWidth: 420, minHeight: 260 }}
                 >
-                  <div className="d-flex justify-content-between align-items-start">
-                    <div style={{ flexGrow: 1 }}>
-                      <strong>{submission.playerName}</strong>
-                      {submission.answer && (
-                        <div className="mt-1"><small className="text-muted">Submitted: </small>{submission.answer}</div>
-                      )}
-                      {!submission.answer && !submission.hasDrawing && (
-                         <div className="mt-1 fst-italic text-muted"><small>No text answer submitted.</small></div>
-                      )}
-                      {submission.hasDrawing && submission.drawingData && (
-                        <div 
-                          className="recap-drawing-preview" 
-                          onClick={() => handleEnlargeDrawing(submission.drawingData!, submission.playerName)}
-                          style={{ maxWidth: '250px', width: '100%' }}
-                        >
-                          <div className="classroom-whiteboard-svg">
-                            <FabricJsonToSvg 
-                              jsonData={submission.drawingData}
-                              className="scaled-svg-preview" 
-                            />
-                          </div>
-                        </div>
-                      )}
+                  <div className="classroom-whiteboard-content p-2">
+                    <div style={{
+                      marginBottom: 8, 
+                      textAlign: 'left',
+                      width: '100%',
+                      paddingLeft: '5px'
+                    }}>
+                      {[...Array(playerLives)].map((_, i) => (
+                        <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
+                      ))}
+                      {playerDetails && playerDetails.finalLives === 0 && !playerDetails.isWinner && <span style={{color: '#888', fontSize: '0.9rem' }}>(Eliminated)</span>}
                     </div>
+                    
+                    {submission.hasDrawing && submission.drawingData && (
+                      <div 
+                        className="classroom-whiteboard-svg" 
+                        onClick={() => handleEnlargeDrawing(submission.drawingData!, playerName)}
+                        style={{ cursor: 'pointer', marginBottom: '10px' }}
+                      >
+                        <FabricJsonToSvg 
+                          jsonData={submission.drawingData}
+                          className="scaled-svg-preview" 
+                        />
+                      </div>
+                    )}
+                    
+                    {submission.answer !== undefined && (
+                      <div className="notepad-answer mt-2 mb-2">
+                        <span className="notepad-label">
+                          <i className="bi bi-card-text me-1"></i>Answer:
+                        </span>
+                        <span className="notepad-text ms-2">
+                          {submission.hasDrawing && !submission.answer && submission.drawingData ? "(Drawing Only)" : (submission.answer || "-")}
+                        </span>
+                      </div>
+                    )}
+                     {!submission.answer && !submission.hasDrawing && (
+                         <div className="mt-1 fst-italic text-muted mb-2"><small>No answer or drawing submitted.</small></div>
+                      )}
+
                     {submission.isCorrect !== null && (
-                      <div className="ms-3 d-flex flex-column align-items-center" style={{ minWidth: '100px' }}>
-                        <span className={`classroom-whiteboard-badge ${submission.isCorrect ? 'correct' : 'incorrect'}`}
-                              style={{ 
-                                animation: 'fadeInScale 0.3s ease-out',
-                                marginTop: 0
-                              }}>
+                      <div className="d-flex justify-content-center">
+                        <span 
+                          className={`classroom-whiteboard-badge ${submission.isCorrect ? 'correct' : 'incorrect'}`}
+                          style={{ 
+                            animation: 'fadeInScale 0.3s ease-out',
+                            marginTop: '10px'
+                          }}
+                        >
                           {submission.isCorrect ? 
                             <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : 
                             <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>
@@ -280,6 +325,9 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                         </span>
                       </div>
                     )}
+                  </div>
+                  <div className="classroom-whiteboard-label" style={{ background: '#f0f0f0', borderTop: '1px solid #ddd' }}>
+                    <span className="classroom-whiteboard-name"><i className="bi bi-person-fill me-2"></i>{playerName}</span>
                   </div>
                 </div>
               );

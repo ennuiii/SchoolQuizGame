@@ -232,9 +232,34 @@ function generateGameRecap(roomCode) {
         // Use the submission from submissionsByPersistentId
         const answer = submissionsByPersistentId[player.persistentPlayerId];
         
-        if (answer && answer.hasDrawing) {
-          console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${answer.drawingData?.length}`);
-        } else if (answer && !answer.hasDrawing) {
+        // Check if we have drawing data in player answers first
+        let hasDrawing = answer ? answer.hasDrawing : false;
+        let drawingData = answer && answer.hasDrawing ? answer.drawingData : null;
+        
+        // If hasDrawing is true but drawing data is missing, try to get it from boardsForRound
+        if (hasDrawing && (!drawingData || drawingData.trim() === '')) {
+          console.log(`[Server Recap] Player ${player.persistentPlayerId}, Round ${index + 1}: Drawing data missing in answer. Checking boardsForRound.`);
+          
+          // Try to get drawing data from boardsForRound using persistentPlayerId
+          if (boardsForRound[player.persistentPlayerId]) {
+            drawingData = boardsForRound[player.persistentPlayerId];
+            console.log(`[Server Recap] Player ${player.persistentPlayerId}, Round ${index + 1}: Found drawing data in boardsForRound. Length: ${drawingData?.length || 0}`);
+          } 
+          // Also try to find using player.id as a fallback
+          else if (boardsForRound[player.id]) {
+            drawingData = boardsForRound[player.id];
+            console.log(`[Server Recap] Player ${player.persistentPlayerId}, Round ${index + 1}: Found drawing data in boardsForRound using socket ID. Length: ${drawingData?.length || 0}`);
+          }
+          // If we still don't have drawing data, set hasDrawing to false
+          if (!drawingData || drawingData.trim() === '') {
+            console.warn(`[Server Recap] Player ${player.persistentPlayerId}, Round ${index + 1}: No drawing data found in boardsForRound. Setting hasDrawing to false.`);
+            hasDrawing = false;
+          }
+        }
+        
+        if (hasDrawing) {
+          console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${drawingData?.length || 0}`);
+        } else if (answer && !hasDrawing) {
           console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: Submission hasDrawing is false.`);
         } else if (!answer) {
           console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: No answer found for this round.`);
@@ -245,8 +270,8 @@ function generateGameRecap(roomCode) {
           persistentPlayerId: player.persistentPlayerId,
           playerName: player.name,
           answer: answer ? answer.answer : null,
-          hasDrawing: answer ? answer.hasDrawing : false,
-          drawingData: answer && answer.hasDrawing ? answer.drawingData : null,
+          hasDrawing: hasDrawing,
+          drawingData: drawingData,
           isCorrect: answer ? answer.isCorrect : null
         };
       })

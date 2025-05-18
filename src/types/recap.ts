@@ -14,6 +14,7 @@ export interface QuestionInRecap {
 
 export interface SubmissionInRecap {
   playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   answer: string | null;
   hasDrawing: boolean;
@@ -35,11 +36,13 @@ export interface RoundInRecap {
 
 export interface PlayerInRecap {
   id: string;
+  persistentPlayerId: string;
   name: string;
   finalLives: number;
   isSpectator: boolean;
   isWinner: boolean;
   isActive: boolean;
+  joinedAsSpectator?: boolean;
   // TODO: Server's generateGameRecap in server/index.js needs to be updated
   // to include a score for each player if desired in the recap.
   // RecapModal.tsx might have displayed this.

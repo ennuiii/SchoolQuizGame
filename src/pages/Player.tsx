@@ -51,7 +51,8 @@ const Player: React.FC = () => {
     recapSelectedTabKey,
     hideRecap,
     allAnswersThisRound,
-    players
+    players,
+    playerBoards
   } = useGame();
 
   const {
@@ -69,22 +70,38 @@ const Player: React.FC = () => {
     persistentPlayerId
   } = useRoom();
 
-  const { getCurrentCanvasSVG, clear } = useCanvas();
+  const { getCurrentCanvasSVG, clear, canvas } = useCanvas();
 
   // Determine if player has already submitted answer from server state
   // This solves the issue where player can submit again after page refresh
   const hasSubmittedToServer = useMemo(() => {
-    if (!persistentPlayerId || !allAnswersThisRound) return false;
+    if (!persistentPlayerId || !allAnswersThisRound) {
+      console.log('[Player] hasSubmittedToServer: Missing persistentPlayerId or allAnswersThisRound', {
+        hasPersistentId: !!persistentPlayerId,
+        answersThisRound: allAnswersThisRound ? Object.keys(allAnswersThisRound).length : 0
+      });
+      return false;
+    }
     
     // Check if this player has an answer in the current round
-    return Object.entries(allAnswersThisRound).some(([pid, _]) => 
+    const hasSubmitted = Object.entries(allAnswersThisRound).some(([pid, _]) => 
       pid === persistentPlayerId
     );
-  }, [persistentPlayerId, allAnswersThisRound]);
+    
+    console.log('[Player] hasSubmittedToServer calculated:', {
+      persistentPlayerId,
+      hasSubmitted,
+      answerKeys: Object.keys(allAnswersThisRound),
+      currentQuestionIndex
+    });
+    
+    return hasSubmitted;
+  }, [persistentPlayerId, allAnswersThisRound, currentQuestionIndex]);
 
   // Sync local submission state with server state
   useEffect(() => {
     if (hasSubmittedToServer) {
+      console.log('[Player] Setting submittedAnswerLocal=true because hasSubmittedToServer=true');
       setSubmittedAnswerLocal(true);
     }
   }, [hasSubmittedToServer]);
@@ -93,12 +110,23 @@ const Player: React.FC = () => {
   useEffect(() => {
     if (currentQuestion) {
       // Always reset submission state when the question ID or index changes
-      console.log(`[Player.tsx] New question (ID: ${currentQuestion.id}, Index: ${currentQuestionIndex}). Resetting local submission state.`);
+      console.log(`[Player.tsx] New question (ID: ${currentQuestion.id}, Index: ${currentQuestionIndex}). Resetting local submission state.`, {
+        oldSubmittedAnswerLocal: submittedAnswerLocal,
+        hasSubmittedToServer,
+        answerKeysInRound: allAnswersThisRound ? Object.keys(allAnswersThisRound) : []
+      });
+      
+      // Force reset the submission state for this component, regardless of server state
+      // This is critical to ensure drawing is enabled for new questions
       setSubmittedAnswerLocal(false);
+      
+      // Increment canvas key to force remount of the DrawingBoard component
+      console.log(`[Player.tsx] Incrementing canvasKey from ${canvasKey} to ${canvasKey + 1} to force DrawingBoard remount`);
       setCanvasKey(prev => prev + 1);
+      
       setAnswer(''); // Clear text answer field on new question
     }
-  }, [currentQuestion?.id, currentQuestionIndex]); // Remove hasSubmittedToServer from dependencies
+  }, [currentQuestionIndex, currentQuestion?.id]);
 
   // Effect for handling game state changes
   useEffect(() => {
@@ -132,18 +160,61 @@ const Player: React.FC = () => {
     }
 
     try {
+      // Log the canvas object from context at the moment of submission
+      console.log('[Player.tsx] handleAnswerSubmit: canvas object before calling getCurrentCanvasSVG():', canvas);
+
       let finalAnswer = textAnswer.trim();
-      let drawingData: string | null = getCurrentCanvasSVG();
-      const finalHasDrawing = !!(drawingData && drawingData.trim() !== '' && drawingData.includes('<svg'));
+      let drawingData: string | null = null;
+      let finalHasDrawing = false;
+
+      // First try to get the SVG data from the canvas context
+      const rawSvgData = getCurrentCanvasSVG();
+      console.log('[Player.tsx] handleAnswerSubmit: rawSvgData from getCurrentCanvasSVG():', rawSvgData ? rawSvgData.substring(0, 100) + "..." : "NULL or EMPTY");
+
+      // If we got valid SVG data from the canvas
+      if (rawSvgData && rawSvgData.trim() !== '' && rawSvgData.includes('<svg') && rawSvgData.includes('path')) {
+        drawingData = rawSvgData;
+        finalHasDrawing = true;
+        console.log('[Player.tsx] handleAnswerSubmit: Using SVG data from getCurrentCanvasSVG()');
+      } 
+      // If the canvas method failed, check if we have drawing data in playerBoards
+      else {
+        console.log('[Player.tsx] handleAnswerSubmit: SVG data not available from canvas, checking playerBoards');
+        
+        // Check if there's a board for this player in the current question
+        const myBoardData = playerBoards.find(board => 
+          board.playerId === socketService.getSocketId() || 
+          (board.playerId === persistentPlayerId) && 
+          (board.roundIndex === undefined || board.roundIndex === currentQuestionIndex)
+        );
+        
+        if (myBoardData && myBoardData.boardData && myBoardData.boardData.trim() !== '') {
+          // If we have a valid board with data, use it
+          drawingData = myBoardData.boardData;
+          // Check if it's valid JSON with objects
+          try {
+            const parsedData = JSON.parse(drawingData);
+            finalHasDrawing = !!(parsedData && parsedData.objects && parsedData.objects.length > 0);
+            console.log('[Player.tsx] handleAnswerSubmit: Found drawing data in playerBoards. Contains', 
+              parsedData.objects?.length || 0, 'objects. Setting hasDrawing =', finalHasDrawing);
+          } catch (e) {
+            console.error('[Player.tsx] handleAnswerSubmit: Error parsing board data:', e);
+            finalHasDrawing = false;
+            drawingData = null;
+          }
+        } else {
+          console.log('[Player.tsx] handleAnswerSubmit: No valid drawing data found in playerBoards');
+          finalHasDrawing = false;
+          drawingData = null;
+        }
+      }
+      
+      console.log('[Player.tsx] handleAnswerSubmit: finalHasDrawing based on all checks:', finalHasDrawing);
 
       // If text answer is empty, default to "-". This allows submitting drawings without text,
       // or submitting an intentionally blank text answer.
       if (finalAnswer.trim() === '') {
         finalAnswer = '-';
-      }
-
-      if (!finalHasDrawing) {
-        drawingData = null;
       }
 
       console.log('[Player] Submitting answer:', {
@@ -161,7 +232,7 @@ const Player: React.FC = () => {
       console.error('[Player] Failed to submit answer:', error);
       toast.error('Failed to submit answer. Please try again.');
     }
-  }, [roomCode, currentQuestion, submittedAnswerLocal, hasSubmittedToServer, getCurrentCanvasSVG, connectionStatus]);
+  }, [roomCode, currentQuestion, submittedAnswerLocal, hasSubmittedToServer, getCurrentCanvasSVG, connectionStatus, canvas, playerBoards, persistentPlayerId, currentQuestionIndex]);
 
   // Handle board updates
   const handleBoardUpdate = async (boardData: BoardData) => {
@@ -323,6 +394,18 @@ const Player: React.FC = () => {
     }
   }, [playerName, navigate]);
 
+  // Debug drawing board state
+  useEffect(() => {
+    console.log('[Player] Drawing board state:', {
+      submittedAnswerLocal,
+      hasSubmittedToServer,
+      amISpectator,
+      connectionStatus,
+      disabled: submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected',
+      canvasKey
+    });
+  }, [submittedAnswerLocal, hasSubmittedToServer, amISpectator, connectionStatus, canvasKey]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -409,8 +492,6 @@ const Player: React.FC = () => {
 
   // Helper: render controls for DrawingBoard
   const renderDrawingBoardControls = () => {
-    const { clear } = useCanvas(); // Get clear function from context
-
     const handleClearCanvas = () => {
       if (clear) {
         clear(); // Clear the canvas locally
@@ -489,7 +570,6 @@ const Player: React.FC = () => {
                   key={canvasKey}
                   onUpdate={handleBoardUpdate}
                   disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
-                  controls={renderDrawingBoardControls()}
                 />
                 
                 <div className="input-group mb-3">

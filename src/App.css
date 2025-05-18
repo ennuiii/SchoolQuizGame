@@ -227,13 +227,62 @@ body {
   padding: 0 !important;
 }
 
-/* Remove overlay styles as controls are now external */
-/* .drawing-controls-overlay { ... } - This class and its rules are removed */
-
-/* Styles for the new external controls container */
+/* Drawing board controls styling */
 .drawing-board-external-controls {
-  /* Bootstrap classes d-flex justify-content-end w-100 mt-2 mb-2 handle most of this */
-  padding-right: 15px; /* Add some padding if needed, or rely on parent container's padding */
+  background: #0C6A35;
+  border: 4px solid #8B4513;
+  border-radius: 0 0 12px 12px;
+  margin-top: -4px !important;
+  padding: 8px 16px;
+  border-top: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.drawing-controls-left {
+  flex-wrap: wrap;
+}
+
+.color-palette .color-button {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.color-palette .color-button:hover {
+  transform: scale(1.15);
+  z-index: 5;
+}
+
+.color-palette .color-button:active {
+  transform: scale(0.95);
+}
+
+/* Brush size controls styling */
+.brush-size-controls .btn-group .btn {
+  min-width: 36px;
+  font-weight: bold;
+  transition: all 0.15s ease;
+}
+
+.brush-size-controls .btn-group .btn:hover {
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+/* Chalk effect for brush size buttons */
+.brush-size-controls .btn-group .btn.btn-outline-light {
+  position: relative;
+  overflow: hidden;
+}
+
+.brush-size-controls .btn-group .btn.btn-outline-light::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('https://www.transparenttextures.com/patterns/noise-pattern-with-subtle-cross-lines.png');
+  opacity: 0.2;
+  z-index: -1;
 }
 
 /* Position the submitted overlay */
@@ -245,6 +294,47 @@ body {
   z-index: 100;
   max-width: 80%;
   text-align: center;
+}
+
+/* Mobile responsive fixes for drawing controls */
+@media (max-width: 768px) {
+  .drawing-board-external-controls {
+    flex-direction: column;
+    gap: 10px;
+    padding: 8px;
+  }
+  
+  .drawing-controls-left {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .drawing-controls-right {
+    width: 100%;
+  }
+  
+  .drawing-controls-right button {
+    width: 100%;
+  }
+  
+  .brush-size-controls, 
+  .color-palette {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-top: 8px;
+  }
+  
+  .color-palette .d-flex {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .brush-size-controls .btn-group {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
 }
 
 /* Ensure nested Fabric canvas elements are sized correctly */
@@ -1423,12 +1513,12 @@ body {
   white-space: nowrap;
 }
 
-/* Drawing area for classroom whiteboards with consistent aspect ratio */
+/* Drawing Area with Chalkboard Background for better white chalk visibility */
 .classroom-whiteboard-svg {
   width: 100%;
   aspect-ratio: 2 / 1; /* 2:1 aspect ratio for consistency */
-  background-color: #FFFFFF;
-  border: 1px solid #eee;
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 1px solid #8B4513 !important;
   border-radius: 4px;
   box-sizing: border-box;
   margin-bottom: 10px;
@@ -1437,6 +1527,41 @@ body {
   justify-content: center;
   overflow: hidden;
   padding: 5px;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+}
+
+/* Make sure all FabricJsonToSvg components within classroom-whiteboard-svg have chalkboard background */
+.classroom-whiteboard-svg .scaled-svg-preview svg {
+  background: transparent !important;
+}
+
+/* Enhanced visibility for SVG paths in the drawings */
+.classroom-whiteboard-svg svg path {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
+}
+
+/* Similar treatment for SVG elements in the enlarged modal and other SVG displays */
+.enlarged-drawing-modal-body .classroom-whiteboard-svg {
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 4px solid #8B4513 !important;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+}
+
+.drawing-board-container .classroom-whiteboard-svg {
+  border-width: 0 !important; /* No border inside the already bordered drawing board container */
+}
+
+/* Make sure RecapModal's submission drawing areas use the chalkboard background */
+.list-group-item .classroom-whiteboard-svg {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 2px solid #8B4513 !important;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
 }
 
 /* Evaluation badges for classroom whiteboards */
@@ -1503,4 +1628,61 @@ body {
   max-width: 100%;
   max-height: 100%;
   object-fit: contain;
+}
+
+/* Specific styles for SVGs with the chalkboard-drawing-svg class */
+.chalkboard-drawing-svg {
+  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.5));
+}
+
+.chalkboard-drawing-svg path {
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+}
+
+/* Additional styling for paths in SVG to enhance the chalk effect */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFFFF"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffffff"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="white"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#F8F8F8"] {
+  filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)) !important;
+  stroke-width: 1.2; /* slightly thicker for white chalk */
+  stroke: #F8F8F8 !important; /* Slightly off-white for better visibility */
+}
+
+/* Enhanced SVG styling in the drawing display */
+.classroom-whiteboard-svg {
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+}
+
+.classroom-whiteboard-svg svg {
+  filter: drop-shadow(0px 0px 1px rgba(255, 255, 255, 0.1));
+}
+
+.classroom-whiteboard-svg svg path {
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+/* Ensure specific chalk colors have good visibility against the green background */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="yellow"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFF00"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffff00"] {
+  filter: drop-shadow(0px 0px 3px rgba(0,0,0,0.6)) !important;
+}
+
+/* Enhanced chalk effect for all paths in SVG */
+.chalkboard-drawing-svg path {
+  stroke-linecap: round !important; 
+  stroke-linejoin: round !important;
+  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
+}
+
+/* Ensure SVG container in recap modal has proper background */
+.list-group-item .classroom-whiteboard-svg,
+.enlarged-drawing-modal-body .classroom-whiteboard-svg,
+.preview-whiteboard-svg {
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 2px solid #8B4513 !important;
 } 
