@@ -54,7 +54,13 @@ const GameMaster: React.FC = () => {
       nonSpectators.length, 
       nonSpectators.map(p => ({ id: p.id, name: p.name, isSpectator: p.isSpectator }))
     );
-  }, [players]);
+    
+    // Log isGameMaster state
+    console.log('[GameMaster] isGameMaster state:', {
+      isGameMaster,
+      kickPlayerFunction: !!kickPlayer
+    });
+  }, [players, isGameMaster, kickPlayer]);
 
   const {
     gameStarted,
@@ -104,9 +110,11 @@ const GameMaster: React.FC = () => {
       return;
     }
     console.log(`[GameMaster] Request to kick player ${playerId} from room ${roomCode}`);
+    // Find player name for better user feedback
+    const playerName = gamePlayers.find(p => p.persistentPlayerId === playerId)?.name || 'Unknown player';
     kickPlayer(playerId);
-    toast.info(`Kicking player ${playerId}...`);
-  }, [roomCode, kickPlayer]);
+    toast.info(`Kicking ${playerName}...`);
+  }, [roomCode, kickPlayer, gamePlayers]);
 
   const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
                               Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));

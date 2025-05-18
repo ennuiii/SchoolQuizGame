@@ -33,6 +33,19 @@ const PlayerList: React.FC<PlayerListProps> = ({
   const { persistentPlayerId: contextPersistentPlayerId } = useRoom();
   const actualPersistentPlayerId = propPersistentPlayerId || contextPersistentPlayerId;
 
+  // Debug logging for kick button visibility conditions
+  React.useEffect(() => {
+    if (isGameMasterView && onKickPlayer) {
+      console.log('[PlayerList] Conditions for kick buttons:', {
+        isGameMasterView,
+        hasKickFunction: !!onKickPlayer,
+        playerCount: players.length,
+        actualPersistentPlayerId,
+        playersWithKickButtons: players.filter(p => p.persistentPlayerId !== actualPersistentPlayerId).length
+      });
+    }
+  }, [players, isGameMasterView, onKickPlayer, actualPersistentPlayerId]);
+
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
@@ -77,14 +90,15 @@ const PlayerList: React.FC<PlayerListProps> = ({
                   )}
                   {isGameMasterView && player.persistentPlayerId !== actualPersistentPlayerId && onKickPlayer && (
                     <button 
-                      className="btn btn-danger btn-sm p-1 ms-2" 
+                      className="btn btn-danger btn-sm ms-2" 
                       onClick={(e) => { 
                         e.stopPropagation();
                         onKickPlayer(player.persistentPlayerId); 
                       }}
                       title={`Kick ${player.name}`}
+                      aria-label={`Kick ${player.name}`}
                     >
-                      <i className="bi bi-person-dash-fill"></i>
+                      Kick
                     </button>
                   )}
                 </div>
