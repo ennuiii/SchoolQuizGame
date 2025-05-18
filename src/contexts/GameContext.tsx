@@ -672,6 +672,25 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRecapSelectedTabKey(data.selectedTabKey);
     };
 
+    // Add handler for game_restarted event
+    const gameRestartedHandler = (data: { roomCode: string }) => {
+      console.log('[GameContext] Game restarted event received:', data);
+      // Reset all game state for a fresh start
+      setGameStarted(false);
+      setCurrentQuestion(null);
+      setCurrentQuestionIndex(-1);
+      setSubmittedAnswer(false);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setPlayerBoards([]);
+      setIsGameConcluded(false);
+      setGameOver(false);
+      setIsWinner(false);
+      setGameRecapData(null);
+      setRecapSelectedRoundIndex(0);
+      setRecapSelectedTabKey('overallResults');
+    };
+
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
@@ -691,6 +710,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('game_recap', gameRecapHandler);
     socketService.on('recap_round_changed', recapRoundChangedHandler);
     socketService.on('recap_tab_changed', recapTabChangedHandler);
+    socketService.on('game_restarted', gameRestartedHandler);
 
     // Cleanup
     return () => {
@@ -715,6 +735,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('game_recap');
       socketService.off('recap_round_changed');
       socketService.off('recap_tab_changed');
+      socketService.off('game_restarted');
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
