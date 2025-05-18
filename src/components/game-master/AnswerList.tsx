@@ -24,13 +24,15 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
   const combinedAnswers: DisplayAnswer[] = Object.entries(allAnswersThisRound)
     .map(([pId, data]) => {
       const player = getPlayerById(pId);
+      const isPlayerActive = true;
+      
       return {
         persistentPlayerId: pId,
         playerName: data.playerName || player?.name || 'Unknown Player',
         answer: data.answer,
         isPending: evaluatedAnswers[pId] === undefined,
         isCorrect: evaluatedAnswers[pId],
-        isActive: player?.isActive ?? false,
+        isActive: isPlayerActive,
         hasDrawing: data.hasDrawing,
         drawingData: data.drawingData,
       };
@@ -61,15 +63,11 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
                     ? (ans.isCorrect ? 'list-group-item-success' : 'list-group-item-danger') 
                     : ''
                 }`}
-                style={{ opacity: ans.isActive ? 1 : 0.7 }}
               >
                 <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center gap-3">
                   <div style={{ flexGrow: 1 }}>
                     <h4 className="h6 mb-1 d-flex align-items-center">
                       {ans.playerName}
-                      {!ans.isActive && (
-                        <span className="badge bg-warning text-dark rounded-pill ms-2">Disconnected</span>
-                      )}
                       {!ans.isPending && ans.isCorrect !== null && (
                         <span className={`badge ms-2 ${ans.isCorrect ? 'bg-success' : 'bg-danger'}`}>
                           {ans.isCorrect ? 'Correct' : 'Incorrect'}
@@ -79,28 +77,18 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
                         <span className="badge bg-info ms-2">Pending Evaluation</span>
                       )}
                     </h4>
-                    {ans.hasDrawing && ans.drawingData ? (
-                      <div className="mt-2">
-                        <p className="mb-1 fst-italic">Text: {ans.answer || "No text answer"}</p>
-                        <details>
-                          <summary className="text-primary" style={{ cursor: 'pointer'}}>View Drawing</summary>
-                          <div className="submitted-drawing-preview border p-2 mt-1" 
-                               style={{ maxHeight: '200px', overflowY: 'auto', background: '#f8f9fa' }}>
-                            <img src={ans.drawingData} alt={`${ans.playerName}'s drawing`} style={{ maxWidth: '100%', maxHeight: '180px' }} />
-                          </div>
-                        </details>
-                      </div>
-                    ) : (
-                      <p className="mb-0 answer-text">{ans.answer || "-"}</p>
-                    )}
+                    <p className="mb-0 answer-text">
+                      {ans.hasDrawing ? 
+                        (ans.answer ? `${ans.answer} (includes drawing)` : "Drawing submitted") : 
+                        (ans.answer || "-")}
+                    </p>
                   </div>
                   {ans.isPending && (
                     <div className="d-flex gap-2 mt-2 mt-md-0 flex-shrink-0 align-self-md-center">
                       <button
                         className="btn btn-success btn-sm"
                         onClick={() => onEvaluate(ans.persistentPlayerId, true)}
-                        disabled={!ans.isActive}
-                        title={!ans.isActive ? `Cannot evaluate, ${ans.playerName} is disconnected` : 'Mark as Correct'}
+                        title="Mark as Correct"
                       >
                         <i className="bi bi-check-lg me-1"></i>
                         Correct
@@ -108,8 +96,7 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => onEvaluate(ans.persistentPlayerId, false)}
-                        disabled={!ans.isActive}
-                        title={!ans.isActive ? `Cannot evaluate, ${ans.playerName} is disconnected` : 'Mark as Incorrect'}
+                        title="Mark as Incorrect"
                       >
                         <i className="bi bi-x-lg me-1"></i>
                         Incorrect
