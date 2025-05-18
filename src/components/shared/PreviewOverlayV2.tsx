@@ -112,50 +112,69 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
               style={{ borderColor, minWidth: displayablePlayers.length <= 3 ? 340 : 300, maxWidth: displayablePlayers.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
               <div className="classroom-whiteboard-content">
-                {/* Player lives */}
-                <div style={{ marginBottom: 6 }}>
+                {/* Player lives - ensure this is visually separated and above drawing */}
+                <div style={{
+                  marginBottom: 8, 
+                  textAlign: 'left', // Align hearts to the left within their own row
+                  width: '100%', // Ensure it takes width for alignment
+                  paddingLeft: '5px' // Small padding from left edge of card content
+                }}>
                   {[...Array(player?.lives || 0)].map((_, i) => (
-                    <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 2 }}>❤</span>
+                    <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
                   ))}
                 </div>
+                
+                {/* Drawing Area with White Background */}
                 <div
-                  className="classroom-whiteboard-svg"
-                  style={{
-                    height: 150,
-                    width: '100%',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    backgroundColor: '#FFFFFF',
-                    borderRadius: '4px',
-                    padding: '5px'
-                  }}
+                  className="classroom-whiteboard-svg" 
                 >
                   <FabricJsonToSvg 
                     jsonData={actualBoardData}
-                    className="scaled-svg-preview"
+                    className="scaled-svg-preview" 
                   />
                 </div>
-                {/* Answer with notepad effect */}
-                {answer && (
+                {/* Answer with notepad effect - Show if an answer submission exists, even if text is empty */}
+                {answer !== undefined && (
                   <div className="notepad-answer mt-2 mb-2">
                     <span className="notepad-label">
                       <i className="bi bi-card-text me-1"></i>Answer:
                     </span>
-                    <span className="notepad-text ms-2">{answer.answer}</span>
+                    <span className="notepad-text ms-2">
+                      {answer.hasDrawing && !answer.answer ? "(Drawing Only)" : (answer.answer || "-")}
+                    </span>
                   </div>
                 )}
-                {/* Correct/Incorrect buttons for GameMaster */}
-                {isGameMaster && answer && evaluation === undefined && onEvaluate && (
+                {/* Correct/Incorrect buttons for GameMaster - Show if a submission exists and is pending evaluation */}
+                {isGameMaster && answer !== undefined && evaluation === undefined && onEvaluate && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
-                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(player.persistentPlayerId, true)}><i className="bi bi-check-circle-fill me-1"></i>Correct</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(player.persistentPlayerId, false)}><i className="bi bi-x-circle-fill me-1"></i>Incorrect</button>
+                    <button 
+                        className="btn btn-success btn-sm" 
+                        onClick={() => onEvaluate(player.persistentPlayerId, true)} 
+                        title="Mark as Correct"
+                    >
+                        <i className="bi bi-check-circle-fill me-1"></i>Correct
+                    </button>
+                    <button 
+                        className="btn btn-danger btn-sm" 
+                        onClick={() => onEvaluate(player.persistentPlayerId, false)} 
+                        title="Mark as Incorrect"
+                    >
+                        <i className="bi bi-x-circle-fill me-1"></i>Incorrect
+                    </button>
                   </div>
                 )}
                 {/* Show badge if evaluated */}
                 {evaluation !== undefined && (
-                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>
-                    {evaluation ? <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>}
+                  <span 
+                    className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}
+                    style={{ 
+                      animation: 'fadeInScale 0.3s ease-out'
+                    }}
+                  >
+                    {evaluation ? 
+                      <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : 
+                      <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>
+                    }
                   </span>
                 )}
               </div>

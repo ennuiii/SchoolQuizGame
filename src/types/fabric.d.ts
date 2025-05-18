@@ -80,6 +80,8 @@ declare module 'fabric' {
       // Common method to get scaled dimensions
       getScaledWidth?(): number;
       getScaledHeight?(): number;
+      // Add getBoundingRect
+      getBoundingRect(absolute?: boolean, withoutTransformations?: boolean): { left: number; top: number; width: number; height: number; };
       // ... other common methods
     }
 

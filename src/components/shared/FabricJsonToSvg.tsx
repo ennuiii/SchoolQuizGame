@@ -13,8 +13,8 @@ interface FabricJsonToSvgProps {
 
 const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({ 
   jsonData,
-  targetWidth = 800, // Default original width if not found in JSON
-  targetHeight = 600, // Default original height if not found in JSON
+  targetWidth = 800, // Default original width
+  targetHeight = 400, // Default original height to match a 2:1 aspect ratio
   className 
 }) => {
   const [svgString, setSvgString] = useState<string>('');
@@ -37,8 +37,17 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
       try {
         const fabricJSON = JSON.parse(jsonData);
 
-        const vbWidth = fabricJSON.canvas?.width || fabricJSON.width || targetWidth;
-        const vbHeight = fabricJSON.canvas?.height || fabricJSON.height || targetHeight;
+        const jsonProvidedWidth = fabricJSON.canvas?.width || fabricJSON.width;
+        const jsonProvidedHeight = fabricJSON.canvas?.height || fabricJSON.height;
+
+        // Determine viewBox dimensions: use JSON if available, else defaults, ensuring aspect ratio for fallbacks
+        let vbWidth = jsonProvidedWidth || targetWidth;
+        let vbHeight = jsonProvidedHeight || (jsonProvidedWidth ? (jsonProvidedWidth * (targetHeight / targetWidth)) : targetHeight);
+        // If jsonProvidedWidth was also null, vbWidth is targetWidth, so vbHeight becomes targetHeight (e.g. 800x400)
+        if (!jsonProvidedWidth && !jsonProvidedHeight) {
+            vbWidth = targetWidth;
+            vbHeight = targetHeight;
+        }
 
         const tempCanvasEl = document.createElement('canvas');
         tempCanvas = new fabric.Canvas(tempCanvasEl, {
@@ -77,6 +86,38 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
           });
         });
 
+        const objects = tempCanvas.getObjects();
+        if (objects.length > 0) {
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          
+          objects.forEach(obj => {
+            // getBoundingRect() returns coords relative to canvas origin {left, top, width, height}
+            // It considers the object's angle and scale.
+            const rect = obj.getBoundingRect();
+            minX = Math.min(minX, rect.left);
+            minY = Math.min(minY, rect.top);
+            maxX = Math.max(maxX, rect.left + rect.width);
+            maxY = Math.max(maxY, rect.top + rect.height);
+          });
+
+          if (isFinite(minX) && isFinite(minY) && isFinite(maxX) && isFinite(maxY)) {
+            const padding = 10; // Reduced padding
+            vbWidth = Math.ceil(maxX - minX) + (2 * padding);
+            vbHeight = Math.ceil(maxY - minY) + (2 * padding);
+          } else {
+            // Fallback if bounding box calculation failed (e.g., no objects had valid rects)
+            vbWidth = tempCanvas.width || targetWidth;
+            vbHeight = tempCanvas.height || targetHeight;
+          }
+          
+          if (vbWidth <= 0) vbWidth = targetWidth; // Final fallback for width
+          if (vbHeight <= 0) vbHeight = targetHeight; // Final fallback for height
+        } else {
+          // No objects, use full canvas viewBox
+          vbWidth = tempCanvas.width || targetWidth;
+          vbHeight = tempCanvas.height || targetHeight;
+        }
+
       } catch (error) {
         console.error('[FabricJsonToSvg] Error generating SVG:', error);
         if (isMounted) {
@@ -112,7 +153,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
 
   if (!svgString) {
     // Render a placeholder or nothing if SVG is not ready or jsonData is null
-    return <div className={`${className || ''} fabric-svg-placeholder`} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{color:'#ccc'}}>No Drawing</span></div>;
+    return <div className={`${className || ''} fabric-svg-placeholder`} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ddd' }}><span style={{color:'#888', fontSize: '0.9rem', fontStyle: 'italic'}}>No drawing submitted</span></div>;
   }
 
   // The parent container of this component should handle the final display size and aspect ratio.

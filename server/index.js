@@ -512,16 +512,17 @@ function finalizeRoundAndAutoSubmit(roomCode) {
         const autoAnswer = {
           playerId: playerInRoom.id,
           playerName: playerInRoom.name,
-          answer: '', // Text answer is empty for auto-submission
+          answer: '-', // Explicitly set auto-submitted text answer to "-"
           hasDrawing: autoAnswerHasDrawing,
           drawingData: autoAnswerDrawingData,
           timestamp: Date.now(),
-          isCorrect: null
+          isCorrect: null // Evaluation pending
+          // Ensure answerAttemptId is not set here, or set to a specific auto-submit ID if needed
         };
         playerInRoom.answers[room.currentQuestionIndex] = autoAnswer;
 
         if (room.roundAnswers) {
-          room.roundAnswers[playerInRoom.id] = autoAnswer;
+          room.roundAnswers[playerInRoom.persistentPlayerId] = autoAnswer; // Key by persistentPlayerId
         }
       }
     });

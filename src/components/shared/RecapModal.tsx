@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Button, Nav, Tab, ListGroup } from 'react-bootstrap';
 import type { GameRecapData, RoundInRecap, PlayerInRecap, SubmissionInRecap, QuestionInRecap } from '../../types/recap'; // Adjusted import path
 import QuestionDisplayCard from './QuestionDisplayCard'; // Import the new component
+import FabricJsonToSvg from '../shared/FabricJsonToSvg'; // Import the FabricJsonToSvg component
 
 // Removed local interface definitions for Player, Submission, Round, GameRecap
 
@@ -160,12 +161,11 @@ const EnlargedDrawingModal: React.FC<{
             <Modal.Title id="enlargedDrawingModalTitle">Drawing by: {playerName}</Modal.Title>
           </Modal.Header>
           <Modal.Body className="enlarged-drawing-modal-body">
-            <div className="drawing-board-container" style={{ maxWidth: '80vw', margin: '0 auto' }}>
-              <div className="drawing-board" style={{ minHeight: 300, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <div
-                  className="enlarged-drawing-svg-container"
-                  style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  dangerouslySetInnerHTML={{ __html: svgData }}
+            <div className="drawing-board-container" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+              <div className="classroom-whiteboard-svg" style={{ aspectRatio: '2/1', maxHeight: '400px' }}>
+                <FabricJsonToSvg 
+                  jsonData={svgData}
+                  className="scaled-svg-preview" 
                 />
               </div>
             </div>
@@ -194,6 +194,11 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
   }
   
   const currentRoundData: RoundInRecap = recap.rounds[currentSelectedRoundIndex];
+
+  // Function to handle clicking on a drawing to enlarge it
+  const handleEnlargeDrawing = (svgData: string, playerName: string) => {
+    setEnlargedDrawing({ svg: svgData, playerName });
+  };
 
   return (
     <div className="row g-0">
@@ -235,9 +240,9 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
               return (
                 <div
                   key={submission.playerId}
-                  className={`list-group-item ${submission.isCorrect === true ? 'list-group-item-success' : submission.isCorrect === false ? 'list-group-item-danger' : ''}`}
+                  className="list-group-item"
                 >
-                  <div className="d-flex justify-content-between align-items-center">
+                  <div className="d-flex justify-content-between align-items-start">
                     <div style={{ flexGrow: 1 }}>
                       <strong>{submission.playerName}</strong>
                       {submission.answer && (
@@ -247,21 +252,33 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                          <div className="mt-1 fst-italic text-muted"><small>No text answer submitted.</small></div>
                       )}
                       {submission.hasDrawing && submission.drawingData && (
-                        <div className="drawing-board-container recap-drawing-landscape" style={{ width: 250, aspectRatio: '2 / 1', height: 125, margin: '0 auto', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                          <div className="drawing-board" style={{ width: '100%', height: '100%', minHeight: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                            <div
-                              className="recap-drawing-preview-inner-html"
-                              style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                              dangerouslySetInnerHTML={{ __html: submission.drawingData }}
+                        <div 
+                          className="recap-drawing-preview" 
+                          onClick={() => handleEnlargeDrawing(submission.drawingData!, submission.playerName)}
+                          style={{ maxWidth: '250px', width: '100%' }}
+                        >
+                          <div className="classroom-whiteboard-svg">
+                            <FabricJsonToSvg 
+                              jsonData={submission.drawingData}
+                              className="scaled-svg-preview" 
                             />
                           </div>
                         </div>
                       )}
                     </div>
                     {submission.isCorrect !== null && (
-                      <span className={`badge fs-6 ms-3 ${submission.isCorrect ? 'bg-success' : 'bg-danger'}`}>
-                        {submission.isCorrect ? 'Correct' : 'Incorrect'}
-                      </span>
+                      <div className="ms-3 d-flex flex-column align-items-center" style={{ minWidth: '100px' }}>
+                        <span className={`classroom-whiteboard-badge ${submission.isCorrect ? 'correct' : 'incorrect'}`}
+                              style={{ 
+                                animation: 'fadeInScale 0.3s ease-out',
+                                marginTop: 0
+                              }}>
+                          {submission.isCorrect ? 
+                            <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : 
+                            <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>
+                          }
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

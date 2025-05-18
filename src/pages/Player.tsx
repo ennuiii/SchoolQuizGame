@@ -133,25 +133,30 @@ const Player: React.FC = () => {
     }
 
     try {
-      const finalAnswer = textAnswer.trim();
-      
+      let finalAnswer = textAnswer.trim();
       let drawingData: string | null = getCurrentCanvasSVG();
-      // A basic check for a non-empty SVG. More sophisticated checks could verify if it's more than a blank canvas.
       const finalHasDrawing = !!(drawingData && drawingData.trim() !== '' && drawingData.includes('<svg'));
 
+      // If there's no text answer AND no drawing, it's a truly empty submission.
+      // If there IS a drawing OR some text, then proceed.
       if (!finalAnswer && !finalHasDrawing) {
         toast.error('Please enter an answer or submit a drawing');
         return;
       }
-      
-      // If not finalHasDrawing, ensure drawingData is null before sending
+
+      // If text answer is empty BUT there is a drawing, or for any submission,
+      // ensure empty text answers are sent as "-".
+      if (finalAnswer === '') {
+        finalAnswer = '-';
+      }
+
       if (!finalHasDrawing) {
         drawingData = null;
       }
 
       console.log('[Player] Submitting answer:', {
         roomCode,
-        answerLength: finalAnswer.length,
+        answer: finalAnswer,
         hasDrawing: finalHasDrawing,
         drawingDataLength: drawingData?.length || 0,
         timestamp: new Date().toISOString()

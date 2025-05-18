@@ -78,9 +78,7 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
                       )}
                     </h4>
                     <p className="mb-0 answer-text">
-                      {ans.hasDrawing ? 
-                        (ans.answer ? `${ans.answer} (includes drawing)` : "Drawing submitted") : 
-                        (ans.answer || "-")}
+                      {ans.answer || "-"}
                     </p>
                   </div>
                   {ans.isPending && (
