@@ -4,6 +4,7 @@ import { useRoom } from '../../contexts/RoomContext';
 
 interface Player {
   id: string;
+  persistentPlayerId: string;
   name: string;
   lives: number;
   answers: string[];
@@ -12,7 +13,7 @@ interface Player {
 }
 
 interface PlayerListProps {
-  currentPlayerId?: string;
+  persistentPlayerId?: string;
   onPlayerSelect?: (playerId: string) => void;
   selectedPlayerId?: string;
   title?: string;
@@ -21,7 +22,7 @@ interface PlayerListProps {
 }
 
 const PlayerList: React.FC<PlayerListProps> = ({
-  currentPlayerId: propCurrentPlayerId,
+  persistentPlayerId: propPersistentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
   title = "Players",
@@ -29,8 +30,8 @@ const PlayerList: React.FC<PlayerListProps> = ({
   isGameMasterView = false
 }) => {
   const { players } = useGame();
-  const { currentPlayerId: contextCurrentPlayerId } = useRoom();
-  const actualCurrentPlayerId = propCurrentPlayerId || contextCurrentPlayerId;
+  const { persistentPlayerId: contextPersistentPlayerId } = useRoom();
+  const actualPersistentPlayerId = propPersistentPlayerId || contextPersistentPlayerId;
 
   return (
     <div className="card mb-3">
@@ -46,20 +47,23 @@ const PlayerList: React.FC<PlayerListProps> = ({
           ) : (
             players.map(player => (
               <div
-                key={player.id}
+                key={player.persistentPlayerId}
                 className={`list-group-item d-flex justify-content-between align-items-center ${
-                  player.id === actualCurrentPlayerId ? 'bg-highlight' : ''
-                } ${selectedPlayerId === player.id ? 'active' : ''}`}
-                onClick={() => onPlayerSelect?.(player.id)}
+                  player.persistentPlayerId === actualPersistentPlayerId ? 'bg-highlight' : ''
+                } ${selectedPlayerId === player.persistentPlayerId ? 'active' : ''}`}
+                onClick={() => onPlayerSelect?.(player.persistentPlayerId)}
                 style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
               >
                 <div className="d-flex align-items-center">
                   <span className="me-2">{player.name}</span>
-                  {player.id === actualCurrentPlayerId && !isGameMasterView && (
+                  {player.persistentPlayerId === actualPersistentPlayerId && !isGameMasterView && (
                     <span className="badge bg-primary rounded-pill ms-1">You</span>
                   )}
                   {player.isSpectator && (
                     <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
+                  )}
+                  {!player.isActive && (
+                    <span className="badge bg-warning rounded-pill ms-1">Disconnected</span>
                   )}
                 </div>
                 
@@ -71,12 +75,12 @@ const PlayerList: React.FC<PlayerListProps> = ({
                       ))}
                     </div>
                   )}
-                  {isGameMasterView && player.id !== actualCurrentPlayerId && onKickPlayer && (
+                  {isGameMasterView && player.persistentPlayerId !== actualPersistentPlayerId && onKickPlayer && (
                     <button 
                       className="btn btn-danger btn-sm p-1 ms-2" 
                       onClick={(e) => { 
                         e.stopPropagation();
-                        onKickPlayer(player.id); 
+                        onKickPlayer(player.persistentPlayerId); 
                       }}
                       title={`Kick ${player.name}`}
                     >

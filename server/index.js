@@ -112,10 +112,14 @@ const gameAnalytics = {
 };
 
 // Helper function to create a new game room with consistent structure
-function createGameRoom(roomCode, gamemasterId) {
+function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
   return {
     roomCode,
     gamemaster: gamemasterId,
+    gamemasterPersistentId: gamemasterPersistentId,
+    gamemasterSocketId: gamemasterId,
+    gamemasterDisconnected: false,
+    gamemasterDisconnectTimer: null,
     players: [],
     started: false,
     startTime: null,
@@ -128,7 +132,7 @@ function createGameRoom(roomCode, gamemasterId) {
     evaluatedAnswers: {}, // Store evaluated answers
     submissionPhaseOver: false, // Initialize submission phase flag
     isConcluded: false, // Added isConcluded flag
-    joinedAsSpectator: false // Track if joined as spectator
+    joinedAsSpectator: false, // Track if joined as spectator
   };
 }
 
@@ -146,7 +150,8 @@ function getGameState(roomCode) {
     playerBoards: room.playerBoards,
     roundAnswers: room.roundAnswers,
     evaluatedAnswers: room.evaluatedAnswers,
-    submissionPhaseOver: room.submissionPhaseOver // Include submission phase flag
+    submissionPhaseOver: room.submissionPhaseOver, // Include submission phase flag
+    questionStartTime: room.questionStartTime
   };
 }
 
@@ -176,8 +181,11 @@ function generateGameRecap(roomCode) {
     // Get all boards for this round
     const boardsForRound = {};
     Object.entries(room.playerBoards || {}).forEach(([playerId, boardData]) => {
+      // Check if this board entry has a persistentPlayerId, if so, use that
+      const persistentId = boardData.persistentPlayerId || playerId;
+      
       if (boardData.roundIndex === index) {
-        boardsForRound[playerId] = boardData.boardData;
+        boardsForRound[persistentId] = boardData.boardData;
       }
     });
 
@@ -192,20 +200,32 @@ function generateGameRecap(roomCode) {
       language: question.language
     };
 
+    // Organize submissions by persistentPlayerId
+    const submissionsByPersistentId = room.players.reduce((acc, player) => {
+      if (player.answers[index]) {
+        acc[player.persistentPlayerId] = player.answers[index];
+      }
+      return acc;
+    }, {});
+
     return {
       roundNumber: index + 1,
       question: questionForRecap,
       submissions: room.players.map(player => {
-        const answer = player.answers[index];
+        // Use the submission from submissionsByPersistentId
+        const answer = submissionsByPersistentId[player.persistentPlayerId];
+        
         if (answer && answer.hasDrawing) {
-          console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${answer.drawingData?.length}`);
+          console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: Retrieving drawingData for recap. Length: ${answer.drawingData?.length}`);
         } else if (answer && !answer.hasDrawing) {
-          console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: Submission hasDrawing is false.`);
+          console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: Submission hasDrawing is false.`);
         } else if (!answer) {
-          console.log(`[Server Recap DEBUG] Player ${player.id}, Round ${index + 1}: No answer found for this round.`);
+          console.log(`[Server Recap DEBUG] Player ${player.persistentPlayerId}, Round ${index + 1}: No answer found for this round.`);
         }
+        
         return {
           playerId: player.id,
+          persistentPlayerId: player.persistentPlayerId,
           playerName: player.name,
           answer: answer ? answer.answer : null,
           hasDrawing: answer ? answer.hasDrawing : false,
@@ -216,7 +236,7 @@ function generateGameRecap(roomCode) {
     };
   });
 
-  // Sort players for the recap
+  // Sort players for the recap - using persistentPlayerId for stability
   const sortedPlayers = [...room.players].sort((a, b) => {
     // Winners first
     if (a.isWinner && !b.isWinner) return -1;
@@ -234,17 +254,8 @@ function generateGameRecap(roomCode) {
       if (a.lives < b.lives) return 1;
     }
     
-    // Finally, if one became a spectator by losing and the other was always a spectator
-    // (or some other tie-breaking for spectator status if needed)
-    // Prioritize players who lost over those who never played actively if lives are equal (e.g. 0)
-    // This part might need refinement based on exact definition of "isSpectator" vs "isActive"
-    // For now, if lives are equal, original spectators (potentially lives 0 and isActive false from start)
-    // might rank lower than players who lost all lives (lives 0, isActive became false).
-    // However, the primary sort keys (winner, active) should handle most cases.
-    // If `isSpectator` is true AND `isActive` is false, they are eliminated or joined as spectator.
-    // If `isSpectator` is true AND `isActive` is true (as per current Player interface), they are an active spectator.
-
-    return 0; // Keep original order for ties not covered above
+    // Finally, if tied by all above criteria, sort by persistentPlayerId for stability
+    return a.persistentPlayerId.localeCompare(b.persistentPlayerId);
   });
 
   return {
@@ -253,11 +264,12 @@ function generateGameRecap(roomCode) {
     endTime: new Date(),
     players: sortedPlayers.map(player => ({
       id: player.id,
+      persistentPlayerId: player.persistentPlayerId,
       name: player.name,
       finalLives: player.lives,
       isSpectator: player.isSpectator,
       isActive: player.isActive,
-      isWinner: player.isActive && player.lives > 0 && room.players.filter(p => p.isActive && p.lives > 0).length === 1 && player.id === room.players.find(p => p.isActive && p.lives > 0)?.id
+      isWinner: player.isActive && player.lives > 0 && room.players.filter(p => p.isActive && p.lives > 0).length === 1 && player.persistentPlayerId === room.players.find(p => p.isActive && p.lives > 0)?.persistentPlayerId
     })),
     rounds: playedRounds
   };
@@ -311,7 +323,66 @@ const io = new Server(server, {
   transports: ['websocket', 'polling'],
   // Increase maximum allowed payload size for larger SVG content
   maxHttpBufferSize: 5e6, // 5MB
-  pingTimeout: 60000
+  pingTimeout: 60000,
+  // Enable Connection State Recovery
+  connectionStateRecovery: {
+    // Set max disconnection duration to 2 minutes (in milliseconds)
+    maxDisconnectionDuration: 2 * 60 * 1000,
+    // Skip middleware during recovery
+    skipMiddlewares: true
+  }
+});
+
+// Authentication Middleware for persistentPlayerId management
+io.use((socket, next) => {
+  try {
+    // Extract data from socket.handshake
+    const auth = socket.handshake.auth || {};
+    const query = socket.handshake.query || {};
+    
+    // Check for Game Master flag in query parameters
+    const isGameMasterQuery = query.isGameMaster === "true";
+    const roomCodeQuery = query.roomCode;
+
+    // Initialize socket.data property
+    socket.data = socket.data || {};
+    
+    // Set Game Master flag
+    socket.data.isGameMaster = isGameMasterQuery;
+    
+    // Set player name from auth
+    socket.data.playerName = auth.playerName;
+    
+    // Handle persistentPlayerId logic
+    if (auth.persistentPlayerId) {
+      // Use existing persistentPlayerId if provided
+      socket.data.persistentPlayerId = auth.persistentPlayerId;
+    } else if (isGameMasterQuery) {
+      // Generate new persistentPlayerId for Game Master
+      socket.data.persistentPlayerId = `GM-${uuidv4()}`;
+    } else if (auth.playerName) {
+      // Generate new persistentPlayerId for regular Player
+      socket.data.persistentPlayerId = `P-${uuidv4()}`;
+    }
+    
+    // Log the assigned values
+    console.log(`[AUTH] Socket ${socket.id} authenticated:`, {
+      persistentPlayerId: socket.data.persistentPlayerId,
+      playerName: socket.data.playerName,
+      isGameMaster: socket.data.isGameMaster,
+      timestamp: new Date().toISOString()
+    });
+
+    // Error handling for players without a name (unless recoverable via CSR)
+    if (!socket.data.isGameMaster && !socket.data.playerName && !socket.recovered) {
+      return next(new Error('Player name required'));
+    }
+    
+    next();
+  } catch (error) {
+    console.error('[AUTH] Middleware error:', error);
+    next(error);
+  }
 });
 
 // Debug endpoint to view active rooms
@@ -469,7 +540,93 @@ function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
 }
 
 io.on('connection', (socket) => {
-  console.log(`[Server] User connected: ${socket.id}`);
+  console.log(`[Server] User connected: ${socket.id}, persistentPlayerId: ${socket.data.persistentPlayerId}, playerName: ${socket.data.playerName}, isGameMaster: ${socket.data.isGameMaster}, recovered: ${socket.recovered}`);
+  
+  // Emit persistent_id_assigned back to the client
+  socket.emit('persistent_id_assigned', { persistentPlayerId: socket.data.persistentPlayerId });
+
+  // Handle session recovery
+  if (socket.recovered === true) {
+    console.log(`[Server] Session recovery for socket ${socket.id} with persistentPlayerId ${socket.data.persistentPlayerId}`);
+    
+    // Try to find the room this user was in
+    let recoveredRoomCode = null;
+    let recoveredAsGameMaster = false;
+    
+    // Search through all game rooms to find the user
+    for (const roomCode in gameRooms) {
+      const room = gameRooms[roomCode];
+      
+      // Check if socket was a game master
+      if (room.gamemasterPersistentId === socket.data.persistentPlayerId) {
+        recoveredRoomCode = roomCode;
+        recoveredAsGameMaster = true;
+        
+        // Update the room with new socket ID
+        room.gamemasterSocketId = socket.id;
+        room.gamemaster = socket.id;
+        
+        // Clear any GM disconnect timer if it was set
+        if (room.gamemasterDisconnected === true) {
+          if (room.gamemasterDisconnectTimer) {
+            clearTimeout(room.gamemasterDisconnectTimer);
+            room.gamemasterDisconnectTimer = null;
+          }
+          room.gamemasterDisconnected = false;
+          
+          // Emit an update to all clients in the room
+          io.to(roomCode).emit('gm_disconnected_status', { disconnected: false });
+        }
+        
+        console.log(`[Server] GM re-associated: PersistentID ${socket.data.persistentPlayerId} with socket ${socket.id} in room ${roomCode}`);
+        break;
+      }
+      
+      // Check if socket was a player
+      const playerIndex = room.players.findIndex(p => p.persistentPlayerId === socket.data.persistentPlayerId);
+      if (playerIndex !== -1) {
+        recoveredRoomCode = roomCode;
+        
+        // Update player data
+        room.players[playerIndex].id = socket.id;
+        room.players[playerIndex].isActive = true;
+        
+        // Clear any player disconnect timer
+        if (room.players[playerIndex].disconnectTimer) {
+          clearTimeout(room.players[playerIndex].disconnectTimer);
+          room.players[playerIndex].disconnectTimer = null;
+        }
+        
+        console.log(`[Server] Player re-associated: PersistentID ${socket.data.persistentPlayerId} with socket ${socket.id} in room ${roomCode}`);
+        
+        // Emit to all clients that this player has reconnected
+        io.to(roomCode).emit('player_reconnected_status', { 
+          playerId: socket.id,
+          persistentPlayerId: socket.data.persistentPlayerId,
+          isActive: true
+        });
+        break;
+      }
+    }
+    
+    // If we found a room, make sure the socket joins it
+    if (recoveredRoomCode) {
+      socket.roomCode = recoveredRoomCode;
+      socket.join(recoveredRoomCode);
+      
+      // Send current game state to the recovered client
+      const gameState = getGameState(recoveredRoomCode);
+      if (gameState) {
+        socket.emit('game_state_update', gameState);
+      }
+    } else {
+      // If we couldn't fully recover the session
+      socket.emit('session_not_fully_recovered_join_manually');
+      console.log(`[Server] Could not fully recover session for persistentPlayerId ${socket.data.persistentPlayerId}. Manual rejoin may be needed.`);
+    }
+  } else {
+    console.log(`[Server] New connection or CSR failed: ${socket.id}. Client will need to send create_room or join_room.`);
+  }
 
   // Create a new game room (Gamemaster)
   socket.on('create_room', ({ roomCode } = {}) => {
@@ -477,10 +634,11 @@ io.on('connection', (socket) => {
     console.log(`[Server] Creating room:`, {
       roomCode: finalRoomCode,
       gamemaster: socket.id,
+      persistentGamemasterId: socket.data.persistentPlayerId,
       timestamp: new Date().toISOString()
     });
     
-    gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, socket.id);
+    gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId);
 
     socket.join(finalRoomCode);
     socket.roomCode = finalRoomCode;
@@ -488,6 +646,7 @@ io.on('connection', (socket) => {
     console.log(`[Server] Room created successfully:`, {
       roomCode: finalRoomCode,
       gamemaster: socket.id,
+      persistentGamemasterId: socket.data.persistentPlayerId,
       timestamp: new Date().toISOString()
     });
   });
@@ -498,6 +657,7 @@ io.on('connection', (socket) => {
       roomCode,
       playerName,
       playerId: socket.id,
+      persistentPlayerId: socket.data.persistentPlayerId,
       isSpectator,
       timestamp: new Date().toISOString()
     });
@@ -514,15 +674,113 @@ io.on('connection', (socket) => {
 
     const room = gameRooms[roomCode];
 
+    // Get persistent player ID from socket data
+    const persistentPlayerId = socket.data.persistentPlayerId;
+    const currentPlayerName = playerName || socket.data.playerName;
+
+    // Check if this player is already in the room (by persistentPlayerId)
+    const existingPlayerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
+    
+    if (existingPlayerIndex !== -1) {
+      const existingPlayer = room.players[existingPlayerIndex];
+      
+      if (existingPlayer.isActive === false) {
+        // Rejoining after disconnect
+        console.log(`[Server] Player ${persistentPlayerId} rejoining room ${roomCode}`);
+        
+        // Update the player record
+        existingPlayer.id = socket.id;
+        existingPlayer.isActive = true;
+        
+        // Update name if it changed
+        if (currentPlayerName && currentPlayerName !== existingPlayer.name) {
+          existingPlayer.name = currentPlayerName;
+        }
+        
+        // Clear any disconnect timer
+        if (existingPlayer.disconnectTimer) {
+          clearTimeout(existingPlayer.disconnectTimer);
+          existingPlayer.disconnectTimer = null;
+        }
+        
+        // Add socket to the room
+        socket.join(roomCode);
+        socket.roomCode = roomCode;
+        
+        console.log(`[Server] Player rejoined successfully:`, {
+          roomCode,
+          playerName: existingPlayer.name,
+          playerId: socket.id,
+          persistentPlayerId,
+          timestamp: new Date().toISOString()
+        });
+        
+        // Emit events
+        socket.emit('room_joined', { 
+          roomCode,
+          playerId: persistentPlayerId
+        });
+        
+        // Notify room of player reconnection
+        io.to(roomCode).emit('player_reconnected_status', {
+          playerId: socket.id,
+          persistentPlayerId,
+          isActive: true
+        });
+        
+        // Send full game state
+        const gameState = getGameState(roomCode);
+        if (gameState) {
+          socket.emit('game_state_update', gameState);
+        }
+        
+        // Broadcast updated player list
+        broadcastGameState(roomCode);
+        return;
+      } 
+      else if (existingPlayer.isActive === true && existingPlayer.id !== socket.id) {
+        // Player already connected from another tab/device
+        console.error(`[Server] Join room failed - Already connected from another tab/device:`, {
+          roomCode,
+          persistentPlayerId,
+          existingSocketId: existingPlayer.id,
+          newSocketId: socket.id
+        });
+        socket.emit('error', 'Already connected from another tab/device');
+        return;
+      }
+      else if (existingPlayer.isActive === true && existingPlayer.id === socket.id) {
+        // Redundant join request
+        console.log(`[Server] Redundant join request from ${socket.id} for room ${roomCode}. Ensuring state consistency.`);
+        
+        // Ensure socket is in room
+        socket.join(roomCode);
+        socket.roomCode = roomCode;
+        
+        // Send room and game state
+        socket.emit('room_joined', { 
+          roomCode,
+          playerId: persistentPlayerId
+        });
+        
+        const gameState = getGameState(roomCode);
+        if (gameState) {
+          socket.emit('game_state_update', gameState);
+        }
+        
+        return;
+      }
+    }
+    
     // Check for duplicate names
     const isDuplicateName = room.players.some(player => 
-      player.name.toLowerCase() === playerName.toLowerCase()
+      player.name.toLowerCase() === currentPlayerName.toLowerCase()
     );
 
     if (isDuplicateName) {
       console.error(`[Server] Join room failed - Name already taken:`, {
         roomCode,
-        playerName,
+        playerName: currentPlayerName,
         playerId: socket.id
       });
       socket.emit('error', 'This name is already taken in the room. Please choose a different name.');
@@ -531,27 +789,36 @@ io.on('connection', (socket) => {
     
     // Add player to room
     socket.join(roomCode);
+    socket.roomCode = roomCode;
+    
     const player = {
       id: socket.id,
-      name: playerName,
+      persistentPlayerId: persistentPlayerId,
+      name: currentPlayerName,
       lives: 3,
       answers: [],
       isActive: true,
       isSpectator,
-      joinedAsSpectator: !!isSpectator // Track if joined as spectator
+      joinedAsSpectator: !!isSpectator,
+      disconnectTimer: null
     };
     room.players.push(player);
 
     console.log(`[Server] Player joined successfully:`, {
       roomCode,
-      playerName,
+      playerName: currentPlayerName,
       playerId: socket.id,
+      persistentPlayerId,
       totalPlayers: room.players.length,
       timestamp: new Date().toISOString()
     });
 
     // Send full game state to the joining player
-    socket.emit('room_joined', { roomCode });
+    socket.emit('room_joined', { 
+      roomCode,
+      playerId: persistentPlayerId
+    });
+    
     const gameState = getGameState(roomCode);
     if (gameState) {
       socket.emit('game_state_update', gameState);
@@ -810,13 +1077,15 @@ io.on('connection', (socket) => {
 
   // Handle answer submission
   socket.on('submit_answer', (data) => {
-    const { roomCode, answer, hasDrawing, drawingData: clientDrawingData } = data;
+    const { roomCode, answer, hasDrawing, drawingData: clientDrawingData, answerAttemptId } = data;
     console.log(`[Server] Answer submission:`, {
       roomCode,
       playerId: socket.id,
+      persistentPlayerId: socket.data.persistentPlayerId,
       hasDrawing, // This is the client's claim
       answerLength: answer?.length || 0,
       clientDrawingDataLength: clientDrawingData?.length || 0,
+      answerAttemptId: answerAttemptId || 'no_id',
       timestamp: new Date().toISOString()
     });
     
@@ -827,9 +1096,9 @@ io.on('connection', (socket) => {
       return;
     }
 
-    const player = room.players.find(p => p.id === socket.id);
+    const player = room.players.find(p => p.persistentPlayerId === socket.data.persistentPlayerId);
     if (!player || player.isSpectator || !player.isActive) {
-      console.warn(`[Server SubmitAnswer] Denied for inactive/spectator player: ${socket.id}`);
+      console.warn(`[Server SubmitAnswer] Denied for inactive/spectator player: ${socket.id}, persistentId: ${socket.data.persistentPlayerId}`);
       socket.emit('error', 'Submission denied: you are a spectator or inactive.');
       return;
     }
@@ -837,6 +1106,19 @@ io.on('connection', (socket) => {
     if (room.submissionPhaseOver) {
       console.warn(`[Server SubmitAnswer] Denied: submission phase over for room ${roomCode}, player ${socket.id}`);
       socket.emit('error', 'Submission phase is over for this round.');
+      return;
+    }
+
+    // Check for duplicate submission with same answerAttemptId
+    if (answerAttemptId && 
+        player.answers[room.currentQuestionIndex] && 
+        player.answers[room.currentQuestionIndex].answerAttemptId === answerAttemptId) {
+      console.log(`[Server SubmitAnswer] Duplicate submission detected with answerAttemptId ${answerAttemptId}`);
+      // Acknowledge receipt to client but don't process further
+      socket.emit('answer_received', { 
+        status: 'success',
+        message: 'Answer already received'
+      });
       return;
     }
 
@@ -870,22 +1152,25 @@ io.on('connection', (socket) => {
 
       const answerData = {
         playerId: socket.id,
+        persistentPlayerId: socket.data.persistentPlayerId,
         playerName: player.name,
         answer,
         hasDrawing: finalHasDrawing, // Use server-determined finalHasDrawing
         drawingData: drawingDataForStorage,
         timestamp: Date.now(),
-        isCorrect: null
+        isCorrect: null,
+        answerAttemptId: answerAttemptId || null // Store the answerAttemptId
       };
       console.log(`[Server SubmitAns REFINED] Player ${socket.id}: Storing answerData. FinalHasDrawing: ${answerData.hasDrawing}, DrawingData Length: ${answerData.drawingData?.length}`);
 
       // Store in both places for consistency
       player.answers[room.currentQuestionIndex] = answerData;
-      room.roundAnswers[socket.id] = answerData;
+      room.roundAnswers[socket.data.persistentPlayerId] = answerData;
 
       console.log(`[Server] Answer stored successfully:`, {
         roomCode,
         playerId: socket.id,
+        persistentPlayerId: socket.data.persistentPlayerId,
         playerName: player.name,
         questionIndex: room.currentQuestionIndex,
         timestamp: new Date().toISOString()
@@ -901,7 +1186,7 @@ io.on('connection', (socket) => {
       broadcastGameState(roomCode);
       
       const responseTime = Date.now() - room.questionStartTime;
-      gameAnalytics.recordAnswer(roomCode, socket.id, answer, null, responseTime);
+      gameAnalytics.recordAnswer(roomCode, socket.data.persistentPlayerId, answer, null, responseTime);
       
     } catch (error) {
       console.error('[Server] Error storing answer:', {
@@ -922,38 +1207,39 @@ io.on('connection', (socket) => {
     }
 
     try {
-      const player = room.players.find(p => p.id === playerId);
+      // playerId is now expected to be a persistentPlayerId
+      const player = room.players.find(p => p.persistentPlayerId === playerId);
       if (!player) {
-        console.error('[Server EVal] Player not found for evaluation:', { roomCode, playerId });
+        console.error('[Server EVal] Player not found for evaluation:', { roomCode, persistentPlayerId: playerId });
         return;
       }
 
-      console.log('[Server Eval] Player found:', { playerId: player.id, name: player.name, initialLives: player.lives });
+      console.log('[Server Eval] Player found:', { persistentPlayerId: player.persistentPlayerId, name: player.name, initialLives: player.lives });
 
-      // Update both answer storages
+      // Update both answer storages - player.answers is indexed by round, room.roundAnswers is keyed by persistentPlayerId
       const answer = player.answers[room.currentQuestionIndex];
-      const roundAnswer = room.roundAnswers[playerId];
+      const roundAnswer = room.roundAnswers[player.persistentPlayerId];
 
       if (answer) answer.isCorrect = isCorrect;
       if (roundAnswer) roundAnswer.isCorrect = isCorrect;
 
       // Update player state
       if (!isCorrect) {
-        console.log('[Server Eval] Answer marked incorrect. Decrementing lives for player:', { playerId: player.id, currentLives: player.lives });
+        console.log('[Server Eval] Answer marked incorrect. Decrementing lives for player:', { persistentPlayerId: player.persistentPlayerId, currentLives: player.lives });
         player.lives--;
-        console.log('[Server Eval] Player lives after decrement:', { playerId: player.id, newLives: player.lives });
+        console.log('[Server Eval] Player lives after decrement:', { persistentPlayerId: player.persistentPlayerId, newLives: player.lives });
         if (player.lives <= 0) {
           player.isActive = false;
           player.isSpectator = true;
-          console.log('[Server Eval] Player has no lives left. Setting to spectator.', { playerId: player.id });
-          io.to(playerId).emit('become_spectator');
+          console.log('[Server Eval] Player has no lives left. Setting to spectator.', { persistentPlayerId: player.persistentPlayerId });
+          io.to(player.id).emit('become_spectator');
         }
       } else {
-        console.log('[Server Eval] Answer marked correct. No change to lives for player:', { playerId: player.id, currentLives: player.lives });
+        console.log('[Server Eval] Answer marked correct. No change to lives for player:', { persistentPlayerId: player.persistentPlayerId, currentLives: player.lives });
       }
 
-      // Store evaluation
-      room.evaluatedAnswers[playerId] = isCorrect;
+      // Store evaluation keyed by persistentPlayerId
+      room.evaluatedAnswers[player.persistentPlayerId] = isCorrect;
 
       // Check for game over
       const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
@@ -961,16 +1247,25 @@ io.on('connection', (socket) => {
 
       if (activePlayers.length <= 1) {
         // Game is over
-        const winner = activePlayers.length === 1 ? { id: activePlayers[0].id, name: activePlayers[0].name } : null;
+        const winner = activePlayers.length === 1 ? { 
+          id: activePlayers[0].id, 
+          persistentPlayerId: activePlayers[0].persistentPlayerId,
+          name: activePlayers[0].name 
+        } : null;
         concludeGameAndSendRecap(roomCode, winner);
       }
 
       // Broadcast updated game state
       broadcastGameState(roomCode);
-      console.log('[Server Eval] Broadcasted game state after evaluation. Updated player data should include:', { playerId: player.id, lives: player.lives, isActive: player.isActive, isSpectator: player.isSpectator });
+      console.log('[Server Eval] Broadcasted game state after evaluation. Updated player data should include:', { 
+        persistentPlayerId: player.persistentPlayerId, 
+        lives: player.lives, 
+        isActive: player.isActive, 
+        isSpectator: player.isSpectator 
+      });
 
       const responseTime = Date.now() - room.questionStartTime;
-      gameAnalytics.recordAnswer(roomCode, playerId, answer.answer, isCorrect, responseTime);
+      gameAnalytics.recordAnswer(roomCode, player.persistentPlayerId, answer.answer, isCorrect, responseTime);
 
     } catch (error) {
       console.error('Error evaluating answer:', error);
@@ -1189,6 +1484,7 @@ io.on('connection', (socket) => {
     io.to(roomCode).emit('recap_tab_changed', { selectedTabKey });
   });
 
+  // Handle player kick
   socket.on('kick_player', ({ roomCode, playerIdToKick }) => {
     try {
       const room = gameRooms[roomCode];
@@ -1204,32 +1500,51 @@ io.on('connection', (socket) => {
         return;
       }
 
-      if (playerIdToKick === room.gamemaster) {
+      if (playerIdToKick === room.gamemasterPersistentId) {
         console.error(`[Server Kick] Kick failed: GM ${socket.id} cannot kick themselves from room ${roomCode}.`);
         socket.emit('error', { message: 'Game Master cannot kick themselves.' });
         return;
       }
 
-      const playerIndex = room.players.findIndex(p => p.id === playerIdToKick);
+      // Find player by persistentPlayerId
+      const playerIndex = room.players.findIndex(p => p.persistentPlayerId === playerIdToKick);
       if (playerIndex === -1) {
-        console.warn(`[Server Kick] Player ${playerIdToKick} not found in room ${roomCode} for kicking. Broadcasting current state.`);
+        console.warn(`[Server Kick] Player with persistentId ${playerIdToKick} not found in room ${roomCode} for kicking. Broadcasting current state.`);
         // Player not found, maybe already left. Still good to broadcast current state.
       } else {
         const kickedPlayer = room.players.splice(playerIndex, 1)[0];
-        console.log(`[Server Kick] Player ${kickedPlayer.name} (ID: ${playerIdToKick}) kicked from room ${roomCode} by GM ${socket.id}`);
+        console.log(`[Server Kick] Player ${kickedPlayer.name} (persistentId: ${playerIdToKick}) kicked from room ${roomCode} by GM ${socket.id}`);
 
-        // Notify the kicked player
-        const kickedPlayerSocket = io.sockets.sockets.get(playerIdToKick);
+        // Notify the kicked player via their current socket id
+        const kickedPlayerSocket = io.sockets.sockets.get(kickedPlayer.id);
         if (kickedPlayerSocket) {
           kickedPlayerSocket.emit('kicked_from_room', { roomCode, reason: 'Kicked by Game Master' });
           kickedPlayerSocket.leave(roomCode); 
-          console.log(`[Server Kick] Notified player ${playerIdToKick} and made them leave room ${roomCode}.`);
+          console.log(`[Server Kick] Notified player ${kickedPlayer.id} and made them leave room ${roomCode}.`);
         }
 
-        // Clean up player boards
-        if (room.playerBoards && room.playerBoards[playerIdToKick]) {
-          delete room.playerBoards[playerIdToKick];
-          console.log(`[Server Kick] Removed playerBoard for kicked player ${playerIdToKick} in room ${roomCode}.`);
+        // Clean up player boards - need to check the playerBoards object since it might still be keyed by socket ID
+        if (room.playerBoards) {
+          // Clean up by socket.id
+          if (room.playerBoards[kickedPlayer.id]) {
+            delete room.playerBoards[kickedPlayer.id];
+          }
+          
+          // Also check if we have persistentPlayerId-keyed boards
+          Object.keys(room.playerBoards).forEach(key => {
+            if (room.playerBoards[key].persistentPlayerId === playerIdToKick) {
+              delete room.playerBoards[key];
+            }
+          });
+        }
+        
+        // Clean up from roundAnswers and evaluatedAnswers which are keyed by persistentPlayerId
+        if (room.roundAnswers && room.roundAnswers[playerIdToKick]) {
+          delete room.roundAnswers[playerIdToKick];
+        }
+        
+        if (room.evaluatedAnswers && room.evaluatedAnswers[playerIdToKick]) {
+          delete room.evaluatedAnswers[playerIdToKick];
         }
       }
       // Broadcast updated game state which includes player list
@@ -1239,6 +1554,177 @@ io.on('connection', (socket) => {
     } catch (error) {
       console.error(`[Server Kick] Error handling kick_player for room ${roomCode}, player ${playerIdToKick}:`, error);
       socket.emit('error', { message: 'An internal server error occurred while trying to kick the player.' });
+    }
+  });
+
+  // Handle disconnection
+  socket.on('disconnect', (reason) => {
+    // Get data from socket
+    const roomCode = socket.roomCode;
+    const { persistentPlayerId, playerName, isGameMaster } = socket.data || {};
+    
+    console.log(`[Server] Socket disconnected:`, {
+      socketId: socket.id, 
+      persistentPlayerId, 
+      playerName, 
+      isGameMaster, 
+      reason, 
+      roomCode,
+      timestamp: new Date().toISOString()
+    });
+    
+    // If not in a room, nothing to do
+    if (!roomCode || !gameRooms[roomCode]) {
+      console.log(`[Server] Disconnect: No roomCode found on socket or room not found: ${roomCode}`);
+      return;
+    }
+    
+    const room = gameRooms[roomCode];
+    
+    // Check if the disconnect is likely to be temporary and eligible for CSR
+    const isTemporaryDisconnect = (
+      reason === 'transport close' || 
+      reason === 'transport error' || 
+      reason === 'ping timeout' ||
+      reason === 'client ping timeout'
+    );
+    
+    console.log(`[Server] Disconnect reason: ${reason}, considered temporary for CSR: ${isTemporaryDisconnect}`);
+    
+    // Handle Game Master disconnect
+    if (isGameMaster && persistentPlayerId === room.gamemasterPersistentId && socket.id === room.gamemasterSocketId) {
+      console.log(`[Server] Game Master disconnected from room ${roomCode}`);
+      
+      // Mark the GM as disconnected
+      room.gamemasterDisconnected = true;
+      
+      // Notify all clients in the room
+      io.to(roomCode).emit('gm_disconnected_status', { 
+        disconnected: true,
+        temporary: isTemporaryDisconnect
+      });
+      
+      // Set timer only if this is not likely a temporary disconnect
+      // If it's a temporary disconnect, Socket.IO CSR will handle reconnection
+      if (!isTemporaryDisconnect) {
+        // Start a timer to end the game if GM doesn't reconnect
+        const maxDisconnectionDuration = 2 * 60 * 1000; // 2 minutes, matching CSR setting
+        const gracePeriod = 10 * 1000; // Additional 10 seconds grace period
+        
+        room.gamemasterDisconnectTimer = setTimeout(() => {
+          // If GM is still disconnected when timer fires
+          if (room.gamemasterDisconnected) {
+            console.log(`[Server] Game Master did not reconnect within allowed time. Ending game in room ${roomCode}`);
+            
+            // End the game
+            io.to(roomCode).emit('game_over', { reason: 'Game Master disconnected' });
+            
+            // Clean up the room
+            delete gameRooms[roomCode];
+          }
+        }, maxDisconnectionDuration + gracePeriod);
+      }
+    }
+    // Handle Player disconnect
+    else if (!isGameMaster) {
+      // Find the player by persistentPlayerId
+      const playerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
+      
+      if (playerIndex !== -1) {
+        const player = room.players[playerIndex];
+        
+        // Ensure it's the active socket for this player
+        if (player.id === socket.id) {
+          if (reason === 'client namespace disconnect' || reason === 'server namespace disconnect') {
+            // Graceful disconnect - remove player completely
+            console.log(`[Server] Player ${player.name} (${player.id}) gracefully disconnected from room ${roomCode}`);
+            
+            // Remove player from the room
+            room.players.splice(playerIndex, 1);
+            
+            // Clean up associated data
+            if (room.playerBoards && room.playerBoards[player.id]) {
+              delete room.playerBoards[player.id];
+            }
+            
+            if (room.roundAnswers && room.roundAnswers[persistentPlayerId]) {
+              delete room.roundAnswers[persistentPlayerId];
+            }
+            
+            if (room.evaluatedAnswers && room.evaluatedAnswers[persistentPlayerId]) {
+              delete room.evaluatedAnswers[persistentPlayerId];
+            }
+            
+            // Notify clients
+            io.to(roomCode).emit('player_left_gracefully', { 
+              playerId: player.id,
+              persistentPlayerId: player.persistentPlayerId,
+              playerName: player.name
+            });
+          } 
+          else {
+            // Abrupt disconnect - mark player as inactive but give time to reconnect
+            console.log(`[Server] Player ${player.name} (${player.id}) abruptly disconnected from room ${roomCode}. Waiting for reconnection.`);
+            
+            // Mark as inactive
+            player.isActive = false;
+            
+            // Notify clients
+            io.to(roomCode).emit('player_disconnected_status', {
+              playerId: player.id,
+              persistentPlayerId: player.persistentPlayerId,
+              isActive: false,
+              temporary: isTemporaryDisconnect
+            });
+            
+            // Set timer only if this is not likely a temporary disconnect
+            // If it's a temporary disconnect, Socket.IO CSR will handle reconnection
+            if (!isTemporaryDisconnect) {
+              // Start a timer to remove player if they don't reconnect
+              const maxDisconnectionDuration = 2 * 60 * 1000; // 2 minutes, matching CSR setting
+              const gracePeriod = 15 * 1000; // Additional 15 seconds grace period
+              
+              player.disconnectTimer = setTimeout(() => {
+                // Check if the player is still inactive when timer fires
+                const currentPlayerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
+                
+                if (currentPlayerIndex !== -1 && room.players[currentPlayerIndex].isActive === false) {
+                  console.log(`[Server] Player ${player.name} (persistentPlayerId: ${persistentPlayerId}) did not reconnect within allowed time. Removing from room ${roomCode}`);
+                  
+                  // Remove player from the room
+                  const removedPlayer = room.players.splice(currentPlayerIndex, 1)[0];
+                  
+                  // Clean up associated data
+                  if (room.playerBoards && room.playerBoards[removedPlayer.id]) {
+                    delete room.playerBoards[removedPlayer.id];
+                  }
+                  
+                  if (room.roundAnswers && room.roundAnswers[persistentPlayerId]) {
+                    delete room.roundAnswers[persistentPlayerId];
+                  }
+                  
+                  if (room.evaluatedAnswers && room.evaluatedAnswers[persistentPlayerId]) {
+                    delete room.evaluatedAnswers[persistentPlayerId];
+                  }
+                  
+                  // Notify clients
+                  io.to(roomCode).emit('player_removed_after_timeout', { 
+                    playerId: removedPlayer.id,
+                    persistentPlayerId: removedPlayer.persistentPlayerId,
+                    playerName: removedPlayer.name
+                  });
+                }
+                
+                // Broadcast updated game state
+                broadcastGameState(roomCode);
+              }, maxDisconnectionDuration + gracePeriod);
+            }
+          }
+          
+          // Broadcast updated game state after any player status change
+          broadcastGameState(roomCode);
+        }
+      }
     }
   });
 });
@@ -1312,39 +1798,6 @@ function clearRoomTimer(roomCode) {
   }
 }
 
-// Handle disconnection
-// Simplified disconnect logic
-io.on('disconnect', (socket) => {
-//   console.log(`User disconnected: ${socket.id}`);
-  
-//   // If user was in a room, handle cleanup
-//   if (socket.roomCode) {
-//     const roomCode = socket.roomCode;
-//     const room = gameRooms[roomCode];
-    
-//     if (room) {
-//       // If user was gamemaster, start grace period
-//       if (room.gamemaster === socket.id) {
-//         console.log(`[Disconnect] Gamemaster ${socket.id} disconnected from room ${roomCode}.`);
-//         // REMOVED GRACE PERIOD AND ROOM DELETION LOGIC
-//         // delete gameRooms[roomCode]; // Example: Or mark room as inactive
-//         // io.to(roomCode).emit('error', 'Game Master disconnected. The room may no longer be active.');
-//         return; // Game master disconnect handled (or simply logged)
-//       }
-      
-//       // If user was a player, remove them
-//       const playerIndex = room.players.findIndex(p => p.id === socket.id);
-//       if (playerIndex !== -1) {
-//         room.players.splice(playerIndex, 1);
-//         delete room.playerBoards[socket.id];
-        
-//         // Notify remaining players
-//         io.to(roomCode).emit('players_update', room.players);
-//       }
-//     }
-//   }
-});
-
 // Add analytics endpoints
 app.get('/api/analytics/game/:roomCode', (req, res) => {
   const stats = gameAnalytics.getGameStats(req.params.roomCode);
@@ -1356,7 +1809,7 @@ app.get('/api/analytics/game/:roomCode', (req, res) => {
 });
 
 // Set up the port
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5001;
 
 // Start the server
 server.listen(PORT, () => {

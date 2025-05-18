@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import socketService from '../services/socketService';
+import socketService, { ConnectionStatusType } from '../services/socketService';
 import { Socket } from 'socket.io-client';
 import KickedNotificationModal from '../components/shared/KickedNotificationModal';
 
@@ -11,6 +11,7 @@ interface Player {
   answers: string[];
   isActive: boolean;
   isSpectator: boolean;
+  persistentPlayerId: string; // Added persistentPlayerId
 }
 
 interface RoomContextType {
@@ -22,10 +23,12 @@ interface RoomContextType {
   errorMsg: string;
   players: Player[];
   copied: boolean;
-  currentPlayerId: string | null;
-  currentSocket: Socket | null; // Added for direct access if needed, though primarily internal
-  isKickedModalOpen: boolean; // New state for modal visibility
-  kickReason: string; // New state for kick reason
+  persistentPlayerId: string | null; // Changed from currentPlayerId to persistentPlayerId
+  connectionStatus: ConnectionStatusType; // Added connectionStatus
+  isGameMaster: boolean; // Added isGameMaster flag
+  currentSocket: Socket | null;
+  isKickedModalOpen: boolean;
+  kickReason: string;
   createRoom: (roomCode: string) => void;
   kickPlayer: (playerIdToKick: string) => void;
   
@@ -38,7 +41,7 @@ interface RoomContextType {
   setIsSpectator: (isSpectator: boolean) => void;
   joinRoom: (roomCode: string, playerName: string, isSpectator?: boolean) => void;
   leaveRoom: () => void;
-  acknowledgeKick: () => void; // New action to handle modal close and navigation
+  acknowledgeKick: () => void;
 }
 
 const RoomContext = createContext<RoomContextType | undefined>(undefined);
@@ -52,63 +55,82 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [errorMsg, setErrorMsg] = useState('');
   const [players, setPlayers] = useState<Player[]>([]);
   const [copied, setCopied] = useState(false);
-  const [currentPlayerId, setCurrentPlayerId] = useState<string | null>(null);
-  const [currentSocket, setCurrentSocket] = useState<Socket | null>(null); // New state for the socket instance
-  const [isKickedModalOpen, setIsKickedModalOpen] = useState(false); // New state
-  const [kickReason, setKickReason] = useState(''); // New state
+  const [persistentPlayerId, setPersistentPlayerId] = useState<string | null>(socketService.getPersistentPlayerId());
+  const [currentSocket, setCurrentSocket] = useState<Socket | null>(null);
+  const [isKickedModalOpen, setIsKickedModalOpen] = useState(false);
+  const [kickReason, setKickReason] = useState('');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatusType>(socketService.getConnectionState());
+  const [isGameMaster, setIsGameMaster] = useState<boolean>(() => {
+    // Initialize from sessionStorage if available
+    const storedValue = sessionStorage.getItem('isGameMaster');
+    return storedValue ? storedValue === 'true' : false;
+  });
 
-  const createRoom = useCallback(async (newRoomCode: string) => {
+  // Subscribe to connection state changes
+  useEffect(() => {
+    const handleConnectionChange = (state: string, detailInfo?: any) => {
+      console.log('[RoomContext] Socket connection state changed:', state, detailInfo);
+      setConnectionStatus(state as ConnectionStatusType);
+      
+      // If connection is established, update persistentPlayerId
+      if (state === 'connected') {
+        const currentId = socketService.getPersistentPlayerId();
+        if (currentId) {
+          setPersistentPlayerId(currentId);
+        }
+        
+        // If this is a recovered connection, log it
+        if (detailInfo?.recovered) {
+          console.log('[RoomContext] Connection recovered with session data. Socket recovered:', detailInfo.recovered);
+        }
+      }
+    };
+    
+    socketService.onConnectionStateChange(handleConnectionChange);
+    
+    return () => {
+      // No specific cleanup needed here, listener stays active
+    };
+  }, []);
+
+  const createRoom = useCallback(async (roomCode: string) => {
+    console.log('[RoomContext] createRoom: Setting player details');
     setIsLoading(true);
     setErrorMsg('');
-    setCurrentSocket(null); // Reset previous socket if any
+    socketService.setPlayerDetails('GameMaster'); // GM doesn't need a specific name
+    console.log('[RoomContext] createRoom: Setting GM connection details');
+    socketService.setGMConnectionDetails(true);
+    
+    console.log('[RoomContext] createRoom: Attempting to connect socket...');
+    let socket: Socket | null;
     try {
-      console.log('[RoomContext] createRoom: Attempting to connect socket...');
-      const socketInstance = await socketService.connect();
-      
-      if (!socketInstance || !socketInstance.connected) {
-        console.error('[RoomContext] createRoom: Socket connection failed.');
-        throw new Error('Failed to connect to server for room creation.');
+      socket = await socketService.connect();
+      if (!socket) {
+        throw new Error('Failed to get socket connection');
       }
+      console.log('[RoomContext] createRoom: Socket connected. Socket ID:', socket.id);
       
-      console.log('[RoomContext] createRoom: Socket connected. Socket ID:', socketInstance.id);
-      setCurrentSocket(socketInstance); // Set the connected socket instance in state
-
-      const handleRoomCreatedForCreation = (data: any) => {
-        console.log('[RoomContext] createRoom temp handler: room_created received:', data);
-        socketInstance.off('room_created', handleRoomCreatedForCreation);
-        socketInstance.off('error', handleErrorForCreation);
-        const code = typeof data === 'string' ? data : data.roomCode;
-        sessionStorage.setItem('roomCode', code);
-        sessionStorage.setItem('isGameMaster', 'true');
-        setRoomCode(code); 
-        setIsLoading(false);
-      };
-
-      const handleErrorForCreation = (errorResponse: any) => {
-        const errorMessage = typeof errorResponse === 'string' ? errorResponse : errorResponse?.message || 'Room creation failed.';
-        console.error('[RoomContext] createRoom temp handler: error received:', errorMessage);
-        socketInstance.off('room_created', handleRoomCreatedForCreation);
-        socketInstance.off('error', handleErrorForCreation);
-        setErrorMsg(errorMessage);
-        setIsLoading(false);
-        setCurrentSocket(null); // Clear socket on error
-        sessionStorage.removeItem('roomCode');
-        sessionStorage.removeItem('isGameMaster');
-      };
-
-      socketInstance.on('room_created', handleRoomCreatedForCreation);
-      socketInstance.on('error', handleErrorForCreation); 
-
-      console.log('[RoomContext] createRoom: Emitting create_room for room:', newRoomCode);
-      socketInstance.emit('create_room', { roomCode: newRoomCode, timestamp: new Date().toISOString() });
-
-    } catch (error: any) {
-      console.error('[RoomContext] createRoom: Outer catch block error:', error);
-      setErrorMsg(error.message || 'Unable to connect or create room.');
+      setCurrentSocket(socket); // Update the socket reference in state
+      
+      // Set roomCode state immediately to prevent race condition
+      setRoomCode(roomCode);
+      
+      console.log('[RoomContext] createRoom: Creating room:', roomCode);
+      socketService.createRoom(roomCode);
+      console.log('[RoomContext] createRoom: Room creation request sent, waiting for confirmation...');
+      
+      // Don't wait for the server's room_created event to set these initial values
+      // This helps prevent race conditions with the useEffect
+      sessionStorage.setItem('roomCode', roomCode);
+      sessionStorage.setItem('isGameMaster', 'true');
+      setIsGameMaster(true);
+      
+    } catch (error) {
+      console.error('[RoomContext] createRoom: Connection failed:', error);
+      setErrorMsg('Connection failed. Please try again.');
       setIsLoading(false);
-      setCurrentSocket(null); // Ensure socket is cleared on outer error
     }
-  }, [setRoomCode, setIsLoading, setErrorMsg, setCurrentSocket]);
+  }, []);
 
   const joinRoom = useCallback(async (roomCodeInput: string, playerNameInput: string, spectatorStatusInput?: boolean) => {
     setIsLoading(true);
@@ -118,13 +140,21 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (spectatorStatusInput !== undefined) {
       setIsSpectator(spectatorStatusInput);
     }
+    
     setPlayerName(playerNameInput); // Set player name in context state
 
     sessionStorage.setItem('roomCode', roomCodeInput);
     sessionStorage.setItem('playerName', playerNameInput);
     sessionStorage.setItem('isSpectator', (spectatorStatusInput ?? false).toString());
+    sessionStorage.setItem('isGameMaster', 'false');
 
     try {
+      console.log('[RoomContext] joinRoom: Setting player details');
+      socketService.setPlayerDetails(playerNameInput);
+      
+      console.log('[RoomContext] joinRoom: Setting connection details (not GM)');
+      socketService.setGMConnectionDetails(false);
+      
       console.log('[RoomContext] joinRoom: Attempting to connect socket...');
       const socketInstance = await socketService.connect();
 
@@ -136,16 +166,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.log('[RoomContext] joinRoom: Socket connected. Socket ID:', socketInstance.id);
       setCurrentSocket(socketInstance); // Set the connected socket instance in state
       
+      // Set isGameMaster to false
+      setIsGameMaster(false);
+      
       // Set roomCode state here to trigger main useEffect for listeners
       // Server will confirm with 'room_joined' event which is handled by main useEffect
       setRoomCode(roomCodeInput); 
 
       console.log('[RoomContext] joinRoom: Emitting join_room for room:', roomCodeInput);
-      socketInstance.emit('join_room', { 
-        roomCode: roomCodeInput, 
-        playerName: playerNameInput, 
-        isSpectator: spectatorStatusInput ?? false 
-      });
+      await socketService.joinRoom(roomCodeInput, playerNameInput, spectatorStatusInput ?? false);
       // setIsLoading(false); // isLoading will be handled by room_joined or error in main useEffect
 
     } catch (error: any) {
@@ -170,9 +199,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setErrorMsg('');
     setPlayers([]);
     setCopied(false);
-    setCurrentPlayerId(null);
+    setPersistentPlayerId(null);
     setIsKickedModalOpen(false); // Ensure modal is closed if leaving room for other reasons
     setKickReason('');
+    setIsGameMaster(false);
     // Clear session storage related to room
     sessionStorage.removeItem('roomCode');
     sessionStorage.removeItem('playerName');
@@ -203,13 +233,53 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     navigate('/'); // Navigate to home after acknowledging
   }, [leaveRoom, navigate]);
 
+  // Attempt to rejoin if session data exists and we're connected
+  const attemptRejoin = useCallback(async () => {
+    const storedRoomCode = sessionStorage.getItem('roomCode');
+    const storedPlayerName = sessionStorage.getItem('playerName');
+    const storedIsSpectator = sessionStorage.getItem('isSpectator') === 'true';
+    const storedIsGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
+    
+    if (!storedRoomCode || (storedIsGameMaster ? true : !storedPlayerName)) {
+      console.log('[RoomContext] No stored session data for rejoin');
+      return false;
+    }
+    
+    if (connectionStatus !== 'connected') {
+      console.log('[RoomContext] Cannot rejoin: Not connected');
+      return false;
+    }
+    
+    console.log('[RoomContext] Attempting to rejoin with stored session data:', {
+      roomCode: storedRoomCode,
+      playerName: storedPlayerName,
+      isSpectator: storedIsSpectator,
+      isGameMaster: storedIsGameMaster,
+      persistentPlayerId: socketService.getPersistentPlayerId()
+    });
+    
+    try {
+      if (storedIsGameMaster) {
+        // Rejoin as GM
+        await createRoom(storedRoomCode);
+      } else {
+        // Rejoin as player/spectator
+        await joinRoom(storedRoomCode, storedPlayerName || '', storedIsSpectator);
+      }
+      return true;
+    } catch (error) {
+      console.error('[RoomContext] Rejoin attempt failed:', error);
+      return false;
+    }
+  }, [connectionStatus, createRoom, joinRoom]);
+
   // Main useEffect for setting up persistent socket event listeners
   useEffect(() => {
     console.log('[RoomContext] Main useEffect triggered. RoomCode:', roomCode, 'Socket ID:', currentSocket?.id, 'Connected:', currentSocket?.connected);
 
-    if (roomCode && currentSocket && currentSocket.connected) {
+    if (currentSocket && currentSocket.connected) {
       const socketToUse = currentSocket; // Use the socket from state
-      console.log(`[RoomContext] Attaching listeners to socket ${socketToUse.id} for room ${roomCode}`);
+      console.log(`[RoomContext] Attaching listeners to socket ${socketToUse.id}${roomCode ? ` for room ${roomCode}` : ''}`);
 
       // Define handlers within useEffect to capture current closure state
       // These will be fresh on each run if roomCode or currentSocket changes.
@@ -217,9 +287,10 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const onRoomCreated = (data: any) => { // This is likely for GM, confirms room setup
         console.log('[RoomContext] main useEffect: room_created event received:', data);
         const code = typeof data === 'string' ? data : data.roomCode;
-        // setRoomCode(code); // roomCode is already set, this might be redundant or for specific sync
+        setRoomCode(code); // Make sure roomCode is set, even if redundant
         sessionStorage.setItem('roomCode', code); // Ensure session is accurate
         sessionStorage.setItem('isGameMaster', 'true');
+        setIsGameMaster(true);
         setIsLoading(false);
         if (window.location.pathname !== '/gamemaster') {
           navigate('/gamemaster');
@@ -236,15 +307,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.setItem('playerName', nameToUse);
 
         sessionStorage.setItem('isGameMaster', 'false');
+        setIsGameMaster(false);
         sessionStorage.setItem('isSpectator', isSpectator.toString()); // isSpectator state should be correct by now
         
         let idToSet: string | null = null;
         if (data.playerId) {
             idToSet = data.playerId;
-        } else if (socketToUse && socketToUse.id) { // Ensure socketToUse and its id exist
-            idToSet = socketToUse.id;
+            setPersistentPlayerId(idToSet);
+        } else if (socketService.getPersistentPlayerId()) {
+            idToSet = socketService.getPersistentPlayerId();
+            setPersistentPlayerId(idToSet);
         }
-        setCurrentPlayerId(idToSet);
 
         if (data.initialPlayers) {
             console.log('[RoomContext] main useEffect: Setting initial players from room_joined event:', data.initialPlayers);
@@ -273,6 +346,30 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setPlayers(updatedPlayers);
       };
 
+      const onPlayerReconnected = (data: { playerId: string, persistentPlayerId: string, isActive: boolean }) => {
+        console.log('[RoomContext] main useEffect: player_reconnected_status. Data:', data);
+        setPlayers(prev => {
+          return prev.map(player => {
+            if (player.persistentPlayerId === data.persistentPlayerId) {
+              return { ...player, id: data.playerId, isActive: data.isActive };
+            }
+            return player;
+          });
+        });
+      };
+
+      const onPlayerDisconnected = (data: { playerId: string, persistentPlayerId: string, isActive: boolean }) => {
+        console.log('[RoomContext] main useEffect: player_disconnected_status. Data:', data);
+        setPlayers(prev => {
+          return prev.map(player => {
+            if (player.persistentPlayerId === data.persistentPlayerId) {
+              return { ...player, isActive: data.isActive };
+            }
+            return player;
+          });
+        });
+      };
+
       const onBecomeSpectator = () => {
         console.log('[RoomContext] main useEffect: become_spectator event');
         setIsSpectator(true);
@@ -284,6 +381,11 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const onGameStateUpdate = (gameState: any) => {
         // console.log('[RoomContext] game_state_update received:', gameState); 
+      };
+
+      const onSessionNotFullyRecovered = () => {
+        console.log('[RoomContext] Session not fully recovered. Attempting rejoin with stored session data.');
+        attemptRejoin();
       };
 
       const onErrorHandler = (errorData: string | { message: string }) => {
@@ -318,7 +420,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 isSpectator,
                 isRejoin: true // Add a flag to indicate this is a rejoin after reconnect
             });
-        } else if (roomCode && sessionStorage.getItem('isGameMaster') === 'true') {
+        } else if (roomCode && isGameMaster) {
              console.log('[RoomContext] Re-connected. GM re-joining room:', roomCode);
              // GM might need a specific rejoin event or the server handles it based on session
              socketToUse.emit('gm_rejoin_room', { roomCode, isRejoin: true });
@@ -337,12 +439,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketToUse.on('room_joined', onRoomJoined);   // Player/Spectator specific
       socketToUse.on('player_joined', onPlayerJoined);
       socketToUse.on('players_update', onPlayersUpdate);
+      socketToUse.on('player_reconnected_status', onPlayerReconnected);
+      socketToUse.on('player_disconnected_status', onPlayerDisconnected);
       socketToUse.on('become_spectator', onBecomeSpectator);
       socketToUse.on('game_state_update', onGameStateUpdate);
       socketToUse.on('error', onErrorHandler);
       socketToUse.on('disconnect', onDisconnectHandler);
-      socketToUse.on('connect', onConnectHandler); 
-      socketToUse.on('kicked_from_room', onKickedFromRoomHandler); // Add new listener
+      socketToUse.on('connect', onConnectHandler);
+      socketToUse.on('kicked_from_room', onKickedFromRoomHandler);
+      socketToUse.on('session_not_fully_recovered_join_manually', onSessionNotFullyRecovered);
 
       // Initial state restoration attempt from session if not already set
       if (!playerName) {
@@ -359,31 +464,45 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       
       return () => {
-        console.log(`[RoomContext] useEffect cleanup. Removing listeners from socket ${socketToUse.id} for room ${roomCode}`);
+        console.log(`[RoomContext] useEffect cleanup. Removing listeners from socket ${socketToUse.id}${roomCode ? ` for room ${roomCode}` : ''}`);
         socketToUse.off('room_created', onRoomCreated);
         socketToUse.off('room_joined', onRoomJoined);
         socketToUse.off('player_joined', onPlayerJoined);
         socketToUse.off('players_update', onPlayersUpdate);
+        socketToUse.off('player_reconnected_status', onPlayerReconnected);
+        socketToUse.off('player_disconnected_status', onPlayerDisconnected);
         socketToUse.off('become_spectator', onBecomeSpectator);
         socketToUse.off('game_state_update', onGameStateUpdate);
         socketToUse.off('error', onErrorHandler);
         socketToUse.off('disconnect', onDisconnectHandler);
         socketToUse.off('connect', onConnectHandler);
-        socketToUse.off('kicked_from_room', onKickedFromRoomHandler); // Cleanup new listener
+        socketToUse.off('kicked_from_room', onKickedFromRoomHandler);
+        socketToUse.off('session_not_fully_recovered_join_manually', onSessionNotFullyRecovered);
       };
     } else {
-      console.log('[RoomContext] Main useEffect: No roomCode or socket not connected/present. Listeners not set.');
+      console.log('[RoomContext] Main useEffect: No socket connection available. Listeners not set.');
       return () => {
-        console.log('[RoomContext] Main useEffect cleanup (no roomCode or socket path).');
+        console.log('[RoomContext] Main useEffect cleanup (no socket or socket path).');
       };
     }
   }, [
     roomCode, currentSocket, navigate, 
-    setRoomCode, setPlayerName, setIsLoading, setErrorMsg, setIsSpectator, setCurrentPlayerId, setPlayers,
-    playerName, isSpectator // Added playerName and isSpectator because onConnectHandler uses them directly for re-join logic
+    setRoomCode, setPlayerName, setIsLoading, setErrorMsg, setIsSpectator, setPersistentPlayerId, setPlayers,
+    playerName, isSpectator, isGameMaster, attemptRejoin
   ]);
 
-  const value = {
+  // Attempt to restore session on initial load if we're connected
+  useEffect(() => {
+    if (connectionStatus === 'connected' && !roomCode) {
+      const hasSession = sessionStorage.getItem('roomCode') !== null;
+      if (hasSession) {
+        console.log('[RoomContext] Connected and session exists but no active room. Attempting rejoin.');
+        attemptRejoin();
+      }
+    }
+  }, [connectionStatus, roomCode, attemptRejoin]);
+
+  const value: RoomContextType = {
     roomCode,
     playerName,
     isSpectator,
@@ -391,10 +510,12 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     errorMsg,
     players,
     copied,
-    currentPlayerId,
-    currentSocket, // Expose currentSocket if needed by consumers, though not primary API
-    isKickedModalOpen, // Expose new state
-    kickReason, // Expose new state
+    persistentPlayerId,
+    connectionStatus,
+    isGameMaster,
+    currentSocket,
+    isKickedModalOpen,
+    kickReason,
     createRoom,
     setRoomCode,
     setPlayerName,
@@ -405,7 +526,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     joinRoom,
     leaveRoom,
     kickPlayer,
-    acknowledgeKick // Expose new action
+    acknowledgeKick
   };
 
   return (

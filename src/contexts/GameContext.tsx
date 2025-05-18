@@ -16,6 +16,7 @@ export interface Question {
 
 interface Player {
   id: string;
+  persistentPlayerId: string;
   name: string;
   lives: number;
   answers: string[];

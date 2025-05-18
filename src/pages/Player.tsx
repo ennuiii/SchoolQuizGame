@@ -63,6 +63,7 @@ const Player: React.FC = () => {
     isSpectator: amISpectator,
     isLoading: isRoomLoading,
     errorMsg,
+    connectionStatus
   } = useRoom();
 
   const { getCurrentCanvasSVG } = useCanvas();
@@ -100,6 +101,12 @@ const Player: React.FC = () => {
       return;
     }
 
+    // Check connection before submitting
+    if (connectionStatus !== 'connected') {
+      toast.error('Cannot submit answer: You are disconnected from the server. Please wait for reconnection.');
+      return;
+    }
+
     try {
       const finalAnswer = textAnswer.trim();
       
@@ -132,7 +139,7 @@ const Player: React.FC = () => {
       console.error('[Player] Failed to submit answer:', error);
       toast.error('Failed to submit answer. Please try again.');
     }
-  }, [roomCode, currentQuestion, submittedAnswerLocal, getCurrentCanvasSVG, toast]);
+  }, [roomCode, currentQuestion, submittedAnswerLocal, getCurrentCanvasSVG, connectionStatus]);
 
   // Handle board updates
   const handleBoardUpdate = async (boardData: BoardData) => {
@@ -141,11 +148,13 @@ const Player: React.FC = () => {
       return;
     }
     
+    // For board updates, we'll use the updateBoard method which uses volatile emissions
+    // If not connected, these will be silently dropped
     try {
-      await socketService.updateBoard(roomCode, boardData.data);
+      socketService.updateBoard(roomCode, boardData.data);
     } catch (error) {
+      // This should rarely happen as updateBoard uses volatile.emit
       console.error('[Player] Failed to update board:', error);
-      toast.error('Failed to update drawing. Please try again.');
     }
   };
 
@@ -157,7 +166,8 @@ const Player: React.FC = () => {
       timeLimit !== null &&
       timeRemaining !== null &&
       timeRemaining <= 0 &&
-      !submittedAnswerLocal
+      !submittedAnswerLocal &&
+      connectionStatus === 'connected' // Only try to submit if connected
     ) {
       console.log(`[Player.tsx] Auto-submitting due to timer. Answer: "${answer}"`);
       handleAnswerSubmit(answer);
@@ -170,6 +180,7 @@ const Player: React.FC = () => {
     submittedAnswerLocal,
     answer,
     handleAnswerSubmit,
+    connectionStatus
   ]);
 
   // Handle visibility change
@@ -183,7 +194,8 @@ const Player: React.FC = () => {
       timeLimit !== null &&
       timeRemaining !== null &&
       timeRemaining <= 0 &&
-      !submittedAnswerLocal
+      !submittedAnswerLocal &&
+      connectionStatus === 'connected' // Only try to submit if connected
     ) {
       console.log(`[Player.tsx] Auto-submitting due to visibility change + timer. Answer: "${answer}"`);
       handleAnswerSubmit(answer); // Submit current text answer
@@ -197,6 +209,7 @@ const Player: React.FC = () => {
     submittedAnswerLocal,
     answer,
     handleAnswerSubmit,
+    connectionStatus
   ]);
 
   // Handle answer change
@@ -228,10 +241,76 @@ const Player: React.FC = () => {
     }
   }, [amISpectator, navigate]);
 
+  // If we have a stored roomCode but connection is lost, request game state update upon reconnection
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomCode && gameStarted) {
+      // Only request state update after a reconnection
+      socketService.requestGameState(roomCode);
+    }
+  }, [connectionStatus, roomCode, gameStarted]);
+
+  // Add a connection effect that initializes when component mounts
+  useEffect(() => {
+    if (playerName) {
+      console.log('[Player] Attempting to establish socket connection with player name:', playerName);
+      
+      // Set Player authentication details
+      socketService.setPlayerDetails(playerName);
+      socketService.setGMConnectionDetails(false);
+      
+      // Always attempt to connect
+      socketService.connect()
+        .then(socket => {
+          console.log('[Player] Socket connection successful:', socket?.id);
+        })
+        .catch(error => {
+          console.error('[Player] Socket connection failed:', error);
+          toast.error('Failed to connect to game server. Please refresh and try again.');
+        });
+      
+      // Set up error handler
+      socketService.on('connect_error', (error: Error) => {
+        console.error('[Player] Socket connection error:', error);
+        toast.error(`Connection error: ${error.message}`);
+      });
+      
+      return () => {
+        socketService.off('connect_error');
+      };
+    } else {
+      console.log('[Player] No player name available yet for socket connection.');
+    }
+  }, [playerName, navigate]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
     return null;
+  }
+
+  // Show loading overlay if trying to connect or reconnect
+  if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
+    return (
+      <LoadingOverlay 
+        isVisible={true} 
+        message={connectionStatus === 'connecting' ? 'Connecting to server...' : 'Reconnecting to server...'} 
+      />
+    );
+  }
+
+  // Show error if connection failed completely
+  if (connectionStatus === 'reconnect_failed' || connectionStatus === 'error') {
+    return (
+      <div className="container text-center mt-5">
+        <div className="alert alert-danger">
+          <h4>Connection Error</h4>
+          <p>Could not connect to the game server. Please refresh the page to try again.</p>
+          <button className="btn btn-primary mt-3" onClick={() => window.location.reload()}>
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (isRoomLoading) return <LoadingOverlay isVisible={true} />;
@@ -293,7 +372,7 @@ const Player: React.FC = () => {
       <button
         className="btn btn-outline-light"
         onClick={() => setCanvasKey(prev => prev + 1)}
-        disabled={submittedAnswerLocal || amISpectator}
+        disabled={submittedAnswerLocal || amISpectator || connectionStatus !== 'connected'}
         style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
       >
         Clear Canvas
@@ -312,9 +391,14 @@ const Player: React.FC = () => {
       <MusicControl />
       <div className="container py-4">
         <LoadingOverlay isVisible={isRoomLoading} />
-        <ConnectionStatus />
+        <ConnectionStatus showDetails={true} />
         {errorMsg && (
           <div className="alert alert-danger">{errorMsg}</div>
+        )}
+        {connectionStatus === 'disconnected' && (
+          <div className="alert alert-warning">
+            <strong>Disconnected from server.</strong> Attempting to reconnect...
+          </div>
         )}
         <div className="row g-3">
           <div className="col-12 col-md-8">
@@ -345,7 +429,7 @@ const Player: React.FC = () => {
                 <DrawingBoard
                   key={canvasKey}
                   onUpdate={handleBoardUpdate}
-                  disabled={submittedAnswerLocal || amISpectator}
+                  disabled={submittedAnswerLocal || amISpectator || connectionStatus !== 'connected'}
                   controls={renderDrawingBoardControls()}
                 />
                 
@@ -356,13 +440,13 @@ const Player: React.FC = () => {
                     placeholder="Type your answer here..."
                     value={answer}
                     onChange={handleAnswerChange}
-                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
+                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
                   />
                   <button
                     className="btn btn-primary"
                     type="button"
                     onClick={() => handleAnswerSubmit(answer)}
-                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator}
+                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
                   >
                     Submit Answer
                   </button>
@@ -371,6 +455,11 @@ const Player: React.FC = () => {
                 {submittedAnswerLocal && !currentQuestion?.answer && (
                   <div className="alert alert-info mt-3">
                     Your answer has been submitted. Waiting for the Game Master to evaluate it.
+                  </div>
+                )}
+                {connectionStatus !== 'connected' && (
+                  <div className="alert alert-warning mt-3">
+                    You are currently disconnected. Your inputs are disabled until reconnection.
                   </div>
                 )}
               </>

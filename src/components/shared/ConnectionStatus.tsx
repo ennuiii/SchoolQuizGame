@@ -1,81 +1,150 @@
 import React, { useEffect, useState } from 'react';
-import socketService from '../../services/socketService';
+import socketService, { ConnectionStatusType } from '../../services/socketService';
 import { LoadingSpinner } from './LoadingSpinner';
+import { toast } from 'react-toastify';
 
 interface ConnectionStatusProps {
   showDetails?: boolean;
 }
 
 export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ showDetails = false }) => {
-  const [connectionState, setConnectionState] = useState<string>('disconnected');
+  const [connectionState, setConnectionState] = useState<ConnectionStatusType>('disconnected');
+  const [details, setDetails] = useState<any | null>(null);
+  const [recoveryAttempt, setRecoveryAttempt] = useState<number | null>(null);
+  const [isSessionRecovered, setIsSessionRecovered] = useState<boolean>(false);
+  const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    socketService.onConnectionStateChange((state) => {
-      setConnectionState(state);
-    });
-  }, []);
+    const handleConnectionStateChange = (state: string, detailInfo: any) => {
+      setConnectionState(state as ConnectionStatusType);
+      setDetails(detailInfo);
+      
+      // Handle recovery info
+      if (state === 'reconnecting' && detailInfo?.attempt) {
+        setRecoveryAttempt(detailInfo.attempt);
+      } else if (state === 'connected') {
+        setRecoveryAttempt(null);
+        // Check if the connection was recovered
+        if (detailInfo?.recovered) {
+          setIsSessionRecovered(true);
+          toast.success('Connection restored with session recovery!');
+        } else if (recoveryAttempt !== null) {
+          // Connection was re-established after a disconnection
+          toast.success('Connection re-established!');
+        }
+      } else if (state === 'error') {
+        // Store the error message for display
+        setConnectionErrorMessage(detailInfo?.message || 'Unknown error');
+        toast.error(`Connection error: ${detailInfo?.message || 'Unknown error'}`);
+      } else if (state === 'reconnect_failed') {
+        setConnectionErrorMessage('Unable to reconnect after multiple attempts');
+        toast.error('Unable to reconnect to the server after multiple attempts');
+      }
+    };
+    
+    socketService.onConnectionStateChange(handleConnectionStateChange);
+    return () => {
+      // This cleanup is intentionally empty as there's no specific off method
+      // for onConnectionStateChange in the socketService
+    };
+  }, [recoveryAttempt]);
 
-  const getStatusColor = () => {
-    switch (connectionState) {
-      case 'connected':
-        return '#4CAF50';
-      case 'connecting':
-      case 'reconnecting':
-        return '#FFA726';
-      case 'disconnected':
-        return '#F44336';
-      default:
-        return '#9E9E9E';
-    }
+  // Function to retry connection
+  const handleRetryConnection = () => {
+    toast.info('Attempting to reconnect...');
+    setConnectionErrorMessage(null);
+    socketService.connect()
+      .catch(error => {
+        console.error('Retry connection error:', error);
+      });
   };
 
-  const getStatusMessage = () => {
-    switch (connectionState) {
-      case 'connected':
-        return 'Connected';
-      case 'connecting':
-        return 'Connecting...';
-      case 'reconnecting':
-        return 'Reconnecting...';
-      case 'disconnected':
-        return 'Disconnected';
-      default:
-        return 'Unknown';
-    }
-  };
+  if (!showDetails && connectionState === 'connected') {
+    return null; // No need to show anything when connected and details not requested
+  }
+
+  // Return a more detailed error display if connection failed
+  if (connectionState === 'error' || connectionState === 'reconnect_failed') {
+    return (
+      <div className="alert alert-danger">
+        <div className="d-flex justify-content-between align-items-center">
+          <div>
+            <strong>Connection Failed</strong>
+            {connectionErrorMessage && (
+              <p className="mb-1">{connectionErrorMessage}</p>
+            )}
+            <p className="mb-0 small">
+              The application cannot connect to the server. 
+              {connectionErrorMessage?.includes('NetworkError') && (
+                <span> Make sure you are connecting to your local server on port 5001 when running in development mode.</span>
+              )}
+            </p>
+          </div>
+          <button 
+            className="btn btn-sm btn-outline-light" 
+            onClick={handleRetryConnection}
+          >
+            Retry Connection
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div
-      className="connection-status"
-      style={{
-        position: 'fixed',
-        bottom: '20px',
-        right: '20px',
-        padding: '8px 16px',
-        borderRadius: '20px',
-        backgroundColor: 'white',
-        boxShadow: '0 2px 4px rgba(0,0,0,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        zIndex: 1000
-      }}
-    >
-      <div
-        style={{
-          width: '10px',
-          height: '10px',
-          borderRadius: '50%',
-          backgroundColor: getStatusColor(),
-          transition: 'background-color 0.3s ease'
-        }}
-      />
-      {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
-        <LoadingSpinner size="small" color={getStatusColor()} />
-      )}
-      <span style={{ color: '#333' }}>
-        {showDetails ? getStatusMessage() : 'Connection'}
-      </span>
+    <div className={`alert ${getAlertClass(connectionState)}`}>
+      <div className="d-flex justify-content-between align-items-center">
+        <div>
+          <strong>{getConnectionLabel(connectionState)}</strong>
+          {showDetails && details && Object.keys(details).length > 0 && (
+            <div className="mt-1 small">
+              {details.recovered && <span className="badge bg-success me-2">Session Recovered</span>}
+              {details.attempt && <span className="badge bg-warning text-dark">Attempt {details.attempt}</span>}
+            </div>
+          )}
+        </div>
+        {(connectionState === 'connecting' || connectionState === 'reconnecting') && (
+          <LoadingSpinner size="small" />
+        )}
+      </div>
     </div>
   );
-}; 
+};
+
+// Helper function to get the appropriate alert class based on connection state
+function getAlertClass(state: ConnectionStatusType): string {
+  switch (state) {
+    case 'connected':
+      return 'alert-success';
+    case 'connecting':
+    case 'reconnecting':
+      return 'alert-warning';
+    case 'disconnected':
+      return 'alert-secondary';
+    case 'error':
+    case 'reconnect_failed':
+      return 'alert-danger';
+    default:
+      return 'alert-info';
+  }
+}
+
+// Helper function to get a user-friendly label for the connection state
+function getConnectionLabel(state: ConnectionStatusType): string {
+  switch (state) {
+    case 'connected':
+      return 'Connected to Game Server';
+    case 'connecting':
+      return 'Connecting to Game Server...';
+    case 'reconnecting':
+      return 'Reconnecting to Game Server...';
+    case 'disconnected':
+      return 'Disconnected from Game Server';
+    case 'error':
+      return 'Connection Error';
+    case 'reconnect_failed':
+      return 'Failed to Reconnect';
+    default:
+      return 'Unknown Connection State';
+  }
+} 

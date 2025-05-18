@@ -39,7 +39,9 @@ const GameMaster: React.FC = () => {
     createRoom,
     players,
     setRoomCode,
-    kickPlayer
+    kickPlayer,
+    connectionStatus,
+    isGameMaster
   } = useRoom();
 
   // DEBUG: Log players from useRoom to understand the button's player count
@@ -108,30 +110,62 @@ const GameMaster: React.FC = () => {
   const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
                               Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));
 
+  // Always attempt to connect to socket server on component mount
   useEffect(() => {
-    if (!socketService.getConnectionState()) {
-      socketService.connect();
-      socketService.on('connect_error', (error: Error) => {
-        console.error('Socket connection error:', error);
-        navigate('/');
+    console.log('[GameMaster] Attempting to establish socket connection...');
+    
+    // Set GameMaster authentication details
+    socketService.setPlayerDetails('GameMaster');
+    socketService.setGMConnectionDetails(true);
+    
+    // Always attempt to connect, even if getConnectionState reports a connection
+    // This ensures we have a fresh connection attempt whenever this component mounts
+    socketService.connect()
+      .then(socket => {
+        console.log('[GameMaster] Socket connection successful:', socket?.id);
+      })
+      .catch(error => {
+        console.error('[GameMaster] Socket connection failed:', error);
+        toast.error('Failed to connect to game server. Please refresh and try again.');
       });
-      return () => {
-        socketService.off('connect_error');
-      };
-    }
+    
+    // Set up error handler
+    socketService.on('connect_error', (error: Error) => {
+      console.error('[GameMaster] Socket connection error:', error);
+      toast.error(`Connection error: ${error.message}`);
+    });
+    
+    return () => {
+      socketService.off('connect_error');
+      // We don't disconnect here as other components might still need the connection
+    };
   }, [navigate]);
 
   useEffect(() => {
     playBackgroundMusic();
   }, [playBackgroundMusic]);
 
+  // Request game state update upon reconnection if we already have a roomCode
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomCode && gameStarted) {
+      // Only request state update after a reconnection
+      socketService.requestGameState(roomCode);
+    }
+  }, [connectionStatus, roomCode, gameStarted]);
+
   const handleCreateRoom = useCallback(() => {
+    // Check connection state before trying to create a room
+    if (connectionStatus !== 'connected') {
+      toast.error('Cannot create room: You are disconnected from the server. Please wait for reconnection.');
+      return;
+    }
+
     const newRoomCode = inputRoomCode.trim() || Math.random().toString(36).substring(2, 8).toUpperCase();
     console.log('[GameMaster] Attempting to create room:', newRoomCode);
     
     setIsRoomLoading(true);
     createRoom(newRoomCode);
-  }, [createRoom, inputRoomCode, setIsRoomLoading]);
+  }, [createRoom, inputRoomCode, setIsRoomLoading, connectionStatus]);
 
   useEffect(() => {
     console.log('[GameMaster] Game state changed:', {
@@ -156,6 +190,10 @@ const GameMaster: React.FC = () => {
       toast.error('Please select questions before starting the game');
       return;
     }
+    if (connectionStatus !== 'connected') {
+      toast.error('Cannot start game: You are disconnected from the server. Please wait for reconnection.');
+      return;
+    }
     try {
       const effectiveTimeLimit = customTimeLimit === null || customTimeLimit === 0 ? 99999 : customTimeLimit;
       console.log('[GameMaster] Starting game:', {
@@ -174,6 +212,9 @@ const GameMaster: React.FC = () => {
 
   const handleNextQuestion = async () => {
     if (!roomCode) return toast.error('Room code not found.');
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot proceed: You are disconnected from the server. Please wait for reconnection.');
+    }
     try {
       await nextQuestion(roomCode);
     } catch (error) {
@@ -184,16 +225,25 @@ const GameMaster: React.FC = () => {
 
   const handleStartPreview = () => {
     if (!roomCode) return toast.error('Room code not found.');
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot start preview: You are disconnected from the server. Please wait for reconnection.');
+    }
     socketService.startPreviewMode(roomCode);
   };
 
   const handleStopPreview = () => {
     if (!roomCode) return toast.error('Room code not found.');
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot stop preview: You are disconnected from the server. Please wait for reconnection.');
+    }
     socketService.stopPreviewMode(roomCode);
   };
 
   const handleEvaluateAnswer = async (playerId: string, isCorrect: boolean) => {
     if (!roomCode) return toast.error('Room code not found.');
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot evaluate answer: You are disconnected from the server. Please wait for reconnection.');
+    }
     try {
       await evaluateAnswer(roomCode, playerId, isCorrect);
     } catch (error) {
@@ -204,6 +254,9 @@ const GameMaster: React.FC = () => {
 
   const handleEndGameRequest = async () => {
     if (!roomCode) return toast.error('Room code not found.');
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot end game: You are disconnected from the server. Please wait for reconnection.');
+    }
     try {
       gmEndGameRequest(roomCode);
     } catch (error) {
@@ -218,12 +271,18 @@ const GameMaster: React.FC = () => {
       toast.warn('Game must be concluded before showing recap.');
       return;
     }
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot show recap: You are disconnected from the server. Please wait for reconnection.');
+    }
     gmShowRecapToAll(roomCode);
     toast.info('Broadcasting game recap to all players.');
   };
 
   const handleRestartGame = async () => {
     if (!roomCode) return toast.error("No room code found to restart the game.");
+    if (connectionStatus !== 'connected') {
+      return toast.error('Cannot restart game: You are disconnected from the server. Please wait for reconnection.');
+    }
     setIsRestarting(true);
     try {
       await restartGame(roomCode);
@@ -237,8 +296,12 @@ const GameMaster: React.FC = () => {
   };
 
   const handleEndRoundEarlyAction = useCallback(() => {
+    if (connectionStatus !== 'connected') {
+      toast.error('Cannot end round: You are disconnected from the server. Please wait for reconnection.');
+      return;
+    }
     setShowEndRoundConfirm(true);
-  }, []);
+  }, [connectionStatus]);
 
   const confirmEndRoundEarly = useCallback(() => {
     if (!roomCode) return;
@@ -300,6 +363,31 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCode, setRoomCode]);
 
+  // Show loading overlay if trying to connect or reconnect
+  if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
+    return (
+      <LoadingOverlay 
+        isVisible={true} 
+        message={connectionStatus === 'connecting' ? 'Connecting to server...' : 'Reconnecting to server...'} 
+      />
+    );
+  }
+
+  // Show error if connection failed completely
+  if (connectionStatus === 'reconnect_failed' || connectionStatus === 'error') {
+    return (
+      <div className="container text-center mt-5">
+        <div className="alert alert-danger">
+          <h4>Connection Error</h4>
+          <p>Could not connect to the game server. Please refresh the page to try again.</p>
+          <button className="btn btn-primary mt-3" onClick={() => window.location.reload()}>
+            Refresh Page
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!roomCode) {
     return (
       <div className="container mt-5">
@@ -326,9 +414,9 @@ const GameMaster: React.FC = () => {
               <button
                 className="btn btn-primary btn-lg mt-3"
                 onClick={handleCreateRoom}
-                disabled={isRoomLoading}
+                disabled={isRoomLoading || connectionStatus !== 'connected'}
               >
-                {isRoomLoading ? 'Creating...' : 'Create Room'}
+                {isRoomLoading ? 'Creating...' : connectionStatus !== 'connected' ? 'Waiting for connection...' : 'Create Room'}
               </button>
               <button
                 className="btn btn-outline-secondary mt-3"
@@ -361,7 +449,7 @@ const GameMaster: React.FC = () => {
       <MusicControl />
       <div className="container-fluid py-4">
         <LoadingOverlay isVisible={isRoomLoading} />
-        <ConnectionStatus />
+        <ConnectionStatus showDetails={true} />
         {showEndRoundConfirm && (
           <div className="modal show d-block" tabIndex={-1}>
             <div className="modal-dialog">
@@ -381,13 +469,20 @@ const GameMaster: React.FC = () => {
             </div>
           </div>
         )}
+        {connectionStatus === 'disconnected' && (
+          <div className="alert alert-warning">
+            <strong>Disconnected from server.</strong> Attempting to reconnect... Game controls are disabled until reconnection.
+          </div>
+        )}
         <div className="row g-3">
           <div className="col-12 col-md-4">
             <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
             <RoomCode />
             {gameStarted && !previewMode.isActive && (
               <div className="mb-3">
-                <button className="btn btn-primary w-100" onClick={handleStartPreview}>
+                <button className="btn btn-primary w-100" 
+                  onClick={handleStartPreview}
+                  disabled={connectionStatus !== 'connected'}>
                   Start Preview Mode
                 </button>
               </div>
@@ -405,36 +500,46 @@ const GameMaster: React.FC = () => {
                 <button 
                   className="btn btn-success" 
                   onClick={handleStartGame}
-                  disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1}
+                  disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1 || connectionStatus !== 'connected'}
                   title={
                     isConnecting ? "Connecting to server..." :
+                    connectionStatus !== 'connected' ? "Not connected to server" :
                     gamePlayers.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
                     questions.length === 0 ? "Please select questions first" : ""
                   }
                 >
-                  {isConnecting ? "Connecting..." : `Start Game (${gamePlayers.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
+                  {isConnecting ? "Connecting..." : 
+                   connectionStatus !== 'connected' ? "Waiting for connection..." :
+                   `Start Game (${gamePlayers.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
                 </button>
               ) : (
                 <>
                   <button 
                     className="btn btn-primary" 
                     onClick={handleNextQuestion}
-                    disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated}
-                    title={currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? (Object.keys(allAnswersThisRound).length === 0 ? "Waiting for players to submit answers for this round." : "All submitted answers must be evaluated before proceeding.") : ""}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated || connectionStatus !== 'connected'}
+                    title={
+                      connectionStatus !== 'connected' ? "Not connected to server" :
+                      currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? 
+                        (Object.keys(allAnswersThisRound).length === 0 ? 
+                          "Waiting for players to submit answers for this round." : 
+                          "All submitted answers must be evaluated before proceeding.") : 
+                        ""
+                    }
                   >
                     Next Question
                   </button>
                   <button 
                     className="btn btn-warning" 
                     onClick={handleEndRoundEarlyAction}
-                    disabled={!currentQuestion || isRestarting || isGameConcluded}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected'}
                   >
                     End Round Early
                   </button>
                   <button 
                     className="btn btn-info"
                     onClick={handleRestartGame}
-                    disabled={isRestarting || !gameStarted}
+                    disabled={isRestarting || !gameStarted || connectionStatus !== 'connected'}
                   >
                     {isRestarting ? 'Restarting...' : 'Restart Game'}
                   </button>
@@ -445,7 +550,7 @@ const GameMaster: React.FC = () => {
                         console.log('[GameMaster] End Game button clicked. Attempting to emit gmEndGameRequest. Room:', roomCode);
                         handleEndGameRequest();
                       }}
-                      disabled={isRestarting}
+                      disabled={isRestarting || connectionStatus !== 'connected'}
                     >
                       End Game
                     </button>
@@ -454,7 +559,7 @@ const GameMaster: React.FC = () => {
                     <button
                       className="btn btn-success"
                       onClick={handleShowRecapButtonClick}
-                      disabled={isRestarting}
+                      disabled={isRestarting || connectionStatus !== 'connected'}
                     >
                       Show Game Recap For All
                     </button>
@@ -489,8 +594,16 @@ const GameMaster: React.FC = () => {
                   <div className="card-header bg-light d-flex justify-content-between align-items-center">
                     <h5 className="mb-0">Player Boards</h5>
                     <div className="d-flex gap-2">
-                      <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
-                      <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoards}>Hide All</button>
+                      <button className="btn btn-sm btn-outline-primary" 
+                        onClick={showAllBoards}
+                        disabled={connectionStatus !== 'connected'}>
+                        Show All
+                      </button>
+                      <button className="btn btn-sm btn-outline-secondary" 
+                        onClick={hideAllBoards}
+                        disabled={connectionStatus !== 'connected'}>
+                        Hide All
+                      </button>
                     </div>
                   </div>
                   <div className="card-body">
