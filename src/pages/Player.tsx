@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
@@ -49,7 +49,9 @@ const Player: React.FC = () => {
     gameRecapData,
     recapSelectedRoundIndex,
     recapSelectedTabKey,
-    hideRecap
+    hideRecap,
+    allAnswersThisRound,
+    players
   } = useGame();
 
   const {
@@ -63,19 +65,41 @@ const Player: React.FC = () => {
     isSpectator: amISpectator,
     isLoading: isRoomLoading,
     errorMsg,
-    connectionStatus
+    connectionStatus,
+    persistentPlayerId
   } = useRoom();
 
   const { getCurrentCanvasSVG } = useCanvas();
 
+  // Determine if player has already submitted answer from server state
+  // This solves the issue where player can submit again after page refresh
+  const hasSubmittedToServer = useMemo(() => {
+    if (!persistentPlayerId || !allAnswersThisRound) return false;
+    
+    // Check if this player has an answer in the current round
+    return Object.entries(allAnswersThisRound).some(([pid, _]) => 
+      pid === persistentPlayerId
+    );
+  }, [persistentPlayerId, allAnswersThisRound]);
+
+  // Sync local submission state with server state
+  useEffect(() => {
+    if (hasSubmittedToServer) {
+      setSubmittedAnswerLocal(true);
+    }
+  }, [hasSubmittedToServer]);
+
   // Clear canvas and reset state when new question starts
   useEffect(() => {
     if (currentQuestion) {
-      setSubmittedAnswerLocal(false);
-      setCanvasKey(prev => prev + 1);
-      setAnswer(''); // Clear text answer field on new question
+      // Only reset submission state if not already submitted to this question
+      if (!hasSubmittedToServer) {
+        setSubmittedAnswerLocal(false);
+        setCanvasKey(prev => prev + 1);
+        setAnswer(''); // Clear text answer field on new question
+      }
     }
-  }, [currentQuestion?.id, currentQuestionIndex]);
+  }, [currentQuestion?.id, currentQuestionIndex, hasSubmittedToServer]);
 
   // Effect for handling game state changes
   useEffect(() => {
@@ -85,18 +109,19 @@ const Player: React.FC = () => {
       timeRemaining,
       contextSubmittedAnswer: submittedAnswer,
       localSubmissionLock: submittedAnswerLocal,
+      hasSubmittedToServer,
       gameRecapAvailable: !!gameRecapData,
       timestamp: new Date().toISOString()
     });
-  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal, gameRecapData]);
+  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal, gameRecapData, hasSubmittedToServer]);
 
   // Handle answer submission
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
-    if (!roomCode || !currentQuestion || submittedAnswerLocal) {
+    if (!roomCode || !currentQuestion || submittedAnswerLocal || hasSubmittedToServer) {
       console.error('[Player] Cannot submit answer:', {
         hasRoomCode: !!roomCode,
         hasQuestion: !!currentQuestion,
-        alreadySubmitted: submittedAnswerLocal
+        alreadySubmitted: submittedAnswerLocal || hasSubmittedToServer
       });
       return;
     }
@@ -139,12 +164,17 @@ const Player: React.FC = () => {
       console.error('[Player] Failed to submit answer:', error);
       toast.error('Failed to submit answer. Please try again.');
     }
-  }, [roomCode, currentQuestion, submittedAnswerLocal, getCurrentCanvasSVG, connectionStatus]);
+  }, [roomCode, currentQuestion, submittedAnswerLocal, hasSubmittedToServer, getCurrentCanvasSVG, connectionStatus]);
 
   // Handle board updates
   const handleBoardUpdate = async (boardData: BoardData) => {
     if (!roomCode) {
       console.error('[Player] Cannot update board - No room code found');
+      return;
+    }
+    
+    // Skip updates if player has already submitted their answer
+    if (submittedAnswerLocal || hasSubmittedToServer) {
       return;
     }
     
@@ -167,6 +197,7 @@ const Player: React.FC = () => {
       timeRemaining !== null &&
       timeRemaining <= 0 &&
       !submittedAnswerLocal &&
+      !hasSubmittedToServer &&
       connectionStatus === 'connected' // Only try to submit if connected
     ) {
       console.log(`[Player.tsx] Auto-submitting due to timer. Answer: "${answer}"`);
@@ -178,6 +209,7 @@ const Player: React.FC = () => {
     timeLimit,
     timeRemaining,
     submittedAnswerLocal,
+    hasSubmittedToServer,
     answer,
     handleAnswerSubmit,
     connectionStatus
@@ -195,6 +227,7 @@ const Player: React.FC = () => {
       timeRemaining !== null &&
       timeRemaining <= 0 &&
       !submittedAnswerLocal &&
+      !hasSubmittedToServer &&
       connectionStatus === 'connected' // Only try to submit if connected
     ) {
       console.log(`[Player.tsx] Auto-submitting due to visibility change + timer. Answer: "${answer}"`);
@@ -207,6 +240,7 @@ const Player: React.FC = () => {
     timeLimit,
     timeRemaining,
     submittedAnswerLocal,
+    hasSubmittedToServer,
     answer,
     handleAnswerSubmit,
     connectionStatus
@@ -214,7 +248,7 @@ const Player: React.FC = () => {
 
   // Handle answer change
   const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (submittedAnswerLocal) return;
+    if (submittedAnswerLocal || hasSubmittedToServer) return;
     setAnswer(e.target.value);
   };
 
@@ -380,13 +414,13 @@ const Player: React.FC = () => {
       <button
         className="btn btn-outline-light"
         onClick={() => setCanvasKey(prev => prev + 1)}
-        disabled={submittedAnswerLocal || amISpectator || connectionStatus !== 'connected'}
+        disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
         style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
       >
         Clear Canvas
       </button>
       {/* Show ReviewNotification only if evaluated */}
-      {submittedAnswerLocal && socketService.getSocketId() && (
+      {(submittedAnswerLocal || hasSubmittedToServer) && socketService.getSocketId() && (
         <div style={{ minWidth: 180 }}>
           <ReviewNotification playerId={socketService.getSocketId()!} />
         </div>
@@ -426,7 +460,7 @@ const Player: React.FC = () => {
                       question={currentQuestion}
                       timeRemaining={timeRemaining}
                       onSubmit={handleAnswerSubmit}
-                      submitted={submittedAnswerLocal}
+                      submitted={submittedAnswerLocal || hasSubmittedToServer}
                     />
                   </div>
                   {timeLimit !== null && timeLimit < 99999 && (
@@ -437,7 +471,7 @@ const Player: React.FC = () => {
                 <DrawingBoard
                   key={canvasKey}
                   onUpdate={handleBoardUpdate}
-                  disabled={submittedAnswerLocal || amISpectator || connectionStatus !== 'connected'}
+                  disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
                   controls={renderDrawingBoardControls()}
                 />
                 
@@ -448,19 +482,19 @@ const Player: React.FC = () => {
                     placeholder="Type your answer here..."
                     value={answer}
                     onChange={handleAnswerChange}
-                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+                    disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
                   />
                   <button
                     className="btn btn-primary"
                     type="button"
                     onClick={() => handleAnswerSubmit(answer)}
-                    disabled={submittedAnswerLocal || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+                    disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
                   >
                     Submit Answer
                   </button>
                 </div>
                 
-                {submittedAnswerLocal && !currentQuestion?.answer && (
+                {(submittedAnswerLocal || hasSubmittedToServer) && !currentQuestion?.answer && (
                   <div className="alert alert-info mt-3">
                     Your answer has been submitted. Waiting for the Game Master to evaluate it.
                   </div>

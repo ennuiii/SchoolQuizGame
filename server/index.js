@@ -141,13 +141,27 @@ function getGameState(roomCode) {
   const room = gameRooms[roomCode];
   if (!room) return null;
 
+  // Create a cleaner copy of player boards to ensure drawings are preserved
+  const playerBoardsWithConsistentFormat = {};
+  if (room.playerBoards) {
+    Object.entries(room.playerBoards).forEach(([playerId, boardData]) => {
+      // Always use consistent format with roundIndex to aid client-side synchronization
+      playerBoardsWithConsistentFormat[playerId] = {
+        playerId,
+        boardData: boardData.boardData || '',
+        roundIndex: boardData.roundIndex !== undefined ? boardData.roundIndex : room.currentQuestionIndex || 0,
+        timestamp: boardData.timestamp || Date.now()
+      };
+    });
+  }
+
   return {
     started: room.started,
     currentQuestion: room.currentQuestion,
     currentQuestionIndex: room.currentQuestionIndex,
     timeLimit: room.timeLimit,
     players: room.players,
-    playerBoards: room.playerBoards,
+    playerBoards: playerBoardsWithConsistentFormat,  // Use our cleaned/normalized version
     roundAnswers: room.roundAnswers,
     evaluatedAnswers: room.evaluatedAnswers,
     submissionPhaseOver: room.submissionPhaseOver, // Include submission phase flag
@@ -1202,6 +1216,19 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Check if player already submitted an answer for this question
+    if (player.answers && 
+        player.answers[room.currentQuestionIndex] && 
+        !player.answers[room.currentQuestionIndex].answerAttemptId) {
+      console.log(`[Server SubmitAnswer] Player ${socket.id} already submitted an answer for this question.`);
+      // Acknowledge receipt but don't overwrite existing answer
+      socket.emit('answer_received', { 
+        status: 'success',
+        message: 'Answer already received'
+      });
+      return;
+    }
+
     try {
       let drawingDataForStorage = null;
       let finalHasDrawing = false; // Server-determined truth for hasDrawing
@@ -1246,6 +1273,24 @@ io.on('connection', (socket) => {
       // Store in both places for consistency
       player.answers[room.currentQuestionIndex] = answerData;
       room.roundAnswers[socket.data.persistentPlayerId] = answerData;
+
+      // Also update player boards if there's drawing data
+      if (finalHasDrawing && drawingDataForStorage) {
+        if (!room.playerBoards) {
+          room.playerBoards = {};
+        }
+        
+        // Store drawing in playerBoards with consistent format
+        room.playerBoards[socket.id] = {
+          boardData: drawingDataForStorage,
+          roundIndex: room.currentQuestionIndex,
+          timestamp: Date.now(),
+          playerId: socket.id,
+          persistentPlayerId: socket.data.persistentPlayerId
+        };
+        
+        console.log(`[Server SubmitAns] Updated playerBoards for player ${socket.id} with drawing data`);
+      }
 
       console.log(`[Server] Answer stored successfully:`, {
         roomCode,

@@ -206,6 +206,28 @@ const GameMaster: React.FC = () => {
     }
   }, [connectionStatus, roomCode, isRoomLoading]);
 
+  // Add a special effect to handle player board visibility after reconnection
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomCode && playerBoards.length > 0) {
+      console.log('[GameMaster] Ensuring board visibility after reconnection...');
+      
+      // Get active player IDs from player boards that should be visible
+      const activeBoardIds = playerBoards
+        .filter(board => {
+          // Keep only boards from active, non-spectator players
+          const player = gamePlayers.find(p => p.id === board.playerId);
+          return player && !player.isSpectator;
+        })
+        .map(board => board.playerId);
+      
+      // If we have active boards but visibleBoards is empty, restore visibility
+      if (activeBoardIds.length > 0 && visibleBoards.size === 0) {
+        console.log('[GameMaster] Restoring board visibility for', activeBoardIds.length, 'players after reconnection');
+        toggleBoardVisibility(new Set(activeBoardIds));
+      }
+    }
+  }, [connectionStatus, roomCode, playerBoards, visibleBoards, gamePlayers, toggleBoardVisibility]);
+
   // Explicitly listen for player updates
   useEffect(() => {
     const handlePlayersUpdate = (updatedPlayers: Player[]) => {
