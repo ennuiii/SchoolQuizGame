@@ -318,219 +318,60 @@ if (process.env.NODE_ENV === 'production') {
 
 const server = http.createServer(app);
 const io = new Server(server, {
-  connectionStateRecovery: {
-    maxDisconnectionDuration: 2 * 60 * 1000, // 2 minutes
-    skipMiddlewares: true, // Recommended for CSR
-  },
   cors: {
-    origin: "*", // TEMPORARY DEBUGGING - ALLOW ALL ORIGINS
-    methods: ['GET', 'POST'], // Standard
-    credentials: true // May or may not be needed with origin: "*"
+    origin: "*", // TEMPORARY DEBUGGING - KEEPING THIS FOR NOW
+    methods: ['GET', 'POST'],
+    credentials: true
   },
-  transports: ['websocket', 'polling'],
-  // Increase maximum allowed payload size for larger SVG content
-  maxHttpBufferSize: 5e6, // 5MB
-  pingTimeout: 60000
+  transports: ['websocket', 'polling'] // Keep basic transports
+  // maxHttpBufferSize: 5e6, // Can keep or remove, less likely an issue
+  // pingTimeout: 60000 // Can keep or remove
 });
 
-// Middleware for authentication and persistent player ID management
+// Temporarily comment out the io.use() middleware
+/*
 io.use((socket, next) => {
-  const { persistentPlayerId: authPlayerId, playerName: authPlayerName } = socket.handshake.auth;
-  const { isGameMaster: isGameMasterQuery, roomCode: roomCodeQuery } = socket.handshake.query;
+  const { persistentPlayerId: authPId, playerName: authPlayerName } = socket.handshake.auth;
+  const isGameMasterQuery = socket.handshake.query.isGameMaster === 'true';
+  const roomCodeQuery = socket.handshake.query.roomCode;
 
-  socket.data = socket.data || {}; // Ensure socket.data exists
-
-  socket.data.isGameMaster = isGameMasterQuery === 'true';
+  // Assign basic data, will be refined in connection handler or if CSR recovers more
+  socket.data.isGameMaster = isGameMasterQuery;
   socket.data.playerName = authPlayerName;
+  socket.data.persistentPlayerId = authPId;
+  socket.data.initialRoomCodeQuery = roomCodeQuery; // Store for potential use if GM creates room
 
-  let assignedPersistentId = authPlayerId;
+  console.log(`[Server Middleware Auth] Attempting. Socket ID: ${socket.id}, Auth PID: ${authPId}, PlayerName: ${authPlayerName}, isGMQuery: ${isGameMasterQuery}, RoomQuery: ${roomCodeQuery}`);
 
-  if (!assignedPersistentId) {
-    if (socket.data.isGameMaster) {
-      assignedPersistentId = `GM-${uuidv4()}`;
-    } else if (socket.data.playerName) { // Only assign P-id if player name is present
-      assignedPersistentId = `P-${uuidv4()}`;
+  // If CSR is active (socket.recovered is true), these values might be overwritten by recovered session data shortly.
+  // For new connections (socket.recovered is false):
+  if (!socket.recovered) {
+    if (isGameMasterQuery) {
+      if (!authPId) {
+        socket.data.persistentPlayerId = `GM-${uuidv4()}`;
+        console.log(`[Server Middleware Auth] New GM connection. No PID in auth. Generated PID: ${socket.data.persistentPlayerId}`);
+      }
+      // GM PlayerName can be optional or a default like "GameMaster"
+      if (!authPlayerName) socket.data.playerName = 'GameMaster';
+    } else {
+      // Regular player
+      if (!authPlayerName) {
+        console.error('[Server Middleware Auth] Player connection without playerName in auth.');
+        return next(new Error('Player name required for new player connection.'));
+      }
+      if (!authPId) {
+        socket.data.persistentPlayerId = `P-${uuidv4()}`;
+        console.log(`[Server Middleware Auth] New Player connection ${authPlayerName}. No PID in auth. Generated PID: ${socket.data.persistentPlayerId}`);
+      }
     }
-    // If not GM and no playerName, assignedPersistentId remains undefined for now
-    // The connection handler or subsequent events (like join_room) will need playerName
   }
-  socket.data.persistentPlayerId = assignedPersistentId;
-
-  // For initial GM connection via query, store temp room code on socket.data for connection handler
-  if (socket.data.isGameMaster && roomCodeQuery) {
-    socket.data.initialRoomCodeQuery = roomCodeQuery;
-  }
-
-  console.log(`[Server Auth Middleware] Socket ID: ${socket.id}, Auth Data:`, socket.handshake.auth, 
-              `Query Data:`, socket.handshake.query);
-  console.log(`[Server Auth Middleware] Assigned Socket Data: persistentPlayerId: ${socket.data.persistentPlayerId}, ` +
-              `playerName: ${socket.data.playerName}, isGameMaster: ${socket.data.isGameMaster}`);
-
-  // For non-CSR, non-GM connections, playerName is critical.
-  // If CSR is active (socket.recovered is true), this middleware might be skipped or data might be stale initially.
-  // The main connection handler will deal with recovered state.
-  if (!socket.recovered && !socket.data.isGameMaster && !socket.data.playerName) {
-    // This error will be caught by client's connect_error listener
-    return next(new Error('Player name required for new connection.'));
-  }
-
+  
+  console.log(`[Server Middleware Auth] Passed. Socket data set to: PID: ${socket.data.persistentPlayerId}, Name: ${socket.data.playerName}, isGM: ${socket.data.isGameMaster}`);
   next();
 });
+*/
 
-// Debug endpoint to view active rooms
-app.get('/debug/rooms', (req, res) => {
-  res.json({
-    rooms: Object.keys(gameRooms),
-    details: gameRooms
-  });
-});
-
-// Game recap endpoints
-app.get('/api/recaps', (req, res) => {
-  // Return list of all recaps with basic info
-  const recapsList = Object.values(gameRooms).map(recap => ({
-    id: recap.id,
-    roomCode: recap.roomCode,
-    startTime: recap.startTime,
-    endTime: recap.endTime,
-    playerCount: recap.players.length,
-    roundCount: recap.rounds.length,
-    winner: recap.winner
-  }));
-  res.json(recapsList);
-});
-
-app.get('/api/recaps/:recapId', (req, res) => {
-  const recap = gameRooms[req.params.recapId];
-  if (!recap) {
-    res.status(404).json({ error: 'Recap not found' });
-    return;
-  }
-  res.json(recap);
-});
-
-app.get('/api/recaps/room/:roomCode', (req, res) => {
-  const roomRecaps = Object.values(gameRooms)
-    .filter(recap => recap.roomCode === req.params.roomCode)
-    .sort((a, b) => new Date(b.startTime) - new Date(a.startTime));
-  res.json(roomRecaps);
-});
-
-app.get('/api/recaps/:recapId/round/:roundNumber', (req, res) => {
-  const recap = gameRooms[req.params.recapId];
-  if (!recap) {
-    res.status(404).json({ error: 'Recap not found' });
-    return;
-  }
-  
-  const roundIndex = parseInt(req.params.roundNumber) - 1;
-  const round = recap.rounds[roundIndex];
-  if (!round) {
-    res.status(404).json({ error: 'Round not found' });
-    return;
-  }
-  
-  res.json(round);
-});
-
-// Grace period for disconnects (player/gamemaster)
-const DISCONNECT_GRACE_PERIOD_MS = 30000; // 30 seconds
-// Grace period for auto-submit after round ends
-const AUTO_SUBMIT_GRACE_PERIOD_MS = 1000; // 1 second
-
-// Timer management
-const timers = new Map();
-
-// Helper function to finalize round, perform auto-submissions, and broadcast state
-function finalizeRoundAndAutoSubmit(roomCode) {
-  const room = gameRooms[roomCode];
-  if (!room) {
-    console.log(`[FinalizeRound] Room ${roomCode} not found.`);
-    return;
-  }
-
-  console.log(`[FinalizeRound] Finalizing round for room ${roomCode}. Current question index: ${room.currentQuestionIndex}`);
-  room.submissionPhaseOver = true;
-
-  if (room.players && room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null) {
-    room.players.forEach(playerInRoom => {
-      if (
-        playerInRoom.isActive &&
-        !playerInRoom.isSpectator &&
-        (!playerInRoom.answers || !playerInRoom.answers[room.currentQuestionIndex])
-      ) {
-        console.log(`[FinalizeRound] Auto-submitting for player ${playerInRoom.id} in room ${roomCode}`);
-        if (!playerInRoom.answers) {
-          playerInRoom.answers = [];
-        }
-
-        let autoAnswerHasDrawing = false;
-        let autoAnswerDrawingData = null;
-        if (room.playerBoards && room.playerBoards[playerInRoom.id]) {
-          const playerBoardEntry = room.playerBoards[playerInRoom.id];
-          if (playerBoardEntry.roundIndex === room.currentQuestionIndex && playerBoardEntry.boardData) {
-            autoAnswerHasDrawing = true;
-            autoAnswerDrawingData = playerBoardEntry.boardData;
-          }
-        }
-
-        const autoAnswer = {
-          playerId: playerInRoom.id,
-          playerName: playerInRoom.name,
-          answer: '', // Text answer is empty for auto-submission
-          hasDrawing: autoAnswerHasDrawing,
-          drawingData: autoAnswerDrawingData,
-          timestamp: Date.now(),
-          isCorrect: null
-        };
-        playerInRoom.answers[room.currentQuestionIndex] = autoAnswer;
-
-        if (room.roundAnswers) {
-          room.roundAnswers[playerInRoom.id] = autoAnswer;
-        }
-      }
-    });
-  } else {
-    console.warn(`[FinalizeRound] Could not perform auto-submissions for room ${roomCode}. Conditions not met: players array exists: ${!!room.players}, currentQuestionIndex defined: ${room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null}`);
-  }
-
-  broadcastGameState(roomCode);
-  console.log(`[FinalizeRound] Game state broadcasted for room ${roomCode} after finalization.`);
-}
-
-// Helper function to conclude game and send recap to all
-function concludeGameAndSendRecap(roomCode, winnerInfo = null) {
-    const room = gameRooms[roomCode];
-    if (!room) {
-        console.log(`[ConcludeGame] Room ${roomCode} not found. Skipping.`);
-        return;
-    }
-    if (room.isConcluded) {
-        console.log(`[ConcludeGame] Room ${roomCode} already concluded. Skipping recap send.`);
-        return;
-    }
-
-    room.isConcluded = true;
-    clearRoomTimer(roomCode); // Stop any active timers
-
-    console.log(`[ConcludeGame] Game concluded in room ${roomCode}. Emitting game_over_pending_recap.`);
-    io.to(roomCode).emit('game_over_pending_recap', {
-        roomCode,
-        winner: winnerInfo
-    });
-
-    // Generate and send recap immediately
-    const recap = generateGameRecap(roomCode);
-    if (recap) {
-        console.log(`[ConcludeGame] Automatically broadcasting recap for room ${roomCode} with initialSelectedRoundIndex and initialSelectedTabKey.`);
-        // Add initialSelectedRoundIndex and initialSelectedTabKey to the recap payload for the client
-        const recapWithInitialState = { ...recap, initialSelectedRoundIndex: 0, initialSelectedTabKey: 'overallResults' };
-        io.to(roomCode).emit('game_recap', recapWithInitialState);
-    } else {
-        console.warn(`[ConcludeGame] Recap data generation failed for room ${roomCode} during auto-send.`);
-    }
-}
-
+// Main Connection Handler
 io.on('connection', (socket) => {
   console.log(`[Server Connection] User connected. Socket ID: ${socket.id}, Persistent ID: ${socket.data.persistentPlayerId}, Player Name: ${socket.data.playerName}, Is GM (from query): ${socket.data.isGameMaster}, Recovered: ${socket.recovered}`);
 
