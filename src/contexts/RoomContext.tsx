@@ -502,6 +502,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [connectionStatus, roomCode, attemptRejoin]);
 
+  // Handle reconnection
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomCode) {
+      // If we have a room code but were previously disconnected, request updated state
+      console.log('[RoomContext] Connected with room code, requesting latest state:', roomCode);
+      
+      // Request current game state
+      socketService.requestGameState(roomCode);
+      
+      // Also request current player list
+      socketService.requestPlayers(roomCode);
+    }
+  }, [connectionStatus, roomCode]);
+
   const value: RoomContextType = {
     roomCode,
     playerName,

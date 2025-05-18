@@ -493,6 +493,10 @@ export class SocketService {
   getSocket(): Socket | null {
     return this.socket;
   }
+
+  async requestPlayers(roomCode: string): Promise<void> {
+    await this.robustEmit('request_players', { roomCode });
+  }
 }
 
 const socketService = new SocketService();

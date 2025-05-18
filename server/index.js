@@ -1085,6 +1085,43 @@ io.on('connection', (socket) => {
     });
   });
 
+  // Add handler for request_players event
+  socket.on('request_players', ({ roomCode }) => {
+    console.log(`[Server] Received request_players for room:`, {
+      roomCode,
+      socketId: socket.id,
+      timestamp: new Date().toISOString()
+    });
+    
+    const room = gameRooms[roomCode];
+    if (!room) {
+      console.error('[Server] request_players failed - Room not found:', roomCode);
+      socket.emit('error', { message: 'Room not found' });
+      return;
+    }
+
+    // Check if socket is the gamemaster or a player in this room
+    const isGameMaster = room.gamemaster === socket.id;
+    const isPlayerInRoom = room.players.some(p => p.id === socket.id);
+    
+    if (!isGameMaster && !isPlayerInRoom && !socket.rooms.has(roomCode)) {
+      console.error('[Server] request_players access denied:', {
+        roomCode,
+        socketId: socket.id,
+        isGameMaster,
+        isPlayerInRoom,
+        timestamp: new Date().toISOString()
+      });
+      socket.emit('error', { message: 'Not authorized to request players for this room' });
+      return;
+    }
+
+    // Send the current player list to the requesting client
+    console.log(`[Server] Sending players_update to ${socket.id} with ${room.players.length} players:`, 
+      room.players.map(p => ({ id: p.id, name: p.name, isSpectator: p.isSpectator })));
+    socket.emit('players_update', room.players);
+  });
+
   // Handle answer submission
   socket.on('submit_answer', (data) => {
     const { roomCode, answer, hasDrawing, drawingData: clientDrawingData, answerAttemptId } = data;

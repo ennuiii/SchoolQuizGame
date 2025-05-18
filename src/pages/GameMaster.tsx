@@ -19,6 +19,7 @@ import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import type { Question } from '../contexts/GameContext';
+import type { Player } from '../types/game';
 import MusicControl from '../components/shared/MusicControl';
 
 const GameMaster: React.FC = () => {
@@ -147,11 +148,29 @@ const GameMaster: React.FC = () => {
 
   // Request game state update upon reconnection if we already have a roomCode
   useEffect(() => {
-    if (connectionStatus === 'connected' && roomCode && gameStarted) {
-      // Only request state update after a reconnection
+    if (connectionStatus === 'connected' && roomCode) {
+      console.log('[GameMaster] Connected with room code, requesting game state update...');
       socketService.requestGameState(roomCode);
+      
+      // Also explicitly request current player list
+      socketService.requestPlayers(roomCode);
     }
-  }, [connectionStatus, roomCode, gameStarted]);
+  }, [connectionStatus, roomCode]);
+
+  // Explicitly listen for player updates
+  useEffect(() => {
+    const handlePlayersUpdate = (updatedPlayers: Player[]) => {
+      console.log('[GameMaster] Received players_update with', updatedPlayers.length, 'players');
+    };
+
+    if (connectionStatus === 'connected') {
+      socketService.on('players_update', handlePlayersUpdate);
+    }
+
+    return () => {
+      socketService.off('players_update', handlePlayersUpdate);
+    };
+  }, [connectionStatus]);
 
   const handleCreateRoom = useCallback(() => {
     // Check connection state before trying to create a room
