@@ -169,20 +169,21 @@ export class SocketService {
       this.tempRoomCodeForGM = null;
 
       this.socket = io(this.url, {
-        reconnection: true,
-        reconnectionAttempts: Infinity,
-        reconnectionDelay: 1000,
-        reconnectionDelayMax: 10000,
-        timeout: 20000, // Connection timeout
-        transports: ['websocket', 'polling'], // Retain polling as fallback
-        auth: (cb) => {
-          const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
-          if (this.persistentPlayerId) payload.persistentPlayerId = this.persistentPlayerId;
-          if (this.currentSessionPlayerName) payload.playerName = this.currentSessionPlayerName;
-          console.log('[SocketService] Auth callback sending:', payload);
-          cb(payload);
-        },
-        query: queryParams
+        // Temporarily simplify options for debugging
+        transports: ['websocket'], // Force WebSocket first
+        // reconnection: true,
+        // reconnectionAttempts: Infinity,
+        // reconnectionDelay: 1000,
+        // reconnectionDelayMax: 10000,
+        // timeout: 20000, // Connection timeout
+        // auth: (cb) => {
+        //   const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
+        //   if (this.persistentPlayerId) payload.persistentPlayerId = this.persistentPlayerId;
+        //   if (this.currentSessionPlayerName) payload.playerName = this.currentSessionPlayerName;
+        //   console.log('[SocketService] Auth callback sending:', payload);
+        //   cb(payload);
+        // },
+        // query: queryParams
       });
 
       this.setupCommonEventHandlers(this.socket, resolve, reject);
