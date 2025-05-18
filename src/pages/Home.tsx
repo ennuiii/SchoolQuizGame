@@ -4,6 +4,7 @@ import MusicControl from '../components/shared/MusicControl';
 import { useAudio } from '../contexts/AudioContext';
 import socketService from '../services/socketService';
 import { toast } from 'react-toastify';
+import { v4 as uuidv4 } from 'uuid';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
@@ -16,7 +17,12 @@ const Home: React.FC = () => {
 
   const handleResetConnection = () => {
     socketService.clearPersistentPlayerId();
-    toast.success("Connection reset successful. Your player ID has been cleared.");
+
+    const newPlayerId = `P-${uuidv4()}`;
+    localStorage.setItem('persistentPlayerId', newPlayerId);
+
+    console.log(`[Home.tsx] Connection reset. New persistentPlayerId generated: ${newPlayerId}`);
+    toast.success("Connection reset. A new Player ID has been generated for your next session.");
   };
 
   return (
