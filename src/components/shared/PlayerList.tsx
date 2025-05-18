@@ -41,10 +41,22 @@ const PlayerList: React.FC<PlayerListProps> = ({
         hasKickFunction: !!onKickPlayer,
         playerCount: players.length,
         actualPersistentPlayerId,
-        playersWithKickButtons: players.filter(p => p.persistentPlayerId !== actualPersistentPlayerId).length
+        playersWithKickButtons: players.filter(p => p.persistentPlayerId !== actualPersistentPlayerId).length,
+        players: players.map(p => ({ 
+          id: p.id, 
+          persistentId: p.persistentPlayerId, 
+          name: p.name, 
+          shouldHaveKickButton: p.persistentPlayerId !== actualPersistentPlayerId
+        }))
       });
     }
   }, [players, isGameMasterView, onKickPlayer, actualPersistentPlayerId]);
+
+  // Additional debugging in the render
+  React.useEffect(() => {
+    // Log any bootstrap icon visibility issues - the kick button uses bootstrap icon
+    console.log('[PlayerList] Document body has bootstrap-icons class:', document.body.classList.contains('bootstrap-icons'));
+  }, []);
 
   return (
     <div className="card mb-3">
@@ -58,52 +70,70 @@ const PlayerList: React.FC<PlayerListProps> = ({
               No players yet
             </div>
           ) : (
-            players.map(player => (
-              <div
-                key={player.persistentPlayerId}
-                className={`list-group-item d-flex justify-content-between align-items-center ${
-                  player.persistentPlayerId === actualPersistentPlayerId ? 'bg-highlight' : ''
-                } ${selectedPlayerId === player.persistentPlayerId ? 'active' : ''}`}
-                onClick={() => onPlayerSelect?.(player.persistentPlayerId)}
-                style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
-              >
-                <div className="d-flex align-items-center">
-                  <span className="me-2">{player.name}</span>
-                  {player.persistentPlayerId === actualPersistentPlayerId && !isGameMasterView && (
-                    <span className="badge bg-primary rounded-pill ms-1">You</span>
-                  )}
-                  {player.isSpectator && (
-                    <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
-                  )}
-                  {!player.isActive && (
-                    <span className="badge bg-warning rounded-pill ms-1">Disconnected</span>
-                  )}
+            players.map(player => {
+              // Debug logging for this specific player's kick button eligibility
+              const shouldShowKickButton = isGameMasterView && 
+                                         player.persistentPlayerId !== actualPersistentPlayerId && 
+                                         !!onKickPlayer;
+              
+              if (isGameMasterView && onKickPlayer) {
+                console.log(`[PlayerList] Player ${player.name} (${player.persistentPlayerId}) kick button:`, {
+                  shouldShow: shouldShowKickButton,
+                  isGameMaster: isGameMasterView,
+                  notSelf: player.persistentPlayerId !== actualPersistentPlayerId,
+                  hasKickFn: !!onKickPlayer
+                });
+              }
+              
+              return (
+                <div
+                  key={player.persistentPlayerId}
+                  className={`list-group-item d-flex justify-content-between align-items-center ${
+                    player.persistentPlayerId === actualPersistentPlayerId ? 'bg-highlight' : ''
+                  } ${selectedPlayerId === player.persistentPlayerId ? 'active' : ''}`}
+                  onClick={() => onPlayerSelect?.(player.persistentPlayerId)}
+                  style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
+                >
+                  <div className="d-flex align-items-center">
+                    <span className="me-2">{player.name}</span>
+                    {player.persistentPlayerId === actualPersistentPlayerId && !isGameMasterView && (
+                      <span className="badge bg-primary rounded-pill ms-1">You</span>
+                    )}
+                    {player.isSpectator && (
+                      <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
+                    )}
+                    {!player.isActive && (
+                      <span className="badge bg-warning rounded-pill ms-1">Disconnected</span>
+                    )}
+                  </div>
+                  
+                  <div className="d-flex align-items-center">
+                    {!player.isSpectator && (
+                      <div className="lives-display me-2">
+                        {[...Array(player.lives)].map((_, i) => (
+                          <span key={i} className="life" role="img" aria-label="heart">❤</span>
+                        ))}
+                      </div>
+                    )}
+                    {shouldShowKickButton && (
+                      <button 
+                        className="btn btn-danger btn-sm ms-2 fw-bold" 
+                        onClick={(e) => { 
+                          e.stopPropagation();
+                          console.log(`[PlayerList] Kick button clicked for ${player.name} (${player.persistentPlayerId})`);
+                          onKickPlayer(player.persistentPlayerId); 
+                        }}
+                        title={`Kick ${player.name}`}
+                        aria-label={`Kick ${player.name}`}
+                        style={{minWidth: '60px'}}
+                      >
+                        Kick
+                      </button>
+                    )}
+                  </div>
                 </div>
-                
-                <div className="d-flex align-items-center">
-                  {!player.isSpectator && (
-                    <div className="lives-display me-2">
-                      {[...Array(player.lives)].map((_, i) => (
-                        <span key={i} className="life" role="img" aria-label="heart">❤</span>
-                      ))}
-                    </div>
-                  )}
-                  {isGameMasterView && player.persistentPlayerId !== actualPersistentPlayerId && onKickPlayer && (
-                    <button 
-                      className="btn btn-danger btn-sm ms-2" 
-                      onClick={(e) => { 
-                        e.stopPropagation();
-                        onKickPlayer(player.persistentPlayerId); 
-                      }}
-                      title={`Kick ${player.name}`}
-                      aria-label={`Kick ${player.name}`}
-                    >
-                      Kick
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

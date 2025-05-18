@@ -42,7 +42,8 @@ const GameMaster: React.FC = () => {
     setRoomCode,
     kickPlayer,
     connectionStatus,
-    isGameMaster
+    isGameMaster,
+    persistentPlayerId
   } = useRoom();
 
   // DEBUG: Log players from useRoom to understand the button's player count
@@ -58,8 +59,16 @@ const GameMaster: React.FC = () => {
     // Log isGameMaster state
     console.log('[GameMaster] isGameMaster state:', {
       isGameMaster,
-      kickPlayerFunction: !!kickPlayer
+      kickPlayerFunction: !!kickPlayer,
+      kickPlayerType: typeof kickPlayer
     });
+
+    // Log kick function info
+    if (typeof kickPlayer === 'function') {
+      console.log('[GameMaster] kickPlayer function is available');
+    } else {
+      console.error('[GameMaster] kickPlayer function is missing');
+    }
   }, [players, isGameMaster, kickPlayer]);
 
   const {
@@ -102,16 +111,19 @@ const GameMaster: React.FC = () => {
 
   const handleKickPlayer = useCallback((playerId: string) => {
     if (!roomCode) {
+      console.error('[GameMaster] Cannot kick player: No room code');
       toast.error("Room code not found. Cannot kick player.");
       return;
     }
     if (!kickPlayer) {
+      console.error('[GameMaster] Cannot kick player: No kick function');
       toast.error("Kick player function not available.");
       return;
     }
     console.log(`[GameMaster] Request to kick player ${playerId} from room ${roomCode}`);
     // Find player name for better user feedback
     const playerName = gamePlayers.find(p => p.persistentPlayerId === playerId)?.name || 'Unknown player';
+    console.log(`[GameMaster] Kicking player with name: ${playerName}`);
     kickPlayer(playerId);
     toast.info(`Kicking ${playerName}...`);
   }, [roomCode, kickPlayer, gamePlayers]);
@@ -528,6 +540,7 @@ const GameMaster: React.FC = () => {
               selectedPlayerId={selectedPlayerId}
               isGameMasterView={true}
               onKickPlayer={handleKickPlayer}
+              persistentPlayerId={persistentPlayerId || undefined}
             />
             <div className="d-grid gap-2 mt-3">
               <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
