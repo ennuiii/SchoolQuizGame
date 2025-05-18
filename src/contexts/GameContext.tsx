@@ -522,6 +522,51 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setAllAnswersThisRound(state.roundAnswers || {});
         setEvaluatedAnswers(state.evaluatedAnswers || {});
 
+        // Update player boards from server state - critical for reconnection recovery
+        if (state.playerBoards) {
+          console.log('[GameContext] Restoring player boards from server state:', Object.keys(state.playerBoards).length);
+          
+          const receivedBoards = Object.values(state.playerBoards).map((board: any) => ({
+            playerId: board.playerId,
+            playerName: board.playerName || getPlayerName(board.playerId),
+            boardData: board.boardData,
+            roundIndex: board.roundIndex,
+            timestamp: board.timestamp
+          }));
+          
+          setPlayerBoards(prevBoards => {
+            // If we have no boards but server has them, use server's completely
+            if (prevBoards.length === 0 && receivedBoards.length > 0) {
+              console.log('[GameContext] No local boards, using server boards completely');
+              return receivedBoards;
+            }
+            
+            // Otherwise merge, prioritizing server data for each player
+            const mergedBoards = [...prevBoards]; // Start with local boards
+            
+            // For each server board, update or add to our local collection
+            receivedBoards.forEach(serverBoard => {
+              const localBoardIndex = mergedBoards.findIndex(b => b.playerId === serverBoard.playerId);
+              
+              if (localBoardIndex !== -1) {
+                // Only override local board if server has newer data or local is empty
+                const localBoard = mergedBoards[localBoardIndex];
+                if (!localBoard.boardData || localBoard.boardData === '' || 
+                    (serverBoard.timestamp && (!localBoard.timestamp || serverBoard.timestamp > localBoard.timestamp))) {
+                  console.log(`[GameContext] Updating board for player ${serverBoard.playerId} with newer server data`);
+                  mergedBoards[localBoardIndex] = serverBoard;
+                }
+              } else {
+                // No local board for this player, add the server one
+                console.log(`[GameContext] Adding missing board for player ${serverBoard.playerId} from server`);
+                mergedBoards.push(serverBoard);
+              }
+            });
+            
+            return mergedBoards;
+          });
+        }
+
         // Update visible boards for new non-spectator players if game has started
         if (state.started) {
           const newNonSpectatorPlayerIds = newPlayers

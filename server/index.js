@@ -116,23 +116,22 @@ function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
   return {
     roomCode,
     gamemaster: gamemasterId,
-    gamemasterPersistentId: gamemasterPersistentId,
     gamemasterSocketId: gamemasterId,
+    gamemasterPersistentId,
     gamemasterDisconnected: false,
     gamemasterDisconnectTimer: null,
     players: [],
     started: false,
-    startTime: null,
     questions: [],
-    currentQuestionIndex: 0,
     currentQuestion: null,
+    currentQuestionIndex: 0,
     timeLimit: null,
-    playerBoards: {},
-    roundAnswers: {}, // Store current round answers separately
-    evaluatedAnswers: {}, // Store evaluated answers
-    submissionPhaseOver: false, // Initialize submission phase flag
-    isConcluded: false, // Added isConcluded flag
-    joinedAsSpectator: false, // Track if joined as spectator
+    questionStartTime: null,
+    roundAnswers: {},
+    evaluatedAnswers: {},
+    playerBoards: {}, // Initialize playerBoards as empty object, not null
+    submissionPhaseOver: false,
+    isConcluded: false
   };
 }
 
@@ -141,14 +140,17 @@ function getGameState(roomCode) {
   const room = gameRooms[roomCode];
   if (!room) return null;
 
-  // Create a cleaner copy of player boards to ensure drawings are preserved
-  const playerBoardsWithConsistentFormat = {};
+  // Create a clean copy of player boards to ensure drawings are preserved
+  const playerBoardsForState = {};
+  
   if (room.playerBoards) {
+    // Convert to a consistent format that's serializable and retains all drawing data
     Object.entries(room.playerBoards).forEach(([playerId, boardData]) => {
-      // Always use consistent format with roundIndex to aid client-side synchronization
-      playerBoardsWithConsistentFormat[playerId] = {
+      playerBoardsForState[playerId] = {
         playerId,
         boardData: boardData.boardData || '',
+        persistentPlayerId: room.players.find(p => p.id === playerId)?.persistentPlayerId || '',
+        playerName: room.players.find(p => p.id === playerId)?.name || 'Unknown Player',
         roundIndex: boardData.roundIndex !== undefined ? boardData.roundIndex : room.currentQuestionIndex || 0,
         timestamp: boardData.timestamp || Date.now()
       };
@@ -160,12 +162,13 @@ function getGameState(roomCode) {
     currentQuestion: room.currentQuestion,
     currentQuestionIndex: room.currentQuestionIndex,
     timeLimit: room.timeLimit,
+    questionStartTime: room.questionStartTime,
     players: room.players,
-    playerBoards: playerBoardsWithConsistentFormat,  // Use our cleaned/normalized version
-    roundAnswers: room.roundAnswers,
-    evaluatedAnswers: room.evaluatedAnswers,
-    submissionPhaseOver: room.submissionPhaseOver, // Include submission phase flag
-    questionStartTime: room.questionStartTime
+    roundAnswers: room.roundAnswers || {},
+    evaluatedAnswers: room.evaluatedAnswers || {},
+    submissionPhaseOver: room.submissionPhaseOver || false,
+    isConcluded: room.isConcluded || false,
+    playerBoards: playerBoardsForState, // Include formatted player boards
   };
 }
 

@@ -19,9 +19,10 @@ export interface Player {
 
 export interface PlayerBoard {
   playerId: string;
-  persistentPlayerId: string;
   playerName: string;
   boardData: string;
+  timestamp?: number;
+  roundIndex?: number;
 }
 
 export interface AnswerSubmission {
