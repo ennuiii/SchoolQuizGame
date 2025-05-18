@@ -117,7 +117,14 @@ const PlayerList: React.FC<PlayerListProps> = ({
                         className="btn btn-danger btn-sm ms-2 fw-bold" 
                         onClick={(e) => { 
                           e.stopPropagation();
-                          console.log(`[PlayerList] Kick button clicked for ${player.name} (${player.persistentPlayerId})`);
+                          console.log(`[PlayerList] Kick button clicked for ${player.name} (${player.persistentPlayerId})`, {
+                            playerDetails: {
+                              id: player.id,
+                              persistentId: player.persistentPlayerId,
+                              name: player.name,
+                              isSpectator: player.isSpectator
+                            }
+                          });
                           onKickPlayer(player.persistentPlayerId); 
                         }}
                         title={`Kick ${player.name}`}

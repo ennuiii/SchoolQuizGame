@@ -121,25 +121,31 @@ const GameMaster: React.FC = () => {
       return;
     }
     
-    // Check if player is trying to kick themselves (GameMaster)
-    if (persistentPlayerId && playerId === persistentPlayerId) {
-      console.error('[GameMaster] Cannot kick self (GameMaster)');
-      toast.error("You cannot kick yourself (GameMaster).");
+    // Log the player being kicked and the game master's ID
+    console.log(`[GameMaster] Kick request details:`, {
+      playerIdToKick: playerId,
+      gameMasterId: persistentPlayerId,
+      roomCode
+    });
+    
+    // Find player name for better user feedback
+    const playerToKick = gamePlayers.find(p => p.persistentPlayerId === playerId);
+    
+    if (!playerToKick) {
+      console.error(`[GameMaster] Cannot find player with ID ${playerId}`);
+      toast.error("Player not found. They may have already left the game.");
       return;
     }
     
-    console.log(`[GameMaster] Request to kick player ${playerId} from room ${roomCode}`);
-    
-    // Find player name for better user feedback
-    const playerName = gamePlayers.find(p => p.persistentPlayerId === playerId)?.name || 'Unknown player';
-    console.log(`[GameMaster] Kicking player with name: ${playerName}`);
+    console.log(`[GameMaster] Kicking player ${playerToKick.name} (${playerId}) from room ${roomCode}`);
     
     try {
+      // Send the kick request - the server will handle validation
       kickPlayer(playerId);
-      toast.info(`Kicking ${playerName}...`);
+      toast.info(`Kicking ${playerToKick.name}...`);
     } catch (error) {
       console.error('[GameMaster] Error kicking player:', error);
-      toast.error(`Failed to kick ${playerName}. Please try again.`);
+      toast.error(`Failed to kick ${playerToKick.name}. Please try again.`);
     }
   }, [roomCode, kickPlayer, gamePlayers, persistentPlayerId]);
 
