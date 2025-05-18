@@ -246,9 +246,15 @@ export class SocketService {
         // State might remain 'reconnecting' or go to 'error' depending on flow
       });
 
-      socketInstance.io.on('reconnect', (attempt) => {
-        console.log(`[SocketService] Reconnected successfully after ${attempt} attempts. Recovered: ${socketInstance.recovered}`);
-        this.updateConnectionState('connected', { recovered: socketInstance.recovered, attempts: attempt });
+      socketInstance.io.on('reconnect', (attemptNumber) => {
+        console.log(`[SocketService] Reconnected successfully after ${attemptNumber} attempts. Recovered: ${socketInstance.recovered}`);
+        // The 'connect' event will also fire, which handles the main logic for state update and persistent ID.
+        // We might not need to call updateConnectionState here if 'connect' handles it comprehensively.
+        // However, explicit state update here can be good for clarity.
+        // this.updateConnectionState('connected', { recovered: socketInstance.recovered, attempts: attemptNumber });
+        this.reconnectAttempts = 0;
+
+        // If the connection was recovered, the 'connect' event might have `socketInstance.recovered = true`.
       });
     }
 
