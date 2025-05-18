@@ -30,6 +30,7 @@ export class SocketService {
   private tempRoomCodeForGM: string | null = null;
   private tempIsGameMasterQuery: boolean = false;
   private connectionState: ConnectionStatusType = 'disconnected';
+  private reconnectAttempts: number = 0;
 
   constructor() {
     this.url = process.env.REACT_APP_SOCKET_URL || SOCKET_URL;
