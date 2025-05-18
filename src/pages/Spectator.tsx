@@ -64,11 +64,11 @@ const Spectator: React.FC = () => {
   }, [roomCode, playerName, navigate]);
 
   const showAllBoards = useCallback(() => {
-    const activePlayerBoardIds = playerBoards
-      .filter(b => players.find(p => p.persistentPlayerId === b.playerId && !p.isSpectator))
-      .map(b => b.playerId);
-    toggleBoardVisibility(new Set(activePlayerBoardIds));
-  }, [playerBoards, players, toggleBoardVisibility]);
+    const activePlayerIds = players
+      .filter(p => !p.isSpectator && p.isActive)
+      .map(p => p.id);
+    toggleBoardVisibility(new Set(activePlayerIds));
+  }, [players, toggleBoardVisibility]);
 
   const hideAllBoardsAction = useCallback(() => {
     toggleBoardVisibility(new Set());
@@ -155,26 +155,28 @@ const Spectator: React.FC = () => {
                       alignItems: 'stretch',
                     }}
                   >
-                    {players.filter(player => !player.isSpectator).map(player => {
-                      const boardEntry = playerBoards.find(b => b.playerId === player.persistentPlayerId);
-                      const boardForDisplay = {
-                        playerId: player.persistentPlayerId,
-                        persistentPlayerId: player.persistentPlayerId,
-                        playerName: player.name,
-                        boardData: boardEntry ? boardEntry.boardData : ''
-                      };
-                      return (
-                        <PlayerBoardDisplay
-                          key={player.persistentPlayerId}
-                          board={boardForDisplay}
-                          isVisible={visibleBoards.has(player.persistentPlayerId)}
-                          onToggleVisibility={() => toggleBoardVisibility(player.persistentPlayerId)}
-                          transform={{ scale: 1, x: 0, y: 0 }}
-                          onScale={() => {}}
-                          onPan={() => {}}
-                          onReset={() => {}}
-                        />
-                      );
+                    {players
+                      .filter(player => !player.isSpectator && player.isActive)
+                      .map(player => {
+                        const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                        if (!boardEntry) return null;
+                        
+                        return (
+                          <PlayerBoardDisplay
+                            key={player.id}
+                            board={{
+                              playerId: player.id,
+                              playerName: player.name,
+                              boardData: boardEntry.boardData
+                            }}
+                            isVisible={visibleBoards.has(player.id)}
+                            onToggleVisibility={() => toggleBoardVisibility(player.id)}
+                            transform={{ scale: 1, x: 0, y: 0 }}
+                            onScale={() => {}}
+                            onPan={() => {}}
+                            onReset={() => {}}
+                          />
+                        );
                     })}
                   </div>
                 </div>
