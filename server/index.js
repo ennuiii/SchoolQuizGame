@@ -343,6 +343,7 @@ io.use((socket, next) => {
     // Check for Game Master flag in query parameters
     const isGameMasterQuery = query.isGameMaster === "true";
     const roomCodeQuery = query.roomCode;
+    const isInitialConnection = query.isInitialConnection === "true";
 
     // Initialize socket.data property
     socket.data = socket.data || {};
@@ -370,15 +371,18 @@ io.use((socket, next) => {
       persistentPlayerId: socket.data.persistentPlayerId,
       playerName: socket.data.playerName,
       isGameMaster: socket.data.isGameMaster,
+      isInitialConnection,
       timestamp: new Date().toISOString()
     });
 
-    // Error handling for players without a name (unless recoverable via CSR)
-    if (!socket.data.isGameMaster && !socket.data.playerName && !socket.recovered) {
-      return next(new Error('Player name required'));
+    // Allow initial connections without player name (for the Join Game page)
+    // Also allow game masters and recovered sessions
+    if (isInitialConnection || socket.data.isGameMaster || socket.recovered || socket.data.playerName) {
+      return next();
     }
     
-    next();
+    // For non-initial player connection attempts without a name, return error
+    return next(new Error('Player name required'));
   } catch (error) {
     console.error('[AUTH] Middleware error:', error);
     next(error);
@@ -1798,7 +1802,6 @@ function clearRoomTimer(roomCode) {
   }
 }
 
-<<<<<<< Updated upstream
 // Add analytics endpoints
 app.get('/api/analytics/game/:roomCode', (req, res) => {
   const stats = gameAnalytics.getGameStats(req.params.roomCode);
@@ -1807,40 +1810,10 @@ app.get('/api/analytics/game/:roomCode', (req, res) => {
     return;
   }
   res.json(stats);
-=======
-// Handle disconnection
-io.on('disconnect', (socket) => {
-  console.log(`User disconnected: ${socket.id}`);
-  
-  // If user was in a room, handle cleanup
-  if (socket.roomCode) {
-    const roomCode = socket.roomCode;
-    const room = gameRooms[roomCode];
-    
-    if (room) {
-      // If user was gamemaster, end the game
-      if (room.gamemaster === socket.id) {
-        io.to(roomCode).emit('error', 'Game Master disconnected');
-        delete gameRooms[roomCode];
-        return;
-      }
-      
-      // If user was a player, remove them
-      const playerIndex = room.players.findIndex(p => p.id === socket.id);
-      if (playerIndex !== -1) {
-        room.players.splice(playerIndex, 1);
-        delete room.playerBoards[socket.id];
-        
-        // Notify remaining players
-        io.to(roomCode).emit('players_update', room.players);
-      }
-    }
-  }
->>>>>>> Stashed changes
 });
 
 // Set up the port
-const PORT = process.env.PORT || 5001;
+const PORT = process.env.PORT || 5000;
 
 // Start the server
 server.listen(PORT, () => {

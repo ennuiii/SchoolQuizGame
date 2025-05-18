@@ -46,6 +46,10 @@ const JoinGame: React.FC = () => {
   useEffect(() => {
     const connectSocket = async () => {
       try {
+        // Add isInitialConnection parameter to socket
+        // Mark this as an initial connection to bypass player name requirement
+        socketService.setConnectionParams({ isInitialConnection: true });
+        
         const socket = await socketService.connect();
         if (!socket) {
           console.error('Failed to connect to socket server');
@@ -85,6 +89,12 @@ const JoinGame: React.FC = () => {
 
     setIsConnecting(true);
     try {
+      // Set player details for the actual join attempt
+      socketService.setPlayerDetails(playerName);
+      
+      // Reset connection params (no longer an initial connection)
+      socketService.setConnectionParams({ isInitialConnection: false });
+      
       const socket = await socketService.connect();
       if (!socket || !socket.connected) {
         setErrorMsg('Not connected to server. Please try again.');

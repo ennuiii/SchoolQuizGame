@@ -39,16 +39,22 @@ export class SocketService {
   private currentSessionPlayerName: string | null = null;
   private tempRoomCodeForGM: string | null = null;
   private tempIsGameMasterQuery: boolean = false;
+  private connectionParams: Record<string, any> = {};
 
   constructor() {
     // Use FORCE_LOCAL_SERVER to override production URLs during development
     this.url = process.env.REACT_APP_SOCKET_URL || 
-      (FORCE_LOCAL_SERVER && process.env.NODE_ENV !== 'production' ? 'http://localhost:5001' : SOCKET_URL);
+      (FORCE_LOCAL_SERVER && process.env.NODE_ENV !== 'production' ? 'http://localhost:5000' : SOCKET_URL);
     
     console.log('[SocketService] Initializing with URL:', this.url);
     
     // Load persistent player ID on initialization
     this.loadPersistentPlayerId();
+  }
+
+  // Method to set additional connection parameters
+  public setConnectionParams(params: Record<string, any>): void {
+    this.connectionParams = { ...this.connectionParams, ...params };
   }
 
   // Private method to load persistentPlayerId from localStorage
@@ -123,7 +129,10 @@ export class SocketService {
     this.updateConnectionState('connecting');
 
     // Prepare query parameters for connection
-    const queryParams: any = {};
+    const queryParams: any = {
+      ...this.connectionParams
+    };
+    
     if (this.tempIsGameMasterQuery) {
       queryParams.isGameMaster = "true";
       if (this.tempRoomCodeForGM) {
@@ -164,6 +173,7 @@ export class SocketService {
       // Reset temporary connection parameters
       this.tempIsGameMasterQuery = false;
       this.tempRoomCodeForGM = null;
+      this.connectionParams = {}; // Clear connection params after use
 
       console.log('[SocketService] io() called, socket instance created:', this.socket ? 'Exists' : 'Null', 'ID before connect event:', this.socket?.id);
 
