@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
@@ -32,6 +32,7 @@ const GameMaster: React.FC = () => {
   const [customTimeLimit, setCustomTimeLimit] = useState<number | null>(null);
   const [timeLimit, setTimeLimit] = useState(99999);
   const [inputRoomCode, setInputRoomCode] = useState('');
+  const [hasRestoredVisibilityOnConnect, setHasRestoredVisibilityOnConnect] = useState(false);
   
   const {
     roomCode,
@@ -149,8 +150,22 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCode, kickPlayer, gamePlayers, persistentPlayerId]);
 
-  const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
-                              Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));
+  const activePlayerCount = useMemo(() => 
+    gamePlayers.filter(p => p.isActive && !p.isSpectator).length,
+  [gamePlayers]);
+
+  const allAnswersSubmitted = useMemo(() => 
+    activePlayerCount > 0 && Object.keys(allAnswersThisRound).length === activePlayerCount,
+  [allAnswersThisRound, activePlayerCount]);
+
+  const allSubmittedAnswersEvaluated = useMemo(() => 
+    Object.keys(allAnswersThisRound).length > 0 && 
+    Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId)),
+  [allAnswersThisRound, evaluatedAnswers]);
+
+  const canProceedToNextQuestion = useMemo(() => 
+    allAnswersSubmitted && allSubmittedAnswersEvaluated,
+  [allAnswersSubmitted, allSubmittedAnswersEvaluated]);
 
   // Always attempt to connect to socket server on component mount
   useEffect(() => {
@@ -208,25 +223,40 @@ const GameMaster: React.FC = () => {
 
   // Add a special effect to handle player board visibility after reconnection
   useEffect(() => {
-    if (connectionStatus === 'connected' && roomCode && playerBoards.length > 0) {
-      console.log('[GameMaster] Ensuring board visibility after reconnection...');
-      
-      // Get active player IDs from player boards that should be visible
-      const activeBoardIds = playerBoards
-        .filter(board => {
-          // Keep only boards from active, non-spectator players
-          const player = gamePlayers.find(p => p.id === board.playerId);
-          return player && !player.isSpectator;
-        })
-        .map(board => board.playerId);
-      
-      // If we have active boards but visibleBoards is empty, restore visibility
-      if (activeBoardIds.length > 0 && visibleBoards.size === 0) {
-        console.log('[GameMaster] Restoring board visibility for', activeBoardIds.length, 'players after reconnection');
-        toggleBoardVisibility(new Set(activeBoardIds));
+    if (connectionStatus === 'connected') {
+      if (!hasRestoredVisibilityOnConnect && roomCode && playerBoards.length > 0 && gamePlayers.length > 0) {
+        // Only attempt to restore if visibleBoards is currently empty,
+        // indicating a possible state loss or initial load after reconnect.
+        if (visibleBoards.size === 0) {
+          const activeBoardIds = playerBoards
+            .filter(board => {
+              const player = gamePlayers.find(p => p.id === board.playerId);
+              // Ensure player is active and not a spectator
+              return player && player.isActive && !player.isSpectator;
+            })
+            .map(board => board.playerId);
+
+          if (activeBoardIds.length > 0) {
+            console.log('[GameMaster] Connection established: Restoring visibility for active boards as visibleBoards was empty.');
+            toggleBoardVisibility(new Set(activeBoardIds));
+          }
+        }
+        setHasRestoredVisibilityOnConnect(true);
       }
+    } else {
+      // Reset the flag if we disconnect, so it can run again on next connection
+      setHasRestoredVisibilityOnConnect(false);
     }
-  }, [connectionStatus, roomCode, playerBoards, visibleBoards, gamePlayers, toggleBoardVisibility]);
+  }, [
+    connectionStatus, 
+    roomCode, 
+    playerBoards, 
+    gamePlayers, 
+    visibleBoards, 
+    toggleBoardVisibility, 
+    hasRestoredVisibilityOnConnect,
+    // Note: setHasRestoredVisibilityOnConnect is not needed in deps as it's a setter
+  ]);
 
   // Explicitly listen for player updates
   useEffect(() => {
@@ -426,11 +456,11 @@ const GameMaster: React.FC = () => {
   }, []);
 
   const showAllBoards = useCallback(() => {
-    const activePlayerBoardIds = playerBoards
-      .filter(b => players.find(p => p.id === b.playerId && !p.isSpectator))
-      .map(b => b.playerId);
+    const activePlayerBoardIds = gamePlayers
+      .filter(p => p.isActive && !p.isSpectator)
+      .map(b => b.id);
     toggleBoardVisibility(new Set(activePlayerBoardIds));
-  }, [playerBoards, players, toggleBoardVisibility]);
+  }, [gamePlayers, toggleBoardVisibility]);
 
   const hideAllBoards = useCallback(() => {
     toggleBoardVisibility(new Set());
@@ -608,14 +638,15 @@ const GameMaster: React.FC = () => {
                   <button 
                     className="btn btn-primary" 
                     onClick={handleNextQuestion}
-                    disabled={!currentQuestion || isRestarting || isGameConcluded || !allAnswersEvaluated || connectionStatus !== 'connected'}
+                    disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected' || !canProceedToNextQuestion}
                     title={
                       connectionStatus !== 'connected' ? "Not connected to server" :
-                      currentQuestion && !isRestarting && !isGameConcluded && !allAnswersEvaluated ? 
-                        (Object.keys(allAnswersThisRound).length === 0 ? 
-                          "Waiting for players to submit answers for this round." : 
-                          "All submitted answers must be evaluated before proceeding.") : 
-                        ""
+                      !currentQuestion ? "No current question" :
+                      isGameConcluded ? "Game is concluded" :
+                      isRestarting ? "Game is restarting" :
+                      !allAnswersSubmitted ? `Waiting for all ${activePlayerCount} active player(s) to submit answers.` :
+                      !allSubmittedAnswersEvaluated ? "All submitted answers must be evaluated before proceeding." :
+                      "Proceed to the next question"
                     }
                   >
                     Next Question

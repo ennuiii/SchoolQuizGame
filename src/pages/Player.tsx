@@ -69,7 +69,7 @@ const Player: React.FC = () => {
     persistentPlayerId
   } = useRoom();
 
-  const { getCurrentCanvasSVG } = useCanvas();
+  const { getCurrentCanvasSVG, clear } = useCanvas();
 
   // Determine if player has already submitted answer from server state
   // This solves the issue where player can submit again after page refresh
@@ -92,14 +92,13 @@ const Player: React.FC = () => {
   // Clear canvas and reset state when new question starts
   useEffect(() => {
     if (currentQuestion) {
-      // Only reset submission state if not already submitted to this question
-      if (!hasSubmittedToServer) {
-        setSubmittedAnswerLocal(false);
-        setCanvasKey(prev => prev + 1);
-        setAnswer(''); // Clear text answer field on new question
-      }
+      // Always reset submission state when the question ID or index changes
+      console.log(`[Player.tsx] New question (ID: ${currentQuestion.id}, Index: ${currentQuestionIndex}). Resetting local submission state.`);
+      setSubmittedAnswerLocal(false);
+      setCanvasKey(prev => prev + 1);
+      setAnswer(''); // Clear text answer field on new question
     }
-  }, [currentQuestion?.id, currentQuestionIndex, hasSubmittedToServer]);
+  }, [currentQuestion?.id, currentQuestionIndex]); // Remove hasSubmittedToServer from dependencies
 
   // Effect for handling game state changes
   useEffect(() => {
@@ -137,16 +136,9 @@ const Player: React.FC = () => {
       let drawingData: string | null = getCurrentCanvasSVG();
       const finalHasDrawing = !!(drawingData && drawingData.trim() !== '' && drawingData.includes('<svg'));
 
-      // If there's no text answer AND no drawing, it's a truly empty submission.
-      // If there IS a drawing OR some text, then proceed.
-      if (!finalAnswer && !finalHasDrawing) {
-        toast.error('Please enter an answer or submit a drawing');
-        return;
-      }
-
-      // If text answer is empty BUT there is a drawing, or for any submission,
-      // ensure empty text answers are sent as "-".
-      if (finalAnswer === '') {
+      // If text answer is empty, default to "-". This allows submitting drawings without text,
+      // or submitting an intentionally blank text answer.
+      if (finalAnswer.trim() === '') {
         finalAnswer = '-';
       }
 
@@ -205,7 +197,8 @@ const Player: React.FC = () => {
       !hasSubmittedToServer &&
       connectionStatus === 'connected' // Only try to submit if connected
     ) {
-      console.log(`[Player.tsx] Auto-submitting due to timer. Answer: "${answer}"`);
+      console.log(`[Player.tsx] Auto-submitting due to TIMER.`);
+      console.log(`[Player.tsx] Auto-submit Conditions: questionId: ${currentQuestion.id}, questionIndex: ${currentQuestionIndex}, timeRemaining: ${timeRemaining}, submittedLocal: ${submittedAnswerLocal}, submittedServer: ${hasSubmittedToServer}, answer: "${answer}"`);
       handleAnswerSubmit(answer);
     }
   }, [
@@ -235,7 +228,8 @@ const Player: React.FC = () => {
       !hasSubmittedToServer &&
       connectionStatus === 'connected' // Only try to submit if connected
     ) {
-      console.log(`[Player.tsx] Auto-submitting due to visibility change + timer. Answer: "${answer}"`);
+      console.log(`[Player.tsx] Auto-submitting due to VISIBILITY CHANGE + TIMER.`);
+      console.log(`[Player.tsx] Auto-submit Conditions (Visibility): questionId: ${currentQuestion.id}, questionIndex: ${currentQuestionIndex}, timeRemaining: ${timeRemaining}, submittedLocal: ${submittedAnswerLocal}, submittedServer: ${hasSubmittedToServer}, answer: "${answer}"`);
       handleAnswerSubmit(answer); // Submit current text answer
     }
   }, [
@@ -414,24 +408,42 @@ const Player: React.FC = () => {
   }
 
   // Helper: render controls for DrawingBoard
-  const renderDrawingBoardControls = () => (
-    <div className="d-flex align-items-center justify-content-end gap-3 w-100">
-      <button
-        className="btn btn-outline-light"
-        onClick={() => setCanvasKey(prev => prev + 1)}
-        disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
-        style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
-      >
-        Clear Canvas
-      </button>
-      {/* Show ReviewNotification only if evaluated */}
-      {(submittedAnswerLocal || hasSubmittedToServer) && socketService.getSocketId() && (
-        <div style={{ minWidth: 180 }}>
-          <ReviewNotification playerId={socketService.getSocketId()!} />
-        </div>
-      )}
-    </div>
-  );
+  const renderDrawingBoardControls = () => {
+    const { clear } = useCanvas(); // Get clear function from context
+
+    const handleClearCanvas = () => {
+      if (clear) {
+        clear(); // Clear the canvas locally
+      }
+      // Send update to server that canvas is cleared
+      if (roomCode && connectionStatus === 'connected' && !submittedAnswerLocal && !hasSubmittedToServer) {
+        const emptyState = '{"objects":[]}';
+        socketService.updateBoard(roomCode, emptyState);
+        // Optionally, call onUpdate if DrawingBoard needs to know about this specific clear action
+        // This depends on whether the parent (Player.tsx) tracks board state directly or relies on context/server
+      }
+      setCanvasKey(prev => prev + 1); // Reinstate to remount DrawingBoard and reset its internal state
+    };
+
+    return (
+      <div className="d-flex align-items-center justify-content-end gap-3 w-100">
+        <button
+          className="btn btn-outline-light"
+          onClick={handleClearCanvas} // Use the new handler
+          disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
+          style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
+        >
+          Clear Canvas
+        </button>
+        {/* Show ReviewNotification only if evaluated */}
+        {(submittedAnswerLocal || hasSubmittedToServer) && socketService.getSocketId() && (
+          <div style={{ minWidth: 180 }}>
+            <ReviewNotification playerId={socketService.getSocketId()!} />
+          </div>
+        )}
+      </div>
+    );
+  };
 
   return (
     <>

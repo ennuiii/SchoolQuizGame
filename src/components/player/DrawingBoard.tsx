@@ -58,7 +58,6 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
               timestamp: Date.now()
             });
           }
-          socketService.updateBoard(roomCode, currentState);
         }
       }
     }, 500);
@@ -89,7 +88,6 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
             timestamp: Date.now()
           });
         }
-        socketService.updateBoard(roomCode, currentState);
       }
     };
 
@@ -180,7 +178,6 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
       if (onUpdate) {
         onUpdate({ data: emptyState, timestamp: Date.now() });
       }
-      socketService.updateBoard(roomCode, emptyState);
     }
   }, [clear, roomCode, disabled, submittedAnswer, onUpdate]);
 

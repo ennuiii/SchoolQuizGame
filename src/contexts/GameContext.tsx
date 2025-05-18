@@ -204,26 +204,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // New useEffect to default boards to visible when players list changes
   useEffect(() => {
     setVisibleBoards(prevVisibleBoards => {
-      const newVisibleBoards = new Set(prevVisibleBoards); // Start with GM's explicit settings
+      const newVisibleBoards = new Set(prevVisibleBoards);
       let changed = false;
 
-      // Ensure all current active, non-spectator players are visible by default
-      // unless the GM has *explicitly* hidden them using toggleBoardVisibility.
-      // This means if a player is active and not a spectator, they should be in the set.
-      players.forEach(player => {
-        if (player.isActive && !player.isSpectator) {
-          if (!newVisibleBoards.has(player.id)) {
-            newVisibleBoards.add(player.id);
-            changed = true;
-          }
-        }
-      });
+      // Remove players from visibleBoards if they are no longer active/non-spectators or not in the players list.
+      // This ensures that if a player was in prevVisibleBoards but is no longer valid (e.g., left, became spectator), they are removed.
+      // The GM's explicit action to hide a board is respected and not overridden here.
+      const validPlayerIds = new Set(players.filter(p => p.isActive && !p.isSpectator).map(p => p.id));
 
-      // Remove players from visibleBoards if they are no longer active/non-spectators or not in the players list
-      // This also ensures that if a player was in prevVisibleBoards but is no longer valid, they are removed.
-      const activePlayerIds = new Set(players.filter(p => p.isActive && !p.isSpectator).map(p => p.id));
       prevVisibleBoards.forEach(visiblePlayerId => {
-        if (!activePlayerIds.has(visiblePlayerId)) {
+        if (!validPlayerIds.has(visiblePlayerId)) {
           if (newVisibleBoards.has(visiblePlayerId)) { // Check if it was in the set we are building
             newVisibleBoards.delete(visiblePlayerId);
             changed = true;
@@ -232,12 +222,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       
       if (changed) {
-        console.log('[GameContext] Updated visibleBoards by default logic:', newVisibleBoards);
+        console.log('[GameContext] Updated visibleBoards by removing inactive/spectator players:', newVisibleBoards);
         return newVisibleBoards;
       }
       return prevVisibleBoards; // No change, return the original set
     });
-  }, [players]); // Depends on GameContext's internal players list
+  }, [players, gameStarted]); // Depends on GameContext's internal players list and gameStarted
 
   // Effect to subscribe to socket connection state changes
   useEffect(() => {
@@ -471,10 +461,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Make all non-spectator player boards visible by default
         // Use players from the event data if available, otherwise use the current 'players' state.
-        const currentPlayers = data.players || players;
-        const initialVisiblePlayerIds = new Set(currentPlayers.filter(p => !p.isSpectator).map(p => p.id));
+        const currentPlayers = data.players || players; // Use event data first
+        const initialVisiblePlayerIds = new Set(
+          currentPlayers.filter(p => p.isActive && !p.isSpectator).map(p => p.id)
+        );
         setVisibleBoards(initialVisiblePlayerIds);
-        console.log('[GameContext] Initial visible boards set:', initialVisiblePlayerIds);
+        console.log('[GameContext] Initial visible boards set in gameStartedHandler:', initialVisiblePlayerIds);
 
         console.log('[GameContext] State updated after game_started event:', {
           newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
@@ -498,13 +490,40 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           console.log('[GameContext] Updating gameStarted state:', { from: gameStarted, to: state.started, timestamp: new Date().toISOString() });
           setGameStarted(state.started);
         }
-        if (state.currentQuestion && (!currentQuestion || currentQuestion.text !== state.currentQuestion.text)) {
-          console.log('[GameContext] Updating currentQuestion:', { from: currentQuestion?.text, to: state.currentQuestion.text, timestamp: new Date().toISOString() });
+        if (state.currentQuestion && (!currentQuestion || currentQuestion.id !== state.currentQuestion.id)) { // Compare by ID for robustness
+          console.log('[GameContext] Updating currentQuestion from gameStateUpdate:', { from: currentQuestion?.text, to: state.currentQuestion.text, timestamp: new Date().toISOString() });
           setCurrentQuestion(state.currentQuestion);
+          // When the question changes, always reset timer states based on the NEW question's time limit from the server state.
+          const newQuestionTimeLimit = state.currentQuestion.timeLimit !== undefined ? state.currentQuestion.timeLimit : state.timeLimit;
+          console.log('[GameContext] New question detected in gameStateUpdate. Resetting timer. New question timeLimit from state.currentQuestion.timeLimit or state.timeLimit:', newQuestionTimeLimit);
+          if (newQuestionTimeLimit !== null && newQuestionTimeLimit < 99999) {
+            setTimeLimit(newQuestionTimeLimit); // Update overall timeLimit state as well
+            setTimeRemaining(newQuestionTimeLimit);
+            setIsTimerRunning(true);
+          } else {
+            setTimeLimit(newQuestionTimeLimit); // Could be null or 99999
+            setTimeRemaining(null);
+            setIsTimerRunning(false);
+          }
         }
-        if (state.timeLimit !== timeLimit) {
-          console.log('[GameContext] Updating timeLimit:', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
+        // Update currentQuestionIndex
+        if (state.currentQuestionIndex !== undefined && state.currentQuestionIndex !== currentQuestionIndex) {
+          console.log('[GameContext] Updating currentQuestionIndex from gameStateUpdate:', { from: currentQuestionIndex, to: state.currentQuestionIndex, timestamp: new Date().toISOString() });
+          setCurrentQuestionIndex(state.currentQuestionIndex);
+        }
+        // This block handles explicit timeLimit changes if the question itself hasn't changed
+        // but the timeLimit for the current question was updated (e.g., by GM action - though not implemented).
+        // This might be redundant now with the above block, but kept for safety for now.
+        if (state.timeLimit !== timeLimit && (!state.currentQuestion || state.currentQuestion.id === currentQuestion?.id) ) {
+          console.log('[GameContext] Updating timeLimit from gameStateUpdate (question same or not in state):', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
           setTimeLimit(state.timeLimit);
+          if (state.timeLimit !== null && state.timeLimit < 99999) {
+            setTimeRemaining(state.timeLimit);
+            setIsTimerRunning(true);
+          } else {
+            setTimeRemaining(null);
+            setIsTimerRunning(false);
+          }
         }
         
         const newPlayers = state.players || [];
@@ -521,8 +540,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           return newPlayers; // Update with the new list from server
         });
 
+        console.log('[GameContext] gameStateUpdateHandler: BEFORE setAllAnswersThisRound. Current context:', JSON.stringify(allAnswersThisRound), 'Incoming state.roundAnswers:', JSON.stringify(state.roundAnswers));
         setAllAnswersThisRound(state.roundAnswers || {});
+        console.log('[GameContext] gameStateUpdateHandler: AFTER setAllAnswersThisRound. New context:', JSON.stringify(state.roundAnswers || {}));
+
+        console.log('[GameContext] gameStateUpdateHandler: BEFORE setEvaluatedAnswers. Current context:', JSON.stringify(evaluatedAnswers), 'Incoming state.evaluatedAnswers:', JSON.stringify(state.evaluatedAnswers));
         setEvaluatedAnswers(state.evaluatedAnswers || {});
+        console.log('[GameContext] gameStateUpdateHandler: AFTER setEvaluatedAnswers. New context:', JSON.stringify(state.evaluatedAnswers || {}));
 
         // Update player boards from server state - critical for reconnection recovery
         if (state.playerBoards) {
@@ -606,16 +630,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     const newQuestionHandler = (data: { question: Question, timeLimit: number }) => { 
-        console.log('[GameContext] New question:', { questionText: data.question.text, timeLimit: data.timeLimit, timestamp: new Date().toISOString() });
-        setCurrentQuestion(data.question); 
-        setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit < 99999 ? data.timeLimit : null);
-        setIsTimerRunning(data.timeLimit < 99999);
-        setCurrentQuestionIndex(prev => { const newIndex = prev + 1; console.log('[GameContext] Updated question index:', { prev, new: newIndex }); return newIndex; });
-        setSubmittedAnswer(false); 
-        setAllAnswersThisRound({}); 
-        setEvaluatedAnswers({}); 
-        setPlayerBoards([]);
+        console.log(`[GameContext] 'new_question' event received. Question Text: ${data.question.text}, Time Limit: ${data.timeLimit}`);
+        // Most state is now set by gameStateUpdateHandler.
+        // This handler can be used for immediate client-side only logic if needed,
+        // or for things not covered by the main game state object from server.
+        setSubmittedAnswer(false); // Reset context-level submission flag (likely for GM UI)
     };
     const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
     const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };
@@ -739,12 +758,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
-  }, [socketConnectionStatus, boardUpdateHandler]); // Simplified dependency array
+  }, [socketConnectionStatus, boardUpdateHandler, gameStarted]); // REMOVED 'players' from dependency array
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
     if (questions.some(q => q.id === question.id)) {
       setQuestionErrorMsg('This question is already selected');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     const newQuestions = [...questions, question].sort((a, b) => a.grade - b.grade);
@@ -764,6 +784,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearAllSelectedQuestions = useCallback(() => {
     if (questions.length === 0) {
       setQuestionErrorMsg('No questions to clear');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
@@ -795,11 +816,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Validate inputs
     if (!text.trim()) {
       setQuestionErrorMsg('Question text cannot be empty');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
     if (isNaN(grade) || grade < 1 || grade > 13) {
       setQuestionErrorMsg('Grade must be between 1 and 13');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
@@ -821,6 +844,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isDuplicate) {
       setQuestionErrorMsg('A similar question already exists in the selection');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     

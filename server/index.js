@@ -1444,14 +1444,14 @@ io.on('connection', (socket) => {
         player.answers[room.currentQuestionIndex] = undefined;
       });
 
-      // Clear playerBoards answerSubmitted flag if you use it
-      if (room.playerBoards) {
+      // Clear playerBoards answerSubmitted flag if you use it (currently not in playerBoards structure)
+      /* if (room.playerBoards) {
         Object.keys(room.playerBoards).forEach(pid => {
           if (room.playerBoards[pid]) {
-            room.playerBoards[pid].answerSubmitted = false;
+            // room.playerBoards[pid].answerSubmitted = false; // Property doesn't exist
           }
         });
-      }
+      } */
 
       // Clear existing timer and start a new one if time limit is set and not infinite
       clearRoomTimer(roomCode);
@@ -1460,11 +1460,38 @@ io.on('connection', (socket) => {
         startQuestionTimer(roomCode);
       }
 
-      // It's important to broadcast the full game state AFTER resetting round answers
-      // so clients get the cleared evaluation state along with the new question.
-      broadcastGameState(roomCode); 
-      // The 'new_question' event is still useful for specific client-side actions like clearing canvas,
-      // but the primary state update should come from 'game_state_update' triggered by broadcastGameState.
+      // Construct the state for game_state_update directly from the modified room object
+      const playerBoardsForState = {};
+      if (room.playerBoards) {
+        Object.entries(room.playerBoards).forEach(([playerId, boardData]) => {
+          playerBoardsForState[playerId] = {
+            playerId,
+            boardData: boardData.boardData || '',
+            persistentPlayerId: room.players.find(p => p.id === playerId)?.persistentPlayerId || '',
+            playerName: room.players.find(p => p.id === playerId)?.name || 'Unknown Player',
+            roundIndex: boardData.roundIndex !== undefined ? boardData.roundIndex : room.currentQuestionIndex || 0,
+            timestamp: boardData.timestamp || Date.now()
+          };
+        });
+      }
+
+      const nextQuestionState = {
+        started: room.started,
+        currentQuestion: room.currentQuestion,
+        currentQuestionIndex: room.currentQuestionIndex,
+        timeLimit: room.timeLimit,
+        questionStartTime: room.questionStartTime,
+        players: room.players,
+        roundAnswers: room.roundAnswers, // Should be {} now
+        evaluatedAnswers: room.evaluatedAnswers, // Should be {} now
+        submissionPhaseOver: room.submissionPhaseOver,
+        isConcluded: room.isConcluded,
+        playerBoards: playerBoardsForState
+      };
+
+      io.to(roomCode).emit('game_state_update', nextQuestionState);
+      console.log(`[Server NextQ] Broadcasted explicitly constructed game_state_update for room ${roomCode}`);
+
       io.to(roomCode).emit('new_question', {
         question: room.currentQuestion,
         timeLimit: room.timeLimit

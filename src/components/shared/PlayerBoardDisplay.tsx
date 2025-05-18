@@ -40,6 +40,14 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   const [position, setPosition] = useState({ x: transform?.x || 0, y: transform?.y || 0 });
   const [svgString, setSvgString] = useState<string>('');
 
+  // Effect to update internal state when transform prop changes
+  useEffect(() => {
+    if (transform) {
+      setScale(transform.scale);
+      setPosition({ x: transform.x, y: transform.y });
+    }
+  }, [transform]);
+
   // Effect to generate SVG from Fabric JSON data
   useEffect(() => {
     let tempCanvas: fabric.Canvas | null = null;
@@ -212,77 +220,64 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
     window.removeEventListener('mouseup', handleMouseUp);
   };
 
+  // Handle toggle visibility - directly call the provided function
+  const handleToggleVisibility = () => {
+    onToggleVisibility(board.playerId);
+  };
+
   return (
     <div className={`player-board-display-wrapper ${customClass || ''} ${fullscreen ? 'fullscreen-wrapper' : ''}`}>
       <div className="player-board-header d-flex justify-content-between align-items-center pb-1 pt-1">
         <div className="player-name">{board.playerName}</div>
         <div className="board-controls d-flex align-items-center">
-          {onToggleVisibility && (
-            <div className="visibility-control ms-2">
-              <button
-                className="btn btn-sm btn-outline-primary"
-                onClick={() => onToggleVisibility(board.playerId)}
-              >
-                {isVisible ? 'Hide' : 'Show'}
-              </button>
-            </div>
-          )}
-          <div className="reset-control ms-2">
+          <div className="visibility-control ms-2">
             <button
-                className="btn btn-sm btn-outline-secondary"
-                onClick={() => {
-                  setScale(1);
-                  setPosition({ x: 0, y: 0 });
-                  onReset(board.playerId);
-                }}
-                title="Reset pan/zoom"
-              >
-                Reset
-              </button>
+              className="btn btn-sm btn-outline-primary"
+              onClick={handleToggleVisibility}
+            >
+              {isVisible ? 'Hide' : 'Show'}
+            </button>
           </div>
         </div>
       </div>
       
-      {/* This div now solely represents the visual chalkboard */}
-      <div 
-        className={`drawing-board-container ${fullscreen ? 'fullscreen-drawing-area' : ''} ${!isVisible ? 'hidden' : ''}`}
-        style={{
-          transition: 'height 0.3s ease-in-out, opacity 0.3s ease-in-out'
-        }}
-      >
-        <div 
-          ref={containerRef} 
-          className={`board-render-area`}
-          style={{ 
-            width: '100%',
-            height: '100%',
-            cursor: isInteractive && isPanning.current ? 'grabbing' : (isInteractive ? 'grab' : 'default'),
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            position: 'relative' 
-          }}
-          onWheel={isInteractive ? handleWheel : undefined}
-          onMouseDown={isInteractive ? handleMouseDown : undefined}
-          onClick={onClick}
-        >
+      {/* Conditionally render the drawing board container based on isVisible */}
+      {isVisible && (
+        <div className={`drawing-board-container ${fullscreen ? 'fullscreen-drawing-area' : ''}`}>
           <div 
-            className="svg-display-wrapper" 
-            style={{
-              transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
-              transformOrigin: 'center center', 
+            ref={containerRef} 
+            className="board-render-area"
+            style={{ 
               width: '100%',
               height: '100%',
+              cursor: isInteractive && isPanning.current ? 'grabbing' : (isInteractive ? 'grab' : 'default'),
               display: 'flex',
               justifyContent: 'center',
-              alignItems: 'center'
+              alignItems: 'center',
+              position: 'relative' 
             }}
-            dangerouslySetInnerHTML={{ __html: svgString }}
-          />
+            onWheel={isInteractive ? handleWheel : undefined}
+            onMouseDown={isInteractive ? handleMouseDown : undefined}
+            onClick={onClick}
+          >
+            <div 
+              className="svg-display-wrapper" 
+              style={{
+                transform: `translate(${position.x}px, ${position.y}px) scale(${scale})`,
+                transformOrigin: 'center center', 
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center'
+              }}
+              dangerouslySetInnerHTML={{ __html: svgString }}
+            />
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
 
-export default PlayerBoardDisplay; 
+export default PlayerBoardDisplay;
