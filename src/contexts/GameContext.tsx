@@ -28,6 +28,8 @@ export interface PlayerBoard {
   playerId: string;
   playerName: string;
   boardData: string;
+  timestamp?: number;
+  roundIndex?: number;
 }
 
 interface AnswerSubmission {
@@ -552,7 +554,10 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 // Only override local board if server has newer data or local is empty
                 const localBoard = mergedBoards[localBoardIndex];
                 if (!localBoard.boardData || localBoard.boardData === '' || 
-                    (serverBoard.timestamp && (!localBoard.timestamp || serverBoard.timestamp > localBoard.timestamp))) {
+                    (serverBoard.timestamp && (!localBoard.timestamp || 
+                    (typeof serverBoard.timestamp === 'number' && 
+                     typeof localBoard.timestamp === 'number' && 
+                     serverBoard.timestamp > localBoard.timestamp)))) {
                   console.log(`[GameContext] Updating board for player ${serverBoard.playerId} with newer server data`);
                   mergedBoards[localBoardIndex] = serverBoard;
                 }
