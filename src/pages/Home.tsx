@@ -1,15 +1,23 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MusicControl from '../components/shared/MusicControl';
 import { useAudio } from '../contexts/AudioContext';
+import socketService from '../services/socketService';
+import { toast } from 'react-toastify';
 
 const Home: React.FC = () => {
   const navigate = useNavigate();
   const { playBackgroundMusic } = useAudio();
+  const [showAdvanced, setShowAdvanced] = useState(false);
 
   useEffect(() => {
     playBackgroundMusic();
   }, [playBackgroundMusic]);
+
+  const handleResetConnection = () => {
+    socketService.clearPersistentPlayerId();
+    toast.success("Connection reset successful. Your player ID has been cleared.");
+  };
 
   return (
     <>
@@ -52,6 +60,31 @@ const Home: React.FC = () => {
               <span className="bi bi-emoji-smile"></span>
               Join as Player
             </button>
+          </div>
+          
+          <div className="mt-5">
+            <button 
+              className="btn btn-link text-muted"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+            >
+              {showAdvanced ? 'Hide Advanced Options' : 'Show Advanced Options'}
+            </button>
+            
+            {showAdvanced && (
+              <div className="card p-3 mt-2 border-danger">
+                <h6 className="mb-3">Advanced Options</h6>
+                <button 
+                  className="btn btn-outline-danger"
+                  onClick={handleResetConnection}
+                >
+                  <span className="bi bi-arrow-repeat me-2"></span>
+                  Reset Connection
+                </button>
+                <small className="d-block mt-2 text-muted">
+                  Use this if you're having issues with connections or player identification.
+                </small>
+              </div>
+            )}
           </div>
         </div>
       </div>

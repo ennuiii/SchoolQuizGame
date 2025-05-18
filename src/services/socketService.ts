@@ -88,6 +88,17 @@ export class SocketService {
     return this.persistentPlayerId;
   }
 
+  // Method to clear persistentPlayerId
+  public clearPersistentPlayerId(): void {
+    try {
+      localStorage.removeItem('persistentPlayerId_schoolquiz');
+      this.persistentPlayerId = null;
+      console.log('[SocketService] Cleared persistent player ID');
+    } catch (error) {
+      console.error('[SocketService] Error clearing persistent player ID:', error);
+    }
+  }
+
   // Set player details for connection auth
   public setPlayerDetails(playerName: string): void {
     this.currentSessionPlayerName = playerName;
@@ -453,9 +464,34 @@ export class SocketService {
 
   disconnect() {
     console.log('[SocketService] Disconnecting');
-    this.socket?.disconnect();
-    this.socket = null;
-    this.updateConnectionState('disconnected');
+    try {
+      // First leave any rooms if we're in any
+      if (this.socket?.connected) {
+        // Send a graceful leave message
+        const roomCode = localStorage.getItem('roomCode');
+        if (roomCode) {
+          console.log(`[SocketService] Sending leave_room message before disconnecting from room ${roomCode}`);
+          this.socket.emit('leave_room', { roomCode });
+        }
+        
+        // Allow some time for the leave_room message to be sent
+        setTimeout(() => {
+          // Then disconnect
+          this.socket?.disconnect();
+          this.socket = null;
+          this.updateConnectionState('disconnected');
+          console.log('[SocketService] Disconnected socket and cleaned up');
+        }, 100);
+      } else {
+        // If not connected, just clean up
+        this.socket = null;
+        this.updateConnectionState('disconnected');
+      }
+    } catch (error) {
+      console.error('[SocketService] Error during disconnect:', error);
+      this.socket = null;
+      this.updateConnectionState('disconnected');
+    }
   }
 
   // Helper method to generate a unique ID
@@ -508,7 +544,15 @@ export class SocketService {
 
   async kickPlayer(roomCode: string, playerIdToKick: string): Promise<void> {
     console.log(`[SocketService] Sending kick_player event for player ${playerIdToKick} in room ${roomCode}`);
-    await this.robustEmit('kick_player', { roomCode, playerIdToKick });
+    
+    // Include the socketId to help server identify which connection to kick
+    // when persistent IDs might be the same
+    const socketId = this.socket?.id;
+    await this.robustEmit('kick_player', { 
+      roomCode, 
+      playerIdToKick, 
+      kickerSocketId: socketId
+    });
   }
 }
 

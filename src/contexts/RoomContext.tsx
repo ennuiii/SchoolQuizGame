@@ -222,18 +222,34 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setErrorMsg('No room active. Cannot kick player.');
       return;
     }
-    console.log(`[RoomContext] Kicking player ${playerIdToKick} in room ${roomCode}`);
     
-    // Use the dedicated kickPlayer method
+    // Check if this context is a GameMaster - only GMs should be able to kick
+    if (!isGameMaster) {
+      console.error('[RoomContext] Cannot kick player: Only GameMasters can kick players');
+      setErrorMsg('Only GameMasters can kick players');
+      return;
+    }
+    
+    // Find the target player to get their socket ID
+    const targetPlayer = players.find(p => p.persistentPlayerId === playerIdToKick);
+    if (!targetPlayer) {
+      console.error(`[RoomContext] Cannot kick player: Player with ID ${playerIdToKick} not found`);
+      setErrorMsg(`Player not found. They may have already left the game.`);
+      return;
+    }
+    
+    console.log(`[RoomContext] Kicking player ${targetPlayer.name} (${playerIdToKick}) with socket ID ${targetPlayer.id} from room ${roomCode}`);
+    
+    // Use the dedicated kickPlayer method with socket ID
     socketService.kickPlayer(roomCode, playerIdToKick)
       .then(() => {
-        console.log(`[RoomContext] Successfully sent kick request for ${playerIdToKick}`);
+        console.log(`[RoomContext] Successfully sent kick request for ${targetPlayer.name} (${playerIdToKick})`);
       })
       .catch(error => {
         console.error(`[RoomContext] Failed to kick player: ${error}`);
         setErrorMsg(`Failed to kick player: ${error.message || 'Unknown error'}`);
       });
-  }, [roomCode, setErrorMsg]);
+  }, [roomCode, isGameMaster, players, setErrorMsg]);
 
   const acknowledgeKick = useCallback(() => {
     setIsKickedModalOpen(false);
