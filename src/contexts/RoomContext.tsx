@@ -212,7 +212,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [currentSocket]);
 
   const kickPlayer = useCallback((playerIdToKick: string) => {
-    if (!currentSocket || !currentSocket.connected) {
+    if (socketService.getConnectionState() !== 'connected') {
       console.error('[RoomContext] Cannot kick player: Socket not connected.');
       setErrorMsg('Not connected to server. Cannot kick player.');
       return;
@@ -222,9 +222,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setErrorMsg('No room active. Cannot kick player.');
       return;
     }
-    console.log(`[RoomContext] Emitting kick_player event for player ${playerIdToKick} in room ${roomCode}`);
-    currentSocket.emit('kick_player', { roomCode, playerIdToKick });
-  }, [currentSocket, roomCode, setErrorMsg]);
+    console.log(`[RoomContext] Kicking player ${playerIdToKick} in room ${roomCode}`);
+    
+    // Use the dedicated kickPlayer method
+    socketService.kickPlayer(roomCode, playerIdToKick)
+      .then(() => {
+        console.log(`[RoomContext] Successfully sent kick request for ${playerIdToKick}`);
+      })
+      .catch(error => {
+        console.error(`[RoomContext] Failed to kick player: ${error}`);
+        setErrorMsg(`Failed to kick player: ${error.message || 'Unknown error'}`);
+      });
+  }, [roomCode, setErrorMsg]);
 
   const acknowledgeKick = useCallback(() => {
     setIsKickedModalOpen(false);

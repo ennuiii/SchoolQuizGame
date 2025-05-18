@@ -505,6 +505,11 @@ export class SocketService {
       persistentPlayerId: this.persistentPlayerId
     });
   }
+
+  async kickPlayer(roomCode: string, playerIdToKick: string): Promise<void> {
+    console.log(`[SocketService] Sending kick_player event for player ${playerIdToKick} in room ${roomCode}`);
+    await this.robustEmit('kick_player', { roomCode, playerIdToKick });
+  }
 }
 
 const socketService = new SocketService();

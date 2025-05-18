@@ -120,13 +120,28 @@ const GameMaster: React.FC = () => {
       toast.error("Kick player function not available.");
       return;
     }
+    
+    // Check if player is trying to kick themselves (GameMaster)
+    if (persistentPlayerId && playerId === persistentPlayerId) {
+      console.error('[GameMaster] Cannot kick self (GameMaster)');
+      toast.error("You cannot kick yourself (GameMaster).");
+      return;
+    }
+    
     console.log(`[GameMaster] Request to kick player ${playerId} from room ${roomCode}`);
+    
     // Find player name for better user feedback
     const playerName = gamePlayers.find(p => p.persistentPlayerId === playerId)?.name || 'Unknown player';
     console.log(`[GameMaster] Kicking player with name: ${playerName}`);
-    kickPlayer(playerId);
-    toast.info(`Kicking ${playerName}...`);
-  }, [roomCode, kickPlayer, gamePlayers]);
+    
+    try {
+      kickPlayer(playerId);
+      toast.info(`Kicking ${playerName}...`);
+    } catch (error) {
+      console.error('[GameMaster] Error kicking player:', error);
+      toast.error(`Failed to kick ${playerName}. Please try again.`);
+    }
+  }, [roomCode, kickPlayer, gamePlayers, persistentPlayerId]);
 
   const allAnswersEvaluated = Object.keys(allAnswersThisRound).length > 0 && 
                               Object.keys(allAnswersThisRound).every(playerId => evaluatedAnswers.hasOwnProperty(playerId));
