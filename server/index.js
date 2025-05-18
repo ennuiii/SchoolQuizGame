@@ -1582,63 +1582,68 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: `Room ${roomCode} not found.` });
         return;
       }
+      
+      console.log(`[Server Kick] Kick request from socket ${socket.id} for player ${playerIdToKick} in room ${roomCode}`);
+      console.log(`[Server Kick] Room gamemaster is: ${room.gamemaster}, comparing with requester: ${socket.id}`);
 
+      // Simple check: is the socket ID that's making the request the current game master?
       if (socket.id !== room.gamemaster) {
         console.error(`[Server Kick] Kick failed: Socket ${socket.id} is not the GM of room ${roomCode}.`);
         socket.emit('error', { message: 'Only the Game Master can kick players.' });
         return;
       }
 
-      if (playerIdToKick === room.gamemasterPersistentId) {
+      // Check if trying to kick self - use the provided ID directly
+      if (playerIdToKick === socket.id) {
         console.error(`[Server Kick] Kick failed: GM ${socket.id} cannot kick themselves from room ${roomCode}.`);
         socket.emit('error', { message: 'Game Master cannot kick themselves.' });
         return;
       }
 
-      // Find player by persistentPlayerId
-      const playerIndex = room.players.findIndex(p => p.persistentPlayerId === playerIdToKick);
+      // Determine if playerIdToKick is a socket ID or persistentPlayerId
+      let playerIndex = room.players.findIndex(p => p.id === playerIdToKick);
+      
+      // If not found by socket ID, try persistent ID
       if (playerIndex === -1) {
-        console.warn(`[Server Kick] Player with persistentId ${playerIdToKick} not found in room ${roomCode} for kicking. Broadcasting current state.`);
-        // Player not found, maybe already left. Still good to broadcast current state.
-      } else {
-        const kickedPlayer = room.players.splice(playerIndex, 1)[0];
-        console.log(`[Server Kick] Player ${kickedPlayer.name} (persistentId: ${playerIdToKick}) kicked from room ${roomCode} by GM ${socket.id}`);
-
-        // Notify the kicked player via their current socket id
-        const kickedPlayerSocket = io.sockets.sockets.get(kickedPlayer.id);
-        if (kickedPlayerSocket) {
-          kickedPlayerSocket.emit('kicked_from_room', { roomCode, reason: 'Kicked by Game Master' });
-          kickedPlayerSocket.leave(roomCode); 
-          console.log(`[Server Kick] Notified player ${kickedPlayer.id} and made them leave room ${roomCode}.`);
-        }
-
-        // Clean up player boards - need to check the playerBoards object since it might still be keyed by socket ID
-        if (room.playerBoards) {
-          // Clean up by socket.id
-          if (room.playerBoards[kickedPlayer.id]) {
-            delete room.playerBoards[kickedPlayer.id];
-          }
-          
-          // Also check if we have persistentPlayerId-keyed boards
-          Object.keys(room.playerBoards).forEach(key => {
-            if (room.playerBoards[key].persistentPlayerId === playerIdToKick) {
-              delete room.playerBoards[key];
-            }
-          });
-        }
-        
-        // Clean up from roundAnswers and evaluatedAnswers which are keyed by persistentPlayerId
-        if (room.roundAnswers && room.roundAnswers[playerIdToKick]) {
-          delete room.roundAnswers[playerIdToKick];
-        }
-        
-        if (room.evaluatedAnswers && room.evaluatedAnswers[playerIdToKick]) {
-          delete room.evaluatedAnswers[playerIdToKick];
-        }
+        playerIndex = room.players.findIndex(p => p.persistentPlayerId === playerIdToKick);
       }
+
+      if (playerIndex === -1) {
+        console.warn(`[Server Kick] Player with ID ${playerIdToKick} not found in room ${roomCode} for kicking. Broadcasting current state.`);
+        socket.emit('error', { message: 'Player not found. They may have already left the game.' });
+        return;
+      }
+
+      const kickedPlayer = room.players[playerIndex];
+      room.players.splice(playerIndex, 1);
+      console.log(`[Server Kick] Player ${kickedPlayer.name} (Socket ID: ${kickedPlayer.id}) kicked from room ${roomCode} by GM ${socket.id}`);
+
+      // Notify the kicked player
+      const kickedPlayerSocket = io.sockets.sockets.get(kickedPlayer.id);
+      if (kickedPlayerSocket) {
+        kickedPlayerSocket.emit('kicked_from_room', { roomCode, reason: 'Kicked by Game Master' });
+        kickedPlayerSocket.leave(roomCode);
+        console.log(`[Server Kick] Notified player ${kickedPlayer.id} and made them leave room ${roomCode}.`);
+      }
+
+      // Clean up player boards
+      if (room.playerBoards && room.playerBoards[kickedPlayer.id]) {
+        delete room.playerBoards[kickedPlayer.id];
+      }
+      
+      // Clean up from roundAnswers and evaluatedAnswers which are keyed by persistentPlayerId
+      const persistentId = kickedPlayer.persistentPlayerId;
+      if (room.roundAnswers && room.roundAnswers[persistentId]) {
+        delete room.roundAnswers[persistentId];
+      }
+      
+      if (room.evaluatedAnswers && room.evaluatedAnswers[persistentId]) {
+        delete room.evaluatedAnswers[persistentId];
+      }
+
       // Broadcast updated game state which includes player list
       broadcastGameState(roomCode);
-      console.log(`[Server Kick] Broadcasted game state for room ${roomCode} after kicking attempt.`);
+      console.log(`[Server Kick] Broadcasted game state for room ${roomCode} after kicking player.`);
 
     } catch (error) {
       console.error(`[Server Kick] Error handling kick_player for room ${roomCode}, player ${playerIdToKick}:`, error);

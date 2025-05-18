@@ -30,7 +30,7 @@ interface RoomContextType {
   isKickedModalOpen: boolean;
   kickReason: string;
   createRoom: (roomCode: string) => void;
-  kickPlayer: (playerIdToKick: string) => void;
+  kickPlayer: (playerSocketId: string) => void;
   
   // Actions
   setRoomCode: (code: string) => void;
@@ -211,7 +211,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   }, [currentSocket]);
 
-  const kickPlayer = useCallback((playerIdToKick: string) => {
+  const kickPlayer = useCallback((playerSocketId: string) => {
     if (socketService.getConnectionState() !== 'connected') {
       console.error('[RoomContext] Cannot kick player: Socket not connected.');
       setErrorMsg('Not connected to server. Cannot kick player.');
@@ -230,26 +230,20 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return;
     }
     
-    // Find the target player to get their socket ID
-    const targetPlayer = players.find(p => p.persistentPlayerId === playerIdToKick);
-    if (!targetPlayer) {
-      console.error(`[RoomContext] Cannot kick player: Player with ID ${playerIdToKick} not found`);
-      setErrorMsg(`Player not found. They may have already left the game.`);
-      return;
-    }
+    // No longer need to check if player exists - just directly call the API
+    // The server will handle validating if the player exists and if the GM can kick them
+    console.log(`[RoomContext] Sending kick request for player with socket ID ${playerSocketId} from room ${roomCode}`);
     
-    console.log(`[RoomContext] Kicking player ${targetPlayer.name} (${playerIdToKick}) with socket ID ${targetPlayer.id} from room ${roomCode}`);
-    
-    // Use the dedicated kickPlayer method with socket ID
-    socketService.kickPlayer(roomCode, playerIdToKick)
+    // Pass the socket ID directly to the kick function
+    socketService.kickPlayerBySocketId(roomCode, playerSocketId)
       .then(() => {
-        console.log(`[RoomContext] Successfully sent kick request for ${targetPlayer.name} (${playerIdToKick})`);
+        console.log(`[RoomContext] Successfully sent kick request for player with socket ID: ${playerSocketId}`);
       })
-      .catch(error => {
+      .catch((error: Error) => {
         console.error(`[RoomContext] Failed to kick player: ${error}`);
         setErrorMsg(`Failed to kick player: ${error.message || 'Unknown error'}`);
       });
-  }, [roomCode, isGameMaster, players, setErrorMsg]);
+  }, [roomCode, isGameMaster, setErrorMsg]);
 
   const acknowledgeKick = useCallback(() => {
     setIsKickedModalOpen(false);

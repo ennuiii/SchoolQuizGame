@@ -554,6 +554,18 @@ export class SocketService {
       kickerSocketId: socketId
     });
   }
+
+  // Method to kick player by socket ID directly
+  async kickPlayerBySocketId(roomCode: string, playerSocketId: string): Promise<void> {
+    console.log(`[SocketService] Kicking player with socket ID ${playerSocketId} in room ${roomCode}`);
+    
+    // Use the kick_player event directly with the socket ID
+    // The server will handle finding the player by socket ID
+    await this.robustEmit('kick_player', { 
+      roomCode, 
+      playerIdToKick: playerSocketId  // Send socket ID instead of persistentPlayerId
+    });
+  }
 }
 
 const socketService = new SocketService();
