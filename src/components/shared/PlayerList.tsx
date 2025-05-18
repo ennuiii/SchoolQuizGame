@@ -71,16 +71,13 @@ const PlayerList: React.FC<PlayerListProps> = ({
             </div>
           ) : (
             players.map(player => {
-              // Debug logging for this specific player's kick button eligibility
-              const shouldShowKickButton = isGameMasterView && 
-                                         player.persistentPlayerId !== actualPersistentPlayerId && 
-                                         !!onKickPlayer;
+              // Always show kick button for GameMaster view, regardless of other conditions
+              const shouldShowKickButton = isGameMasterView && !!onKickPlayer;
               
               if (isGameMasterView && onKickPlayer) {
                 console.log(`[PlayerList] Player ${player.name} (${player.persistentPlayerId}) kick button:`, {
                   shouldShow: shouldShowKickButton,
                   isGameMaster: isGameMasterView,
-                  notSelf: player.persistentPlayerId !== actualPersistentPlayerId,
                   hasKickFn: !!onKickPlayer
                 });
               }
