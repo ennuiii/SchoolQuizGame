@@ -128,8 +128,8 @@ const GameMaster: React.FC = () => {
       roomCode
     });
     
-    // Find player name for better user feedback
-    const playerToKick = gamePlayers.find(p => p.persistentPlayerId === playerId);
+    // Find player by socket ID (not persistentPlayerId)
+    const playerToKick = gamePlayers.find(p => p.id === playerId);
     
     if (!playerToKick) {
       console.error(`[GameMaster] Cannot find player with ID ${playerId}`);
