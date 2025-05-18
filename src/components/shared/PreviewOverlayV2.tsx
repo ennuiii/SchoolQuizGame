@@ -1,7 +1,7 @@
 // Copy of PreviewOverlay for alternate design testing
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '../../contexts/GameContext';
-import type { Player, PlayerBoard } from '../../contexts/GameContext';
+import type { Player, PlayerBoard } from '../../types/game';
 import { useCanvas } from '../../contexts/CanvasContext';
 import { fabric } from 'fabric';
 

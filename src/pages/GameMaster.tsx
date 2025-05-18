@@ -622,6 +622,7 @@ const GameMaster: React.FC = () => {
                         const boardEntry = playerBoards.find(b => b.playerId === player.id);
                         const boardForDisplay = {
                           playerId: player.id,
+                          persistentPlayerId: player.persistentPlayerId,
                           playerName: player.name,
                           boardData: boardEntry ? boardEntry.boardData : ''
                         };

@@ -17,7 +17,7 @@ export type ConnectionStatusType = 'disconnected' | 'connecting' | 'connected' |
 // In production, use the specific backend URL
 const SOCKET_URL = process.env.NODE_ENV === 'production' 
   ? 'https://schoolquizgame.onrender.com' // The deployed backend URL
-  : 'http://localhost:5001'; // Use port 5001 to match server
+  : 'http://localhost:5000'; // Use port 5000 to match server
 
 // For testing/debugging: force local server during development
 // Comment out this line to use production server

@@ -28,6 +28,8 @@ export interface AnswerSubmission {
   playerName: string;
   answer: string;
   timestamp?: number;
+  hasDrawing?: boolean;
+  drawingData?: string | null;
 }
 
 export interface PreviewModeState {
