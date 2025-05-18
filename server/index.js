@@ -1798,6 +1798,7 @@ function clearRoomTimer(roomCode) {
   }
 }
 
+<<<<<<< Updated upstream
 // Add analytics endpoints
 app.get('/api/analytics/game/:roomCode', (req, res) => {
   const stats = gameAnalytics.getGameStats(req.params.roomCode);
@@ -1806,6 +1807,36 @@ app.get('/api/analytics/game/:roomCode', (req, res) => {
     return;
   }
   res.json(stats);
+=======
+// Handle disconnection
+io.on('disconnect', (socket) => {
+  console.log(`User disconnected: ${socket.id}`);
+  
+  // If user was in a room, handle cleanup
+  if (socket.roomCode) {
+    const roomCode = socket.roomCode;
+    const room = gameRooms[roomCode];
+    
+    if (room) {
+      // If user was gamemaster, end the game
+      if (room.gamemaster === socket.id) {
+        io.to(roomCode).emit('error', 'Game Master disconnected');
+        delete gameRooms[roomCode];
+        return;
+      }
+      
+      // If user was a player, remove them
+      const playerIndex = room.players.findIndex(p => p.id === socket.id);
+      if (playerIndex !== -1) {
+        room.players.splice(playerIndex, 1);
+        delete room.playerBoards[socket.id];
+        
+        // Notify remaining players
+        io.to(roomCode).emit('players_update', room.players);
+      }
+    }
+  }
+>>>>>>> Stashed changes
 });
 
 // Set up the port

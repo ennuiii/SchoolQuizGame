@@ -74,10 +74,7 @@ export const ConnectionStatus: React.FC<ConnectionStatusProps> = ({ showDetails 
               <p className="mb-1">{connectionErrorMessage}</p>
             )}
             <p className="mb-0 small">
-              The application cannot connect to the server. 
-              {connectionErrorMessage?.includes('NetworkError') && (
-                <span> Make sure you are connecting to your local server on port 5001 when running in development mode.</span>
-              )}
+              The application cannot connect to the server. Please check your internet connection or try again later.
             </p>
           </div>
           <button 

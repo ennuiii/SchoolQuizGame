@@ -17,11 +17,11 @@ export type ConnectionStatusType = 'disconnected' | 'connecting' | 'connected' |
 // In production, use the specific backend URL
 const SOCKET_URL = process.env.NODE_ENV === 'production' 
   ? 'https://schoolquizgame.onrender.com' // The deployed backend URL
-  : 'http://localhost:5000'; // Use port 5000 to match server
+  : 'http://localhost:5001'; // Use port 5001 to match server
 
 // For testing/debugging: force local server during development
 // Comment out this line to use production server
-//const FORCE_LOCAL_SERVER = true;
+const FORCE_LOCAL_SERVER = true;
 
 // Timeout for connection attempts (in milliseconds)
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
@@ -41,12 +41,9 @@ export class SocketService {
   private tempIsGameMasterQuery: boolean = false;
 
   constructor() {
-    // Always use local server in development
-    if (process.env.NODE_ENV !== 'production') {
-      this.url = 'http://localhost:5001';
-    } else {
-      this.url = process.env.REACT_APP_SOCKET_URL || SOCKET_URL;
-    }
+    // Use FORCE_LOCAL_SERVER to override production URLs during development
+    this.url = process.env.REACT_APP_SOCKET_URL || 
+      (FORCE_LOCAL_SERVER && process.env.NODE_ENV !== 'production' ? 'http://localhost:5001' : SOCKET_URL);
     
     console.log('[SocketService] Initializing with URL:', this.url);
     
@@ -125,9 +122,6 @@ export class SocketService {
     console.log('[SocketService] Attempting to connect to:', this.url);
     this.updateConnectionState('connecting');
 
-    // Use a shorter timeout for local connections
-    const timeoutDuration = this.url.includes('localhost') ? 5000 : CONNECTION_TIMEOUT;
-
     // Prepare query parameters for connection
     const queryParams: any = {};
     if (this.tempIsGameMasterQuery) {
@@ -140,50 +134,32 @@ export class SocketService {
     this.connectionPromise = new Promise((resolve, reject) => {
       // Setup connection timeout
       const timeoutId = setTimeout(() => {
-        console.error(`[SocketService] Connection attempt timed out after ${timeoutDuration}ms`);
-        let errorMsg = 'Connection timeout';
-        
-        // More specific error message based on URL
-        if (this.url.includes('localhost')) {
-          errorMsg = 'Local server connection timeout - is the server running on port 5001?';
-        } else if (this.url.includes('onrender.com')) {
-          errorMsg = 'Production server connection timeout - check your internet connection';
-        }
-        
-        this.updateConnectionState('error', { message: errorMsg });
+        console.error(`[SocketService] Connection attempt timed out after ${CONNECTION_TIMEOUT}ms`);
+        this.updateConnectionState('error', { message: 'Connection timeout' });
         if (this.socket) {
           this.socket.disconnect();
         }
         this.connectionPromise = null;
-        reject(new Error(errorMsg));
-      }, timeoutDuration);
+        reject(new Error('Connection timeout'));
+      }, CONNECTION_TIMEOUT);
 
-      try {
-        // Socket.IO client options with CSR support
-        this.socket = io(this.url, {
-          reconnection: true,
-          reconnectionAttempts: Infinity,
-          reconnectionDelay: 1000,
-          reconnectionDelayMax: 10000,
-          timeout: 20000,
-          query: queryParams,
-          // Authentication callback for CSR
-          auth: (cb) => {
-            const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
-            if (this.persistentPlayerId) payload.persistentPlayerId = this.persistentPlayerId;
-            if (this.currentSessionPlayerName) payload.playerName = this.currentSessionPlayerName;
-            console.log('[SocketService] Auth callback sending:', payload);
-            cb(payload);
-          }
-        });
-      } catch (error) {
-        clearTimeout(timeoutId);
-        console.error('[SocketService] Error creating socket:', error);
-        this.updateConnectionState('error', { message: 'Failed to create socket connection' });
-        this.connectionPromise = null;
-        reject(error);
-        return;
-      }
+      // Socket.IO client options with CSR support
+      this.socket = io(this.url, {
+        reconnection: true,
+        reconnectionAttempts: Infinity,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 10000,
+        timeout: 20000,
+        query: queryParams,
+        // Authentication callback for CSR
+        auth: (cb) => {
+          const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
+          if (this.persistentPlayerId) payload.persistentPlayerId = this.persistentPlayerId;
+          if (this.currentSessionPlayerName) payload.playerName = this.currentSessionPlayerName;
+          console.log('[SocketService] Auth callback sending:', payload);
+          cb(payload);
+        }
+      });
 
       // Reset temporary connection parameters
       this.tempIsGameMasterQuery = false;
@@ -214,17 +190,7 @@ export class SocketService {
         // Clear the timeout since we got an error response
         clearTimeout(timeoutId);
         
-        // Provide more helpful error messages
-        let errorMsg = error.message;
-        if (error.message.includes('xhr poll error')) {
-          if (this.url.includes('localhost')) {
-            errorMsg = 'Unable to reach local server - is the server running on port 5001?';
-          } else {
-            errorMsg = 'Network error connecting to server. Check your internet connection.';
-          }
-        }
-        
-        this.updateConnectionState('error', { message: errorMsg });
+        this.updateConnectionState('error', { message: error.message });
         
         // Check for fatal errors that should cause us to stop reconnecting
         if (error.message.includes('CORS') || 
@@ -236,7 +202,7 @@ export class SocketService {
             this.socket.disconnect();
           }
           this.connectionPromise = null;
-          reject(new Error(errorMsg));
+          reject(new Error(`Connection failed: ${error.message}`));
         }
         // For other errors, let Socket.IO's built-in reconnection handle it
       });
