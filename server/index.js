@@ -323,9 +323,9 @@ const io = new Server(server, {
     skipMiddlewares: true, // Recommended for CSR
   },
   cors: {
-    origin: allowedOrigins,
-    methods: ['GET', 'POST'],
-    credentials: true
+    origin: "*", // TEMPORARY DEBUGGING - ALLOW ALL ORIGINS
+    methods: ['GET', 'POST'], // Standard
+    credentials: true // May or may not be needed with origin: "*"
   },
   transports: ['websocket', 'polling'],
   // Increase maximum allowed payload size for larger SVG content
