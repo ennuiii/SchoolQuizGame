@@ -648,6 +648,13 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
     
+    // Only allow connection with isGameMaster = true to create rooms
+    if (!socket.data.isGameMaster) {
+      console.error(`[Server] Create room failed - Socket ${socket.id} not identified as GM`);
+      socket.emit('error', { message: 'Only game masters can create rooms' });
+      return;
+    }
+    
     gameRooms[finalRoomCode] = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId);
 
     socket.join(finalRoomCode);
@@ -683,6 +690,9 @@ io.on('connection', (socket) => {
     }
 
     const room = gameRooms[roomCode];
+    
+    // Explicitly mark as NOT gamemaster
+    socket.data.isGameMaster = false;
 
     // Get persistent player ID from socket data
     const persistentPlayerId = socket.data.persistentPlayerId;
@@ -1117,51 +1127,32 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
     
-    if (!isPotentialGameMaster && !isPlayerInRoom && !socket.rooms.has(roomCode)) {
-      console.error('[Server] request_players access denied:', {
-        roomCode,
-        socketId: socket.id,
-        isPotentialGameMaster,
-        isPlayerInRoom,
-        persistentPlayerId: socket.data.persistentPlayerId,
-        timestamp: new Date().toISOString()
-      });
-      socket.emit('error', { message: 'Not authorized to request players for this room' });
-      return;
-    }
-    
-    if (isPotentialGameMaster && room.gamemaster !== socket.id) {
-      // This is the game master reconnecting, update the gamemaster socket id
-      room.gamemaster = socket.id;
-      room.gamemasterSocketId = socket.id;
-      
-      if (room.gamemasterDisconnected) {
-        // Clear any disconnect timer
-        if (room.gamemasterDisconnectTimer) {
-          clearTimeout(room.gamemasterDisconnectTimer);
-          room.gamemasterDisconnectTimer = null;
-        }
-        room.gamemasterDisconnected = false;
+    // Only authenticate as GM if: has same persistentId as GM AND declared isGameMaster: true in connection
+    if (isPotentialGameMaster && socket.data.isGameMaster === true) {
+      // This is a GM reconnection - update the socket ID reference
+      if (room.gamemaster !== socket.id) {
+        // Only update if claiming GM role with isGameMaster=true
+        console.log(`[Server] Game master re-authenticated:`, {
+          roomCode, 
+          socketId: socket.id,
+          persistentPlayerId: socket.data.persistentPlayerId
+        });
+        room.gamemaster = socket.id;
+        room.gamemasterSocketId = socket.id;
         
-        // Notify everyone that GM is back
-        io.to(roomCode).emit('gm_disconnected_status', { disconnected: false });
+        if (room.gamemasterDisconnected) {
+          // Clear any disconnect timer
+          if (room.gamemasterDisconnectTimer) {
+            clearTimeout(room.gamemasterDisconnectTimer);
+            room.gamemasterDisconnectTimer = null;
+          }
+          room.gamemasterDisconnected = false;
+          
+          // Notify everyone that GM is back
+          io.to(roomCode).emit('gm_disconnected_status', { disconnected: false });
+        }
       }
-      
-      // Add socket to the room
-      socket.join(roomCode);
-      
-      console.log(`[Server] Game master re-authenticated:`, {
-        roomCode, 
-        socketId: socket.id,
-        persistentPlayerId: socket.data.persistentPlayerId
-      });
     }
-
-    // Send the current player list to the requesting client
-    console.log(`[Server] Sending players_update to ${socket.id} with ${room.players.length} players:`, 
-      room.players.map(p => ({ id: p.id, name: p.name, isSpectator: p.isSpectator })));
-    
-    socket.emit('players_update', room.players);
   });
 
   // Handle answer submission
@@ -1913,8 +1904,8 @@ io.on('connection', (socket) => {
     // Get the persistent ID (prefer the one passed in the event, fallback to socket.data)
     const actualPersistentId = persistentPlayerId || socket.data.persistentPlayerId;
     
-    // Handle game master rejoining
-    if (isGameMaster && room.gamemasterPersistentId === actualPersistentId) {
+    // Handle game master rejoining - must explicitly claim GM role with isGameMaster=true
+    if (isGameMaster === true && room.gamemasterPersistentId === actualPersistentId) {
       // This is indeed the game master, update references
       room.gamemaster = socket.id;
       room.gamemasterSocketId = socket.id;
