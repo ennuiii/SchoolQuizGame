@@ -50,8 +50,8 @@ const Spectator: React.FC = () => {
 
   const showAllBoards = useCallback(() => {
     const activePlayerBoardIds = playerBoards
-      .filter(b => players.find(p => p.persistentPlayerId === b.persistentPlayerId && !p.isSpectator))
-      .map(b => b.persistentPlayerId);
+      .filter(b => players.find(p => p.persistentPlayerId === b.playerId && !p.isSpectator))
+      .map(b => b.playerId);
     toggleBoardVisibility(new Set(activePlayerBoardIds));
   }, [playerBoards, players, toggleBoardVisibility]);
 
@@ -141,8 +141,9 @@ const Spectator: React.FC = () => {
                     }}
                   >
                     {players.filter(player => !player.isSpectator).map(player => {
-                      const boardEntry = playerBoards.find(b => b.persistentPlayerId === player.persistentPlayerId);
+                      const boardEntry = playerBoards.find(b => b.playerId === player.persistentPlayerId);
                       const boardForDisplay = {
+                        playerId: player.persistentPlayerId,
                         persistentPlayerId: player.persistentPlayerId,
                         playerName: player.name,
                         boardData: boardEntry ? boardEntry.boardData : ''

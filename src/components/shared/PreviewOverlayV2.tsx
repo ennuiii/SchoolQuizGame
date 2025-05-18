@@ -98,7 +98,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
         }}
       >
         {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
-          const boardSubmission = context.playerBoards.find(b => b.persistentPlayerId === player.persistentPlayerId);
+          const boardSubmission = context.playerBoards.find(b => b.playerId === player.persistentPlayerId);
           const actualBoardData = boardSubmission?.boardData;
           const answer = context.allAnswersThisRound[player.persistentPlayerId];
           const evaluation = context.evaluatedAnswers[player.persistentPlayerId];

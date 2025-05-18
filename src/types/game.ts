@@ -18,6 +18,7 @@ export interface Player {
 }
 
 export interface PlayerBoard {
+  playerId: string;
   persistentPlayerId: string;
   playerName: string;
   boardData: string;
