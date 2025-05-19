@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGame } from '../../contexts/GameContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
@@ -39,7 +39,23 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
     addCustomQuestion
   } = useGame();
   const { language } = useLanguage();
+  
+  // State for distribution view toggle
+  const [distributionView, setDistributionView] = useState<'grade' | 'subject'>('grade');
 
+  // Define types for distribution items
+  interface GradeDistributionItem {
+    grade: number;
+    count: number;
+    percentage: number;
+  }
+
+  interface SubjectDistributionItem {
+    subject: string;
+    count: number;
+    percentage: number;
+  }
+  
   // Load questions when filters change
   useEffect(() => {
     loadQuestions();
@@ -47,6 +63,69 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
 
   // Always sort availableQuestions before rendering
   const sortedAvailableQuestions = [...availableQuestions].sort((a, b) => a.grade - b.grade);
+
+  // Calculate grade distribution for selected questions
+  const calculateGradeDistribution = (): GradeDistributionItem[] => {
+    if (selectedQuestions.length === 0) return [];
+
+    const gradeCount: Record<number, number> = {};
+    selectedQuestions.forEach(q => {
+      gradeCount[q.grade] = (gradeCount[q.grade] || 0) + 1;
+    });
+
+    const grades = Object.keys(gradeCount).map(Number).sort((a, b) => a - b);
+    return grades.map(grade => ({
+      grade,
+      count: gradeCount[grade],
+      percentage: Math.round((gradeCount[grade] / selectedQuestions.length) * 100)
+    }));
+  };
+
+  // Calculate subject distribution for selected questions
+  const calculateSubjectDistribution = (): SubjectDistributionItem[] => {
+    if (selectedQuestions.length === 0) return [];
+
+    const subjectCount: Record<string, number> = {};
+    selectedQuestions.forEach(q => {
+      subjectCount[q.subject] = (subjectCount[q.subject] || 0) + 1;
+    });
+
+    const sortedSubjects = Object.keys(subjectCount).sort();
+    return sortedSubjects.map(subject => ({
+      subject,
+      count: subjectCount[subject],
+      percentage: Math.round((subjectCount[subject] / selectedQuestions.length) * 100)
+    }));
+  };
+
+  // Get distribution data based on current view
+  const distributionData = distributionView === 'grade' 
+    ? calculateGradeDistribution() 
+    : calculateSubjectDistribution();
+    
+  // Render distribution item based on type
+  const renderDistributionItem = (item: GradeDistributionItem | SubjectDistributionItem) => {
+    const label = 'grade' in item ? `Grade ${item.grade}` : item.subject;
+    
+    return (
+      <div key={'grade' in item ? item.grade : item.subject} className="mb-2">
+        <div className="d-flex justify-content-between align-items-center">
+          <span>{label}</span>
+          <span className="text-muted small">{item.count} ({item.percentage}%)</span>
+        </div>
+        <div className="progress" style={{ height: '10px' }}>
+          <div 
+            className="progress-bar" 
+            role="progressbar" 
+            style={{ width: `${item.percentage}%` }}
+            aria-valuenow={item.percentage} 
+            aria-valuemin={0} 
+            aria-valuemax={100}
+          ></div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="question-selector">
@@ -110,7 +189,7 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
               </button>
               <button 
                 className="btn btn-success flex-grow-1"
-                onClick={loadRandomQuestions}
+                onClick={() => loadRandomQuestions()}
                 disabled={isLoadingRandom}
               >
                 {isLoadingRandom ? t('questionSelector.loading', language) : t('questionSelector.random', language)}
@@ -233,6 +312,28 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
             <p>{t('questionSelector.totalQuestions', language)}: {selectedQuestions.length}</p>
             <p>{t('questionSelector.gradeRange', language)}: {Math.min(...selectedQuestions.map(q => q.grade))} - {Math.max(...selectedQuestions.map(q => q.grade))}</p>
             <p>{t('questionSelector.subjects', language)}: {Array.from(new Set(selectedQuestions.map(q => q.subject))).join(', ')}</p>
+            
+            {/* Distribution visualization */}
+            <div className="mb-3">
+              <div className="btn-group mb-2">
+                <button 
+                  className={`btn btn-sm ${distributionView === 'grade' ? 'btn-primary' : 'btn-outline-primary'}`}
+                  onClick={() => setDistributionView('grade')}
+                >
+                  Grade Distribution
+                </button>
+                <button 
+                  className={`btn btn-sm ${distributionView === 'subject' ? 'btn-primary' : 'btn-outline-primary'}`}
+                  onClick={() => setDistributionView('subject')}
+                >
+                  Subject Distribution
+                </button>
+              </div>
+              
+              <div className="distribution-chart">
+                {distributionData.map(renderDistributionItem)}
+              </div>
+            </div>
           </>
         ) : (
           <p className="text-muted">{t('questionSelector.noQuestionsSelectedYet', language)}</p>

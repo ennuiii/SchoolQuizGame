@@ -362,6 +362,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadRandomQuestions = useCallback(async () => {
     setIsLoadingRandom(true);
     try {
+      // Fetch all questions based on filters
       const fetchedQuestions = await supabaseService.getQuestions({
         subject: selectedSubject,
         grade: selectedGrade === '' ? undefined : Number(selectedGrade),
@@ -369,20 +370,154 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sortByGrade: true
       });
 
-      const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, randomCount);
-      const convertedQuestions = selected.map(convertSupabaseQuestion);
-      
-      // Merge with existing selected questions
-      const newQuestions = [...questions, ...convertedQuestions]
-        .filter((q, index, self) => // Remove duplicates
-          index === self.findIndex(t => t.id === q.id)
-        )
-        .sort((a, b) => a.grade - b.grade); // Sort by grade
+      // If no grade is selected and we have multiple grades, distribute evenly
+      if (selectedGrade === '' && fetchedQuestions.length > 0) {
+        // Group questions by grade
+        const questionsByGrade: Record<number, any[]> = {};
+        fetchedQuestions.forEach(q => {
+          if (!questionsByGrade[q.grade]) {
+            questionsByGrade[q.grade] = [];
+          }
+          questionsByGrade[q.grade].push(q);
+        });
 
-      setQuestions(newQuestions);
-      setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
-      setTimeout(() => setQuestionErrorMsg(''), 3000);
+        const availableGrades = Object.keys(questionsByGrade).map(Number);
+        
+        // If we have multiple grades, distribute evenly
+        if (availableGrades.length > 1) {
+          let selected: any[] = [];
+          
+          // First pass: Get at least one question from each grade
+          availableGrades.forEach(grade => {
+            const gradeQuestions = questionsByGrade[grade];
+            if (gradeQuestions.length > 0) {
+              // Shuffle questions of this grade and take one
+              const shuffled = [...gradeQuestions].sort(() => 0.5 - Math.random());
+              selected.push(shuffled[0]);
+            }
+          });
+          
+          // Early return if we already have more than requested
+          if (selected.length >= randomCount) {
+            // Trim down to exactly randomCount, ensuring we have as many grades as possible
+            selected = selected.slice(0, randomCount);
+          } else {
+            // Second pass: Calculate questions per grade for remaining slots
+            const remainingSlots = randomCount - selected.length;
+            const additionalPerGrade = Math.floor(remainingSlots / availableGrades.length);
+            let extraQuestions = remainingSlots % availableGrades.length;
+            
+            // Distribute remaining slots
+            availableGrades.forEach(grade => {
+              const gradeQuestions = questionsByGrade[grade];
+              // Skip grades with no questions or already used 
+              if (gradeQuestions.length <= 1) return;
+              
+              // Take additional questions per grade, avoiding the one we already took
+              const shuffled = [...gradeQuestions].sort(() => 0.5 - Math.random());
+              const alreadySelected = selected.filter(q => q.grade === grade).length;
+              const canTakeMore = Math.min(additionalPerGrade, shuffled.length - alreadySelected);
+              
+              if (canTakeMore > 0) {
+                const startIndex = alreadySelected;
+                selected.push(...shuffled.slice(startIndex, startIndex + canTakeMore));
+              }
+              
+              // Add one extra question from grades with more questions if we need extras
+              if (extraQuestions > 0 && shuffled.length > (alreadySelected + canTakeMore)) {
+                selected.push(shuffled[alreadySelected + canTakeMore]);
+                extraQuestions--;
+              }
+            });
+            
+            // If we still need more questions, keep adding from grades with the most available
+            if (selected.length < randomCount) {
+              // Sort grades by number of remaining questions (descending)
+              const gradesWithRemainingQuestions = availableGrades
+                .filter(grade => {
+                  const alreadySelected = selected.filter(q => q.grade === grade).length;
+                  return questionsByGrade[grade].length > alreadySelected;
+                })
+                .sort((a, b) => {
+                  const aRemaining = questionsByGrade[a].length - selected.filter(q => q.grade === a).length;
+                  const bRemaining = questionsByGrade[b].length - selected.filter(q => q.grade === b).length;
+                  return bRemaining - aRemaining;
+                });
+              
+              let remaining = randomCount - selected.length;
+              
+              for (const grade of gradesWithRemainingQuestions) {
+                if (remaining <= 0) break;
+                
+                const gradeQuestions = questionsByGrade[grade];
+                const alreadySelected = selected.filter(q => q.grade === grade).length;
+                const remainingForGrade = gradeQuestions.length - alreadySelected;
+                const toTakeMore = Math.min(remaining, remainingForGrade);
+                
+                if (toTakeMore > 0) {
+                  const shuffled = [...gradeQuestions].sort(() => 0.5 - Math.random());
+                  // Avoid duplicates by using the already selected count as offset
+                  selected.push(...shuffled.slice(alreadySelected, alreadySelected + toTakeMore));
+                  remaining -= toTakeMore;
+                }
+              }
+            }
+          }
+          
+          // Final check to ensure we don't exceed randomCount
+          if (selected.length > randomCount) {
+            selected = selected.slice(0, randomCount);
+          }
+          
+          // Prepare the selected questions
+          const convertedQuestions = selected.map(convertSupabaseQuestion);
+          
+          // Merge with existing selected questions
+          const newQuestions = [...questions, ...convertedQuestions]
+            .filter((q, index, self) => // Remove duplicates
+              index === self.findIndex(t => t.id === q.id)
+            )
+            .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+          setQuestions(newQuestions);
+          setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions, distributed across grades`);
+          setTimeout(() => setQuestionErrorMsg(''), 3000);
+        } else {
+          // Use a simpler selection logic if only one grade is available
+          const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+          // Take exactly randomCount questions
+          const selected = shuffled.slice(0, Math.min(randomCount, shuffled.length));
+          const convertedQuestions = selected.map(convertSupabaseQuestion);
+          
+          // Merge with existing selected questions
+          const newQuestions = [...questions, ...convertedQuestions]
+            .filter((q, index, self) => // Remove duplicates
+              index === self.findIndex(t => t.id === q.id)
+            )
+            .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+          setQuestions(newQuestions);
+          setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
+          setTimeout(() => setQuestionErrorMsg(''), 3000);
+        }
+      } else {
+        // Use a simpler selection logic if specific grade is selected
+        const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+        // Take exactly randomCount questions
+        const selected = shuffled.slice(0, Math.min(randomCount, shuffled.length));
+        const convertedQuestions = selected.map(convertSupabaseQuestion);
+        
+        // Merge with existing selected questions
+        const newQuestions = [...questions, ...convertedQuestions]
+          .filter((q, index, self) => // Remove duplicates
+            index === self.findIndex(t => t.id === q.id)
+          )
+          .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+        setQuestions(newQuestions);
+        setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
+        setTimeout(() => setQuestionErrorMsg(''), 3000);
+      }
     } catch (error) {
       console.error('Error loading random questions:', error);
       setQuestionErrorMsg('Failed to load random questions');
@@ -833,7 +968,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const newQuestion: Question = {
       id: Date.now().toString(), // Convert timestamp to string
       text: text.trim(),
-      type: 'text',
+      type: 'text', // Always set type to 'text' for custom questions
       answer: answer?.trim(),
       subject: subject.trim(),
       grade: Math.min(13, Math.max(1, grade)),
@@ -969,7 +1104,7 @@ const sortByGrade = (a: Question, b: Question) => {
 const convertSupabaseQuestion = (q: any): Question => ({
   id: q.id.toString(),
   text: q.text,
-  type: q.type || 'text',
+  type: 'text', // Always default to 'text' type
   timeLimit: q.timeLimit,
   answer: q.answer,
   grade: parseInt(q.grade, 10) || 0,
