@@ -809,6 +809,40 @@ io.on('connection', (socket) => {
       } 
       else if (existingPlayer.isActive === true && existingPlayer.id !== socket.id) {
         // Player already connected from another tab/device
+        
+        // Before rejecting, let's check if the existing socket is actually still connected
+        const existingSocket = io.sockets.sockets.get(existingPlayer.id);
+        if (!existingSocket || !existingSocket.connected) {
+          // The old socket isn't actually connected anymore, but was marked active
+          // Let's update the player record and allow this new connection
+          console.log(`[Server] Found stale connection for player. Old socket ${existingPlayer.id} is no longer connected. Updating player record.`);
+          
+          // Update player record with new socket id
+          existingPlayer.id = socket.id;
+          existingPlayer.isActive = true;
+          
+          // Ensure socket is in room
+          socket.join(roomCode);
+          socket.roomCode = roomCode;
+          
+          // Send room and game state
+          socket.emit('room_joined', { 
+            roomCode,
+            playerId: persistentPlayerId,
+            isStreamerMode: room.isStreamerMode
+          });
+          
+          const gameState = getGameState(roomCode);
+          if (gameState) {
+            socket.emit('game_state_update', gameState);
+          }
+          
+          // Broadcast updated player list
+          broadcastGameState(roomCode);
+          return;
+        }
+        
+        // Original error path - actually connected elsewhere
         console.error(`[Server] Join room failed - Already connected from another tab/device:`, {
           roomCode,
           persistentPlayerId,

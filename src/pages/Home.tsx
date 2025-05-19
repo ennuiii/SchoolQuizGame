@@ -18,12 +18,23 @@ const Home: React.FC = () => {
     playBackgroundMusic();
   }, [playBackgroundMusic]);
 
-  const handleResetConnection = () => {
+  const handleResetConnection = async () => {
+    // Start by clearing persistent player ID
     socketService.clearPersistentPlayerId();
+    
+    // Generate a new ID
     const newPlayerId = `P-${uuidv4()}`;
     localStorage.setItem('persistentPlayerId', newPlayerId);
-    console.log(`[Home.tsx] Connection reset. New persistentPlayerId generated: ${newPlayerId}`);
-    toast.success(t('home.resetConnectionMsg', language));
+    
+    // Use the new force reconnect method for a clean connection reset
+    try {
+      await socketService.forceReconnect();
+      console.log(`[Home.tsx] Connection reset. New persistentPlayerId generated: ${newPlayerId}`);
+      toast.success(t('home.resetConnectionMsg', language));
+    } catch (error) {
+      console.error("[Home.tsx] Error resetting connection:", error);
+      toast.error(t('home.connectionResetError', language) || "Failed to reset connection. Please refresh the page.");
+    }
   };
 
   // Use the correct howToPlayList array based on language
