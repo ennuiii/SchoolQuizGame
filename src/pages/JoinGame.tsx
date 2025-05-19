@@ -3,6 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { useRoom } from '../contexts/RoomContext';
 import PlayerList from '../components/shared/PlayerList';
+import AvatarCreator from '../components/shared/AvatarCreator';
 import RoomCode from '../components/shared/RoomCode';
 import SettingsControl from '../components/shared/SettingsControl';
 import { useLanguage } from '../contexts/LanguageContext';
@@ -24,6 +25,7 @@ const JoinGame: React.FC = () => {
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
   const { language } = useLanguage();
   
   const {
@@ -35,8 +37,19 @@ const JoinGame: React.FC = () => {
     setPlayerName,
     setErrorMsg,
     joinRoom,
-    players
+    players,
+    persistentPlayerId
   } = useRoom();
+
+  // Check if player already has an avatar
+  const [hasAvatar, setHasAvatar] = useState<boolean>(false);
+  
+  useEffect(() => {
+    if (persistentPlayerId) {
+      const savedAvatar = localStorage.getItem(`avatar_${persistentPlayerId}`);
+      setHasAvatar(!!savedAvatar);
+    }
+  }, [persistentPlayerId]);
 
   // Read room code from URL when component mounts
   useEffect(() => {
@@ -175,6 +188,13 @@ const JoinGame: React.FC = () => {
     }
   };
 
+  // Handle avatar creation
+  const handleAvatarSave = (avatarSvg: string) => {
+    // Avatar is automatically saved to localStorage in the AvatarCreator component
+    setHasAvatar(true);
+    setShowAvatarCreator(false);
+  };
+
   return (
     <>
       <SettingsControl />
@@ -186,7 +206,21 @@ const JoinGame: React.FC = () => {
           </div>
         </div>
         
-        {!hasJoined ? (
+        {showAvatarCreator ? (
+          <div className="row justify-content-center">
+            <div className="col-12 col-md-8">
+              <div className="card p-4">
+                <AvatarCreator onSave={handleAvatarSave} />
+                <button 
+                  className="btn btn-secondary mt-3"
+                  onClick={() => setShowAvatarCreator(false)}
+                >
+                  {t('avatarCreator.cancel', language) || 'Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : !hasJoined ? (
           <div className="row justify-content-center">
             <div className="col-12 col-md-6">
               <div className="card p-4 text-center">
@@ -237,6 +271,24 @@ const JoinGame: React.FC = () => {
                     }}
                   />
                 </div>
+                
+                {persistentPlayerId && (
+                  <div className="mb-3">
+                    <button 
+                      className="btn btn-outline-primary" 
+                      onClick={() => setShowAvatarCreator(true)}
+                    >
+                      {hasAvatar 
+                        ? t('avatarCreator.changeAvatar', language) || 'Change Avatar' 
+                        : t('avatarCreator.createAvatar', language) || 'Create Avatar'}
+                    </button>
+                    {hasAvatar && (
+                      <div className="mt-2 text-success">
+                        <small>{t('avatarCreator.avatarCreated', language) || 'You have a custom avatar'}</small>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {errorMsg && (
                   <div className="alert alert-danger" role="alert">

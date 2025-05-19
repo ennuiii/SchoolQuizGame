@@ -288,6 +288,20 @@ const translations: { [lang: string]: TranslationMap } = {
       show: 'Show',
       hide: 'Hide'
     },
+    avatarCreator: {
+      title: 'Create Your Avatar',
+      save: 'Save Avatar',
+      cancel: 'Cancel',
+      createAvatar: 'Create Avatar',
+      changeAvatar: 'Change Avatar',
+      avatarCreated: 'You have a custom avatar',
+      faceShape: 'Face Shape',
+      eyes: 'Eyes',
+      mouth: 'Mouth',
+      hair: 'Hair',
+      accessory: 'Accessory',
+      color: 'Color'
+    },
     joinGame: {
       title: 'Join Game',
       subtitle: 'Enter the room code and your name to join the game.',
@@ -600,6 +614,20 @@ const translations: { [lang: string]: TranslationMap } = {
       show: 'Anzeigen',
       hide: 'Ausblenden'
     },
+    avatarCreator: {
+      title: 'Benutzerdefinierte Avatar erstellen',
+      save: 'Avatar speichern',
+      cancel: 'Abbrechen',
+      createAvatar: 'Avatar erstellen',
+      changeAvatar: 'Avatar ändern',
+      avatarCreated: 'Sie haben einen benutzerdefinierten Avatar',
+      faceShape: 'Gesichtsform',
+      eyes: 'Augen',
+      mouth: 'Mund',
+      hair: 'Haar',
+      accessory: 'Zusatz',
+      color: 'Farbe'
+    },
     joinGame: {
       title: 'Spiel beitreten',
       subtitle: 'Geben Sie den Raumcode und Ihren Namen ein, um dem Spiel beizutreten.',
@@ -899,6 +927,20 @@ const translations: { [lang: string]: TranslationMap } = {
     playerBoardDisplay: {
       show: 'Afficher',
       hide: 'Masquer'
+    },
+    avatarCreator: {
+      title: 'Créer votre avatar',
+      save: 'Sauvegarder l\'avatar',
+      cancel: 'Annuler',
+      createAvatar: 'Créer un avatar',
+      changeAvatar: 'Changer l\'avatar',
+      avatarCreated: 'Vous avez un avatar personnalisé',
+      faceShape: 'Forme du visage',
+      eyes: 'Yeux',
+      mouth: 'Bouche',
+      hair: 'Cheveux',
+      accessory: 'Accessoire',
+      color: 'Couleur'
     },
     joinGame: {
       title: 'Rejoindre le jeu',
@@ -1200,6 +1242,20 @@ const translations: { [lang: string]: TranslationMap } = {
       show: 'Tonen',
       hide: 'Verbergen'
     },
+    avatarCreator: {
+      title: 'Maak je eigen avatar',
+      save: 'Avatar opslaan',
+      cancel: 'Annuleren',
+      createAvatar: 'Avatar maken',
+      changeAvatar: 'Avatar wijzigen',
+      avatarCreated: 'Je hebt een aangepaste avatar',
+      faceShape: 'Gezichtsformaat',
+      eyes: 'Ogen',
+      mouth: 'Mond',
+      hair: 'Haar',
+      accessory: 'Accessoire',
+      color: 'Kleur'
+    },
     joinGame: {
       title: 'Deelnemen aan spel',
       subtitle: 'Voer de kamercode en uw naam in om deel te nemen aan het spel.',
@@ -1500,6 +1556,20 @@ const translations: { [lang: string]: TranslationMap } = {
       show: 'Pokaż',
       hide: 'Ukryj'
     },
+    avatarCreator: {
+      title: 'Stwórz swojego avatar',
+      save: 'Zapisz avatar',
+      cancel: 'Anuluj',
+      createAvatar: 'Stwórz avatar',
+      changeAvatar: 'Zmień avatar',
+      avatarCreated: 'Masz własny avatar',
+      faceShape: 'Kształt twarzy',
+      eyes: 'Oczy',
+      mouth: 'Usta',
+      hair: 'Włosy',
+      accessory: 'Akcesoria',
+      color: 'Kolor'
+    },
     joinGame: {
       title: 'Dołącz do gry',
       subtitle: 'Wprowadź kod pokoju i swoje imię, aby dołączyć do gry.',
@@ -1799,6 +1869,20 @@ const translations: { [lang: string]: TranslationMap } = {
     playerBoardDisplay: {
       show: '显示',
       hide: '隐藏'
+    },
+    avatarCreator: {
+      title: '创建您的头像',
+      save: '保存头像',
+      cancel: '取消',
+      createAvatar: '创建头像',
+      changeAvatar: '更改头像',
+      avatarCreated: '您有一个自定义头像',
+      faceShape: '脸型',
+      eyes: '眼睛',
+      mouth: '嘴巴',
+      hair: '头发',
+      accessory: '配件',
+      color: '颜色'
     },
     joinGame: {
       title: '加入游戏',

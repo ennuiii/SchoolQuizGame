@@ -3,6 +3,7 @@ import { useGame } from '../../contexts/GameContext';
 import { useRoom } from '../../contexts/RoomContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
+import Avatar from './Avatar';
 
 interface Player {
   id: string;
@@ -97,19 +98,29 @@ const PlayerList: React.FC<PlayerListProps> = ({
                   style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
                 >
                   <div className="d-flex align-items-center">
-                    <span className="me-2">{player.name}</span>
-                    {player.persistentPlayerId === actualPersistentPlayerId && !isGameMasterView && (
-                      <span className="badge bg-primary rounded-pill ms-1">{t('you', language)}</span>
-                    )}
-                    {player.isSpectator && (
-                      <span className="badge bg-secondary rounded-pill ms-1">{t('spectator', language)}</span>
-                    )}
-                    {!player.isActive && (
-                      <span className="badge bg-warning rounded-pill ms-1">{t('disconnected', language)}</span>
-                    )}
-                    {hasSubmittedAnswer && !player.isSpectator && player.isActive && (
-                      <span className="badge bg-success rounded-pill ms-1">{t('submitted', language)}</span>
-                    )}
+                    <div className="me-2">
+                      <Avatar 
+                        persistentPlayerId={player.persistentPlayerId} 
+                        size={32} 
+                      />
+                    </div>
+                    <div>
+                      <div className="d-flex align-items-center">
+                        <span className="me-2">{player.name}</span>
+                        {player.persistentPlayerId === actualPersistentPlayerId && !isGameMasterView && (
+                          <span className="badge bg-primary rounded-pill ms-1">{t('you', language)}</span>
+                        )}
+                        {player.isSpectator && (
+                          <span className="badge bg-secondary rounded-pill ms-1">{t('spectator', language)}</span>
+                        )}
+                        {!player.isActive && (
+                          <span className="badge bg-warning rounded-pill ms-1">{t('disconnected', language)}</span>
+                        )}
+                        {hasSubmittedAnswer && !player.isSpectator && player.isActive && (
+                          <span className="badge bg-success rounded-pill ms-1">{t('submitted', language)}</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                   
                   <div className="d-flex align-items-center">

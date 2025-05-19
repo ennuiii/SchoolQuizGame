@@ -1,0 +1,71 @@
+{
+  "1Z7SL1": {
+    "roomCode": "1Z7SL1",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "Test",
+        "lives": 3,
+        "isActive": true,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [
+      {
+        "id": "174",
+        "text": "Welche Farbe bekommt man, wenn man Blau und Gelb mischt?",
+        "type": "text",
+        "answer": "Grün",
+        "grade": 1,
+        "subject": "Kunst",
+        "language": "de"
+      },
+      {
+        "id": "179",
+        "text": "Was ist ein Synonym für das Wort 'schnell'?",
+        "type": "text",
+        "answer": "flink",
+        "grade": 2,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "85",
+        "text": "Was sind die wichtigsten Teile einer Pflanze?",
+        "type": "text",
+        "answer": "Wurzel, Stamm, Blätter, Blüten",
+        "grade": 3,
+        "subject": "Sachkunde",
+        "language": "de"
+      },
+      {
+        "id": "201",
+        "text": "Wie sagt man 'Gute Nacht' auf Englisch?",
+        "type": "text",
+        "answer": "Good night",
+        "grade": 4,
+        "subject": "Englisch",
+        "language": "de"
+      },
+      {
+        "id": "137",
+        "text": "Was ist der Hauptbestandteil der Luft?",
+        "type": "text",
+        "answer": "Stickstoff",
+        "grade": 5,
+        "subject": "Naturwissenschaften",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T13:40:14.338Z"
+  }
+}
