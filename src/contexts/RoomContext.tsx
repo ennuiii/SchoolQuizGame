@@ -12,6 +12,7 @@ interface Player {
   isActive: boolean;
   isSpectator: boolean;
   persistentPlayerId: string; // Added persistentPlayerId
+  avatarSvg?: string; // Added for avatar synchronization
 }
 
 interface RoomContextType {
@@ -409,6 +410,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       };
 
+      const onAvatarUpdated = (data: { persistentPlayerId: string, avatarSvg: string }) => {
+        console.log('[RoomContext] main useEffect: avatar_updated. PlayerId:', data.persistentPlayerId);
+        setPlayers(prev => {
+          return prev.map(player => {
+            if (player.persistentPlayerId === data.persistentPlayerId) {
+              return { ...player, avatarSvg: data.avatarSvg };
+            }
+            return player;
+          });
+        });
+      };
+
       const onBecomeSpectator = () => {
         console.log('[RoomContext] main useEffect: become_spectator event');
         setIsSpectator(true);
@@ -489,6 +502,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketToUse.on('players_update', onPlayersUpdate);
       socketToUse.on('player_reconnected_status', onPlayerReconnected);
       socketToUse.on('player_disconnected_status', onPlayerDisconnected);
+      socketToUse.on('avatar_updated', onAvatarUpdated);
       socketToUse.on('become_spectator', onBecomeSpectator);
       socketToUse.on('game_state_update', onGameStateUpdate);
       socketToUse.on('error', onErrorHandler);
@@ -519,6 +533,7 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketToUse.off('players_update', onPlayersUpdate);
         socketToUse.off('player_reconnected_status', onPlayerReconnected);
         socketToUse.off('player_disconnected_status', onPlayerDisconnected);
+        socketToUse.off('avatar_updated', onAvatarUpdated);
         socketToUse.off('become_spectator', onBecomeSpectator);
         socketToUse.off('game_state_update', onGameStateUpdate);
         socketToUse.off('error', onErrorHandler);

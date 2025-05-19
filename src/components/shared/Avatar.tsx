@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useRoom } from '../../contexts/RoomContext';
 
 interface AvatarProps {
   persistentPlayerId: string;
@@ -12,16 +13,24 @@ const Avatar: React.FC<AvatarProps> = ({
   className = ''
 }) => {
   const [avatarSvg, setAvatarSvg] = useState<string | null>(null);
+  const { players } = useRoom();
   
   useEffect(() => {
-    // Try to load the avatar from localStorage
-    if (persistentPlayerId) {
-      const savedAvatar = localStorage.getItem(`avatar_${persistentPlayerId}`);
-      if (savedAvatar) {
-        setAvatarSvg(savedAvatar);
-      }
+    if (!persistentPlayerId) return;
+    
+    // First try to get the avatar from the room context (server synced)
+    const playerInRoom = players.find(p => p.persistentPlayerId === persistentPlayerId);
+    if (playerInRoom?.avatarSvg) {
+      setAvatarSvg(playerInRoom.avatarSvg);
+      return;
     }
-  }, [persistentPlayerId]);
+    
+    // If not found in room context, try localStorage (client-side storage)
+    const savedAvatar = localStorage.getItem(`avatar_${persistentPlayerId}`);
+    if (savedAvatar) {
+      setAvatarSvg(savedAvatar);
+    }
+  }, [persistentPlayerId, players]);
   
   // Generate a default avatar based on the player's ID if none exists
   const generateDefaultAvatar = (): string => {

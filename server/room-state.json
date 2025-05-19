@@ -5,7 +5,7 @@
     "players": [
       {
         "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "Test",
+        "name": "sadsafd",
         "lives": 3,
         "isActive": true,
         "isSpectator": false,
@@ -16,49 +16,49 @@
     "started": false,
     "questions": [
       {
-        "id": "174",
-        "text": "Welche Farbe bekommt man, wenn man Blau und Gelb mischt?",
+        "id": "17",
+        "text": "Which planet in our solar system is known as the 'Red Planet'?",
         "type": "text",
-        "answer": "Grün",
-        "grade": 1,
-        "subject": "Kunst",
-        "language": "de"
-      },
-      {
-        "id": "179",
-        "text": "Was ist ein Synonym für das Wort 'schnell'?",
-        "type": "text",
-        "answer": "flink",
-        "grade": 2,
-        "subject": "Deutsch",
-        "language": "de"
-      },
-      {
-        "id": "85",
-        "text": "Was sind die wichtigsten Teile einer Pflanze?",
-        "type": "text",
-        "answer": "Wurzel, Stamm, Blätter, Blüten",
-        "grade": 3,
-        "subject": "Sachkunde",
-        "language": "de"
-      },
-      {
-        "id": "201",
-        "text": "Wie sagt man 'Gute Nacht' auf Englisch?",
-        "type": "text",
-        "answer": "Good night",
-        "grade": 4,
-        "subject": "Englisch",
-        "language": "de"
-      },
-      {
-        "id": "137",
-        "text": "Was ist der Hauptbestandteil der Luft?",
-        "type": "text",
-        "answer": "Stickstoff",
+        "answer": "Mars",
         "grade": 5,
-        "subject": "Naturwissenschaften",
-        "language": "de"
+        "subject": "Astronomy",
+        "language": "en"
+      },
+      {
+        "id": "13",
+        "text": "What is the capital city of the United Kingdom?",
+        "type": "text",
+        "answer": "London",
+        "grade": 6,
+        "subject": "Geography",
+        "language": "en"
+      },
+      {
+        "id": "19",
+        "text": "Who painted the Mona Lisa?",
+        "type": "text",
+        "answer": "Leonardo da Vinci",
+        "grade": 7,
+        "subject": "Art",
+        "language": "en"
+      },
+      {
+        "id": "21",
+        "text": "What is the primary language spoken in Brazil?",
+        "type": "text",
+        "answer": "Portuguese",
+        "grade": 8,
+        "subject": "Languages",
+        "language": "en"
+      },
+      {
+        "id": "15",
+        "text": "What is the chemical symbol for the element Gold?",
+        "type": "text",
+        "answer": "Au",
+        "grade": 9,
+        "subject": "Chemistry",
+        "language": "en"
       }
     ],
     "currentQuestionIndex": 0,
@@ -66,6 +66,6 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T13:40:14.338Z"
+    "lastSaved": "2025-05-19T13:52:44.525Z"
   }
 }

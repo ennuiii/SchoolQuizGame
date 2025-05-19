@@ -91,17 +91,17 @@ const PlayerList: React.FC<PlayerListProps> = ({
               return (
                 <div
                   key={player.persistentPlayerId}
-                  className={`list-group-item d-flex justify-content-between align-items-center ${
+                  className={`list-group-item d-flex justify-content-between align-items-center py-3 ${
                     player.persistentPlayerId === actualPersistentPlayerId ? 'bg-highlight' : ''
                   } ${selectedPlayerId === player.persistentPlayerId ? 'active' : ''}`}
                   onClick={() => onPlayerSelect?.(player.persistentPlayerId)}
                   style={{ cursor: onPlayerSelect ? 'pointer' : 'default' }}
                 >
                   <div className="d-flex align-items-center">
-                    <div className="me-2">
+                    <div className="me-3">
                       <Avatar 
                         persistentPlayerId={player.persistentPlayerId} 
-                        size={32} 
+                        size={80} 
                       />
                     </div>
                     <div>

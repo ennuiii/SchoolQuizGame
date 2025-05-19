@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
+import socketService from '../../services/socketService';
 
 // Avatar part options
 const FACE_SHAPES = [
@@ -133,6 +134,13 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg 
     // Store in localStorage for this player
     if (persistentPlayerId) {
       localStorage.setItem(`avatar_${persistentPlayerId}`, avatarSvg);
+      
+      // Also send avatar to server to sync with other players if in a room
+      const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
+      if (roomCode && socketService.getConnectionState() === 'connected') {
+        console.log('[AvatarCreator] Broadcasting avatar update to room', roomCode);
+        socketService.updateAvatar(roomCode, persistentPlayerId, avatarSvg);
+      }
     }
     // Call the onSave callback if provided
     if (onSave) {

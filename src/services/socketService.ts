@@ -399,7 +399,16 @@ export class SocketService {
       isSpectator,
       timestamp: new Date().toISOString()
     });
-    await this.robustEmit('join_room', { roomCode, playerName, isSpectator });
+    
+    // Get avatar from localStorage if available
+    let avatarSvg: string | null = null;
+    const persistentPlayerId = this.getPersistentPlayerId();
+    
+    if (persistentPlayerId) {
+      avatarSvg = localStorage.getItem(`avatar_${persistentPlayerId}`);
+    }
+    
+    await this.robustEmit('join_room', { roomCode, playerName, isSpectator, avatarSvg });
   }
 
   async startGame(roomCode: string, questions: Question[], timeLimit: number): Promise<void> {
@@ -610,6 +619,16 @@ export class SocketService {
       roomCode, 
       playerIdToKick: playerSocketId  // Send socket ID instead of persistentPlayerId
     });
+  }
+
+  async updateAvatar(roomCode: string, persistentPlayerId: string, avatarSvg: string): Promise<void> {
+    console.log('[SocketService] Updating avatar:', {
+      roomCode,
+      persistentPlayerId,
+      hasAvatar: !!avatarSvg,
+      timestamp: new Date().toISOString()
+    });
+    await this.robustEmit('update_avatar', { roomCode, persistentPlayerId, avatarSvg });
   }
 }
 

@@ -888,13 +888,14 @@ io.on('connection', (socket) => {
   });
 
   // Handle player joining
-  socket.on('join_room', ({ roomCode, playerName, isSpectator }) => {
+  socket.on('join_room', ({ roomCode, playerName, isSpectator, avatarSvg }) => {
     console.log(`[Server] Player joining room:`, {
       roomCode,
       playerName,
       playerId: socket.id,
       persistentPlayerId: socket.data.persistentPlayerId,
       isSpectator,
+      hasAvatar: !!avatarSvg,
       timestamp: new Date().toISOString()
     });
     
@@ -937,6 +938,11 @@ io.on('connection', (socket) => {
         // Update name if it changed
         if (currentPlayerName && currentPlayerName !== existingPlayer.name) {
           existingPlayer.name = currentPlayerName;
+        }
+        
+        // Update avatar if provided
+        if (avatarSvg) {
+          existingPlayer.avatarSvg = avatarSvg;
         }
         
         // Clear any disconnect timer
@@ -1078,7 +1084,8 @@ io.on('connection', (socket) => {
       isActive: true,
       isSpectator,
       joinedAsSpectator: !!isSpectator,
-      disconnectTimer: null
+      disconnectTimer: null,
+      avatarSvg: avatarSvg || null
     };
     room.players.push(player);
 
@@ -2355,6 +2362,41 @@ io.on('connection', (socket) => {
       persistentPlayerId: actualPersistentId
     });
     socket.emit('error', { message: 'Not authorized to rejoin this room' });
+  });
+
+  // Update avatar
+  socket.on('update_avatar', ({ roomCode, persistentPlayerId, avatarSvg }) => {
+    console.log(`[Server] update_avatar received:`, {
+      roomCode,
+      persistentPlayerId: persistentPlayerId,
+      hasAvatar: !!avatarSvg,
+      timestamp: new Date().toISOString()
+    });
+    
+    if (!gameRooms[roomCode]) {
+      console.error(`[Server] Update avatar failed - Room not found: ${roomCode}`);
+      return;
+    }
+    
+    const room = gameRooms[roomCode];
+    
+    // Find the player in the room
+    const playerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
+    
+    if (playerIndex === -1) {
+      console.error(`[Server] Update avatar failed - Player not found in room: ${persistentPlayerId}`);
+      return;
+    }
+    
+    // Update the player's avatar
+    room.players[playerIndex].avatarSvg = avatarSvg;
+    
+    // Broadcast the change to all players in the room
+    console.log(`[Server] Broadcasting updated avatar for player ${persistentPlayerId} in room ${roomCode}`);
+    io.to(roomCode).emit('avatar_updated', {
+      persistentPlayerId,
+      avatarSvg
+    });
   });
 });
 
