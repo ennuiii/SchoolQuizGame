@@ -34,6 +34,8 @@ const Player: React.FC = () => {
   const [submittedAnswerLocal, setSubmittedAnswerLocal] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
   const [answer, setAnswer] = useState('');
+  const [isLoading, setIsLoading] = useState(true);
+  const [receivedGameState, setReceivedGameState] = useState(false);
   
   // Get context values
   const {
@@ -362,8 +364,30 @@ const Player: React.FC = () => {
       // Request the latest state
       socketService.requestGameState(roomCode);
       socketService.requestPlayers(roomCode);
+      
+      // Set a timeout to retry getting players if the list is empty
+      const retryTimeout = setTimeout(() => {
+        if (players.length === 0) {
+          console.log('[Player] Player list is still empty after connection. Retrying request players...');
+          socketService.requestPlayers(roomCode);
+        }
+      }, 2000);
+      
+      // Set a timeout to force proceed if still loading after some time
+      const forceLoadTimeout = setTimeout(() => {
+        if (connectionStatus === 'connected' && roomCode && players.length > 0) {
+          console.log('[Player] Force proceeding after timeout - connection is established and player list exists');
+          // This will trigger a re-render which should show the game screen
+          setIsLoading(false); 
+        }
+      }, 5000);
+      
+      return () => {
+        clearTimeout(retryTimeout);
+        clearTimeout(forceLoadTimeout);
+      };
     }
-  }, [connectionStatus, roomCode, isRoomLoading]);
+  }, [connectionStatus, roomCode, isRoomLoading, players.length]);
 
   // Add a connection effect that initializes when component mounts
   useEffect(() => {
@@ -410,6 +434,74 @@ const Player: React.FC = () => {
     });
   }, [submittedAnswerLocal, hasSubmittedToServer, amISpectator, connectionStatus, canvasKey]);
 
+  // Add comprehensive debug info about player state
+  useEffect(() => {
+    console.log('[Player] Player state debug:', {
+      roomCode,
+      playerName,
+      socketId: socketService.getSocketId(),
+      persistentPlayerId,
+      amISpectator,
+      connectionStatus,
+      playersInRoom: players ? players.length : 0,
+      currentPlayerDetails: players?.find(p => p.id === socketService.getSocketId() || p.persistentPlayerId === persistentPlayerId),
+      isGameStarted: gameStarted,
+      timestamp: new Date().toISOString()
+    });
+  }, [roomCode, playerName, persistentPlayerId, amISpectator, connectionStatus, players, gameStarted]);
+
+  // Sync our internal loading state with the room loading state
+  useEffect(() => {
+    setIsLoading(isRoomLoading);
+  }, [isRoomLoading]);
+
+  // Safety timeout to prevent getting stuck on loading screen
+  useEffect(() => {
+    // Force exit loading screen after 10 seconds if connected
+    const forceExitTimeout = setTimeout(() => {
+      if (connectionStatus === 'connected' && roomCode && isLoading) {
+        console.log('[Player] Force exiting loading state after timeout - we are connected with a room code');
+        setIsLoading(false);
+      }
+    }, 10000);
+    
+    return () => clearTimeout(forceExitTimeout);
+  }, [connectionStatus, roomCode, isLoading]);
+
+  // Listen for game state updates to know when we've successfully reconnected
+  useEffect(() => {
+    const handleGameStateUpdate = () => {
+      console.log('[Player] Received game state update, marking as reconnected');
+      setReceivedGameState(true);
+      
+      // Force exit loading screen when we get game state
+      setIsLoading(false);
+    };
+    
+    socketService.on('game_state_update', handleGameStateUpdate);
+    
+    return () => {
+      socketService.off('game_state_update', handleGameStateUpdate);
+    };
+  }, []);
+
+  // Monitor for player data to exit loading screen
+  useEffect(() => {
+    // If we have connection, players data, and room code, we should exit loading state directly
+    if (connectionStatus === 'connected' && players.length > 0 && roomCode) {
+      console.log('[Player] We have player data and connection, exiting loading state directly');
+      setIsLoading(false);
+    }
+  }, [connectionStatus, players, roomCode]);
+
+  // Override isRoomLoading in some cases - we might need to exit loading screen even if RoomContext thinks we're still loading
+  useEffect(() => {
+    if (isRoomLoading && receivedGameState && connectionStatus === 'connected' && players.length > 0) {
+      console.log('[Player] Overriding isRoomLoading because we have game state and player data');
+      setIsLoading(false);
+    }
+  }, [isRoomLoading, receivedGameState, connectionStatus, players.length]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -441,8 +533,11 @@ const Player: React.FC = () => {
     );
   }
 
-  if (isRoomLoading) return <LoadingOverlay isVisible={true} />;
-  if (errorMsg) return <div className="alert alert-danger">{errorMsg}</div>;
+  if (isRoomLoading && (players.length === 0 || connectionStatus !== 'connected')) 
+    return <LoadingOverlay isVisible={true} />;
+  
+  if (errorMsg) 
+    return <div className="alert alert-danger">{errorMsg}</div>;
   
   // If game is concluded AND recap data is NOT YET available, show waiting message.
   // This covers the brief period after game_over_pending_recap and before game_recap is received.
@@ -461,17 +556,104 @@ const Player: React.FC = () => {
     );
   }
   
-  if (!playerName || amISpectator) {
-    // This condition might need adjustment based on the new isGameConcluded flow
-    // For now, it primarily catches initial loading/redirect issues.
-    return (
-      <div className="container text-center mt-5">
-        <h2>{t('playerPage.loadingPlayerView', language)}</h2>
-        {amISpectator && <p>{t('playerPage.spectatorRedirect', language)}</p>}
-        {!playerName && <p>{t('playerPage.missingPlayerInfo', language)}</p>}
-        <button className="btn btn-primary mt-3" onClick={() => navigate('/')}>{t('playerPage.backToHome', language)}</button>
-      </div>
-    );
+  // Enhanced player detection with multiple checks and detailed logging
+  const currentPlayerInRoom = players.some(p => {
+    const socketMatch = p.id === socketService.getSocketId();
+    const persistentIdMatch = p.persistentPlayerId === persistentPlayerId;
+    const nameMatch = p.name === playerName; // Add name match as a fallback
+    const isMatch = socketMatch || persistentIdMatch || (nameMatch && connectionStatus === 'connected');
+    
+    if (isMatch) {
+      console.log('[Player] Player found in room with matches:', {
+        playerName,
+        playerInRoom: p.name,
+        socketMatch,
+        persistentIdMatch,
+        nameMatch,
+        socketId: socketService.getSocketId(),
+        playerSocketId: p.id,
+        persistentId: persistentPlayerId,
+        playerPersistentId: p.persistentPlayerId
+      });
+    }
+    
+    return isMatch;
+  }) || (receivedGameState && connectionStatus === 'connected' && !!roomCode && !!playerName);
+  
+  // Enhanced player detection with comprehensive logging
+  if (!currentPlayerInRoom) {
+    // Add additional debug information to help diagnose player detection issues
+    console.log('[Player] DEBUG - Player detection failed. Current players list:', players);
+    console.log('[Player] DEBUG - Looking for socket ID:', socketService.getSocketId());
+    console.log('[Player] DEBUG - Looking for persistent ID:', persistentPlayerId);
+    console.log('[Player] DEBUG - Player IDs in room:', players.map(p => ({ socketId: p.id, persistentId: p.persistentPlayerId, name: p.name })));
+    
+    // Temporary workaround: If we have connection, roomCode, and players list is not empty,
+    // proceed anyway to avoid the loading screen issue
+    if (connectionStatus === 'connected' && roomCode && playerName && players.length > 0) {
+      console.log('[Player] Connected with valid session data but not found in player list. Proceeding anyway.');
+      // Continue rendering the player view instead of showing loading screen
+    } else {
+      console.log('[Player] Current player not found in room. Details:', {
+        socketId: socketService.getSocketId(),
+        persistentPlayerId,
+        playerName,
+        playersInRoom: players.map(p => ({ id: p.id, name: p.name, persistentId: p.persistentPlayerId })),
+        connectionStatus
+      });
+      
+      // If we're connected but player isn't found, try rejoining
+      if (connectionStatus === 'connected' && roomCode && playerName) {
+        console.log('[Player] Connected but not in player list. Attempting to rejoin room:', roomCode);
+        socketService.rejoinRoom(roomCode, false);
+        socketService.requestPlayers(roomCode);
+      }
+      
+      return (
+        <div className="container text-center mt-5">
+          <h2>{t('playerPage.loadingPlayerView', language)}</h2>
+          <p>{t('playerPage.waitingToJoinRoom', language)}</p>
+          
+          <div className="alert alert-info mb-3">
+            <p><strong>{t('playerPage.connectionIssue', language)}</strong></p>
+            <p className="mb-0">
+              <small>Socket ID: {socketService.getSocketId() || 'None'}</small><br/>
+              <small>Player ID: {persistentPlayerId?.substring(0, 12) || 'None'}...</small><br/>
+              <small>Connection: {connectionStatus}</small>
+            </p>
+          </div>
+          
+          <div className="spinner-border text-primary mx-auto mt-2 mb-3" role="status">
+            <span className="visually-hidden">{t('loading', language)}</span>
+          </div>
+          
+          <div className="d-grid gap-2 col-md-6 mx-auto">
+            <button className="btn btn-primary" onClick={() => {
+              if (roomCode) {
+                console.log('[Player] Manual rejoin attempt for room:', roomCode);
+                socketService.rejoinRoom(roomCode, false);
+                socketService.requestPlayers(roomCode);
+                setTimeout(() => window.location.reload(), 1000);
+              } else {
+                window.location.reload();
+              }
+            }}>
+              {t('playerPage.tryReconnecting', language)}
+            </button>
+            <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
+              {t('playerPage.backToHome', language)}
+            </button>
+          </div>
+        </div>
+      );
+    }
+  }
+  
+  // Special case for spectators
+  if (amISpectator) {
+    console.log('[Player] User is a spectator, should redirect to spectator view');
+    navigate('/spectator');
+    return <LoadingOverlay isVisible={true} message={t('playerPage.redirectingToSpectator', language)} />;
   }
 
   if (previewMode.isActive) {
@@ -534,7 +716,7 @@ const Player: React.FC = () => {
     <>
       <SettingsControl />
       <div className="container py-4">
-        <LoadingOverlay isVisible={isRoomLoading} />
+        <LoadingOverlay isVisible={isLoading && (players.length === 0 || !receivedGameState)} />
         <ConnectionStatus showDetails={true} />
         {errorMsg && (
           <div className="alert alert-danger">{errorMsg}</div>

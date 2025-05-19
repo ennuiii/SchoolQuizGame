@@ -337,7 +337,11 @@ const translations: { [lang: string]: TranslationMap } = {
       couldNotConnect: 'Could not connect to the game server. Please refresh the page to try again.',
       refreshPage: 'Refresh Page',
       disconnectedFromServer: 'Disconnected from server.',
-      attemptingReconnect: 'Attempting to reconnect...'
+      attemptingReconnect: 'Attempting to reconnect...',
+      waitingToJoinRoom: 'Waiting to join the room. If this persists, try refreshing the page or try reconnecting.',
+      connectionIssue: 'Connection issue detected. Your player information may not be properly registered.',
+      tryReconnecting: 'Try reconnecting',
+      redirectingToSpectator: 'Redirecting to spectator view...'
     },
     spectatorPage: {
       gameOver: 'Game Over!',
@@ -645,7 +649,9 @@ const translations: { [lang: string]: TranslationMap } = {
       couldNotConnect: 'Konnte keine Verbindung zum Spielserver herstellen. Bitte laden Sie die Seite neu, um es erneut zu versuchen.',
       refreshPage: 'Seite neu laden',
       disconnectedFromServer: 'Vom Server getrennt.',
-      attemptingReconnect: 'Versuche erneut zu verbinden...'
+      attemptingReconnect: 'Versuche erneut zu verbinden...',
+      waitingToJoinRoom: 'Warte auf Beitritt zum Raum. Bei Verzögerungen Seite neu laden.',
+      redirectingToSpectator: 'Weiterleitung zur Zuschaueransicht...'
     },
     spectatorPage: {
       gameOver: 'Spiel vorbei!',
@@ -943,7 +949,9 @@ const translations: { [lang: string]: TranslationMap } = {
       couldNotConnect: 'Impossible de se connecter au serveur de jeu. Veuillez actualiser la page pour réessayer.',
       refreshPage: 'Actualiser la page',
       disconnectedFromServer: 'Déconnecté du serveur.',
-      attemptingReconnect: 'Tentative de reconnexion...'
+      attemptingReconnect: 'Tentative de reconnexion...',
+      waitingToJoinRoom: 'Waiting to join the room. If this persists, try refreshing the page.',
+      redirectingToSpectator: 'Redirecting to spectator view...'
     },
     spectatorPage: {
       gameOver: 'Fin du jeu !',
@@ -1241,7 +1249,9 @@ const translations: { [lang: string]: TranslationMap } = {
       couldNotConnect: 'Kon geen verbinding maken met de spelserver. Vernieuw de pagina om het opnieuw te proberen.',
       refreshPage: 'Pagina vernieuwen',
       disconnectedFromServer: 'Verbinding met server verbroken.',
-      attemptingReconnect: 'Bezig met opnieuw verbinden...'
+      attemptingReconnect: 'Bezig met opnieuw verbinden...',
+      waitingToJoinRoom: 'Waiting to join the room. If this persists, try refreshing the page.',
+      redirectingToSpectator: 'Redirecting to spectator view...'
     },
     spectatorPage: {
       gameOver: 'Spel afgelopen!',
@@ -1539,7 +1549,9 @@ const translations: { [lang: string]: TranslationMap } = {
       couldNotConnect: 'Nie można połączyć się z serwerem gry. Odśwież stronę, aby spróbować ponownie.',
       refreshPage: 'Odśwież stronę',
       disconnectedFromServer: 'Rozłączono z serwerem.',
-      attemptingReconnect: 'Próba ponownego połączenia...'
+      attemptingReconnect: 'Próba ponownego połączenia...',
+      waitingToJoinRoom: 'Waiting to join the room. If this persists, try refreshing the page.',
+      redirectingToSpectator: 'Redirecting to spectator view...'
     },
     spectatorPage: {
       gameOver: 'Koniec gry!',
@@ -1837,7 +1849,9 @@ const translations: { [lang: string]: TranslationMap } = {
       couldNotConnect: '无法连接到游戏服务器。请刷新页面重试。',
       refreshPage: '刷新页面',
       disconnectedFromServer: '与服务器断开连接。',
-      attemptingReconnect: '正在尝试重新连接...'
+      attemptingReconnect: '正在尝试重新连接...',
+      waitingToJoinRoom: 'Waiting to join the room. If this persists, try refreshing the page.',
+      redirectingToSpectator: 'Redirecting to spectator view...'
     },
     spectatorPage: {
       gameOver: '游戏结束！',

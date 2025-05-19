@@ -1,0 +1,86 @@
+/* Unified Theme Transitions - Performance-optimized transitions for theme switching */
+
+/* ========== GPU ACCELERATION IMPROVEMENTS ========== */
+
+/* Apply transitions only when the transition class is present */
+html.theme-transition {
+  /* Apply only to key properties to improve performance */
+  transition: background-color 300ms ease !important;
+  transition-delay: 0ms !important;
+  
+  /* Disable interactions during transition for performance */
+  pointer-events: none !important;
+  
+  /* Optimize scroll behavior during transition */
+  scroll-behavior: auto !important;
+  
+  /* Contain paint operations */
+  contain: paint style !important;
+}
+
+/* Performance-optimized element transitions */
+html.theme-transition * {
+  /* Promote elements to layers for better GPU utilization */
+  transform: translateZ(0);
+  
+  /* Only transition specific properties for better performance */
+  transition-property: background-color, color, border-color !important;
+  transition-duration: 300ms !important;
+  transition-timing-function: ease !important;
+  transition-delay: 0ms !important;
+  
+  /* Critical performance boost: temporarily disable background images during transition */
+  background-image: none !important;
+}
+
+/* ========== COMPONENT-SPECIFIC OPTIMIZATIONS ========== */
+
+/* High-impact elements get optimized transitions */
+html.theme-transition .card,
+html.theme-transition .btn,
+html.theme-transition .modal-content,
+html.theme-transition .form-control,
+html.theme-transition .alert,
+html.theme-transition .question-display-card,
+html.theme-transition .question-selector,
+html.theme-transition .game-controls-card,
+html.theme-transition .answer-list-card,
+html.theme-transition .room-settings-card,
+html.theme-transition .game-master-container {
+  /* Use composite properties only */
+  transition-property: background-color, color !important;
+  
+  /* Use GPU for these element transitions */
+  will-change: background-color, color !important;
+  backface-visibility: hidden !important;
+}
+
+/* Disable transitions for non-critical elements to improve performance */
+html.theme-transition .list-group-item,
+html.theme-transition small,
+html.theme-transition span,
+html.theme-transition .badge,
+html.theme-transition i.bi {
+  transition: none !important;
+}
+
+/* Special optimization for the GameMaster page */
+.game-master-component.theme-transition {
+  contain: layout style paint !important;
+  will-change: opacity !important;
+}
+
+/* ========== BACKGROUND TEXTURE HANDLING ========== */
+
+/* Enable background textures after transition is complete */
+/* These styles will be applied on regular dark theme, but not during transitions */
+html[data-theme="dark"]:not(.theme-transition) .card,
+html[data-theme="dark"]:not(.theme-transition) .modal-content,
+html[data-theme="dark"]:not(.theme-transition) .question-selector,
+html[data-theme="dark"]:not(.theme-transition) .question-display-card,
+html[data-theme="dark"]:not(.theme-transition) .list-group-item {
+  background-image: url('https://www.transparenttextures.com/patterns/old-mathematics.png') !important;
+  background-repeat: repeat !important;
+  background-size: auto !important;
+  background-blend-mode: overlay !important;
+} 

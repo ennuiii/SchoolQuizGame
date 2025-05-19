@@ -26,7 +26,7 @@ const QuestionDisplayCard: React.FC<QuestionDisplayCardProps> = ({ question, sho
         {question.text && <p className="lead" style={{ whiteSpace: 'pre-wrap' }}>{question.text}</p>}
         
         <div className="mt-2">
-          <small className="text-muted d-block">{t('type', language)}: {question.type}</small>
+          
           <small className="text-muted d-block">{t('subject', language)}: {question.subject}</small>
           <small className="text-muted d-block">{t('grade', language)}: {question.grade}</small>
           {showAnswer && question.answer && (

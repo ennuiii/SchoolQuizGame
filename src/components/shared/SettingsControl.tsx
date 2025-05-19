@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAudio } from '../../contexts/AudioContext';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useTheme } from '../../contexts/ThemeContext';
 import { t } from '../../i18n';
 
 const languageOptions = [
@@ -16,7 +15,6 @@ const languageOptions = [
 const SettingsControl: React.FC = () => {
   const { isMuted, volume, toggleMute, setVolume } = useAudio();
   const { language, setLanguage } = useLanguage();
-  const { theme, toggleTheme } = useTheme();
   const [isOpen, setIsOpen] = useState(false);
 
   const handleToggleMute = async () => {
@@ -51,8 +49,8 @@ const SettingsControl: React.FC = () => {
           minWidth: 36,
           minHeight: 36,
           borderRadius: '50%',
-          background: 'var(--settings-button-bg)',
-          boxShadow: 'var(--settings-button-shadow)',
+          background: 'var(--panel-bg)',
+          boxShadow: 'var(--button-shadow)',
           color: 'var(--text-color)',
           border: '2px solid var(--border-color)',
         }}
@@ -64,73 +62,42 @@ const SettingsControl: React.FC = () => {
 
       {isOpen && (
         <div
-          className="settings-panel"
           style={{
             position: 'fixed',
             top: 70,
             right: 18,
             zIndex: 2000,
-            background: 'var(--panel-bg)',
-            borderRadius: 16,
-            boxShadow: 'var(--panel-shadow)',
-            padding: '20px 18px 18px 18px',
-            minWidth: 220,
-            border: '2px solid var(--accent-color)',
-            color: 'var(--text-color)',
+            background: '#fef9c3',
+            border: '1px dashed #e5d78c',
+            borderRadius: '10px',
+            width: '320px',
+            padding: '20px',
+            boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            backgroundImage: 'linear-gradient(rgba(255, 255, 255, 0.4) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, 0.4) 1px, transparent 1px)',
+            backgroundSize: '20px 20px',
           }}
         >
-          <h6 className="mb-3" style={{ color: 'var(--heading-color)', fontWeight: 700, letterSpacing: 0.5 }}>
+          <h5 style={{ marginBottom: '20px', color: '#5c4f2a', fontWeight: 600 }}>
             {t('settings', language)}
-          </h6>
+          </h5>
           
-          <div className="mb-3">
-            <label className="form-label d-flex align-items-center gap-2" style={{ color: 'var(--text-color)', fontWeight: 500 }}>
-              <i className="bi bi-palette-fill"></i>
-              {t('theme', language)}
-            </label>
-            <div className="d-flex align-items-center gap-2">
-              <button
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center"
-                style={{
-                  minWidth: 36,
-                  minHeight: 36,
-                  borderRadius: '50%',
-                  background: theme === 'light' ? 'var(--accent-color)' : 'var(--button-bg)',
-                  color: 'var(--text-color)',
-                  border: '2px solid var(--border-color)',
-                  boxShadow: 'var(--button-shadow)',
-                }}
-                onClick={toggleTheme}
-                title={theme === 'light' ? t('darkMode', language) : t('lightMode', language)}
-              >
-                {theme === 'light' ? (
-                  <i className="bi bi-moon-fill" style={{ fontSize: 20 }}></i>
-                ) : (
-                  <i className="bi bi-sun-fill" style={{ fontSize: 20 }}></i>
-                )}
-              </button>
-              <span style={{ color: 'var(--text-color)' }}>
-                {theme === 'light' ? t('lightMode', language) : t('darkMode', language)}
-              </span>
-            </div>
-          </div>
-
-          <div className="mb-3">
-            <label className="form-label d-flex align-items-center gap-2" style={{ color: 'var(--text-color)', fontWeight: 500 }}>
+          {/* Audio controls */}
+          <div style={{ marginBottom: '20px' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5c4f2a', fontWeight: 500 }}>
               <i className="bi bi-volume-up-fill"></i>
               {t('audio', language)}
             </label>
-            <div className="d-flex align-items-center gap-2">
+            <div className="d-flex align-items-center gap-2 mb-2">
               <button
-                className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center"
+                className="btn btn-sm"
                 style={{
-                  minWidth: 36,
-                  minHeight: 36,
+                  minWidth: 40,
+                  minHeight: 40,
                   borderRadius: '50%',
-                  background: volume === 0 ? 'var(--accent-color)' : 'var(--button-bg)',
-                  color: 'var(--text-color)',
-                  border: '2px solid var(--border-color)',
-                  boxShadow: 'var(--button-shadow)',
+                  background: volume === 0 ? '#57c4b8' : '#57c4b8',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                 }}
                 onClick={handleToggleMute}
                 title={volume === 0 ? t('unmuteMusic', language) : t('muteMusic', language)}
@@ -141,49 +108,49 @@ const SettingsControl: React.FC = () => {
                   <i className="bi bi-volume-up-fill" style={{ fontSize: 20 }}></i>
                 )}
               </button>
-              <input
-                type="range"
-                className="form-range"
-                min={0}
-                max={1}
-                step={0.01}
-                value={volume}
-                onChange={handleVolumeChange}
-                style={{ flex: 1 }}
-                aria-label={t('musicVolume', language)}
-              />
             </div>
+            <input
+              type="range"
+              className="form-range"
+              min={0}
+              max={1}
+              step={0.01}
+              value={volume}
+              onChange={handleVolumeChange}
+              style={{ width: '100%' }}
+              aria-label={t('musicVolume', language)}
+            />
           </div>
 
-          <div className="mb-3">
-            <label className="form-label d-flex align-items-center gap-2" style={{ color: 'var(--text-color)', fontWeight: 500 }}>
+          {/* Language selection */}
+          <div style={{ marginBottom: '20px' }}>
+            <label className="form-label" style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#5c4f2a', fontWeight: 500 }}>
               <i className="bi bi-translate"></i>
               {t('language', language)}
             </label>
             <div
-              className="d-grid"
               style={{
                 display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(110px, 1fr))',
-                gap: 8,
-                marginTop: 4,
-                marginBottom: 4,
-                gridAutoRows: '1fr',
-                maxWidth: 260,
-                minWidth: 220,
+                gridTemplateColumns: 'repeat(2, 1fr)',
+                gap: '10px',
+                marginTop: '10px',
               }}
             >
               {languageOptions.map(opt => (
                 <button
                   key={opt.code}
-                  className={`btn btn-sm ${language === opt.code ? 'btn-primary' : 'btn-outline-secondary'}`}
+                  className="btn"
                   onClick={() => setLanguage(opt.code)}
                   aria-pressed={language === opt.code}
                   style={{
-                    minWidth: 100,
-                    background: language === opt.code ? 'var(--accent-color)' : 'var(--button-bg)',
-                    color: 'var(--text-color)',
-                    border: '2px solid var(--border-color)',
+                    padding: '8px 12px',
+                    background: language === opt.code ? '#57c4b8' : '#fffadb',
+                    color: language === opt.code ? '#fff' : '#5c4f2a',
+                    border: '1px solid #e5d78c',
+                    borderRadius: '8px',
+                    fontWeight: language === opt.code ? '600' : '400',
+                    textAlign: 'center',
+                    boxShadow: language === opt.code ? '0 2px 4px rgba(0,0,0,0.1)' : 'none',
                   }}
                 >
                   {t(opt.labelKey, language)}

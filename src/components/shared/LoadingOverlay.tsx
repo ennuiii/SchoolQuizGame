@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoadingSpinner } from './LoadingSpinner';
 
 interface LoadingOverlayProps {
@@ -12,7 +12,32 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
   message = 'Loading...',
   isTransparent = false
 }) => {
+  const [showForceButton, setShowForceButton] = useState(false);
+  
+  useEffect(() => {
+    // Show force button after 8 seconds of loading
+    let timerId: NodeJS.Timeout | null = null;
+    
+    if (isVisible) {
+      timerId = setTimeout(() => {
+        console.log('[LoadingOverlay] Showing force continue button after timeout');
+        setShowForceButton(true);
+      }, 8000);
+    } else {
+      setShowForceButton(false);
+    }
+    
+    return () => {
+      if (timerId) clearTimeout(timerId);
+    };
+  }, [isVisible]);
+  
   if (!isVisible) return null;
+
+  const handleForceRefresh = () => {
+    console.log('[LoadingOverlay] User force refreshed page');
+    window.location.reload();
+  };
 
   return (
     <div
@@ -39,6 +64,19 @@ export const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
         color="#4a90e2"
         message={message}
       />
+      
+      {showForceButton && (
+        <div style={{ marginTop: '30px' }}>
+          <p style={{ color: '#666', fontSize: '14px' }}>Stuck on loading? Try these options:</p>
+          <button 
+            className="btn btn-warning mt-2"
+            onClick={handleForceRefresh}
+            style={{ marginRight: '10px' }}
+          >
+            Refresh Page
+          </button>
+        </div>
+      )}
     </div>
   );
 }; 
