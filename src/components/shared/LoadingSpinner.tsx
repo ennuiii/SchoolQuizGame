@@ -1,4 +1,6 @@
 import React from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface LoadingSpinnerProps {
   size?: 'small' | 'medium' | 'large';
@@ -11,6 +13,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   color = '#4a90e2',
   message
 }) => {
+  const { language } = useLanguage();
   const sizeMap = {
     small: 24,
     medium: 40,
@@ -18,6 +21,7 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
   };
 
   const spinnerSize = sizeMap[size];
+  const defaultMessage = t('loading', language);
 
   return (
     <div className="loading-spinner-container" style={{ textAlign: 'center' }}>
@@ -34,18 +38,16 @@ export const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
           margin: '8px'
         }}
       />
-      {message && (
-        <div
-          className="loading-message"
-          style={{
-            marginTop: '8px',
-            color: '#666',
-            fontSize: size === 'small' ? '14px' : '16px'
-          }}
-        >
-          {message}
-        </div>
-      )}
+      <div
+        className="loading-message"
+        style={{
+          marginTop: '8px',
+          color: '#666',
+          fontSize: size === 'small' ? '14px' : '16px'
+        }}
+      >
+        {message || defaultMessage}
+      </div>
       <style>
         {`
           @keyframes spin {

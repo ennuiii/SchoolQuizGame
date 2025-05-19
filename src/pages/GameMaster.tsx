@@ -13,6 +13,8 @@ import RoomCode from '../components/shared/RoomCode';
 import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import { useAudio } from '../contexts/AudioContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 import RoomSettings from '../components/game-master/RoomSettings';
 import RecapModal from '../components/shared/RecapModal';
 import { toast } from 'react-toastify';
@@ -20,10 +22,11 @@ import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import type { Question } from '../contexts/GameContext';
 import type { Player } from '../types/game';
-import MusicControl from '../components/shared/MusicControl';
+import SettingsControl from '../components/shared/SettingsControl';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
+  const { language } = useLanguage();
   const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
@@ -489,7 +492,7 @@ const GameMaster: React.FC = () => {
     return (
       <LoadingOverlay 
         isVisible={true} 
-        message={connectionStatus === 'connecting' ? 'Connecting to server...' : 'Reconnecting to server...'} 
+        message={connectionStatus === 'connecting' ? t('connection.connecting', language) : t('connection.reconnecting', language)} 
       />
     );
   }
@@ -499,10 +502,10 @@ const GameMaster: React.FC = () => {
     return (
       <div className="container text-center mt-5">
         <div className="alert alert-danger">
-          <h4>Connection Error</h4>
-          <p>Could not connect to the game server. Please refresh the page to try again.</p>
+          <h4>{t('connection.connectionError', language)}</h4>
+          <p>{t('connection.connectionCheckInternet', language)}</p>
           <button className="btn btn-primary mt-3" onClick={() => window.location.reload()}>
-            Refresh Page
+            {t('connection.connectionRetry', language)}
           </button>
         </div>
       </div>
@@ -515,21 +518,21 @@ const GameMaster: React.FC = () => {
         <div className="row justify-content-center">
           <div className="col-12 col-md-6">
             <div className="card p-4 text-center">
-              <h3>Create a New Game Room</h3>
-              <p>As the Game Master, you'll manage questions and evaluate answers.</p>
+              <h3>{t('roomSettings.title', language)}</h3>
+              <p>{t('roomSettings.description', language)}</p>
               <div className="form-group mb-3">
-                <label htmlFor="roomCodeInput" className="form-label">Room Code (optional):</label>
+                <label htmlFor="roomCodeInput" className="form-label">{t('roomSettings.roomCodeLabel', language)}</label>
                 <input
                   type="text"
                   id="roomCodeInput"
                   className="form-control"
-                  placeholder="Leave blank for random code"
+                  placeholder={t('roomSettings.roomCodePlaceholder', language)}
                   value={inputRoomCode}
                   onChange={e => setInputRoomCode(e.target.value.toUpperCase())}
                   maxLength={6}
                 />
                 <small className="text-muted">
-                  You can specify a custom room code or leave it blank for a random one.
+                  {t('roomSettings.roomCodeHelp', language)}
                 </small>
               </div>
               <div className="form-check mb-3">
@@ -541,10 +544,10 @@ const GameMaster: React.FC = () => {
                   onChange={(e) => setIsStreamerMode(e.target.checked)}
                 />
                 <label className="form-check-label" htmlFor="streamerModeCheckbox">
-                  Streamer Mode (Hide Room Code)
+                  {t('roomSettings.streamerMode', language)}
                 </label>
                 <small className="d-block text-muted">
-                  When enabled, the room code will be hidden but still copyable.
+                  {t('roomSettings.streamerModeHelp', language)}
                 </small>
               </div>
               <button
@@ -552,13 +555,15 @@ const GameMaster: React.FC = () => {
                 onClick={handleCreateRoom}
                 disabled={isRoomLoading || connectionStatus !== 'connected'}
               >
-                {isRoomLoading ? 'Creating...' : connectionStatus !== 'connected' ? 'Waiting for connection...' : 'Create Room'}
+                {isRoomLoading ? t('roomSettings.creating', language) : 
+                 connectionStatus !== 'connected' ? t('connection.connecting', language) : 
+                 t('roomSettings.createRoom', language)}
               </button>
               <button
                 className="btn btn-outline-secondary mt-3"
                 onClick={() => navigate('/')}
               >
-                Back to Home
+                {t('navigation.home', language)}
               </button>
             </div>
           </div>
@@ -571,9 +576,9 @@ const GameMaster: React.FC = () => {
     return (
       <div className="container mt-5">
         <div className="text-center">
-          <h2>Connecting to Game Server...</h2>
+          <h2>{t('connection.connecting', language)}</h2>
           <div className="spinner-border text-primary mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
+            <span className="visually-hidden">{t('loading', language)}</span>
           </div>
         </div>
       </div>
@@ -582,7 +587,7 @@ const GameMaster: React.FC = () => {
 
   return (
     <>
-      <MusicControl />
+      <SettingsControl />
       <div className="container-fluid py-4">
         <LoadingOverlay isVisible={isRoomLoading} />
         <ConnectionStatus showDetails={true} />
@@ -591,15 +596,19 @@ const GameMaster: React.FC = () => {
             <div className="modal-dialog">
               <div className="modal-content">
                 <div className="modal-header">
-                  <h5 className="modal-title">End Round Early?</h5>
+                  <h5 className="modal-title">{t('gameControls.endRoundConfirm', language)}</h5>
                   <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
                 </div>
                 <div className="modal-body">
-                  <p>Are you sure you want to end this round early? All players who haven't submitted will receive no points.</p>
+                  <p>{t('gameControls.endRoundWarning', language)}</p>
                 </div>
                 <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>Cancel</button>
-                  <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>End Round</button>
+                  <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>
+                    {t('gameControls.cancel', language)}
+                  </button>
+                  <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>
+                    {t('gameControls.confirmEndRound', language)}
+                  </button>
                 </div>
               </div>
             </div>
@@ -607,7 +616,7 @@ const GameMaster: React.FC = () => {
         )}
         {connectionStatus === 'disconnected' && (
           <div className="alert alert-warning">
-            <strong>Disconnected from server.</strong> Attempting to reconnect... Game controls are disabled until reconnection.
+            <strong>{t('connection.disconnected', language)}</strong> {t('connection.attempting', language)}
           </div>
         )}
         <div className="row g-3">
@@ -619,12 +628,12 @@ const GameMaster: React.FC = () => {
                 <button className="btn btn-primary w-100" 
                   onClick={handleStartPreview}
                   disabled={connectionStatus !== 'connected'}>
-                  Start Preview Mode
+                  {t('gameControls.startPreview', language)}
                 </button>
               </div>
             )}
             <PlayerList 
-              title="Players"
+              title={t('players', language)}
               onPlayerSelect={handlePlayerSelect}
               selectedPlayerId={selectedPlayerId}
               isGameMasterView={true}
@@ -632,22 +641,27 @@ const GameMaster: React.FC = () => {
               persistentPlayerId={persistentPlayerId || undefined}
             />
             <div className="d-grid gap-2 mt-3">
-              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
+              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
+                {t('navigation.leaveGame', language)}
+              </button>
               {!gameStarted ? (
                 <button 
                   className="btn btn-success" 
                   onClick={handleStartGame}
                   disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1 || connectionStatus !== 'connected'}
                   title={
-                    isConnecting ? "Connecting to server..." :
-                    connectionStatus !== 'connected' ? "Not connected to server" :
-                    gamePlayers.filter(p => !p.isSpectator).length < 1 ? "Need at least 1 active player to start" :
-                    questions.length === 0 ? "Please select questions first" : ""
+                    isConnecting ? t('connection.connecting', language) :
+                    connectionStatus !== 'connected' ? t('connection.disconnected', language) :
+                    gamePlayers.filter(p => !p.isSpectator).length < 1 ? t('gameControls.needPlayers', language) :
+                    questions.length === 0 ? t('gameControls.needQuestions', language) : ""
                   }
                 >
-                  {isConnecting ? "Connecting..." : 
-                   connectionStatus !== 'connected' ? "Waiting for connection..." :
-                   `Start Game (${gamePlayers.filter(p => !p.isSpectator).length} players, ${questions.length} questions)`}
+                  {isConnecting ? t('connection.connecting', language) : 
+                   connectionStatus !== 'connected' ? t('connection.connecting', language) :
+                   t('gameControls.startGame', language, {
+                     players: gamePlayers.filter(p => !p.isSpectator).length,
+                     questions: questions.length
+                   })}
                 </button>
               ) : (
                 <>
@@ -656,41 +670,38 @@ const GameMaster: React.FC = () => {
                     onClick={handleNextQuestion}
                     disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected' || !canProceedToNextQuestion}
                     title={
-                      connectionStatus !== 'connected' ? "Not connected to server" :
-                      !currentQuestion ? "No current question" :
-                      isGameConcluded ? "Game is concluded" :
-                      isRestarting ? "Game is restarting" :
-                      !allAnswersSubmitted ? `Waiting for all ${activePlayerCount} active player(s) to submit answers.` :
-                      !allSubmittedAnswersEvaluated ? "All submitted answers must be evaluated before proceeding." :
-                      "Proceed to the next question"
+                      connectionStatus !== 'connected' ? t('connection.disconnected', language) :
+                      !currentQuestion ? t('gameControls.noQuestion', language) :
+                      isGameConcluded ? t('gameControls.gameConcluded', language) :
+                      isRestarting ? t('gameControls.restarting', language) :
+                      !allAnswersSubmitted ? t('gameControls.waitingForAnswers', language, { count: activePlayerCount }) :
+                      !allSubmittedAnswersEvaluated ? t('gameControls.evaluateAnswers', language) :
+                      t('gameControls.nextQuestion', language)
                     }
                   >
-                    Next Question
+                    {t('gameControls.nextQuestion', language)}
                   </button>
                   <button 
                     className="btn btn-warning" 
                     onClick={handleEndRoundEarlyAction}
                     disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected'}
                   >
-                    End Round Early
+                    {t('gameControls.endRoundEarly', language)}
                   </button>
                   <button 
                     className="btn btn-info"
                     onClick={handleRestartGame}
                     disabled={isRestarting || !gameStarted || connectionStatus !== 'connected'}
                   >
-                    {isRestarting ? 'Restarting...' : 'Restart Game'}
+                    {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
                   </button>
                   {!isGameConcluded && (
                     <button 
                       className="btn btn-danger" 
-                      onClick={() => {
-                        console.log('[GameMaster] End Game button clicked. Attempting to emit gmEndGameRequest. Room:', roomCode);
-                        handleEndGameRequest();
-                      }}
+                      onClick={handleEndGameRequest}
                       disabled={isRestarting || connectionStatus !== 'connected'}
                     >
-                      End Game
+                      {t('gameControls.endGame', language)}
                     </button>
                   )}
                   {isGameConcluded && (
@@ -699,7 +710,7 @@ const GameMaster: React.FC = () => {
                       onClick={handleShowRecapButtonClick}
                       disabled={isRestarting || connectionStatus !== 'connected'}
                     >
-                      Show Game Recap For All
+                      {t('gameControls.showRecap', language)}
                     </button>
                   )}
                 </>
@@ -730,17 +741,17 @@ const GameMaster: React.FC = () => {
                 
                 <div className="card mb-3">
                   <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0">Player Boards</h5>
+                    <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
                     <div className="d-flex gap-2">
                       <button className="btn btn-sm btn-outline-primary" 
                         onClick={showAllBoards}
                         disabled={connectionStatus !== 'connected'}>
-                        Show All
+                        {t('gameControls.showAll', language)}
                       </button>
                       <button className="btn btn-sm btn-outline-secondary" 
                         onClick={hideAllBoards}
                         disabled={connectionStatus !== 'connected'}>
-                        Hide All
+                        {t('gameControls.hideAll', language)}
                       </button>
                     </div>
                   </div>

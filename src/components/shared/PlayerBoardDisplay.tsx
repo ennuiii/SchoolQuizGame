@@ -1,6 +1,8 @@
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { PlayerBoard } from '../../types/game';
 import { fabric } from 'fabric';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface PlayerBoardDisplayProps {
   board: PlayerBoard;
@@ -39,6 +41,7 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
   const [scale, setScale] = useState(transform?.scale || 1);
   const [position, setPosition] = useState({ x: transform?.x || 0, y: transform?.y || 0 });
   const [svgString, setSvgString] = useState<string>('');
+  const { language } = useLanguage();
 
   // Effect to update internal state when transform prop changes
   useEffect(() => {
@@ -235,7 +238,7 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
               className="btn btn-sm btn-outline-primary"
               onClick={handleToggleVisibility}
             >
-              {isVisible ? 'Hide' : 'Show'}
+              {isVisible ? t('playerBoardDisplay.hide', language) : t('playerBoardDisplay.show', language)}
             </button>
           </div>
         </div>

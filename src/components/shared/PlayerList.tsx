@@ -1,6 +1,8 @@
 import React from 'react';
 import { useGame } from '../../contexts/GameContext';
 import { useRoom } from '../../contexts/RoomContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface Player {
   id: string;
@@ -25,12 +27,13 @@ const PlayerList: React.FC<PlayerListProps> = ({
   persistentPlayerId: propPersistentPlayerId,
   onPlayerSelect,
   selectedPlayerId,
-  title = "Players",
+  title = t('players', 'en'),
   onKickPlayer,
   isGameMasterView = false
 }) => {
   const { players, allAnswersThisRound } = useGame();
   const { persistentPlayerId: contextPersistentPlayerId } = useRoom();
+  const { language } = useLanguage();
   const actualPersistentPlayerId = propPersistentPlayerId || contextPersistentPlayerId;
 
   // Debug logging for kick button visibility conditions
@@ -67,7 +70,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
         <div className="list-group list-group-flush player-list">
           {players.length === 0 ? (
             <div className="list-group-item text-center text-muted py-3">
-              No players yet
+              {t('noPlayers', language)}
             </div>
           ) : (
             players.map(player => {
@@ -96,16 +99,16 @@ const PlayerList: React.FC<PlayerListProps> = ({
                   <div className="d-flex align-items-center">
                     <span className="me-2">{player.name}</span>
                     {player.persistentPlayerId === actualPersistentPlayerId && !isGameMasterView && (
-                      <span className="badge bg-primary rounded-pill ms-1">You</span>
+                      <span className="badge bg-primary rounded-pill ms-1">{t('you', language)}</span>
                     )}
                     {player.isSpectator && (
-                      <span className="badge bg-secondary rounded-pill ms-1">Spectator</span>
+                      <span className="badge bg-secondary rounded-pill ms-1">{t('spectator', language)}</span>
                     )}
                     {!player.isActive && (
-                      <span className="badge bg-warning rounded-pill ms-1">Disconnected</span>
+                      <span className="badge bg-warning rounded-pill ms-1">{t('disconnected', language)}</span>
                     )}
                     {hasSubmittedAnswer && !player.isSpectator && player.isActive && (
-                      <span className="badge bg-success rounded-pill ms-1">Submitted</span>
+                      <span className="badge bg-success rounded-pill ms-1">{t('submitted', language)}</span>
                     )}
                   </div>
                   
@@ -133,11 +136,11 @@ const PlayerList: React.FC<PlayerListProps> = ({
                           // Use socket ID (player.id) instead of persistentPlayerId for kicking
                           onKickPlayer(player.id); 
                         }}
-                        title={`Kick ${player.name}`}
-                        aria-label={`Kick ${player.name}`}
+                        title={t('kickPlayer', language).replace('{name}', player.name)}
+                        aria-label={t('kickPlayer', language).replace('{name}', player.name)}
                         style={{minWidth: '60px'}}
                       >
-                        Kick
+                        {t('kick', language)}
                       </button>
                     )}
                   </div>

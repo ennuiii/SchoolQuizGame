@@ -16,7 +16,9 @@ import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
 import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import ReviewNotification from '../components/player/ReviewNotification';
-import MusicControl from '../components/shared/MusicControl';
+import SettingsControl from '../components/shared/SettingsControl';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -71,6 +73,8 @@ const Player: React.FC = () => {
   } = useRoom();
 
   const { getCurrentCanvasSVG, clear, canvas } = useCanvas();
+
+  const { language } = useLanguage();
 
   // Determine if player has already submitted answer from server state
   // This solves the issue where player can submit again after page refresh
@@ -417,7 +421,7 @@ const Player: React.FC = () => {
     return (
       <LoadingOverlay 
         isVisible={true} 
-        message={connectionStatus === 'connecting' ? 'Connecting to server...' : 'Reconnecting to server...'} 
+        message={connectionStatus === 'connecting' ? t('connection.connecting', language) : t('connection.reconnecting', language)} 
       />
     );
   }
@@ -427,10 +431,10 @@ const Player: React.FC = () => {
     return (
       <div className="container text-center mt-5">
         <div className="alert alert-danger">
-          <h4>Connection Error</h4>
-          <p>Could not connect to the game server. Please refresh the page to try again.</p>
+          <h4>{t('playerPage.connectionError', language)}</h4>
+          <p>{t('playerPage.couldNotConnect', language)}</p>
           <button className="btn btn-primary mt-3" onClick={() => window.location.reload()}>
-            Refresh Page
+            {t('playerPage.refreshPage', language)}
           </button>
         </div>
       </div>
@@ -446,12 +450,12 @@ const Player: React.FC = () => {
     return (
       <div className="container text-center mt-5">
         <div className="card p-5">
-          <h2 className="h4 mb-3">Game Over!</h2>
-          <p>Waiting for the game recap to be generated...</p>
+          <h2 className="h4 mb-3">{t('playerPage.gameOver', language)}</h2>
+          <p>{t('playerPage.waitingForRecap', language)}</p>
           <div className="spinner-border text-primary mx-auto mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
+            <span className="visually-hidden">{t('loading', language)}</span>
           </div>
-          <button className="btn btn-outline-secondary mt-4" onClick={() => navigate('/')}>Back to Home</button>
+          <button className="btn btn-outline-secondary mt-4" onClick={() => navigate('/')}>{t('playerPage.backToHome', language)}</button>
         </div>
       </div>
     );
@@ -462,10 +466,10 @@ const Player: React.FC = () => {
     // For now, it primarily catches initial loading/redirect issues.
     return (
       <div className="container text-center mt-5">
-        <h2>Loading Player View...</h2>
-        {amISpectator && <p>You are a spectator. You should be redirected shortly.</p>}
-        {!playerName && <p>Missing player information.</p>}
-        <button className="btn btn-primary mt-3" onClick={() => navigate('/')}>Back to Home</button>
+        <h2>{t('playerPage.loadingPlayerView', language)}</h2>
+        {amISpectator && <p>{t('playerPage.spectatorRedirect', language)}</p>}
+        {!playerName && <p>{t('playerPage.missingPlayerInfo', language)}</p>}
+        <button className="btn btn-primary mt-3" onClick={() => navigate('/')}>{t('playerPage.backToHome', language)}</button>
       </div>
     );
   }
@@ -514,7 +518,7 @@ const Player: React.FC = () => {
           disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
           style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
         >
-          Clear Canvas
+          {t('playerPage.clearCanvas', language)}
         </button>
         {/* Show ReviewNotification only if evaluated */}
         {(submittedAnswerLocal || hasSubmittedToServer) && socketService.getSocketId() && (
@@ -528,7 +532,7 @@ const Player: React.FC = () => {
 
   return (
     <>
-      <MusicControl />
+      <SettingsControl />
       <div className="container py-4">
         <LoadingOverlay isVisible={isRoomLoading} />
         <ConnectionStatus showDetails={true} />
@@ -537,17 +541,17 @@ const Player: React.FC = () => {
         )}
         {connectionStatus === 'disconnected' && (
           <div className="alert alert-warning">
-            <strong>Disconnected from server.</strong> Attempting to reconnect...
+            <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
           </div>
         )}
         <div className="row g-3">
           <div className="col-12 col-md-8">
             {!gameStarted ? (
               <div className="card p-4 text-center">
-                <h2 className="h4 mb-3">Waiting for Game Master to start the game</h2>
-                <p>Get ready! The game will begin soon.</p>
+                <h2 className="h4 mb-3">{t('playerPage.waitingForGM', language)}</h2>
+                <p>{t('playerPage.getReady', language)}</p>
                 <div className="spinner-border text-primary mx-auto mt-3" role="status">
-                  <span className="visually-hidden">Loading...</span>
+                  <span className="visually-hidden">{t('loading', language)}</span>
                 </div>
               </div>
             ) : (
@@ -576,7 +580,7 @@ const Player: React.FC = () => {
                   <input
                     type="text"
                     className="form-control form-control-lg"
-                    placeholder="Type your answer here..."
+                    placeholder={t('answerInput.placeholder', language)}
                     value={answer}
                     onChange={handleAnswerChange}
                     disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
@@ -587,18 +591,18 @@ const Player: React.FC = () => {
                     onClick={() => handleAnswerSubmit(answer)}
                     disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
                   >
-                    Submit Answer
+                    {t('playerPage.submitAnswer', language)}
                   </button>
                 </div>
                 
                 {(submittedAnswerLocal || hasSubmittedToServer) && !currentQuestion?.answer && (
                   <div className="alert alert-info mt-3">
-                    Your answer has been submitted. Waiting for the Game Master to evaluate it.
+                    {t('playerPage.answerSubmitted', language)}
                   </div>
                 )}
                 {connectionStatus !== 'connected' && (
                   <div className="alert alert-warning mt-3">
-                    You are currently disconnected. Your inputs are disabled until reconnection.
+                    {t('playerPage.disconnected', language)}
                   </div>
                 )}
               </>
@@ -611,7 +615,7 @@ const Player: React.FC = () => {
           </div>
           <div className="col-12 col-md-4">
             <RoomCode />
-            <PlayerList title="Other Players" />
+            <PlayerList title={t('playerPage.otherPlayers', language)} />
           </div>
         </div>
       </div>

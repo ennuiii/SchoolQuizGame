@@ -1,4 +1,6 @@
 import React, { Component, ErrorInfo } from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface Props {
   children: React.ReactNode;
@@ -40,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
       // You can render any custom fallback UI
       return this.props.fallback || (
         <div className="error-boundary">
-          <h2>Something went wrong</h2>
+          <h2>{t('errorBoundary.title', 'en')}</h2>
           <details style={{ whiteSpace: 'pre-wrap' }}>
             {this.state.error && this.state.error.toString()}
             <br />
@@ -61,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
               cursor: 'pointer'
             }}
           >
-            Try Again
+            {t('errorBoundary.tryAgain', 'en')}
           </button>
         </div>
       );

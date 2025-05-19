@@ -1,0 +1,61 @@
+:root {
+  /* Light theme (default) */
+  --text-color: #2d4739;
+  --heading-color: #2d4739;
+  --background-color: #ffffff;
+  --panel-bg: #ffffff;
+  --button-bg: #f8f9fa;
+  --settings-button-bg: rgba(255, 255, 255, 0.85);
+  --accent-color: #ffd166;
+  --border-color: #ffd166;
+  --button-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --settings-button-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+[data-theme="dark"] {
+  --text-color: #e9ecef;
+  --heading-color: #ffffff;
+  --background-color: #1a1a1a;
+  --panel-bg: #2d2d2d;
+  --button-bg: #3d3d3d;
+  --settings-button-bg: rgba(45, 45, 45, 0.85);
+  --accent-color: #ffd166;
+  --border-color: #4d4d4d;
+  --button-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  --panel-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  --settings-button-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+/* Apply theme to body */
+body {
+  background-color: var(--background-color);
+  color: var(--text-color);
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Style form range input for both themes */
+.form-range::-webkit-slider-thumb {
+  background: var(--accent-color);
+}
+
+.form-range::-moz-range-thumb {
+  background: var(--accent-color);
+}
+
+.form-range::-ms-thumb {
+  background: var(--accent-color);
+}
+
+/* Style form range track for both themes */
+.form-range::-webkit-slider-runnable-track {
+  background: var(--button-bg);
+}
+
+.form-range::-moz-range-track {
+  background: var(--button-bg);
+}
+
+.form-range::-ms-track {
+  background: var(--button-bg);
+} 

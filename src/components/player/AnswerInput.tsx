@@ -1,5 +1,7 @@
 import React, { useEffect } from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface AnswerInputProps {
   answer: string;
@@ -13,6 +15,7 @@ const AnswerInput: React.FC<AnswerInputProps> = ({
   onSubmitAnswer
 }) => {
   const { timeLimit, timeRemaining, submittedAnswer } = useGame();
+  const { language } = useLanguage();
   const isDisabled = submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0));
 
   return (
@@ -22,7 +25,7 @@ const AnswerInput: React.FC<AnswerInputProps> = ({
           <input
             type="text"
             className="form-control form-control-lg"
-            placeholder="Type your answer here..."
+            placeholder={t('answerInput.placeholder', language)}
             value={answer}
             onChange={onAnswerChange}
             disabled={isDisabled}
@@ -33,22 +36,22 @@ const AnswerInput: React.FC<AnswerInputProps> = ({
             onClick={onSubmitAnswer}
             disabled={isDisabled}
           >
-            Submit Answer
+            {t('answerInput.submit', language)}
           </button>
         </div>
         
         {timeLimit !== null && timeRemaining !== null && timeLimit < 99999 && (
           <div className={`text-center ${timeRemaining <= 10 ? 'text-danger fw-bold' : ''}`}>
-            Time remaining: {formatTime(timeRemaining)}
+            {t('answerInput.timeRemaining', language)}: {formatTime(timeRemaining)}
             {timeRemaining <= 10 && (
-              <span className="ms-1">- Answer will be auto-submitted when time is up!</span>
+              <span className="ms-1">{t('answerInput.autoSubmit', language)}</span>
             )}
           </div>
         )}
         
         {submittedAnswer && (
           <div className="alert alert-info">
-            Your answer has been submitted. Wait for the Game Master to evaluate it.
+            {t('answerInput.submitted', language)}
           </div>
         )}
       </div>

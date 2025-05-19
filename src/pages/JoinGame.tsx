@@ -4,7 +4,9 @@ import socketService from '../services/socketService';
 import { useRoom } from '../contexts/RoomContext';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
-import MusicControl from '../components/shared/MusicControl';
+import SettingsControl from '../components/shared/SettingsControl';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 interface Player {
   id: string;
@@ -21,6 +23,7 @@ const JoinGame: React.FC = () => {
   const [isSpectator, setIsSpectator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const { language } = useLanguage();
   
   const {
     roomCode,
@@ -151,12 +154,12 @@ const JoinGame: React.FC = () => {
 
   return (
     <>
-      <MusicControl />
+      <SettingsControl />
       <div className="container-fluid px-2 px-md-4">
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
           <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
             <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
-            {'Join Game'}
+            {t('joinGame.title', language)}
           </div>
         </div>
         
@@ -164,8 +167,8 @@ const JoinGame: React.FC = () => {
           <div className="row justify-content-center">
             <div className="col-12 col-md-6">
               <div className="card p-4 text-center">
-                <h3>Join a Game</h3>
-                <p>Enter the room code and your name to join the game.</p>
+                <h3>{t('joinGame.title', language)}</h3>
+                <p>{t('joinGame.subtitle', language)}</p>
                 
                 <div className="form-check mb-3">
                   <input
@@ -176,17 +179,17 @@ const JoinGame: React.FC = () => {
                     onChange={(e) => setIsSpectator(e.target.checked)}
                   />
                   <label className="form-check-label" htmlFor="spectatorCheckbox">
-                    Join as Spectator
+                    {t('joinGame.joinAsSpectator', language)}
                   </label>
                 </div>
 
                 <div className="form-group mb-3">
-                  <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
+                  <label htmlFor="roomCodeInput" className="form-label">{t('joinGame.roomCodeLabel', language)}</label>
                   <input
                     type="text"
                     id="roomCodeInput"
                     className="form-control"
-                    placeholder="Enter room code"
+                    placeholder={t('joinGame.roomCodePlaceholder', language)}
                     value={roomCode || ''}
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                     maxLength={6}
@@ -194,12 +197,12 @@ const JoinGame: React.FC = () => {
                 </div>
 
                 <div className="form-group mb-3">
-                  <label htmlFor="playerNameInput" className="form-label">Your Name:</label>
+                  <label htmlFor="playerNameInput" className="form-label">{t('joinGame.playerNameLabel', language)}</label>
                   <input
                     type="text"
                     id="playerNameInput"
                     className="form-control"
-                    placeholder="Enter your name"
+                    placeholder={t('joinGame.playerNamePlaceholder', language)}
                     value={playerName}
                     onChange={(e) => {
                       const newName = e.target.value;
@@ -214,7 +217,7 @@ const JoinGame: React.FC = () => {
 
                 {errorMsg && (
                   <div className="alert alert-danger" role="alert">
-                    {errorMsg}
+                    {t(errorMsg, language) || errorMsg}
                     <button 
                       type="button" 
                       className="btn-close float-end" 
@@ -229,13 +232,13 @@ const JoinGame: React.FC = () => {
                   onClick={handleJoinGame}
                   disabled={isLoading || isConnecting}
                 >
-                  {isLoading ? 'Processing...' : isConnecting ? 'Connecting...' : 'Join Game'}
+                  {isLoading ? t('joinGame.processing', language) : isConnecting ? t('joinGame.connecting', language) : t('joinGame.joinGame', language)}
                 </button>
                 <button 
                   className="btn btn-outline-secondary mt-3"
                   onClick={() => navigate('/')}
                 >
-                  Back to Home
+                  {t('joinGame.backToHome', language)}
                 </button>
               </div>
             </div>
@@ -252,17 +255,17 @@ const JoinGame: React.FC = () => {
             <div className="row g-3">
               <div className="col-12 col-md-4">
                 <RoomCode />
-                <PlayerList title="Players" />
+                <PlayerList title={t('players', language)} />
               </div>
               <div className="col-12 col-md-8">
                 <div className="card">
                   <div className="card-header">
                     <h3 className="mb-0">
-                      {'Waiting for Game Master'}
+                      {t('joinGame.waitingForGM', language)}
                     </h3>
                   </div>
                   <div className="card-body">
-                    <p className="mb-4">You have joined the room. Please wait for the Game Master to start the game.</p>
+                    <p className="mb-4">{t('joinGame.joinedRoom', language)}</p>
                   </div>
                 </div>
               </div>

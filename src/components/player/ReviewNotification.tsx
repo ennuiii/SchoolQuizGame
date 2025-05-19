@@ -1,5 +1,7 @@
 import React from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface ReviewNotificationProps {
   playerId: string;
@@ -7,12 +9,13 @@ interface ReviewNotificationProps {
 
 const ReviewNotification: React.FC<ReviewNotificationProps> = ({ playerId }) => {
   const { evaluatedAnswers } = useGame();
+  const { language } = useLanguage();
   const evaluation = evaluatedAnswers[playerId];
 
   if (evaluation === undefined) return null;
 
   const isCorrect = evaluation === true;
-  const message = isCorrect ? 'Correct!' : 'Incorrect!';
+  const message = isCorrect ? t('reviewNotification.correct', language) : t('reviewNotification.incorrect', language);
 
   return (
     <div className={`alert ${isCorrect ? 'alert-success' : 'alert-danger'} mb-4 d-flex align-items-center`} role="alert">
@@ -26,7 +29,7 @@ const ReviewNotification: React.FC<ReviewNotificationProps> = ({ playerId }) => 
       <div>
         <strong>{message}</strong>
         <div className="small">
-          {isCorrect ? 'Your answer was correct!' : 'Your answer was incorrect.'}
+          {isCorrect ? t('reviewNotification.correctMessage', language) : t('reviewNotification.incorrectMessage', language)}
         </div>
       </div>
     </div>

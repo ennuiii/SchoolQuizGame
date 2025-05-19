@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 const RoomCode: React.FC = () => {
   const { roomCode, isStreamerMode } = useRoom();
+  const { language } = useLanguage();
   const [copied, setCopied] = useState(false);
 
   // Debug logging
@@ -39,7 +42,7 @@ const RoomCode: React.FC = () => {
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
-        <h6 className="mb-0">Room Code</h6>
+        <h6 className="mb-0">{t('roomCode', language)}</h6>
       </div>
       <div className="card-body">
         <div className="d-flex flex-column gap-2">
@@ -54,14 +57,14 @@ const RoomCode: React.FC = () => {
               onClick={handleCopyCode}
               disabled={!roomCode}
             >
-              {copied ? 'Copied!' : 'Copy Code'}
+              {copied ? t('copied', language) : t('copyCode', language)}
             </button>
             <button 
               className="btn btn-outline-primary flex-grow-1"
               onClick={handleCopyInviteLink}
               disabled={!roomCode}
             >
-              {copied ? 'Copied!' : 'Copy Invite Link'}
+              {copied ? t('copied', language) : t('copyInviteLink', language)}
             </button>
           </div>
         </div>

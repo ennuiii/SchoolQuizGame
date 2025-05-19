@@ -3,6 +3,8 @@ import { Modal, Button, Nav, Tab, ListGroup } from 'react-bootstrap';
 import type { GameRecapData, RoundInRecap, PlayerInRecap, SubmissionInRecap, QuestionInRecap } from '../../types/recap'; // Adjusted import path
 import QuestionDisplayCard from './QuestionDisplayCard'; // Import the new component
 import FabricJsonToSvg from '../shared/FabricJsonToSvg'; // Import the FabricJsonToSvg component
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 // Removed local interface definitions for Player, Submission, Round, GameRecap
 
@@ -29,13 +31,12 @@ const RecapModal: React.FC<RecapModalProps> = ({
   activeTabKey = 'overallResults', // Default to 'overallResults' if not provided
   onTabChange
 }) => {
-  // const [activeTab, setActiveTab] = useState<string>('overallResults'); // Remove local state
+  const { language } = useLanguage();
 
   if (!show || !recap) return null;
 
   const handleSelectTab = (k: string | null) => {
     if (k) {
-      // setActiveTab(k); // Remove local state update
       if (isControllable && onTabChange) {
         onTabChange(k);
       }
@@ -57,62 +58,62 @@ const RecapModal: React.FC<RecapModalProps> = ({
       <div className="modal-dialog modal-xl"> {/* Changed to modal-xl for more space */}
         <div className="modal-content">
           <Modal.Header closeButton onHide={onHide}> {/* Used Modal.Header for consistency */}
-            <Modal.Title>Game Recap - Room {recap.roomCode}</Modal.Title>
+            <Modal.Title>{t('gameRecap', language)} - {t('room', language)} {recap.roomCode}</Modal.Title>
           </Modal.Header>
           <Modal.Body>
             <Tab.Container id="recap-tabs" activeKey={activeTabKey} onSelect={isControllable ? handleSelectTab : undefined}>
               <Nav variant="tabs" className="mb-3">
                 <Nav.Item>
                   <Nav.Link eventKey="overallResults" disabled={!isControllable && activeTabKey !== 'overallResults'}>
-                    Overall Results
+                    {t('overallResults', language)}
                   </Nav.Link>
                 </Nav.Item>
                 {recap.rounds && recap.rounds.length > 0 && (
                   <Nav.Item>
                     <Nav.Link eventKey="roundDetails" disabled={!isControllable && activeTabKey !== 'roundDetails'}>
-                      Round Details
+                      {t('roundDetails', language)}
                     </Nav.Link>
                   </Nav.Item>
                 )}
               </Nav>
               <Tab.Content>
                 <Tab.Pane eventKey="overallResults">
-                  <h4>Game Summary</h4>
+                  <h4>{t('gameSummary', language)}</h4>
                   {winner && (
                     <div className="alert alert-success">
-                      <h5><span role="img" aria-label="trophy">🏆</span> Winner: {winner.name} <span role="img" aria-label="trophy">🏆</span></h5>
-                      <p>Congratulations to {winner.name} for winning the game!</p>
+                      <h5><span role="img" aria-label="trophy">🏆</span> {t('winner', language)}: {winner.name} <span role="img" aria-label="trophy">🏆</span></h5>
+                      <p>{t('congratulations', language).replace('{name}', winner.name)}</p>
                     </div>
                   )}
                   {!winner && recap.players.filter(p => p.isActive && p.finalLives > 0).length > 1 && (
                      <div className="alert alert-info">
-                       <h5>Game Concluded</h5>
-                       <p>The game ended with multiple players still active.</p>
+                       <h5>{t('gameConcluded', language)}</h5>
+                       <p>{t('multiplePlayersActive', language)}</p>
                      </div>
                   )}
                    {!winner && recap.players.filter(p => p.isActive && p.finalLives > 0).length === 0 && (
                      <div className="alert alert-warning">
-                       <h5>Game Over</h5>
-                       <p>All players were eliminated.</p>
+                       <h5>{t('gameOver', language)}</h5>
+                       <p>{t('allPlayersEliminated', language)}</p>
                      </div>
                    )}
-                  <h5>Player Standings:</h5>
+                  <h5>{t('playerStandings', language)}:</h5>
                   <ListGroup>
                     {participatingPlayers.map((player, index) => (
                       <ListGroup.Item key={player.id} variant={player.isWinner ? 'success' : player.isActive && player.finalLives > 0 ? 'light' : player.finalLives === 0 ? 'danger' : 'secondary'}>
                         <div className="d-flex justify-content-between align-items-center">
                           <div>
                             <strong>{index + 1}. {player.name}</strong>
-                            {player.isWinner && <span className="badge bg-warning ms-2">Winner</span>}
+                            {player.isWinner && <span className="badge bg-warning ms-2">{t('winner', language)}</span>}
                           </div>
                           <div>
-                            <span>Lives: {player.finalLives}</span>
+                            <span>{t('lives', language)}: {player.finalLives}</span>
                             <span className="ms-3">
-                              Status: 
-                              {player.isWinner ? " Won" : 
-                               player.isActive && player.finalLives > 0 ? " Active" :
-                               !player.isActive && player.isSpectator && player.finalLives === 0 ? " Eliminated" :
-                               player.isSpectator ? " Spectator" : " Unknown"}
+                              {t('status', language)}: 
+                              {player.isWinner ? ` ${t('won', language)}` : 
+                               player.isActive && player.finalLives > 0 ? ` ${t('active', language)}` :
+                               !player.isActive && player.isSpectator && player.finalLives === 0 ? ` ${t('eliminated', language)}` :
+                               player.isSpectator ? ` ${t('spectator', language)}` : ` ${t('unknown', language)}`}
                             </span>
                           </div>
                         </div>
@@ -135,7 +136,7 @@ const RecapModal: React.FC<RecapModalProps> = ({
           </Modal.Body>
           <Modal.Footer>
             <Button variant="secondary" onClick={onHide}>
-              Close
+              {t('close', language)}
             </Button>
           </Modal.Footer>
         </div>
@@ -158,6 +159,8 @@ const EnlargedDrawingModal: React.FC<{
   svgData: string | null;
   playerName: string;
 }> = ({ show, onHide, svgData, playerName }) => {
+  const { language } = useLanguage();
+
   if (!show || !svgData) return null;
 
   return (
@@ -165,7 +168,7 @@ const EnlargedDrawingModal: React.FC<{
       <div className="modal-dialog modal-xl enlarged-drawing-modal-dialog">
         <div className="modal-content enlarged-drawing-modal-content">
           <Modal.Header closeButton onHide={onHide} className="enlarged-drawing-modal-header">
-            <Modal.Title id="enlargedDrawingModalTitle">Drawing by: {playerName}</Modal.Title>
+            <Modal.Title id="enlargedDrawingModalTitle">{t('drawingBy', language)}: {playerName}</Modal.Title>
           </Modal.Header>
           <Modal.Body className="enlarged-drawing-modal-body">
             <div className="drawing-board-container" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
@@ -179,7 +182,7 @@ const EnlargedDrawingModal: React.FC<{
           </Modal.Body>
           <Modal.Footer className="enlarged-drawing-modal-footer">
             <Button variant="secondary" onClick={onHide} className="btn-schoolquiz-default">
-              Close
+              {t('close', language)}
             </Button>
           </Modal.Footer>
         </div>
@@ -194,13 +197,14 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
   onSelectRound, 
   isControllable 
 }) => {
+  const { language } = useLanguage();
   const [enlargedDrawing, setEnlargedDrawing] = useState<{ svg: string; playerName: string } | null>(null);
 
   console.log(`[RecapModal] RoundDetailsContent rendering. Selected Round Index: ${currentSelectedRoundIndex}`); // Added log
 
   if (!recap.rounds || recap.rounds.length === 0 || !recap.rounds[currentSelectedRoundIndex]) {
     console.warn("[RecapModal] RoundDetailsContent: No round data or invalid round index."); // Added log
-    return <p>No round data available to display or selected round is invalid.</p>;
+    return <p>{t('noRoundData', language)}</p>;
   }
   
   const currentRoundData: RoundInRecap = recap.rounds[currentSelectedRoundIndex];
@@ -238,16 +242,16 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
               }}
               disabled={!isControllable}
             >
-              Round {round.roundNumber}
+              {t('round', language)} {round.roundNumber}
             </button>
           ))}
         </div>
       </div>
       <div className="col-md-9">
         <div className="p-3">
-          <h4>Round {currentRoundData.roundNumber}</h4>
-          <QuestionDisplayCard question={currentRoundData.question} showAnswer={true} title="Question Details" />
-          <h5>Submissions</h5>
+          <h4>{t('round', language)} {currentRoundData.roundNumber}</h4>
+          <QuestionDisplayCard question={currentRoundData.question} showAnswer={true} title={t('questionDetails', language)} />
+          <h5>{t('submissions', language)}</h5>
           <div className="list-group">
             {filteredSubmissions.map((submission: SubmissionInRecap, idx: number) => { // Use filteredSubmissions
               const playerDetails = getPlayerDetails(submission.persistentPlayerId);
@@ -335,12 +339,14 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
           </div>
         </div>
       </div>
-      <EnlargedDrawingModal
-        show={!!enlargedDrawing}
-        onHide={() => setEnlargedDrawing(null)}
-        svgData={enlargedDrawing?.svg || null}
-        playerName={enlargedDrawing?.playerName || ''}
-      />
+      {enlargedDrawing && (
+        <EnlargedDrawingModal
+          show={!!enlargedDrawing}
+          onHide={() => setEnlargedDrawing(null)}
+          svgData={enlargedDrawing.svg}
+          playerName={enlargedDrawing.playerName}
+        />
+      )}
     </div>
   );
 };

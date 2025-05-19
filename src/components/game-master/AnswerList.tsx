@@ -1,5 +1,7 @@
 import React from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface AnswerListProps {
   onEvaluate: (persistentPlayerId: string, isCorrect: boolean) => void;
@@ -18,6 +20,7 @@ interface DisplayAnswer {
 
 const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
   const { allAnswersThisRound, evaluatedAnswers, players } = useGame();
+  const { language } = useLanguage();
   
   const getPlayerById = (persistentId: string) => players.find(p => p.persistentPlayerId === persistentId);
 
@@ -46,13 +49,13 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
   return (
     <div className="card mb-3 answer-list-card">
       <div className="card-header bg-light">
-        <h3 className="h5 mb-0">Answers Received</h3>
+        <h3 className="h5 mb-0">{t('answerList.title', language)}</h3>
       </div>
       <div className="card-body p-0">
         <div className="list-group list-group-flush">
           {combinedAnswers.length === 0 ? (
             <div className="list-group-item text-center text-muted py-3">
-              No answers submitted for this round yet.
+              {t('answerList.noAnswers', language)}
             </div>
           ) : (
             combinedAnswers.map((ans) => (
@@ -70,11 +73,11 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
                       {ans.playerName}
                       {!ans.isPending && ans.isCorrect !== null && (
                         <span className={`badge ms-2 ${ans.isCorrect ? 'bg-success' : 'bg-danger'}`}>
-                          {ans.isCorrect ? 'Correct' : 'Incorrect'}
+                          {ans.isCorrect ? t('answerList.correct', language) : t('answerList.incorrect', language)}
                         </span>
                       )}
                       {ans.isPending && (
-                        <span className="badge bg-info ms-2">Pending Evaluation</span>
+                        <span className="badge bg-info ms-2">{t('answerList.pendingEvaluation', language)}</span>
                       )}
                     </h4>
                     <p className="mb-0 answer-text">
@@ -86,18 +89,18 @@ const AnswerList: React.FC<AnswerListProps> = ({ onEvaluate }) => {
                       <button
                         className="btn btn-success btn-sm"
                         onClick={() => onEvaluate(ans.persistentPlayerId, true)}
-                        title="Mark as Correct"
+                        title={t('answerList.markAsCorrect', language)}
                       >
                         <i className="bi bi-check-lg me-1"></i>
-                        Correct
+                        {t('answerList.correct', language)}
                       </button>
                       <button
                         className="btn btn-danger btn-sm"
                         onClick={() => onEvaluate(ans.persistentPlayerId, false)}
-                        title="Mark as Incorrect"
+                        title={t('answerList.markAsIncorrect', language)}
                       >
                         <i className="bi bi-x-lg me-1"></i>
-                        Incorrect
+                        {t('answerList.incorrect', language)}
                       </button>
                     </div>
                   )}

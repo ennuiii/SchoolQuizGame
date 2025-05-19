@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { fabric } from 'fabric';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface FabricJsonToSvgProps {
   jsonData: string | undefined | null;
@@ -17,6 +19,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
   targetHeight = 400, // Default original height to match a 2:1 aspect ratio
   className 
 }) => {
+  const { language } = useLanguage();
   const [svgString, setSvgString] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true); // Added loading state
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -76,7 +79,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
           if (!tempCanvas) {
             if (isMounted) {
               setLoading(false);
-              setErrorMessage('Failed to initialize temporary canvas');
+              setErrorMessage(t('failedToInitializeCanvas', language));
             }
             reject(new Error("Temp canvas not init for JSON load."));
             return;
@@ -140,9 +143,9 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
                     setSvgString(enhancedSvg);
                   } else {
                     console.error('[FabricJsonToSvg] toSVG produced invalid output:', svg);
-                    setErrorMessage('Generated SVG is invalid');
+                    setErrorMessage(t('invalidSvg', language));
                     // Create a simple fallback SVG
-                    setSvgString(`<svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" text-anchor="middle" fill="#f00">Error: Invalid SVG</text></svg>`);
+                    setSvgString(`<svg viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg"><text x="50%" y="50%" text-anchor="middle" fill="#f00">${t('error', language)}: ${t('invalidSvg', language)}</text></svg>`);
                   }
                   setLoading(false); // Done loading
                 }
@@ -150,7 +153,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
               } catch (svgError: any) {
                 console.error('[FabricJsonToSvg] Error generating SVG:', svgError);
                 if (isMounted) {
-                  setErrorMessage('SVG generation failed: ' + svgError.message);
+                  setErrorMessage(t('svgGenerationFailed', language) + ': ' + svgError.message);
                   setLoading(false);
                 }
                 reject(svgError);
@@ -159,7 +162,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
           } catch (loadError: any) {
             console.error('[FabricJsonToSvg] Error in loadFromJSON:', loadError);
             if (isMounted) {
-              setErrorMessage('Failed to load JSON data: ' + loadError.message);
+              setErrorMessage(t('failedToLoadJson', language) + ': ' + loadError.message);
               setLoading(false);
             }
             reject(loadError);
@@ -201,8 +204,8 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
       } catch (error: any) {
         console.error('[FabricJsonToSvg] Error generating SVG:', error);
         if (isMounted) {
-          setErrorMessage(error.message || 'Failed to process drawing data');
-          setSvgString('<svg viewBox="0 0 100 75' + /* Fix for missing closing quote */ '"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#ff5555">Error</text></svg>');
+          setErrorMessage(error.message || t('failedToLoadJson', language));
+          setSvgString(`<svg viewBox="0 0 100 75"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#ff5555">${t('error', language)}</text></svg>`);
           setLoading(false); // Done loading (with error)
         }
       }
@@ -261,8 +264,8 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
         // This catch is for unhandled promise rejections from generateSvg itself, though try/catch inside should handle most.
         if (isMounted) {
             console.error("[FabricJsonToSvg] Async error in generateSvg execution:", err);
-            setErrorMessage(`Unexpected error: ${err.message}`);
-            setSvgString('<svg viewBox="0 0 100 75' + '"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#ff0000">Exec Error</text></svg>');
+            setErrorMessage(`${t('unexpectedError', language)}: ${err.message}`);
+            setSvgString('<svg viewBox="0 0 100 75"><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#ff0000">Exec Error</text></svg>');
             setLoading(false);
         }
     });
@@ -274,10 +277,10 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
         tempCanvas = null;
       }
     };
-  }, [jsonData, targetWidth, targetHeight]);
+  }, [jsonData, targetWidth, targetHeight, language]);
 
   if (loading) {
-    return <div className={`${className || ''} fabric-svg-loading`} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{color:'#777'}}>Loading...</span></div>;
+    return <div className={`${className || ''} fabric-svg-loading`} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{color:'#777'}}>{t('loading', language)}...</span></div>;
   }
 
   if (errorMessage) {
@@ -292,7 +295,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
         border: '1px dashed #ff5555',
         padding: '10px'
       }}>
-        <span style={{color:'#ff5555', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px'}}>Error</span>
+        <span style={{color:'#ff5555', fontSize: '0.9rem', fontWeight: 'bold', marginBottom: '5px'}}>{t('error', language)}</span>
         <span style={{color:'#888', fontSize: '0.8rem', textAlign: 'center'}}>{errorMessage}</span>
       </div>
     );
@@ -300,7 +303,7 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
 
   if (!svgString) {
     // Render a placeholder or nothing if SVG is not ready or jsonData is null
-    return <div className={`${className || ''} fabric-svg-placeholder`} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ddd' }}><span style={{color:'#888', fontSize: '0.9rem', fontStyle: 'italic'}}>No drawing submitted</span></div>;
+    return <div className={`${className || ''} fabric-svg-placeholder`} style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed #ddd' }}><span style={{color:'#888', fontSize: '0.9rem', fontStyle: 'italic'}}>{t('noDrawingSubmitted', language)}</span></div>;
   }
 
   // The parent container of this component should handle the final display size and aspect ratio.

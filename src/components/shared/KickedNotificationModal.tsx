@@ -1,4 +1,6 @@
 import React from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface KickedNotificationModalProps {
   isOpen: boolean;
@@ -11,6 +13,8 @@ const KickedNotificationModal: React.FC<KickedNotificationModalProps> = ({
   reason, 
   onAcknowledge 
 }) => {
+  const { language } = useLanguage();
+
   if (!isOpen) {
     return null;
   }
@@ -25,12 +29,12 @@ const KickedNotificationModal: React.FC<KickedNotificationModalProps> = ({
       <div className="modal-dialog modal-dialog-centered" role="document">
         <div className="modal-content">
           <div className="modal-header">
-            <h5 className="modal-title">Notification</h5>
+            <h5 className="modal-title">{t('notification', language)}</h5>
             {/* No close button in header, force acknowledgement */}
           </div>
           <div className="modal-body">
-            <p>You have been removed from the room.</p>
-            <p><strong>Reason:</strong> {reason || 'No reason provided.'}</p>
+            <p>{t('kickedFromRoom', language)}</p>
+            <p><strong>{t('reason', language)}:</strong> {reason || t('noReasonProvided', language)}</p>
           </div>
           <div className="modal-footer">
             <button 
@@ -38,7 +42,7 @@ const KickedNotificationModal: React.FC<KickedNotificationModalProps> = ({
               className="btn btn-primary" 
               onClick={onAcknowledge}
             >
-              OK
+              {t('ok', language)}
             </button>
           </div>
         </div>

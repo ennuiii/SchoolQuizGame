@@ -5,6 +5,8 @@ import type { PlayerBoard } from '../../types/game';
 import { useRoom } from '../../contexts/RoomContext';
 import socketService from '../../services/socketService';
 import { fabric } from 'fabric';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 // Match the BoardData type used in Player.tsx
 interface BoardData {
@@ -57,6 +59,7 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   const { connectionStatus, roomCode, persistentPlayerId } = useRoom();
   const [lastSentState, setLastSentState] = useState('');
   const [boardRestored, setBoardRestored] = useState(false);
+  const { language } = useLanguage();
   
   // Add state for brush color and size
   const [brushColor, setBrushColor] = useState(CHALK_COLORS[0]); // Default white chalk
@@ -249,14 +252,14 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
       <div className="drawing-board-external-controls d-flex justify-content-between w-100 mt-2 mb-2">
         <div className="drawing-controls-left d-flex align-items-center gap-2">
           <div className="brush-size-controls">
-            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>Size:</label>
+            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.size', language)}:</label>
             <div className="btn-group">
               {BRUSH_SIZES.map((size) => (
                 <button
                   key={size.name}
                   className={`btn btn-sm ${brushSize === size.value ? 'btn-light' : 'btn-outline-light'}`}
                   onClick={() => setBrushSize(size.value)}
-                  title={`${size.name} Brush (${size.value}px)`}
+                  title={`${size.name} ${t('drawingBoard.brush', language)} (${size.value}px)`}
                 >
                   {size.name}
                 </button>
@@ -265,18 +268,18 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
           </div>
           
           <div className="color-palette d-flex align-items-center ms-3">
-            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>Color:</label>
+            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.color', language)}:</label>
             <div className="d-flex gap-1">
               {CHALK_COLORS.map((color) => (
                 <button
                   key={color}
                   className="btn btn-sm color-button p-0"
                   onClick={() => setBrushColor(color)}
-                  title={color === '#FFFFFF' ? 'White Chalk' : 
-                         color === '#FFE66D' ? 'Yellow Chalk' : 
-                         color === '#7BDFF2' ? 'Blue Chalk' : 
-                         color === '#FF6B6B' ? 'Red Chalk' : 
-                         color === '#B1E77B' ? 'Green Chalk' : 'Pink Chalk'}
+                  title={color === '#FFFFFF' ? t('drawingBoard.whiteChalk', language) : 
+                         color === '#FFE66D' ? t('drawingBoard.yellowChalk', language) : 
+                         color === '#7BDFF2' ? t('drawingBoard.blueChalk', language) : 
+                         color === '#FF6B6B' ? t('drawingBoard.redChalk', language) : 
+                         color === '#B1E77B' ? t('drawingBoard.greenChalk', language) : t('drawingBoard.pinkChalk', language)}
                   style={{
                     width: '24px',
                     height: '24px',
@@ -305,7 +308,7 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
               fontWeight: 'bold'
             }}
           >
-            Clear Canvas
+            {t('drawingBoard.clearCanvas', language)}
           </button>
         </div>
       </div>
@@ -324,7 +327,7 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
         {/* The submittedAnswer overlay can stay inside if it's styled as an overlay itself */}
         {submittedAnswer && (
           <div className="alert alert-info drawing-submitted-overlay">
-            Drawing submitted! You cannot make further changes.
+            {t('drawingBoard.submitted', language)}
           </div>
         )}
       </div>

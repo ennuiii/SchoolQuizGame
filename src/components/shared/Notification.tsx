@@ -1,4 +1,6 @@
 import React from 'react';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface NotificationProps {
   type: 'success' | 'danger' | 'warning' | 'info';
@@ -15,18 +17,20 @@ const Notification: React.FC<NotificationProps> = ({
   icon,
   onClose
 }) => {
+  const { language } = useLanguage();
+
   const getIcon = () => {
     if (icon) return icon;
     
     switch (type) {
       case 'success':
-        return <span role="img" aria-label="success" style={{ fontSize: '1.5rem' }}>✓</span>;
+        return <span role="img" aria-label={t('notificationTypes.success', language)} style={{ fontSize: '1.5rem' }}>✓</span>;
       case 'danger':
-        return <span role="img" aria-label="error" style={{ fontSize: '1.5rem' }}>✗</span>;
+        return <span role="img" aria-label={t('notificationTypes.error', language)} style={{ fontSize: '1.5rem' }}>✗</span>;
       case 'warning':
-        return <span role="img" aria-label="warning" style={{ fontSize: '1.5rem' }}>⚠</span>;
+        return <span role="img" aria-label={t('notificationTypes.warning', language)} style={{ fontSize: '1.5rem' }}>⚠</span>;
       case 'info':
-        return <span role="img" aria-label="info" style={{ fontSize: '1.5rem' }}>ℹ</span>;
+        return <span role="img" aria-label={t('notificationTypes.info', language)} style={{ fontSize: '1.5rem' }}>ℹ</span>;
       default:
         return null;
     }
@@ -46,7 +50,7 @@ const Notification: React.FC<NotificationProps> = ({
           type="button"
           className="btn-close"
           onClick={onClose}
-          aria-label="Close"
+          aria-label={t('notificationTypes.close', language)}
         />
       )}
     </div>

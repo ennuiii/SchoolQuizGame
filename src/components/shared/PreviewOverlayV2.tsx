@@ -4,6 +4,8 @@ import { useGame } from '../../contexts/GameContext';
 import type { Player } from '../../types/game';
 import { useCanvas } from '../../contexts/CanvasContext';
 import FabricJsonToSvg from '../shared/FabricJsonToSvg';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface AnswerSubmission {
   persistentPlayerId: string;
@@ -53,6 +55,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
 }) => {
   const context = useGame();
   const { setDrawingEnabled } = useCanvas();
+  const { language } = useLanguage();
 
   if (!context.previewMode.isActive) return null;
 
@@ -76,10 +79,10 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
       <div className="classroom-chalkboard" style={{ position: 'static', margin: '0 auto', left: 'unset', top: 'unset', width: '100%', maxWidth: 900, marginBottom: 48 }}>
         <div className="classroom-chalkboard-content">
           <div className="classroom-chalkboard-grade">
-            {currentQuestion ? <><i className="bi bi-easel me-2"></i>{`${currentQuestion.grade}. Klasse – ${currentQuestion.subject}`}</> : ''}
+            {currentQuestion ? <><i className="bi bi-easel me-2"></i>{`${currentQuestion.grade}. ${t('class', language)} – ${currentQuestion.subject}`}</> : ''}
           </div>
           <div className="classroom-chalkboard-question">
-            {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : 'No question'}
+            {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : t('noQuestion', language)}
           </div>
         </div>
         {/* Removed sponge */}
@@ -137,10 +140,10 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 {answer !== undefined && (
                   <div className="notepad-answer mt-2 mb-2">
                     <span className="notepad-label">
-                      <i className="bi bi-card-text me-1"></i>Answer:
+                      <i className="bi bi-card-text me-1"></i>{t('answer', language)}:
                     </span>
                     <span className="notepad-text ms-2">
-                      {answer.hasDrawing && !answer.answer ? "(Drawing Only)" : (answer.answer || "-")}
+                      {answer.hasDrawing && !answer.answer ? t('drawingOnly', language) : (answer.answer || "-")}
                     </span>
                   </div>
                 )}
@@ -150,16 +153,16 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     <button 
                         className="btn btn-success btn-sm" 
                         onClick={() => onEvaluate(player.persistentPlayerId, true)} 
-                        title="Mark as Correct"
+                        title={t('markAsCorrect', language)}
                     >
-                        <i className="bi bi-check-circle-fill me-1"></i>Correct
+                        <i className="bi bi-check-circle-fill me-1"></i>{t('correct', language)}
                     </button>
                     <button 
                         className="btn btn-danger btn-sm" 
                         onClick={() => onEvaluate(player.persistentPlayerId, false)} 
-                        title="Mark as Incorrect"
+                        title={t('markAsIncorrect', language)}
                     >
-                        <i className="bi bi-x-circle-fill me-1"></i>Incorrect
+                        <i className="bi bi-x-circle-fill me-1"></i>{t('incorrect', language)}
                     </button>
                   </div>
                 )}
@@ -172,8 +175,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     }}
                   >
                     {evaluation ? 
-                      <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : 
-                      <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>
+                      <><i className="bi bi-patch-check-fill me-1"></i>{t('correct', language)}</> : 
+                      <><i className="bi bi-patch-exclamation-fill me-1"></i>{t('incorrect', language)}</>
                     }
                   </span>
                 )}
