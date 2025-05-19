@@ -157,6 +157,12 @@ export class SocketService {
     console.log('[SocketService] Disconnected, now reconnecting with fresh connection...');
     this.isReconnecting = false;
     
+    // Set parameters for the initial connection to bypass player name requirement
+    this.setConnectionParams({ isInitialConnection: true });
+    
+    // Set a temporary player name for authentication if needed
+    this.setPlayerDetails('TemporaryUser');
+    
     // Now initiate a new connection
     return this.connect();
   }

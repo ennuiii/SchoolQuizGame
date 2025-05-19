@@ -19,8 +19,13 @@ const Home: React.FC = () => {
   }, [playBackgroundMusic]);
 
   const handleResetConnection = async () => {
-    // Start by clearing persistent player ID
+    // Start by clearing all stored connection data
     socketService.clearPersistentPlayerId();
+    localStorage.removeItem('roomCode');
+    sessionStorage.removeItem('roomCode');
+    sessionStorage.removeItem('playerName');
+    sessionStorage.removeItem('isGameMaster');
+    sessionStorage.removeItem('isSpectator');
     
     // Generate a new ID
     const newPlayerId = `P-${uuidv4()}`;
@@ -33,7 +38,7 @@ const Home: React.FC = () => {
       toast.success(t('home.resetConnectionMsg', language));
     } catch (error) {
       console.error("[Home.tsx] Error resetting connection:", error);
-      toast.error(t('home.connectionResetError', language) || "Failed to reset connection. Please refresh the page.");
+      toast.error(t('home.connectionResetError', language) || "Failed to reset connection. Please try again or reload the page.");
     }
   };
 
