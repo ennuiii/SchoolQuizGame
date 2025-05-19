@@ -36,6 +36,119 @@ app.use(cors({
 // Store active game rooms and game recaps
 const gameRooms = {};
 
+// Persistent storage - file path
+const roomStatePath = path.join(__dirname, 'room-state.json');
+
+// Function to save game room state to file
+function saveRoomState() {
+  try {
+    // Create a simplified copy of gameRooms to save (without circular references)
+    const roomsToSave = {};
+    Object.entries(gameRooms).forEach(([roomCode, room]) => {
+      // Skip rooms that are marked as concluded
+      if (room.isConcluded) return;
+      
+      // Create a simplified copy without websocket/circular references
+      const simplifiedRoom = {
+        roomCode: room.roomCode,
+        gamemasterPersistentId: room.gamemasterPersistentId,
+        players: room.players.map(player => ({
+          persistentPlayerId: player.persistentPlayerId,
+          name: player.name,
+          lives: player.lives,
+          isActive: player.isActive,
+          isSpectator: player.isSpectator,
+          joinedAsSpectator: player.joinedAsSpectator,
+          answers: player.answers
+        })),
+        started: room.started,
+        questions: room.questions,
+        currentQuestionIndex: room.currentQuestionIndex,
+        timeLimit: room.timeLimit,
+        questionStartTime: room.questionStartTime,
+        isStreamerMode: room.isStreamerMode,
+        isConcluded: room.isConcluded,
+        lastSaved: new Date().toISOString()
+      };
+      
+      roomsToSave[roomCode] = simplifiedRoom;
+    });
+    
+    // Write to file (pretty-print for debugging)
+    fs.writeFileSync(roomStatePath, JSON.stringify(roomsToSave, null, 2));
+    console.log(`[Server] Saved ${Object.keys(roomsToSave).length} rooms to persistent storage`);
+  } catch (error) {
+    console.error('[Server] Error saving room state:', error);
+  }
+}
+
+// Function to load game room state from file
+function loadRoomState() {
+  try {
+    if (!fs.existsSync(roomStatePath)) {
+      console.log('[Server] No room state file found, starting with empty rooms');
+      return;
+    }
+    
+    const savedRooms = JSON.parse(fs.readFileSync(roomStatePath, 'utf8'));
+    console.log(`[Server] Loading ${Object.keys(savedRooms).length} rooms from persistent storage`);
+    
+    // Restore rooms to gameRooms
+    Object.entries(savedRooms).forEach(([roomCode, savedRoom]) => {
+      // Skip too old rooms (more than 24 hours old)
+      const lastSaved = new Date(savedRoom.lastSaved);
+      const now = new Date();
+      const hoursDiff = Math.abs(now - lastSaved) / 36e5; // 36e5 is the number of milliseconds in an hour
+      
+      if (hoursDiff > 24) {
+        console.log(`[Server] Skipping room ${roomCode} as it's too old (${hoursDiff.toFixed(1)} hours)`);
+        return;
+      }
+      
+      // Create a new room with the saved data
+      const room = createGameRoom(
+        savedRoom.roomCode, 
+        null, // will be updated when GM reconnects
+        savedRoom.gamemasterPersistentId
+      );
+      
+      // Restore room properties
+      room.started = savedRoom.started;
+      room.questions = savedRoom.questions;
+      room.currentQuestionIndex = savedRoom.currentQuestionIndex;
+      room.timeLimit = savedRoom.timeLimit;
+      room.questionStartTime = savedRoom.questionStartTime;
+      room.isStreamerMode = savedRoom.isStreamerMode;
+      room.isConcluded = savedRoom.isConcluded;
+      
+      // Restore players (but mark them as inactive until they reconnect)
+      room.players = savedRoom.players.map(player => ({
+        ...player,
+        id: null, // will be updated when player reconnects
+        isActive: false, // mark as inactive until reconnect
+        disconnectTimer: null
+      }));
+      
+      // Add room to gameRooms
+      gameRooms[roomCode] = room;
+      console.log(`[Server] Restored room ${roomCode} with ${room.players.length} players`);
+    });
+  } catch (error) {
+    console.error('[Server] Error loading room state:', error);
+  }
+}
+
+// Set up periodic saving (every 30 seconds)
+const SAVE_INTERVAL_MS = 30 * 1000; // 30 seconds
+setInterval(saveRoomState, SAVE_INTERVAL_MS);
+
+// Load saved rooms on startup
+try {
+  loadRoomState();
+} catch (error) {
+  console.error('[Server] Failed to load room state on startup:', error);
+}
+
 // Game Analytics
 const gameAnalytics = {
   games: {},
@@ -113,7 +226,7 @@ const gameAnalytics = {
 
 // Helper function to create a new game room with consistent structure
 function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
-  return {
+  const newRoom = {
     roomCode,
     gamemaster: gamemasterId,
     gamemasterSocketId: gamemasterId,
@@ -132,8 +245,18 @@ function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
     playerBoards: {},
     submissionPhaseOver: false,
     isConcluded: false,
-    isStreamerMode: false
+    isStreamerMode: false,
+    createdAt: new Date().toISOString(),
+    lastActivity: new Date().toISOString()
   };
+  
+  // Log room creation as a critical event
+  logEvent('ROOM_CREATED', {
+    roomCode,
+    gamemasterPersistentId
+  });
+  
+  return newRoom;
 }
 
 // Helper function to get full game state for a room
@@ -440,11 +563,53 @@ io.use((socket, next) => {
 
 // Debug endpoint to view active rooms
 app.get('/debug/rooms', (req, res) => {
+  const safeRoomsCopy = {};
+  
+  // Create a safe copy without circular references
+  Object.entries(gameRooms).forEach(([roomCode, room]) => {
+    safeRoomsCopy[roomCode] = {
+      roomCode: room.roomCode,
+      gamemasterPersistentId: room.gamemasterPersistentId,
+      playerCount: room.players.length,
+      started: room.started,
+      currentQuestionIndex: room.currentQuestionIndex,
+      gamemasterDisconnected: room.gamemasterDisconnected,
+      isStreamerMode: room.isStreamerMode,
+      isConcluded: room.isConcluded,
+      createdAt: room.createdAt || 'unknown',
+      lastActivity: room.lastActivity || 'unknown'
+    };
+  });
+  
   res.json({
-    rooms: Object.keys(gameRooms),
-    details: gameRooms
+    serverTime: new Date().toISOString(),
+    activeRoomCount: Object.keys(gameRooms).length,
+    rooms: safeRoomsCopy
   });
 });
+
+// Diagnostic logger function for critical events
+function logEvent(eventType, details) {
+  const timestamp = new Date().toISOString();
+  const logEntry = {
+    eventType,
+    timestamp,
+    details
+  };
+  
+  console.log(`[SERVER-EVENT] ${eventType}: ${JSON.stringify(details)}`);
+  
+  // Optionally: Save critical events to a log file
+  try {
+    const logPath = path.join(__dirname, 'critical-events.log');
+    fs.appendFileSync(logPath, JSON.stringify(logEntry) + '\n');
+  } catch (error) {
+    console.error('[Server] Failed to write to event log:', error);
+  }
+  
+  // Automatically save room state after critical events
+  saveRoomState();
+}
 
 // Game recap endpoints
 app.get('/api/recaps', (req, res) => {
@@ -702,11 +867,14 @@ io.on('connection', (socket) => {
     
     const room = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId);
     room.isStreamerMode = isStreamerMode || false;
+    room.lastActivity = new Date().toISOString();
     gameRooms[finalRoomCode] = room;
 
     socket.join(finalRoomCode);
     socket.roomCode = finalRoomCode;
     socket.emit('room_created', { roomCode: finalRoomCode, isStreamerMode: room.isStreamerMode });
+    
+    // Log room creation
     console.log(`[Server] Room created successfully:`, {
       roomCode: finalRoomCode,
       gamemaster: socket.id,
@@ -714,6 +882,9 @@ io.on('connection', (socket) => {
       isStreamerMode: room.isStreamerMode,
       timestamp: new Date().toISOString()
     });
+    
+    // Save room state after creation
+    saveRoomState();
   });
 
   // Handle player joining
@@ -738,6 +909,9 @@ io.on('connection', (socket) => {
     }
 
     const room = gameRooms[roomCode];
+    
+    // Update last activity timestamp
+    room.lastActivity = new Date().toISOString();
     
     // Explicitly mark as NOT gamemaster
     socket.data.isGameMaster = false;
@@ -1931,22 +2105,33 @@ io.on('connection', (socket) => {
       // Set timer only if this is not likely a temporary disconnect
       // If it's a temporary disconnect, Socket.IO CSR will handle reconnection
       if (!isTemporaryDisconnect) {
-        // Start a timer to end the game if GM doesn't reconnect
-        const maxDisconnectionDuration = 2 * 60 * 1000; // 2 minutes, matching CSR setting
+        // Extend the timeout period for game master - from 2 minutes to 15 minutes
+        // This gives more time for reconnection and reduces chance of accidental room deletion
+        const maxDisconnectionDuration = 15 * 60 * 1000; // 15 minutes
         const gracePeriod = 10 * 1000; // Additional 10 seconds grace period
+        
+        // Force a room state save now, so we have the latest state
+        saveRoomState();
         
         room.gamemasterDisconnectTimer = setTimeout(() => {
           // If GM is still disconnected when timer fires
           if (room.gamemasterDisconnected) {
-            console.log(`[Server] Game Master did not reconnect within allowed time. Ending game in room ${roomCode}`);
+            console.log(`[Server] Game Master did not reconnect within allowed time (15 minutes). Ending game in room ${roomCode}`);
             
             // End the game
-            io.to(roomCode).emit('game_over', { reason: 'Game Master disconnected' });
+            io.to(roomCode).emit('game_over', { reason: 'Game Master disconnected for too long (15 minutes)' });
+            
+            // Make one final save before marking the room as inactive
+            room.isConcluded = true;
+            saveRoomState();
             
             // Clean up the room
             delete gameRooms[roomCode];
           }
         }, maxDisconnectionDuration + gracePeriod);
+      } else {
+        // Even for temporary disconnects, save the current state
+        saveRoomState();
       }
     }
     // Handle Player disconnect
