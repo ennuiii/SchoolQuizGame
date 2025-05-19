@@ -645,6 +645,44 @@ export class SocketService {
     });
     await this.robustEmit('update_avatar', { roomCode, persistentPlayerId, avatarSvg });
   }
+
+  // WebRTC Signaling Methods
+  async sendWebRTCReady(roomCode: string): Promise<void> {
+    // Get current player details
+    const playerName = sessionStorage.getItem('playerName') || 'Unknown';
+    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
+    
+    console.log(`[SocketService] Emitting 'webrtc-ready' for room ${roomCode}`, {
+      roomCode,
+      playerName,
+      isGameMaster,
+      persistentPlayerId: this.persistentPlayerId,
+      socketId: this.getSocketId()
+    });
+    
+    // Include player name and role in the signal
+    await this.robustEmit('webrtc-ready', { 
+      roomCode,
+      playerName,
+      isGameMaster,
+      persistentPlayerId: this.persistentPlayerId
+    });
+  }
+
+  async sendWebRTCOffer(offer: RTCSessionDescriptionInit, toSocketId: string, fromSocketId: string): Promise<void> {
+    console.log(`[SocketService] Sending WebRTC offer from ${fromSocketId} to ${toSocketId}`);
+    await this.robustEmit('webrtc-offer', { offer, to: toSocketId, from: fromSocketId });
+  }
+
+  async sendWebRTCAnswer(answer: RTCSessionDescriptionInit, toSocketId: string, fromSocketId: string): Promise<void> {
+    console.log(`[SocketService] Sending WebRTC answer from ${fromSocketId} to ${toSocketId}`);
+    await this.robustEmit('webrtc-answer', { answer, to: toSocketId, from: fromSocketId });
+  }
+
+  async sendWebRTCICECandidate(candidate: RTCIceCandidate, toSocketId: string, fromSocketId: string): Promise<void> {
+    // console.log(`[SocketService] Sending WebRTC ICE candidate from ${fromSocketId} to ${toSocketId}`); // Can be verbose
+    await this.robustEmit('webrtc-ice-candidate', { candidate, to: toSocketId, from: fromSocketId });
+  }
 }
 
 const socketService = new SocketService();

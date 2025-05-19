@@ -2069,19 +2069,24 @@ io.on('connection', (socket) => {
 
   // Handle disconnection
   socket.on('disconnect', (reason) => {
-    // Get data from socket
-    const roomCode = socket.roomCode;
+    const roomCode = socket.roomCode; // Assuming socket.roomCode is set upon joining a room
     const { persistentPlayerId, playerName, isGameMaster } = socket.data || {};
     
-    console.log(`[Server] Socket disconnected:`, {
+    console.log(`[Server] Socket disconnected (WebRTC check):`, {
       socketId: socket.id, 
       persistentPlayerId, 
       playerName, 
       isGameMaster, 
       reason, 
       roomCode,
+      isWebRTCReady: socket.data.isWebRTCReady,
       timestamp: new Date().toISOString()
     });
+
+    if (roomCode && gameRooms[roomCode] && socket.data.isWebRTCReady) {
+      console.log(`[WebRTC] Emitting 'webrtc-user-left' for ${socket.id} in room ${roomCode}`);
+      io.to(roomCode).emit('webrtc-user-left', { socketId: socket.id });
+    }
     
     // If not in a room, nothing to do
     if (!roomCode || !gameRooms[roomCode]) {
@@ -2412,6 +2417,70 @@ io.on('connection', (socket) => {
       persistentPlayerId,
       avatarSvg
     });
+  });
+
+  // WebRTC Signaling Handlers
+  socket.on('webrtc-ready', ({ roomCode }) => {
+    if (!gameRooms[roomCode]) {
+      console.error(`[WebRTC] 'webrtc-ready' failed - Room ${roomCode} not found for socket ${socket.id}`);
+      return;
+    }
+    socket.data.isWebRTCReady = true;
+    console.log(`[WebRTC] Socket ${socket.id} (${socket.data.playerName || 'N/A'}) in room ${roomCode} is ready for WebRTC.`);
+
+    const room = gameRooms[roomCode];
+    const otherReadyPeers = room.players
+      .filter(p => p.id !== socket.id && io.sockets.sockets.get(p.id)?.data.isWebRTCReady)
+      .map(p => ({
+        socketId: p.id,
+        persistentPlayerId: p.persistentPlayerId,
+        playerName: p.name,
+        isGameMaster: p.persistentPlayerId === room.gamemasterPersistentId // Check if the peer is GM
+      }));
+    
+    if (io.sockets.sockets.get(room.gamemasterSocketId)?.data.isWebRTCReady && room.gamemasterSocketId !== socket.id) {
+        const gmSocket = io.sockets.sockets.get(room.gamemasterSocketId);
+        if (gmSocket) {
+             otherReadyPeers.push({
+                socketId: room.gamemasterSocketId,
+                persistentPlayerId: room.gamemasterPersistentId,
+                playerName: gmSocket.data.playerName || 'GameMaster',
+                isGameMaster: true
+            });
+        }
+    }
+    
+    // Filter out duplicates just in case GM is also in players list
+    const uniqueOtherReadyPeers = Array.from(new Set(otherReadyPeers.map(p => p.socketId)))
+                                     .map(id => otherReadyPeers.find(p => p.socketId === id));
+
+    socket.emit('webrtc-existing-peers', { peers: uniqueOtherReadyPeers });
+
+    // Notify other ready peers about this new ready peer
+    const newPeerData = {
+      socketId: socket.id,
+      persistentPlayerId: socket.data.persistentPlayerId,
+      playerName: socket.data.playerName,
+      isGameMaster: socket.data.isGameMaster
+    };
+    uniqueOtherReadyPeers.forEach(peer => {
+      io.to(peer.socketId).emit('webrtc-new-peer', { newPeer: newPeerData });
+    });
+  });
+
+  socket.on('webrtc-offer', ({ offer, to, from }) => {
+    console.log(`[WebRTC] Relaying offer from ${from} to ${to}`);
+    io.to(to).emit('webrtc-offer', { offer, from });
+  });
+
+  socket.on('webrtc-answer', ({ answer, to, from }) => {
+    console.log(`[WebRTC] Relaying answer from ${from} to ${to}`);
+    io.to(to).emit('webrtc-answer', { answer, from });
+  });
+
+  socket.on('webrtc-ice-candidate', ({ candidate, to, from }) => {
+    // console.log(`[WebRTC] Relaying ICE candidate from ${from} to ${to}`); // Can be very verbose
+    io.to(to).emit('webrtc-ice-candidate', { candidate, from });
   });
 });
 

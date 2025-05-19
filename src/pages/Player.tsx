@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
@@ -19,6 +19,8 @@ import ReviewNotification from '../components/player/ReviewNotification';
 import SettingsControl from '../components/shared/SettingsControl';
 import { useLanguage } from '../contexts/LanguageContext';
 import { t } from '../i18n';
+import { useWebRTC } from '../contexts/WebRTCContext';
+import WebcamDisplay from '../components/shared/WebcamDisplay';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -77,6 +79,17 @@ const Player: React.FC = () => {
   const { getCurrentCanvasSVG, clear, canvas } = useCanvas();
 
   const { language } = useLanguage();
+
+  const { localStream, startLocalStream, initializeWebRTC, stopLocalStream, remoteStreams } = useWebRTC();
+  const [isWebcamSidebarVisible, setIsWebcamSidebarVisible] = useState<boolean>(false);
+  const [webcamPosition, setWebcamPosition] = useState({ x: 20, y: 50 });
+  const [webcamSize, setWebcamSize] = useState({ width: 450, height: 400 });
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
+  const dragRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const isResizingRef = useRef(false);
+  const offsetRef = useRef({ x: 0, y: 0 });
 
   // Determine if player has already submitted answer from server state
   // This solves the issue where player can submit again after page refresh
@@ -502,6 +515,87 @@ const Player: React.FC = () => {
     }
   }, [isRoomLoading, receivedGameState, connectionStatus, players.length]);
 
+  // Add drag functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (dragRef.current && (e.target as Element).closest('.webcam-handle')) {
+      isDraggingRef.current = true;
+      offsetRef.current = {
+        x: e.clientX - webcamPosition.x,
+        y: e.clientY - webcamPosition.y
+      };
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDraggingRef.current) {
+      setWebcamPosition({
+        x: e.clientX - offsetRef.current.x,
+        y: e.clientY - offsetRef.current.y
+      });
+    } else if (isResizingRef.current) {
+      // Calculate new dimensions
+      const newWidth = Math.max(300, resizeStartSize.width + (e.clientX - resizeStartPos.x));
+      const newHeight = Math.max(200, resizeStartSize.height + (e.clientY - resizeStartPos.y));
+      
+      setWebcamSize({
+        width: newWidth,
+        height: newHeight
+      });
+    }
+  };
+
+  // Start resize operation
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizingRef.current = true;
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({ width: webcamSize.width, height: webcamSize.height });
+    if (dragRef.current) {
+      dragRef.current.classList.add('resizing');
+    }
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+    isResizingRef.current = false;
+    if (dragRef.current) {
+      dragRef.current.classList.remove('resizing');
+    }
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  // Clean up event listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleToggleWebcamSidebar = async () => {
+    if (!isWebcamSidebarVisible) {
+      await startLocalStream(); 
+      setIsWebcamSidebarVisible(true);
+    } else {
+      stopLocalStream(); // This will also close peer connections via WebRTCContext
+      setIsWebcamSidebarVisible(false);
+    }
+  };
+
+  // Initialize WebRTC once local stream is available and feature is enabled
+  useEffect(() => {
+    if (isWebcamSidebarVisible && localStream) {
+      console.log('[PlayerPage] Webcam sidebar visible and local stream active, initializing WebRTC.');
+      initializeWebRTC();
+    }
+  }, [isWebcamSidebarVisible, localStream, initializeWebRTC]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -713,95 +807,171 @@ const Player: React.FC = () => {
   };
 
   return (
-    <>
-      <SettingsControl />
-      <div className="container py-4">
-        <LoadingOverlay isVisible={isLoading && (players.length === 0 || !receivedGameState)} />
-        <ConnectionStatus showDetails={true} />
-        {errorMsg && (
-          <div className="alert alert-danger">{errorMsg}</div>
-        )}
-        {connectionStatus === 'disconnected' && (
-          <div className="alert alert-warning">
-            <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
-          </div>
-        )}
-        <div className="row g-3">
-          <div className="col-12 col-md-8">
-            {!gameStarted ? (
-              <div className="card p-4 text-center">
-                <h2 className="h4 mb-3">{t('playerPage.waitingForGM', language)}</h2>
-                <p>{t('playerPage.getReady', language)}</p>
-                <div className="spinner-border text-primary mx-auto mt-3" role="status">
-                  <span className="visually-hidden">{t('loading', language)}</span>
-                </div>
-              </div>
-            ) : (
-              <>
-                <div className="d-flex justify-content-between align-items-center mb-3">
-                  <div style={{ flexGrow: 1, marginRight: '1rem' }}>
-                    <QuestionCard
-                      question={currentQuestion}
-                      timeRemaining={timeRemaining}
-                      onSubmit={handleAnswerSubmit}
-                      submitted={submittedAnswerLocal || hasSubmittedToServer}
-                    />
+    <div className="vh-100 player-page-layout position-relative">
+      {/* Main Content Area - Full Width */}
+      <div 
+        className="main-content-area p-0" 
+        style={{ 
+          height: '100vh', 
+          overflowY: 'auto',
+          width: '100%'
+        }}
+      >
+        <SettingsControl />
+        <button 
+          className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'} position-fixed top-0 start-0 m-2`}
+          onClick={handleToggleWebcamSidebar}
+          style={{zIndex: 2000}} // Ensure it's above other content
+          title={isWebcamSidebarVisible ? 'Hide Webcams' : 'Show Webcams'}
+        >
+          <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
+        </button>
+
+        <div className="container py-4">
+          <LoadingOverlay isVisible={isLoading && (players.length === 0 || !receivedGameState)} />
+          <ConnectionStatus showDetails={true} />
+          {errorMsg && (
+            <div className="alert alert-danger">{errorMsg}</div>
+          )}
+          {connectionStatus === 'disconnected' && (
+            <div className="alert alert-warning">
+              <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
+            </div>
+          )}
+          <div className="row g-3">
+            <div className="col-12 col-md-8">
+              {!gameStarted ? (
+                <div className="card p-4 text-center">
+                  <h2 className="h4 mb-3">{t('playerPage.waitingForGM', language)}</h2>
+                  <p>{t('playerPage.getReady', language)}</p>
+                  <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                    <span className="visually-hidden">{t('loading', language)}</span>
                   </div>
-                  {timeLimit !== null && timeLimit < 99999 && (
-                    <Timer isActive={isTimerRunning} showSeconds={true} />
-                  )}
                 </div>
-                
-                <DrawingBoard
-                  key={canvasKey}
-                  onUpdate={handleBoardUpdate}
-                  disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
-                />
-                
-                <div className="input-group mb-3">
-                  <input
-                    type="text"
-                    className="form-control form-control-lg"
-                    placeholder={t('answerInput.placeholder', language)}
-                    value={answer}
-                    onChange={handleAnswerChange}
-                    disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+              ) : (
+                <>
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <div style={{ flexGrow: 1, marginRight: '1rem' }}>
+                      <QuestionCard
+                        question={currentQuestion}
+                        timeRemaining={timeRemaining}
+                        onSubmit={handleAnswerSubmit}
+                        submitted={submittedAnswerLocal || hasSubmittedToServer}
+                      />
+                    </div>
+                    {timeLimit !== null && timeLimit < 99999 && (
+                      <Timer isActive={isTimerRunning} showSeconds={true} />
+                    )}
+                  </div>
+                  
+                  <DrawingBoard
+                    key={canvasKey}
+                    onUpdate={handleBoardUpdate}
+                    disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
                   />
-                  <button
-                    className="btn btn-primary"
-                    type="button"
-                    onClick={() => handleAnswerSubmit(answer)}
-                    disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
-                  >
-                    {t('playerPage.submitAnswer', language)}
-                  </button>
-                </div>
-                
-                {(submittedAnswerLocal || hasSubmittedToServer) && !currentQuestion?.answer && (
-                  <div className="alert alert-info mt-3">
-                    {t('playerPage.answerSubmitted', language)}
+                  
+                  <div className="input-group mb-3">
+                    <input
+                      type="text"
+                      className="form-control form-control-lg"
+                      placeholder={t('answerInput.placeholder', language)}
+                      value={answer}
+                      onChange={handleAnswerChange}
+                      disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+                    />
+                    <button
+                      className="btn btn-primary"
+                      type="button"
+                      onClick={() => handleAnswerSubmit(answer)}
+                      disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+                    >
+                      {t('playerPage.submitAnswer', language)}
+                    </button>
                   </div>
-                )}
-                {connectionStatus !== 'connected' && (
-                  <div className="alert alert-warning mt-3">
-                    {t('playerPage.disconnected', language)}
-                  </div>
-                )}
-              </>
-            )}
-            <PreviewOverlayV2
-              onFocus={() => {}}
-              onClose={() => {}}
-              isGameMaster={false}
-            />
-          </div>
-          <div className="col-12 col-md-4">
-            <RoomCode />
-            <PlayerList title={t('playerPage.otherPlayers', language)} />
+                  
+                  {(submittedAnswerLocal || hasSubmittedToServer) && !currentQuestion?.answer && (
+                    <div className="alert alert-info mt-3">
+                      {t('playerPage.answerSubmitted', language)}
+                    </div>
+                  )}
+                  {connectionStatus !== 'connected' && (
+                    <div className="alert alert-warning mt-3">
+                      {t('playerPage.disconnected', language)}
+                    </div>
+                  )}
+                </>
+              )}
+              <PreviewOverlayV2
+                onFocus={() => {}}
+                onClose={() => {}}
+                isGameMaster={false}
+              />
+            </div>
+            <div className="col-12 col-md-4">
+              <RoomCode />
+              <PlayerList title={t('playerPage.otherPlayers', language)} />
+            </div>
           </div>
         </div>
       </div>
-    </>
+
+      {/* Floating Webcam Sidebar - Now Draggable and Resizable */}
+      {isWebcamSidebarVisible && (
+        <div 
+          ref={dragRef}
+          className="webcam-sidebar text-light p-0 draggable-webcam-container" 
+          style={{ 
+            position: 'absolute',
+            top: `${webcamPosition.y}px`,
+            left: `${webcamPosition.x}px`,
+            width: `${webcamSize.width}px`,
+            height: `${webcamSize.height}px`,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            backdropFilter: 'none',
+            zIndex: 1500,
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+            borderRadius: '8px',
+            resize: 'both',
+            overflow: 'hidden'
+          }}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="webcam-handle" title="Drag to move"></div>
+          <div className="p-2" style={{ flex: 1, overflow: 'hidden' }}>
+            <WebcamDisplay />
+          </div>
+          <div 
+            className="resize-handle"
+            onMouseDown={handleResizeStart}
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              width: '20px',
+              height: '20px',
+              cursor: 'nwse-resize',
+              background: 'transparent',
+              zIndex: 1600,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              right: '5px',
+              bottom: '5px',
+              width: '10px',
+              height: '10px',
+              borderRight: '2px solid rgba(255,255,255,0.7)',
+              borderBottom: '2px solid rgba(255,255,255,0.7)',
+              transition: 'all 0.2s ease'
+            }}></div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 };
 

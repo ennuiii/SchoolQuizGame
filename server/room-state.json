@@ -1,11 +1,267 @@
 {
+  "218151": {
+    "roomCode": "218151",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
   "1Z7SL1": {
     "roomCode": "1Z7SL1",
     "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
     "players": [
       {
         "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "sadsafd",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "76",
+        "text": "Was ist 5 plus 3?",
+        "type": "text",
+        "answer": "8",
+        "grade": 1,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "80",
+        "text": "Was ist der Unterschied zwischen der Zahl 5 und der Zahl 2?",
+        "type": "text",
+        "answer": "5 ist größer als 2.",
+        "grade": 2,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "2",
+        "text": "Löse: 12 × 9 = ?",
+        "type": "text",
+        "answer": "108",
+        "grade": 3,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "89",
+        "text": "Was passiert, wenn man einen Eiswürfel in Wasser legt?",
+        "type": "text",
+        "answer": "Der Eiswürfel schmilzt, weil er sich erwärmt.",
+        "grade": 4,
+        "subject": "Sachkunde",
+        "language": "de"
+      },
+      {
+        "id": "137",
+        "text": "Was ist der Hauptbestandteil der Luft?",
+        "type": "text",
+        "answer": "Stickstoff",
+        "grade": 5,
+        "subject": "Naturwissenschaften",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747662857536,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "EPPH2F": {
+    "roomCode": "EPPH2F",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "EHEKXE": {
+    "roomCode": "EHEKXE",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "75HM9F": {
+    "roomCode": "75HM9F",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "E04GOM": {
+    "roomCode": "E04GOM",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "BI7YKS": {
+    "roomCode": "BI7YKS",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "KPXS5C": {
+    "roomCode": "KPXS5C",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "test",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "130",
+        "text": "Was ist 5 + 3?",
+        "type": "text",
+        "answer": "8",
+        "grade": 1,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "178",
+        "text": "Was ist 12 - 7?",
+        "type": "text",
+        "answer": "5",
+        "grade": 2,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "134",
+        "text": "Wie heißt das größte Land der Erde?",
+        "type": "text",
+        "answer": "Russland",
+        "grade": 3,
+        "subject": "Geographie",
+        "language": "de"
+      },
+      {
+        "id": "156",
+        "text": "Wer war der erste Präsident der Vereinigten Staaten?",
+        "type": "text",
+        "answer": "George Washington",
+        "grade": 4,
+        "subject": "Geschichte",
+        "language": "de"
+      },
+      {
+        "id": "215",
+        "text": "Was ist die Haupttechnik des Impressionismus?",
+        "type": "text",
+        "answer": "Das Malen mit kurzen, schnellen Pinselstrichen.",
+        "grade": 5,
+        "subject": "Kunst",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747677436262,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T18:14:38.380Z"
+  },
+  "24J4XL": {
+    "roomCode": "24J4XL",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [
+      {
+        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+        "name": "test",
         "lives": 3,
         "isActive": true,
         "isSpectator": false,
@@ -14,58 +270,12 @@
       }
     ],
     "started": false,
-    "questions": [
-      {
-        "id": "17",
-        "text": "Which planet in our solar system is known as the 'Red Planet'?",
-        "type": "text",
-        "answer": "Mars",
-        "grade": 5,
-        "subject": "Astronomy",
-        "language": "en"
-      },
-      {
-        "id": "13",
-        "text": "What is the capital city of the United Kingdom?",
-        "type": "text",
-        "answer": "London",
-        "grade": 6,
-        "subject": "Geography",
-        "language": "en"
-      },
-      {
-        "id": "19",
-        "text": "Who painted the Mona Lisa?",
-        "type": "text",
-        "answer": "Leonardo da Vinci",
-        "grade": 7,
-        "subject": "Art",
-        "language": "en"
-      },
-      {
-        "id": "21",
-        "text": "What is the primary language spoken in Brazil?",
-        "type": "text",
-        "answer": "Portuguese",
-        "grade": 8,
-        "subject": "Languages",
-        "language": "en"
-      },
-      {
-        "id": "15",
-        "text": "What is the chemical symbol for the element Gold?",
-        "type": "text",
-        "answer": "Au",
-        "grade": 9,
-        "subject": "Chemistry",
-        "language": "en"
-      }
-    ],
+    "questions": [],
     "currentQuestionIndex": 0,
-    "timeLimit": 99999,
+    "timeLimit": null,
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T13:52:44.525Z"
+    "lastSaved": "2025-05-19T18:14:38.380Z"
   }
 }

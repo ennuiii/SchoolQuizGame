@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
 import PlayerList from '../components/shared/PlayerList';
@@ -23,6 +23,8 @@ import { ConnectionStatus } from '../components/shared/ConnectionStatus';
 import type { Question } from '../contexts/GameContext';
 import type { Player } from '../types/game';
 import SettingsControl from '../components/shared/SettingsControl';
+import { useWebRTC } from '../contexts/WebRTCContext';
+import WebcamDisplay from '../components/shared/WebcamDisplay';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -37,6 +39,17 @@ const GameMaster: React.FC = () => {
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [hasRestoredVisibilityOnConnect, setHasRestoredVisibilityOnConnect] = useState(false);
   const [isStreamerMode, setIsStreamerMode] = useState(false);
+  const { localStream, startLocalStream, initializeWebRTC, stopLocalStream, remoteStreams } = useWebRTC();
+  const [isWebcamSidebarVisible, setIsWebcamSidebarVisible] = useState(false);
+  const [webcamPosition, setWebcamPosition] = useState({ x: 20, y: 50 });
+  const [webcamSize, setWebcamSize] = useState({ width: 450, height: 400 });
+  const [isResizing, setIsResizing] = useState(false);
+  const [resizeStartPos, setResizeStartPos] = useState({ x: 0, y: 0 });
+  const [resizeStartSize, setResizeStartSize] = useState({ width: 0, height: 0 });
+  const dragRef = useRef<HTMLDivElement>(null);
+  const isDraggingRef = useRef(false);
+  const offsetRef = useRef({ x: 0, y: 0 });
+  const isResizingRef = useRef(false);
   
   const {
     roomCode,
@@ -50,31 +63,6 @@ const GameMaster: React.FC = () => {
     isGameMaster,
     persistentPlayerId
   } = useRoom();
-
-  // DEBUG: Log players from useRoom to understand the button's player count
-  useEffect(() => {
-    console.log('[GameMaster] Debug: useRoom().players updated:', JSON.stringify(players, null, 2));
-    const nonSpectators = players.filter(p => !p.isSpectator);
-    console.log(
-      '[GameMaster] Debug: Non-spectators from useRoom():', 
-      nonSpectators.length, 
-      nonSpectators.map(p => ({ id: p.id, name: p.name, isSpectator: p.isSpectator }))
-    );
-    
-    // Log isGameMaster state
-    console.log('[GameMaster] isGameMaster state:', {
-      isGameMaster,
-      kickPlayerFunction: !!kickPlayer,
-      kickPlayerType: typeof kickPlayer
-    });
-
-    // Log kick function info
-    if (typeof kickPlayer === 'function') {
-      console.log('[GameMaster] kickPlayer function is available');
-    } else {
-      console.error('[GameMaster] kickPlayer function is missing');
-    }
-  }, [players, isGameMaster, kickPlayer]);
 
   const {
     gameStarted,
@@ -487,6 +475,86 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCode, setRoomCode]);
 
+  // Add drag functionality
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if (dragRef.current && (e.target as Element).closest('.webcam-handle')) {
+      isDraggingRef.current = true;
+      offsetRef.current = {
+        x: e.clientX - webcamPosition.x,
+        y: e.clientY - webcamPosition.y
+      };
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (isDraggingRef.current) {
+      setWebcamPosition({
+        x: e.clientX - offsetRef.current.x,
+        y: e.clientY - offsetRef.current.y
+      });
+    } else if (isResizingRef.current) {
+      // Calculate new dimensions
+      const newWidth = Math.max(300, resizeStartSize.width + (e.clientX - resizeStartPos.x));
+      const newHeight = Math.max(200, resizeStartSize.height + (e.clientY - resizeStartPos.y));
+      
+      setWebcamSize({
+        width: newWidth,
+        height: newHeight
+      });
+    }
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+    isResizingRef.current = false;
+    if (dragRef.current) {
+      dragRef.current.classList.remove('resizing');
+    }
+    document.removeEventListener('mousemove', handleMouseMove);
+    document.removeEventListener('mouseup', handleMouseUp);
+  };
+
+  // Start resize operation
+  const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    isResizingRef.current = true;
+    setResizeStartPos({ x: e.clientX, y: e.clientY });
+    setResizeStartSize({ width: webcamSize.width, height: webcamSize.height });
+    if (dragRef.current) {
+      dragRef.current.classList.add('resizing');
+    }
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+  };
+
+  // Clean up event listeners on unmount
+  useEffect(() => {
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, []);
+
+  const handleToggleWebcamSidebar = async () => {
+    if (!isWebcamSidebarVisible) {
+      await startLocalStream();
+      setIsWebcamSidebarVisible(true);
+    } else {
+      stopLocalStream();
+      setIsWebcamSidebarVisible(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isWebcamSidebarVisible && localStream) {
+      console.log('[GameMaster] Webcam sidebar visible and local stream active, initializing WebRTC.');
+      initializeWebRTC();
+    }
+  }, [isWebcamSidebarVisible, localStream, initializeWebRTC]);
+
   // Show loading overlay if trying to connect or reconnect
   if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
     return (
@@ -585,240 +653,336 @@ const GameMaster: React.FC = () => {
     );
   }
 
+  // Main component return
   return (
-    <>
-      <SettingsControl />
-      <div className="container-fluid py-4">
-        <LoadingOverlay isVisible={isRoomLoading} />
-        <ConnectionStatus showDetails={true} />
-        {showEndRoundConfirm && (
-          <div className="modal show d-block" tabIndex={-1}>
-            <div className="modal-dialog">
-              <div className="modal-content">
-                <div className="modal-header">
-                  <h5 className="modal-title">{t('gameControls.endRoundConfirm', language)}</h5>
-                  <button type="button" className="btn-close" onClick={cancelEndRoundEarly}></button>
-                </div>
-                <div className="modal-body">
-                  <p>{t('gameControls.endRoundWarning', language)}</p>
-                </div>
-                <div className="modal-footer">
-                  <button type="button" className="btn btn-secondary" onClick={cancelEndRoundEarly}>
-                    {t('gameControls.cancel', language)}
-                  </button>
-                  <button type="button" className="btn btn-danger" onClick={confirmEndRoundEarly}>
-                    {t('gameControls.confirmEndRound', language)}
-                  </button>
+    <div className="vh-100 gamemaster-page-layout position-relative">
+      {/* Main Content Area - Full Width */}
+      <div 
+        className="main-content-area p-0" 
+        style={{ 
+          height: '100vh', 
+          overflowY: 'auto',
+          width: '100%'
+        }}
+      >
+        <SettingsControl />
+        
+        <button 
+          className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'} position-fixed top-0 start-0 m-2`}
+          onClick={handleToggleWebcamSidebar}
+          style={{zIndex: 2000}} 
+          title={isWebcamSidebarVisible ? 'Hide Webcams' : 'Show Webcams'}
+        >
+          <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
+        </button>
+
+        <div className="container-fluid py-4">
+          <LoadingOverlay isVisible={isRoomLoading} />
+          <ConnectionStatus showDetails={true} />
+          
+          {showEndRoundConfirm && (
+            <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title">{t('gameControls.endRoundConfirm', language)}</h5>
+                    <button type="button" className="btn-close" onClick={() => setShowEndRoundConfirm(false)}></button>
+                  </div>
+                  <div className="modal-body">
+                    <p>{t('gameControls.endRoundWarning', language)}</p>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={() => setShowEndRoundConfirm(false)}>
+                      {t('gameControls.cancel', language)}
+                    </button>
+                    <button type="button" className="btn btn-danger" onClick={() => { roomCode && endRoundEarly(roomCode); setShowEndRoundConfirm(false); }}>
+                      {t('gameControls.confirmEndRound', language)}
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
-        {connectionStatus === 'disconnected' && (
-          <div className="alert alert-warning">
-            <strong>{t('connection.disconnected', language)}</strong> {t('connection.attempting', language)}
-          </div>
-        )}
-        <div className="row g-3">
-          <div className="col-12 col-md-4">
-            <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
-            <RoomCode />
-            {gameStarted && !previewMode.isActive && (
-              <div className="mb-3">
-                <button className="btn btn-primary w-100" 
-                  onClick={handleStartPreview}
-                  disabled={connectionStatus !== 'connected'}>
-                  {t('gameControls.startPreview', language)}
-                </button>
-              </div>
-            )}
-            <PlayerList 
-              title={t('players', language)}
-              onPlayerSelect={handlePlayerSelect}
-              selectedPlayerId={selectedPlayerId}
-              isGameMasterView={true}
-              onKickPlayer={handleKickPlayer}
-              persistentPlayerId={persistentPlayerId || undefined}
-            />
-            <div className="d-grid gap-2 mt-3">
-              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
-                {t('navigation.leaveGame', language)}
-              </button>
-              {!gameStarted ? (
-                <button 
-                  className="btn btn-success" 
-                  onClick={handleStartGame}
-                  disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1 || connectionStatus !== 'connected'}
-                  title={
-                    isConnecting ? t('connection.connecting', language) :
-                    connectionStatus !== 'connected' ? t('connection.disconnected', language) :
-                    gamePlayers.filter(p => !p.isSpectator).length < 1 ? t('gameControls.needPlayers', language) :
-                    questions.length === 0 ? t('gameControls.needQuestions', language) : ""
-                  }
-                >
-                  {isConnecting ? t('connection.connecting', language) : 
-                   connectionStatus !== 'connected' ? t('connection.connecting', language) :
-                   t('gameControls.startGame', language, {
-                     players: gamePlayers.filter(p => !p.isSpectator).length,
-                     questions: questions.length
-                   })}
-                </button>
-              ) : (
-                <>
+          )}
+          
+          {connectionStatus === 'disconnected' && (
+            <div className="alert alert-warning">
+              <strong>{t('connection.disconnected', language)}</strong> {t('connection.attempting', language)}
+            </div>
+          )}
+          
+          <div className="row g-3">
+            <div className="col-12 col-md-4">
+              <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
+              <RoomCode />
+              
+              {gameStarted && !previewMode.isActive && (
+                <div className="mb-3">
                   <button 
-                    className="btn btn-primary" 
-                    onClick={handleNextQuestion}
-                    disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected' || !canProceedToNextQuestion}
+                    className="btn btn-primary w-100" 
+                    onClick={handleStartPreview}
+                    disabled={connectionStatus !== 'connected'}
+                  >
+                    {t('gameControls.startPreview', language)}
+                  </button>
+                </div>
+              )}
+              
+              <PlayerList 
+                title={t('players', language)}
+                onPlayerSelect={handlePlayerSelect}
+                selectedPlayerId={selectedPlayerId}
+                isGameMasterView={true}
+                onKickPlayer={handleKickPlayer}
+                persistentPlayerId={persistentPlayerId || undefined}
+              />
+              
+              <div className="d-grid gap-2 mt-3">
+                <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
+                  {t('navigation.leaveGame', language)}
+                </button>
+                
+                {!gameStarted ? (
+                  <button 
+                    className="btn btn-success" 
+                    onClick={handleStartGame}
+                    disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1 || connectionStatus !== 'connected'}
                     title={
+                      isConnecting ? t('connection.connecting', language) :
                       connectionStatus !== 'connected' ? t('connection.disconnected', language) :
-                      !currentQuestion ? t('gameControls.noQuestion', language) :
-                      isGameConcluded ? t('gameControls.gameConcluded', language) :
-                      isRestarting ? t('gameControls.restarting', language) :
-                      !allAnswersSubmitted ? t('gameControls.waitingForAnswers', language, { count: activePlayerCount }) :
-                      !allSubmittedAnswersEvaluated ? t('gameControls.evaluateAnswers', language) :
-                      t('gameControls.nextQuestion', language)
+                      gamePlayers.filter(p => !p.isSpectator).length < 1 ? t('gameControls.needPlayers', language) :
+                      questions.length === 0 ? t('gameControls.needQuestions', language) : ""
                     }
                   >
-                    {t('gameControls.nextQuestion', language)}
+                    {isConnecting ? t('connection.connecting', language) : 
+                     connectionStatus !== 'connected' ? t('connection.connecting', language) :
+                     t('gameControls.startGame', language, {
+                       players: gamePlayers.filter(p => !p.isSpectator).length,
+                       questions: questions.length
+                     })}
                   </button>
-                  <button 
-                    className="btn btn-warning" 
-                    onClick={handleEndRoundEarlyAction}
-                    disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected'}
-                  >
-                    {t('gameControls.endRoundEarly', language)}
-                  </button>
-                  <button 
-                    className="btn btn-info"
-                    onClick={handleRestartGame}
-                    disabled={isRestarting || !gameStarted || connectionStatus !== 'connected'}
-                  >
-                    {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
-                  </button>
-                  {!isGameConcluded && (
+                ) : (
+                  <>
                     <button 
-                      className="btn btn-danger" 
-                      onClick={handleEndGameRequest}
-                      disabled={isRestarting || connectionStatus !== 'connected'}
+                      className="btn btn-primary" 
+                      onClick={handleNextQuestion}
+                      disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected' || !canProceedToNextQuestion}
+                      title={
+                        connectionStatus !== 'connected' ? t('connection.disconnected', language) :
+                        !currentQuestion ? t('gameControls.noQuestion', language) :
+                        isGameConcluded ? t('gameControls.gameConcluded', language) :
+                        isRestarting ? t('gameControls.restarting', language) :
+                        !allAnswersSubmitted ? t('gameControls.waitingForAnswers', language, { count: activePlayerCount }) :
+                        !allSubmittedAnswersEvaluated ? t('gameControls.evaluateAnswers', language) :
+                        t('gameControls.nextQuestion', language)
+                      }
                     >
-                      {t('gameControls.endGame', language)}
+                      {t('gameControls.nextQuestion', language)}
                     </button>
-                  )}
-                  {isGameConcluded && (
-                    <button
-                      className="btn btn-success"
-                      onClick={handleShowRecapButtonClick}
-                      disabled={isRestarting || connectionStatus !== 'connected'}
+                    
+                    <button 
+                      className="btn btn-warning" 
+                      onClick={handleEndRoundEarlyAction}
+                      disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected'}
                     >
-                      {t('gameControls.showRecap', language)}
+                      {t('gameControls.endRoundEarly', language)}
                     </button>
-                  )}
+                    
+                    <button 
+                      className="btn btn-info"
+                      onClick={handleRestartGame}
+                      disabled={isRestarting || !gameStarted || connectionStatus !== 'connected'}
+                    >
+                      {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
+                    </button>
+                    
+                    {!isGameConcluded && (
+                      <button 
+                        className="btn btn-danger" 
+                        onClick={handleEndGameRequest}
+                        disabled={isRestarting || connectionStatus !== 'connected'}
+                      >
+                        {t('gameControls.endGame', language)}
+                      </button>
+                    )}
+                    
+                    {isGameConcluded && (
+                      <button
+                        className="btn btn-success"
+                        onClick={handleShowRecapButtonClick}
+                        disabled={isRestarting || connectionStatus !== 'connected'}
+                      >
+                        {t('gameControls.showRecap', language)}
+                      </button>
+                    )}
+                  </>
+                )}
+              </div>
+            </div>
+            
+            <div className="col-12 col-md-8">
+              {!gameStarted ? (
+                <QuestionSelector
+                  onQuestionsSelected={setQuestions}
+                  selectedQuestions={questions}
+                  onSelectedQuestionsChange={setQuestions}
+                />
+              ) : (
+                <>
+                  <div className="card mb-3">
+                    <div className="card-body">
+                      <QuestionDisplay question={currentQuestion} />
+                      {gameTimeLimit !== null && gameTimeLimit < 99999 && (
+                        <div className="mt-3">
+                          <Timer isActive={isTimerRunning} showSeconds={true} />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <AnswerList onEvaluate={handleEvaluateAnswer} />
+                  
+                  <div className="card mb-3">
+                    <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                      <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
+                      <div className="d-flex gap-2">
+                        <button 
+                          className="btn btn-sm btn-outline-primary" 
+                          onClick={showAllBoards}
+                          disabled={connectionStatus !== 'connected'}
+                        >
+                          {t('gameControls.showAll', language)}
+                        </button>
+                        <button 
+                          className="btn btn-sm btn-outline-secondary" 
+                          onClick={hideAllBoards}
+                          disabled={connectionStatus !== 'connected'}
+                        >
+                          {t('gameControls.hideAll', language)}
+                        </button>
+                      </div>
+                    </div>
+                    <div className="card-body">
+                      <div
+                        className="board-row"
+                        style={{
+                          display: 'grid',
+                          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                          gap: '20px',
+                          width: '100%',
+                          overflowX: 'auto',
+                          alignItems: 'stretch',
+                        }}
+                      >
+                        {gamePlayers.filter(player => !player.isSpectator).map(player => {
+                          const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                          const boardForDisplay = {
+                            playerId: player.id,
+                            persistentPlayerId: player.persistentPlayerId,
+                            playerName: player.name,
+                            boardData: boardEntry ? boardEntry.boardData : ''
+                          };
+                          return (
+                            <PlayerBoardDisplay
+                              key={player.id}
+                              board={boardForDisplay}
+                              isVisible={visibleBoards.has(player.id)}
+                              onToggleVisibility={toggleBoardVisibility}
+                              transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
+                              onScale={handleBoardScale}
+                              onPan={handleBoardPan}
+                              onReset={handleBoardReset}
+                            />
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
                 </>
               )}
             </div>
           </div>
-          <div className="col-12 col-md-8">
-            {!gameStarted ? (
-              <QuestionSelector
-                onQuestionsSelected={setQuestions}
-                selectedQuestions={questions}
-                onSelectedQuestionsChange={setQuestions}
-              />
-            ) : (
-              <>
-                <div className="card mb-3">
-                  <div className="card-body">
-                    <QuestionDisplay question={currentQuestion} />
-                    {gameTimeLimit !== null && gameTimeLimit < 99999 && (
-                      <div className="mt-3">
-                        <Timer isActive={isTimerRunning} showSeconds={true} />
-                      </div>
-                    )}
-                  </div>
-                </div>
 
-                <AnswerList onEvaluate={handleEvaluateAnswer} />
-                
-                <div className="card mb-3">
-                  <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                    <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
-                    <div className="d-flex gap-2">
-                      <button className="btn btn-sm btn-outline-primary" 
-                        onClick={showAllBoards}
-                        disabled={connectionStatus !== 'connected'}>
-                        {t('gameControls.showAll', language)}
-                      </button>
-                      <button className="btn btn-sm btn-outline-secondary" 
-                        onClick={hideAllBoards}
-                        disabled={connectionStatus !== 'connected'}>
-                        {t('gameControls.hideAll', language)}
-                      </button>
-                    </div>
-                  </div>
-                  <div className="card-body">
-                    <div
-                      className="board-row"
-                      style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                        gap: '20px',
-                        width: '100%',
-                        overflowX: 'auto',
-                        alignItems: 'stretch',
-                      }}
-                    >
-                      {gamePlayers.filter(player => !player.isSpectator).map(player => {
-                        const boardEntry = playerBoards.find(b => b.playerId === player.id);
-                        const boardForDisplay = {
-                          playerId: player.id,
-                          persistentPlayerId: player.persistentPlayerId,
-                          playerName: player.name,
-                          boardData: boardEntry ? boardEntry.boardData : ''
-                        };
-                        return (
-                          <PlayerBoardDisplay
-                            key={player.id}
-                            board={boardForDisplay}
-                            isVisible={visibleBoards.has(player.id)}
-                            onToggleVisibility={toggleBoardVisibility}
-                            transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
-                            onScale={handleBoardScale}
-                            onPan={handleBoardPan}
-                            onReset={handleBoardReset}
-                          />
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+          {previewMode.isActive && (
+            <PreviewOverlayV2
+              onFocus={handleFocusSubmissionInternal}
+              onClose={handleStopPreview}
+              isGameMaster={true}
+              onEvaluate={handleEvaluateAnswer}
+            />
+          )}
+
+          {gameRecapData && roomCode && (
+            <RecapModal 
+              show={!!gameRecapData} 
+              onHide={hideRecap} 
+              recap={gameRecapData} 
+              selectedRoundIndex={recapSelectedRoundIndex ?? 0} 
+              onRoundChange={(idx) => roomCode && gmNavigateRecapRound(roomCode, idx)} 
+              isControllable={true} 
+              activeTabKey={recapSelectedTabKey ?? "overallResults"} 
+              onTabChange={(key) => roomCode && gmNavigateRecapTab(roomCode, key as string)}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Floating Webcam Sidebar - Now Draggable and Resizable */}
+      {isWebcamSidebarVisible && (
+        <div 
+          ref={dragRef}
+          className="webcam-sidebar text-light p-0 draggable-webcam-container" 
+          style={{ 
+            position: 'absolute',
+            top: `${webcamPosition.y}px`,
+            left: `${webcamPosition.x}px`,
+            width: `${webcamSize.width}px`,
+            height: `${webcamSize.height}px`,
+            overflowY: 'auto',
+            display: 'flex',
+            flexDirection: 'column',
+            backgroundColor: 'rgba(0, 0, 0, 0.1)',
+            backdropFilter: 'none',
+            zIndex: 1500,
+            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+            borderRadius: '8px',
+            resize: 'both',
+            overflow: 'hidden'
+          }}
+          onMouseDown={handleMouseDown}
+        >
+          <div className="webcam-handle" title="Drag to move"></div>
+          <div className="p-2" style={{ flex: 1, overflow: 'hidden' }}>
+            <WebcamDisplay />
+          </div>
+          <div 
+            className="resize-handle"
+            onMouseDown={handleResizeStart}
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              width: '20px',
+              height: '20px',
+              cursor: 'nwse-resize',
+              background: 'transparent',
+              zIndex: 1600,
+              transition: 'all 0.2s ease'
+            }}
+          >
+            <div style={{
+              position: 'absolute',
+              right: '5px',
+              bottom: '5px',
+              width: '10px',
+              height: '10px',
+              borderRight: '2px solid rgba(255,255,255,0.7)',
+              borderBottom: '2px solid rgba(255,255,255,0.7)',
+              transition: 'all 0.2s ease'
+            }}></div>
           </div>
         </div>
-
-        {previewMode.isActive && (
-          <PreviewOverlayV2
-            onFocus={handleFocusSubmissionInternal}
-            onClose={handleStopPreview}
-            isGameMaster={true}
-            onEvaluate={handleEvaluateAnswer}
-          />
-        )}
-
-        {gameRecapData && roomCode && (
-          <RecapModal
-            show={!!gameRecapData}
-            onHide={() => hideRecap()}
-            recap={gameRecapData}
-            selectedRoundIndex={recapSelectedRoundIndex ?? 0}
-            onRoundChange={(index) => gmNavigateRecapRound(roomCode, index)}
-            isControllable={true}
-            activeTabKey={recapSelectedTabKey}
-            onTabChange={(tabKey) => gmNavigateRecapTab(roomCode, tabKey)}
-          />
-        )}
-      </div>
-    </>
+      )}
+    </div>
   );
 };
 
