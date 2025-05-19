@@ -58,15 +58,35 @@ const Avatar: React.FC<AvatarProps> = ({
   const processAvatarSvg = (): string => {
     if (!avatarSvg) return '';
     
-    // Check if it's a DiceBear SVG (contains dicebear in the data attributes)
-    if (avatarSvg.includes('data-dicebear-')) {
-      // Preserve all attributes but update width and height
-      return avatarSvg.replace(/<svg(.*?)width="[^"]*"(.*?)height="[^"]*"(.*?)>/, 
-                             `<svg$1width="${size}"$2height="${size}"$3>`);
+    try {
+      // Create a temporary DOM parser to modify the SVG
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(avatarSvg, 'image/svg+xml');
+      const svgElement = doc.querySelector('svg');
+      
+      if (svgElement) {
+        // Set explicit width and height attributes
+        svgElement.setAttribute('width', `${size}`);
+        svgElement.setAttribute('height', `${size}`);
+        
+        // Make sure the viewBox is preserved if it exists
+        if (!svgElement.hasAttribute('viewBox') && svgElement.hasAttribute('width') && svgElement.hasAttribute('height')) {
+          const width = svgElement.getAttribute('width')?.replace(/px$/, '') || '100';
+          const height = svgElement.getAttribute('height')?.replace(/px$/, '') || '100';
+          svgElement.setAttribute('viewBox', `0 0 ${width} ${height}`);
+        }
+        
+        // Return the modified SVG as a string
+        return new XMLSerializer().serializeToString(svgElement);
+      }
+    } catch (error) {
+      console.error('Error processing SVG:', error);
     }
     
-    // For custom SVGs we created previously
-    return avatarSvg.replace('width="100" height="100"', `width="${size}" height="${size}"`);
+    // Fallback to basic string replacement if the DOM manipulation fails
+    return avatarSvg
+      .replace(/<svg([^>]*)width="[^"]*"([^>]*)height="[^"]*"([^>]*)>/g, `<svg$1width="${size}"$2height="${size}"$3>`)
+      .replace(/<svg([^>]*)height="[^"]*"([^>]*)width="[^"]*"([^>]*)>/g, `<svg$1width="${size}"$2height="${size}"$3>`);
   };
   
   return (
@@ -77,11 +97,19 @@ const Avatar: React.FC<AvatarProps> = ({
         height: `${size}px`,
         display: 'inline-block',
         overflow: 'hidden',
-        borderRadius: '50%'
+        borderRadius: '50%',
+        position: 'relative'
       }}
     >
       {avatarSvg ? (
         <div 
+          style={{
+            width: '100%',
+            height: '100%',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center'
+          }}
           dangerouslySetInnerHTML={{ 
             __html: processAvatarSvg()
           }} 
