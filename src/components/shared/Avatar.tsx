@@ -2,13 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
 
 interface AvatarProps {
-  persistentPlayerId: string;
+  persistentPlayerId?: string;
   size?: number;
   className?: string;
 }
 
 const Avatar: React.FC<AvatarProps> = ({ 
-  persistentPlayerId, 
+  persistentPlayerId = '',
   size = 40, 
   className = ''
 }) => {
@@ -34,6 +34,19 @@ const Avatar: React.FC<AvatarProps> = ({
   
   // Generate a default avatar based on the player's ID if none exists
   const generateDefaultAvatar = (): string => {
+    // Make sure persistentPlayerId exists and is a string before calling split
+    // This prevents crashes when old clients without avatar logic connect
+    if (!persistentPlayerId) {
+      // Fallback for undefined or null persistentPlayerId
+      const fallbackColor = `hsl(200, 70%, 80%)`;
+      return `
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="${size}" height="${size}">
+          <circle cx="50" cy="50" r="45" fill="${fallbackColor}" stroke="#666" stroke-width="2" />
+          <text x="50" y="65" font-family="Arial" font-size="45" text-anchor="middle" fill="#333">?</text>
+        </svg>
+      `;
+    }
+    
     // Use the persistent player ID to generate consistent colors
     const hash = persistentPlayerId.split('').reduce((acc, char) => {
       return char.charCodeAt(0) + ((acc << 5) - acc);

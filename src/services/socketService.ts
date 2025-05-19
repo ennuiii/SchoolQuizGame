@@ -603,12 +603,49 @@ export class SocketService {
       timestamp: new Date().toISOString()
     });
     
-    await this.robustEmit('rejoin_room', { 
-      roomCode, 
-      isGameMaster, 
-      persistentPlayerId: this.persistentPlayerId,
-      avatarSvg
-    });
+    try {
+      // Add retry logic for reconnection
+      let retries = 0;
+      const maxRetries = 3;
+      
+      while (retries < maxRetries) {
+        try {
+          // Ensure we're connected before attempting to rejoin
+          if (!this.socket?.connected) {
+            console.log(`[SocketService] Socket not connected. Attempting to connect before rejoin. Retry ${retries + 1}/${maxRetries}`);
+            await this.connect();
+            // Small delay to ensure connection is stable
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+          
+          // Now attempt the rejoin
+          await this.robustEmit('rejoin_room', { 
+            roomCode, 
+            isGameMaster, 
+            persistentPlayerId: this.persistentPlayerId,
+            avatarSvg
+          });
+          
+          console.log('[SocketService] Rejoin request sent successfully');
+          break; // Exit retry loop if successful
+        } catch (error) {
+          retries++;
+          console.error(`[SocketService] Rejoin attempt ${retries} failed:`, error);
+          
+          if (retries >= maxRetries) {
+            throw new Error(`Failed to rejoin after ${maxRetries} attempts`);
+          }
+          
+          // Exponential backoff: wait longer between each retry (1s, 2s, 4s...)
+          const backoffMs = Math.pow(2, retries) * 1000;
+          console.log(`[SocketService] Waiting ${backoffMs}ms before retry ${retries + 1}...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+      }
+    } catch (error) {
+      console.error('[SocketService] Failed to rejoin room after all retries:', error);
+      throw error;
+    }
   }
 
   async kickPlayer(roomCode: string, playerIdToKick: string): Promise<void> {

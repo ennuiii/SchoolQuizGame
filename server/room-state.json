@@ -20,7 +20,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "1Z7SL1": {
     "roomCode": "1Z7SL1",
@@ -89,7 +89,7 @@
     "questionStartTime": 1747662857536,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "EPPH2F": {
     "roomCode": "EPPH2F",
@@ -112,7 +112,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "EHEKXE": {
     "roomCode": "EHEKXE",
@@ -125,7 +125,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "75HM9F": {
     "roomCode": "75HM9F",
@@ -148,7 +148,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "E04GOM": {
     "roomCode": "E04GOM",
@@ -161,7 +161,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "BI7YKS": {
     "roomCode": "BI7YKS",
@@ -184,7 +184,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "KPXS5C": {
     "roomCode": "KPXS5C",
@@ -253,7 +253,7 @@
     "questionStartTime": 1747677436262,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   },
   "24J4XL": {
     "roomCode": "24J4XL",
@@ -263,7 +263,7 @@
         "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
         "name": "test",
         "lives": 3,
-        "isActive": true,
+        "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
         "answers": []
@@ -276,6 +276,19 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T18:14:38.380Z"
+    "lastSaved": "2025-05-19T20:35:10.457Z"
+  },
+  "DA5T7G": {
+    "roomCode": "DA5T7G",
+    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+    "players": [],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-19T20:35:10.457Z"
   }
 }

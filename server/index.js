@@ -93,6 +93,9 @@ function loadRoomState() {
     const savedRooms = JSON.parse(fs.readFileSync(roomStatePath, 'utf8'));
     console.log(`[Server] Loading ${Object.keys(savedRooms).length} rooms from persistent storage`);
     
+    // Clear existing rooms that might be stale
+    // Object.keys(gameRooms).forEach(key => delete gameRooms[key]);
+    
     // Restore rooms to gameRooms
     Object.entries(savedRooms).forEach(([roomCode, savedRoom]) => {
       // Skip too old rooms (more than 24 hours old)
@@ -102,6 +105,59 @@ function loadRoomState() {
       
       if (hoursDiff > 24) {
         console.log(`[Server] Skipping room ${roomCode} as it's too old (${hoursDiff.toFixed(1)} hours)`);
+        return;
+      }
+      
+      // Check if room already exists (might happen during hot reload)
+      if (gameRooms[roomCode]) {
+        console.log(`[Server] Room ${roomCode} already exists in memory, updating with saved data`);
+        
+        // Update existing room with saved data, preserving active connections
+        const existingRoom = gameRooms[roomCode];
+        existingRoom.started = savedRoom.started;
+        existingRoom.questions = savedRoom.questions;
+        existingRoom.currentQuestionIndex = savedRoom.currentQuestionIndex;
+        existingRoom.timeLimit = savedRoom.timeLimit;
+        existingRoom.questionStartTime = savedRoom.questionStartTime;
+        existingRoom.isStreamerMode = savedRoom.isStreamerMode;
+        
+        // Don't overwrite isConcluded if the room is active
+        if (existingRoom.isConcluded !== true) {
+          existingRoom.isConcluded = savedRoom.isConcluded;
+        }
+        
+        // Update player data while preserving connections
+        savedRoom.players.forEach(savedPlayer => {
+          const existingPlayerIndex = existingRoom.players.findIndex(p => 
+            p.persistentPlayerId === savedPlayer.persistentPlayerId);
+          
+          if (existingPlayerIndex >= 0) {
+            // Update existing player data while preserving connection
+            const existingPlayer = existingRoom.players[existingPlayerIndex];
+            // Preserve connection-related fields
+            const id = existingPlayer.id;
+            const isActive = existingPlayer.isActive;
+            const disconnectTimer = existingPlayer.disconnectTimer;
+            
+            // Update with saved data
+            Object.assign(existingPlayer, savedPlayer, {
+              id, // Keep existing socket ID
+              isActive, // Keep activity status
+              disconnectTimer // Keep disconnect timer
+            });
+          } else {
+            // Add new player from saved data
+            existingRoom.players.push({
+              ...savedPlayer,
+              id: null, // Will be updated when player reconnects
+              isActive: false,
+              disconnectTimer: null
+            });
+          }
+        });
+        
+        // Log that we updated an existing room
+        console.log(`[Server] Updated existing room ${roomCode} with ${existingRoom.players.length} players`);
         return;
       }
       
@@ -133,6 +189,9 @@ function loadRoomState() {
       gameRooms[roomCode] = room;
       console.log(`[Server] Restored room ${roomCode} with ${room.players.length} players`);
     });
+    
+    // Log loaded rooms for debugging
+    console.log(`[Server] Finished loading rooms. Active rooms: ${Object.keys(gameRooms).join(', ')}`);
   } catch (error) {
     console.error('[Server] Error loading room state:', error);
   }
@@ -226,6 +285,30 @@ const gameAnalytics = {
 
 // Helper function to create a new game room with consistent structure
 function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
+  // Check if room already exists with this code to prevent duplicates
+  if (gameRooms[roomCode]) {
+    console.log(`[Server] Room ${roomCode} already exists, updating gamemaster connection`);
+    
+    // Update gamemaster connection info if provided
+    if (gamemasterId) {
+      gameRooms[roomCode].gamemaster = gamemasterId;
+      gameRooms[roomCode].gamemasterSocketId = gamemasterId;
+      gameRooms[roomCode].gamemasterDisconnected = false;
+      
+      // Clear any existing disconnect timer
+      if (gameRooms[roomCode].gamemasterDisconnectTimer) {
+        clearTimeout(gameRooms[roomCode].gamemasterDisconnectTimer);
+        gameRooms[roomCode].gamemasterDisconnectTimer = null;
+      }
+    }
+    
+    // Update last activity timestamp
+    gameRooms[roomCode].lastActivity = new Date().toISOString();
+    
+    return gameRooms[roomCode];
+  }
+  
+  // Create a new room
   const newRoom = {
     roomCode,
     gamemaster: gamemasterId,
@@ -270,16 +353,28 @@ function getGameState(roomCode) {
   if (room.playerBoards) {
     // Convert to a consistent format that's serializable and retains all drawing data
     Object.entries(room.playerBoards).forEach(([playerId, boardData]) => {
+      // Find player matching this board
+      const player = room.players.find(p => p.id === playerId);
+      // Always provide a persistentPlayerId for compatibility with older clients
+      const persistentPlayerId = player?.persistentPlayerId || `F-${playerId.substring(0, 8)}`;
+      
       playerBoardsForState[playerId] = {
         playerId,
         boardData: boardData.boardData || '',
-        persistentPlayerId: room.players.find(p => p.id === playerId)?.persistentPlayerId || '',
-        playerName: room.players.find(p => p.id === playerId)?.name || 'Unknown Player',
+        persistentPlayerId: persistentPlayerId,
+        playerName: player?.name || 'Unknown Player',
         roundIndex: boardData.roundIndex !== undefined ? boardData.roundIndex : room.currentQuestionIndex || 0,
         timestamp: boardData.timestamp || Date.now()
       };
     });
   }
+
+  // Ensure all players have persistentPlayerId to prevent client crashes
+  const safePlayersArray = room.players.map(player => ({
+    ...player,
+    // Always ensure persistentPlayerId exists (for older clients compatibility)
+    persistentPlayerId: player.persistentPlayerId || `F-${player.id.substring(0, 8)}`
+  }));
 
   return {
     started: room.started,
@@ -287,7 +382,7 @@ function getGameState(roomCode) {
     currentQuestionIndex: room.currentQuestionIndex,
     timeLimit: room.timeLimit,
     questionStartTime: room.questionStartTime,
-    players: room.players,
+    players: safePlayersArray,
     roundAnswers: room.roundAnswers || {},
     evaluatedAnswers: room.evaluatedAnswers || {},
     submissionPhaseOver: room.submissionPhaseOver || false,
@@ -526,7 +621,7 @@ io.use((socket, next) => {
     // Set player name from auth
     socket.data.playerName = auth.playerName;
     
-    // Handle persistentPlayerId logic
+    // Handle persistentPlayerId logic - ensure it's ALWAYS present
     if (auth.persistentPlayerId) {
       // Use existing persistentPlayerId if provided
       socket.data.persistentPlayerId = auth.persistentPlayerId;
@@ -536,6 +631,9 @@ io.use((socket, next) => {
     } else if (auth.playerName) {
       // Generate new persistentPlayerId for regular Player
       socket.data.persistentPlayerId = `P-${uuidv4()}`;
+    } else {
+      // Always provide a fallback ID for compatibility with older clients
+      socket.data.persistentPlayerId = `F-${uuidv4()}`;
     }
     
     // Log the assigned values
@@ -910,6 +1008,8 @@ io.on('connection', (socket) => {
         playerName,
         playerId: socket.id
       });
+      // Send both a room_not_found event and the error event for backwards compatibility
+      socket.emit('room_not_found', { message: 'Room not found. It may have expired or been deleted. Please join a different room.' });
       socket.emit('error', 'Invalid room code');
       return;
     }
@@ -1080,9 +1180,12 @@ io.on('connection', (socket) => {
     socket.join(roomCode);
     socket.roomCode = roomCode;
     
+    // Make sure persistentPlayerId is always valid (for older clients compatibility)
+    const safePlayerId = persistentPlayerId || `F-${socket.id.substring(0, 8)}`;
+    
     const player = {
       id: socket.id,
-      persistentPlayerId: persistentPlayerId,
+      persistentPlayerId: safePlayerId,
       name: currentPlayerName,
       lives: 3,
       answers: [],
@@ -1161,6 +1264,7 @@ io.on('connection', (socket) => {
 
     if (!room) {
       console.log('[SERVER] Start game failed - Room not found:', { roomCode, timestamp: new Date().toISOString() });
+      socket.emit('room_not_found', { message: 'Room not found. It may have expired or been deleted.' });
       socket.emit('error', 'Room not found');
       return;
     }
@@ -1386,6 +1490,7 @@ io.on('connection', (socket) => {
     const room = gameRooms[roomCode];
     if (!room) {
       console.error('[Server] request_players failed - Room not found:', roomCode);
+      socket.emit('room_not_found', { message: 'Room not found. It may have expired or been deleted.' });
       socket.emit('error', { message: 'Room not found' });
       return;
     }
@@ -1435,19 +1540,25 @@ io.on('connection', (socket) => {
   });
 
   // Handle answer submission
-  socket.on('submit_answer', (data) => {
-    const { roomCode, answer, hasDrawing, drawingData: clientDrawingData, answerAttemptId } = data;
-    console.log(`[Server] Answer submission:`, {
+  socket.on('submit_answer', ({ roomCode, answer, hasDrawing, drawingData, answerAttemptId }) => {
+    console.log(`[Server] Received answer:`, {
       roomCode,
       playerId: socket.id,
-      persistentPlayerId: socket.data.persistentPlayerId,
-      hasDrawing, // This is the client's claim
-      answerLength: answer?.length || 0,
-      clientDrawingDataLength: clientDrawingData?.length || 0,
-      answerAttemptId: answerAttemptId || 'no_id',
+      answerLength: answer.length,
+      hasDrawing,
+      drawingDataLength: drawingData?.length || 0,
+      attemptId: answerAttemptId || 'none',
       timestamp: new Date().toISOString()
     });
     
+    // Validate the room exists
+    if (!gameRooms[roomCode]) {
+      console.error('[Server] Answer submission failed - Room not found:', roomCode);
+      socket.emit('room_not_found', { message: 'Room not found. It may have expired or been deleted.' });
+      socket.emit('error', 'Room not found');
+      return;
+    }
+
     const room = gameRooms[roomCode];
     if (!room) {
       console.error('[Server] Answer submission failed - Room not found:', roomCode);
@@ -1499,12 +1610,12 @@ io.on('connection', (socket) => {
       let finalHasDrawing = false; // Server-determined truth for hasDrawing
 
       if (hasDrawing) { // If client claims there is a drawing
-        if (clientDrawingData && clientDrawingData.trim() !== '') {
-          drawingDataForStorage = clientDrawingData;
+        if (drawingData && drawingData.trim() !== '') {
+          drawingDataForStorage = drawingData;
           finalHasDrawing = true;
-          console.log(`[Server SubmitAns REFINED] Player ${socket.id}: using non-empty clientDrawingData. Length: ${clientDrawingData?.length}`);
+          console.log(`[Server SubmitAns REFINED] Player ${socket.id}: using non-empty drawingData. Length: ${drawingData?.length}`);
         } else {
-          console.warn(`[Server SubmitAns REFINED] Player ${socket.id}: hasDrawing true from client, but clientDrawingData is empty/null. Attempting fallback to playerBoards.`);
+          console.warn(`[Server SubmitAns REFINED] Player ${socket.id}: hasDrawing true from client, but drawingData is empty/null. Attempting fallback to playerBoards.`);
           if (room.playerBoards && room.playerBoards[socket.id]) {
             const playerBoardEntry = room.playerBoards[socket.id];
             if (playerBoardEntry.roundIndex === room.currentQuestionIndex && playerBoardEntry.boardData && playerBoardEntry.boardData.trim() !== '') {
@@ -2122,9 +2233,9 @@ io.on('connection', (socket) => {
       // Set timer only if this is not likely a temporary disconnect
       // If it's a temporary disconnect, Socket.IO CSR will handle reconnection
       if (!isTemporaryDisconnect) {
-        // Extend the timeout period for game master - from 2 minutes to 15 minutes
-        // This gives more time for reconnection and reduces chance of accidental room deletion
-        const maxDisconnectionDuration = 15 * 60 * 1000; // 15 minutes
+        // Reduce timeout period for game master from 15 minutes to 2 minutes
+        // This makes rooms expire faster when the GM disconnects
+        const maxDisconnectionDuration = 2 * 60 * 1000; // 2 minutes
         const gracePeriod = 10 * 1000; // Additional 10 seconds grace period
         
         // Force a room state save now, so we have the latest state
@@ -2133,10 +2244,20 @@ io.on('connection', (socket) => {
         room.gamemasterDisconnectTimer = setTimeout(() => {
           // If GM is still disconnected when timer fires
           if (room.gamemasterDisconnected) {
-            console.log(`[Server] Game Master did not reconnect within allowed time (15 minutes). Ending game in room ${roomCode}`);
+            console.log(`[Server] Game Master did not reconnect within allowed time (2 minutes). Ending game in room ${roomCode}`);
             
-            // End the game
-            io.to(roomCode).emit('game_over', { reason: 'Game Master disconnected for too long (15 minutes)' });
+            // Store disconnect time for cleanup reference
+            room.gamemasterDisconnectTime = new Date().toISOString();
+            
+            // Notify players with room_not_found to redirect them to home screen
+            io.to(roomCode).emit('room_not_found', { 
+              message: 'This room has expired because the Game Master disconnected for too long (2 minutes). Please create or join a new room.'
+            });
+            
+            // Also send game_over for backward compatibility with older clients
+            io.to(roomCode).emit('game_over', { 
+              reason: 'Game Master disconnected for too long (2 minutes)'
+            });
             
             // Make one final save before marking the room as inactive
             room.isConcluded = true;
@@ -2265,10 +2386,18 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString()
     });
     
+    // Store this data on the socket for potential recovery
+    socket.data.persistentPlayerId = persistentPlayerId || socket.data.persistentPlayerId;
+    socket.data.isGameMaster = isGameMaster;
+    socket.data.reconnecting = true;
+    
     const room = gameRooms[roomCode];
     if (!room) {
       console.error('[Server] rejoin_room failed - Room not found:', roomCode);
-      socket.emit('error', { message: 'Room not found' });
+      // Instead of just a generic error, send a specific room_not_found event
+      socket.emit('room_not_found', { message: 'Room not found. It may have expired or been deleted. Please create a new room.' });
+      // Also send the error event for backward compatibility
+      socket.emit('error', { message: 'Room not found. It may have expired or been deleted. Please create a new room.' });
       return;
     }
     
@@ -2300,6 +2429,10 @@ io.on('connection', (socket) => {
         persistentPlayerId: actualPersistentId
       });
       
+      // Save player name and role on socket data for easier reference
+      socket.data.playerName = 'GameMaster';
+      socket.data.isGameMaster = true;
+      
       // Confirm room joined
       socket.emit('room_created', { roomCode });
       
@@ -2311,6 +2444,13 @@ io.on('connection', (socket) => {
       
       // Send the current player list
       socket.emit('players_update', room.players);
+      
+      // Update lastActivity timestamp
+      room.lastActivity = new Date().toISOString();
+      
+      // Always save room state after successful rejoin
+      saveRoomState();
+      
       return;
     }
     
@@ -2341,6 +2481,11 @@ io.on('connection', (socket) => {
       socket.join(roomCode);
       socket.roomCode = roomCode;
       
+      // Save player name on socket data for easier reference
+      socket.data.playerName = player.name;
+      socket.data.isGameMaster = false;
+      socket.data.persistentPlayerId = actualPersistentId;
+      
       console.log(`[Server] Player rejoined room ${roomCode}:`, {
         socketId: socket.id,
         oldSocketId,
@@ -2358,6 +2503,9 @@ io.on('connection', (socket) => {
       // Broadcast the full game state to all clients to ensure GM view is updated immediately
       broadcastGameState(roomCode);
       
+      // Update lastActivity timestamp
+      room.lastActivity = new Date().toISOString();
+      
       // Confirm room joined
       socket.emit('room_joined', { 
         roomCode,
@@ -2372,6 +2520,68 @@ io.on('connection', (socket) => {
       
       // Send the current player list
       socket.emit('players_update', room.players);
+      
+      // Always save room state after successful rejoin
+      saveRoomState();
+      
+      return;
+    }
+    
+    // If we get here but the player has a persistentPlayerId, allow them to join as new
+    if (actualPersistentId && isGameMaster === false) {
+      console.log(`[Server] Player with persistentId ${actualPersistentId} not found in room ${roomCode}. Adding as new player.`);
+      
+      // Get player name from socket data or use a default
+      const playerName = socket.data.playerName || `Player_${actualPersistentId.substring(0, 5)}`;
+      
+      // Create a new player entry
+      const newPlayer = {
+        id: socket.id,
+        persistentPlayerId: actualPersistentId,
+        name: playerName,
+        lives: 3, // Default lives
+        isActive: true,
+        isSpectator: false,
+        joinedAsSpectator: false,
+        answers: []
+      };
+      
+      // Add the player to the room
+      room.players.push(newPlayer);
+      
+      // Add socket to the room
+      socket.join(roomCode);
+      socket.roomCode = roomCode;
+      
+      // Save player name on socket data
+      socket.data.playerName = playerName;
+      socket.data.isGameMaster = false;
+      socket.data.persistentPlayerId = actualPersistentId;
+      
+      // Notify everyone about new player
+      io.to(roomCode).emit('player_joined', newPlayer);
+      
+      // Update lastActivity timestamp
+      room.lastActivity = new Date().toISOString();
+      
+      // Confirm room joined
+      socket.emit('room_joined', { 
+        roomCode,
+        playerId: actualPersistentId
+      });
+      
+      // Send the current game state
+      const gameState = getGameState(roomCode);
+      if (gameState) {
+        socket.emit('game_state_update', gameState);
+      }
+      
+      // Send the current player list
+      socket.emit('players_update', room.players);
+      
+      // Save room state
+      saveRoomState();
+      
       return;
     }
     
@@ -2572,3 +2782,64 @@ server.listen(PORT, () => {
   console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
   console.log(`Build path: ${buildPath}`);
 });
+
+// Set up periodic room cleanup (every 30 minutes)
+const CLEANUP_INTERVAL_MS = 30 * 60 * 1000; // 30 minutes
+setInterval(() => {
+  cleanupStaleRooms();
+}, CLEANUP_INTERVAL_MS);
+
+// Function to clean up stale rooms
+function cleanupStaleRooms() {
+  console.log('[Server] Starting cleanup of stale rooms');
+  const now = new Date();
+  let roomsRemoved = 0;
+  
+  Object.entries(gameRooms).forEach(([roomCode, room]) => {
+    // Skip rooms that are marked as concluded - they're already handled
+    if (room.isConcluded) return;
+    
+    // Check last activity timestamp
+    const lastActivity = new Date(room.lastActivity || room.createdAt);
+    const hoursSinceLastActivity = Math.abs(now - lastActivity) / 36e5;
+    
+    // If room is inactive for over 24 hours, clean it up
+    if (hoursSinceLastActivity > 24) {
+      console.log(`[Server] Removing stale room ${roomCode} (inactive for ${hoursSinceLastActivity.toFixed(1)} hours)`);
+      
+      // Notify all clients in the room before removing it
+      io.to(roomCode).emit('room_not_found', { 
+        message: 'This room has expired due to inactivity. Please join or create a new room.'
+      });
+      
+      // Delete the room
+      delete gameRooms[roomCode];
+      roomsRemoved++;
+    }
+    // If GM is disconnected for over 2 minutes, the room should have been cleaned up already by the GM disconnect handler
+    else if (room.gamemasterDisconnected) {
+      const disconnectTime = new Date(room.gamemasterDisconnectTime || room.lastActivity);
+      const minutesSinceDisconnect = Math.abs(now - disconnectTime) / 60000;
+      
+      if (minutesSinceDisconnect > 3) { // Add a buffer over the 2-minute timeout
+        console.log(`[Server] Removing room ${roomCode} with disconnected GM (${minutesSinceDisconnect.toFixed(1)} minutes)`);
+        
+        // Notify all clients in the room before removing it
+        io.to(roomCode).emit('room_not_found', { 
+          message: 'This room has expired because the Game Master disconnected. Please join or create a new room.'
+        });
+        
+        // Delete the room
+        delete gameRooms[roomCode];
+        roomsRemoved++;
+      }
+    }
+  });
+  
+  console.log(`[Server] Room cleanup complete. Removed ${roomsRemoved} stale rooms.`);
+  
+  // Save the updated room state after cleanup
+  if (roomsRemoved > 0) {
+    saveRoomState();
+  }
+}

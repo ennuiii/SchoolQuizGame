@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService, { ConnectionStatusType } from '../services/socketService';
 import { Socket } from 'socket.io-client';
@@ -282,33 +282,92 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return false;
     }
     
-    if (connectionStatus !== 'connected') {
-      console.log('[RoomContext] Cannot rejoin: Not connected');
-      return false;
-    }
-    
     console.log('[RoomContext] Attempting to rejoin with stored session data:', {
       roomCode: storedRoomCode,
       playerName: storedPlayerName,
       isSpectator: storedIsSpectator,
       isGameMaster: storedIsGameMaster,
+      connectionStatus,
       persistentPlayerId: socketService.getPersistentPlayerId()
     });
     
-    try {
-      if (storedIsGameMaster) {
-        // Rejoin as GM
-        await createRoom(storedRoomCode);
-      } else {
-        // Rejoin as player/spectator
-        await joinRoom(storedRoomCode, storedPlayerName || '', storedIsSpectator);
+    // If we're not connected, try to establish connection first
+    if (connectionStatus !== 'connected') {
+      console.log('[RoomContext] Not connected, attempting to connect first...');
+      try {
+        await socketService.connect();
+        // Give a moment for connection to stabilize
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } catch (error) {
+        console.error('[RoomContext] Failed to establish connection for rejoin:', error);
+        setErrorMsg('Failed to connect to the server. Please try again.');
+        return false;
       }
-      return true;
+    }
+    
+    try {
+      // Set up retry logic
+      const maxRetries = 3;
+      let retryCount = 0;
+      let success = false;
+      
+      while (retryCount < maxRetries && !success) {
+        try {
+          console.log(`[RoomContext] Rejoin attempt ${retryCount + 1}/${maxRetries}`);
+          
+          if (storedIsGameMaster) {
+            // Rejoin as GM
+            setIsGameMaster(true);
+            await socketService.rejoinRoom(storedRoomCode, true);
+          } else {
+            // Rejoin as player/spectator
+            setIsGameMaster(false);
+            setPlayerName(storedPlayerName || '');
+            setIsSpectator(storedIsSpectator);
+            await socketService.rejoinRoom(storedRoomCode, false);
+          }
+          
+          success = true;
+          console.log('[RoomContext] Rejoin successful');
+          
+          // Clear any error messages on successful rejoin
+          setErrorMsg('');
+        } catch (error) {
+          retryCount++;
+          const backoffMs = Math.pow(2, retryCount) * 1000; // Exponential backoff
+          
+          console.error(`[RoomContext] Rejoin attempt ${retryCount} failed:`, error);
+          
+          if (retryCount < maxRetries) {
+            console.log(`[RoomContext] Retrying in ${backoffMs}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+          } else {
+            console.error('[RoomContext] All rejoin attempts failed');
+            setErrorMsg('Failed to rejoin the room. The room may no longer exist or the server may be unavailable.');
+            // Don't return false yet, let the navigation code run
+          }
+        }
+      }
+      
+      // Navigate to the appropriate page even on failure, to show the error message
+      if (success) {
+        // Navigate to appropriate page based on role
+        if (storedIsGameMaster) {
+          navigate('/gamemaster');
+        } else if (storedIsSpectator) {
+          navigate('/spectator');
+        } else {
+          navigate('/player');
+        }
+      }
+      
+      return success;
     } catch (error) {
-      console.error('[RoomContext] Rejoin attempt failed:', error);
+      console.error('[RoomContext] Unexpected error during rejoin:', error);
+      setErrorMsg('An unexpected error occurred. Please try again.');
       return false;
     }
-  }, [connectionStatus, createRoom, joinRoom]);
+  }, [connectionStatus, navigate, setErrorMsg, setIsGameMaster, setIsSpectator, setPlayerName]);
 
   // Main useEffect for setting up persistent socket event listeners
   useEffect(() => {
@@ -454,10 +513,25 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         setErrorMsg(error);
         // No setIsLoading(false) here, as error might not relate to initial loading
-        if (error.includes('Invalid room code') || error.includes('not found') || error.includes('Room does not exist')) {
-          console.warn('[RoomContext] Error indicates invalid/non-existent room:', error);
-          // Consider navigating away or clearing room state
-          // leaveRoom(); // This might be too drastic, but an option
+        
+        // Check for room not found errors and handle them by redirecting to home
+        if (error.includes('Room not found') || 
+            error.includes('room not found') || 
+            error.includes('does not exist') || 
+            error.includes('Invalid room code') || 
+            error.includes('expired') || 
+            error.includes('been deleted')) {
+          
+          console.warn('[RoomContext] Room not found error detected:', error);
+          setErrorMsg(error || 'Room not found. You will be redirected to the home screen.');
+          
+          // Clean up session and navigate to home
+          leaveRoom();
+          
+          // Add a small delay before navigation to ensure the error message is displayed
+          setTimeout(() => {
+            navigate('/');
+          }, 1500);
         }
       };
       
@@ -495,6 +569,26 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Do not call leaveRoom() or navigate('/') here anymore. acknowledgeKick will handle it.
       };
 
+      // onReconnectHandler is defined above, handle room_expired event
+      const onRoomExpiredHandler = ({ message }: { message: string }) => {
+        console.warn(`[RoomContext] Room expired. Message: ${message}`);
+        setErrorMsg(message || 'This room has expired. Please create a new room.');
+        leaveRoom();
+        navigate('/');
+      };
+
+      // Handle specific room_not_found event
+      const onRoomNotFoundHandler = ({ message }: { message: string }) => {
+        console.warn(`[RoomContext] Room not found. Message: ${message}`);
+        setErrorMsg(message || 'This room no longer exists. You will be redirected to the home screen.');
+        leaveRoom();
+        
+        // Navigate to home screen
+        setTimeout(() => {
+          navigate('/');
+        }, 1500);
+      };
+
       // Attach listeners
       socketToUse.on('room_created', onRoomCreated); // GM specific
       socketToUse.on('room_joined', onRoomJoined);   // Player/Spectator specific
@@ -504,12 +598,14 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketToUse.on('player_disconnected_status', onPlayerDisconnected);
       socketToUse.on('avatar_updated', onAvatarUpdated);
       socketToUse.on('become_spectator', onBecomeSpectator);
-      socketToUse.on('game_state_update', onGameStateUpdate);
+      socketToUse.on('game_state_update', onGameStateUpdate); // Handled at game context
+      socketToUse.on('session_not_fully_recovered_join_manually', onSessionNotFullyRecovered);
+      socketToUse.on('kicked_from_room', onKickedFromRoomHandler);
+      socketToUse.on('room_expired', onRoomExpiredHandler);
+      socketToUse.on('room_not_found', onRoomNotFoundHandler);
       socketToUse.on('error', onErrorHandler);
       socketToUse.on('disconnect', onDisconnectHandler);
       socketToUse.on('connect', onConnectHandler);
-      socketToUse.on('kicked_from_room', onKickedFromRoomHandler);
-      socketToUse.on('session_not_fully_recovered_join_manually', onSessionNotFullyRecovered);
 
       // Initial state restoration attempt from session if not already set
       if (!playerName) {
@@ -525,8 +621,9 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
          setIsSpectator(savedIsSpectator === 'true');
       }
       
+      // Clean up event listeners
       return () => {
-        console.log(`[RoomContext] useEffect cleanup. Removing listeners from socket ${socketToUse.id}${roomCode ? ` for room ${roomCode}` : ''}`);
+        console.log(`[RoomContext] Cleaning up event listeners for socket ${socketToUse.id}`);
         socketToUse.off('room_created', onRoomCreated);
         socketToUse.off('room_joined', onRoomJoined);
         socketToUse.off('player_joined', onPlayerJoined);
@@ -536,11 +633,13 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
         socketToUse.off('avatar_updated', onAvatarUpdated);
         socketToUse.off('become_spectator', onBecomeSpectator);
         socketToUse.off('game_state_update', onGameStateUpdate);
+        socketToUse.off('session_not_fully_recovered_join_manually', onSessionNotFullyRecovered);
+        socketToUse.off('kicked_from_room', onKickedFromRoomHandler);
+        socketToUse.off('room_expired', onRoomExpiredHandler);
+        socketToUse.off('room_not_found', onRoomNotFoundHandler);
         socketToUse.off('error', onErrorHandler);
         socketToUse.off('disconnect', onDisconnectHandler);
         socketToUse.off('connect', onConnectHandler);
-        socketToUse.off('kicked_from_room', onKickedFromRoomHandler);
-        socketToUse.off('session_not_fully_recovered_join_manually', onSessionNotFullyRecovered);
       };
     } else {
       console.log('[RoomContext] Main useEffect: No socket connection available. Listeners not set.');
@@ -597,6 +696,36 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       timestamp: new Date().toISOString()
     });
   }, [roomCode, playerName, isSpectator, isStreamerMode]);
+
+  // Add a useEffect to watch for connection status changes and automatically rejoin
+  useEffect(() => {
+    // If we've reconnected after a disconnect and we previously had an active room
+    if (connectionStatus === 'connected' && previousConnectionStatus.current === 'reconnecting' && roomCode) {
+      console.log('[RoomContext] Detected reconnection after disconnect. Attempting to rejoin automatically...');
+      // Short delay to ensure server is fully ready
+      setTimeout(() => {
+        attemptRejoin()
+          .then(success => {
+            if (success) {
+              console.log('[RoomContext] Automatic rejoin after reconnection successful');
+            } else {
+              console.error('[RoomContext] Automatic rejoin after reconnection failed');
+              setErrorMsg('Reconnection failed. The room may no longer exist or your session may have expired.');
+            }
+          })
+          .catch(error => {
+            console.error('[RoomContext] Error during automatic rejoin:', error);
+            setErrorMsg('An error occurred during reconnection. Please refresh the page and try again.');
+          });
+      }, 1000);
+    }
+    
+    // Track previous connection status
+    previousConnectionStatus.current = connectionStatus;
+  }, [connectionStatus, roomCode, attemptRejoin, setErrorMsg]);
+
+  // Add a reference to track previous connection status
+  const previousConnectionStatus = useRef<ConnectionStatusType>('disconnected');
 
   const value: RoomContextType = {
     roomCode,
