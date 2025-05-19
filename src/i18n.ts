@@ -301,7 +301,14 @@ const translations: { [lang: string]: TranslationMap } = {
       hair: 'Hair',
       accessory: 'Accessory',
       color: 'Color',
-      randomize: 'Randomize'
+      randomize: 'Randomize',
+      style: 'Style',
+      seed: 'Seed',
+      seedHelp: 'Different seeds create different avatars',
+      backgroundColor: 'Background Color',
+      flip: 'Flip Horizontally',
+      rotate: 'Rotation',
+      scale: 'Scale'
     },
     joinGame: {
       title: 'Join Game',
@@ -628,7 +635,14 @@ const translations: { [lang: string]: TranslationMap } = {
       hair: 'Haar',
       accessory: 'Zusatz',
       color: 'Farbe',
-      randomize: 'Zufällig'
+      randomize: 'Zufällig',
+      style: 'Stil',
+      seed: 'Seed',
+      seedHelp: 'Verschiedene Seeds erzeugen unterschiedliche Avatare',
+      backgroundColor: 'Hintergrundfarbe',
+      flip: 'Horizontal spiegeln',
+      rotate: 'Drehung',
+      scale: 'Größe'
     },
     joinGame: {
       title: 'Spiel beitreten',
@@ -943,7 +957,14 @@ const translations: { [lang: string]: TranslationMap } = {
       hair: 'Cheveux',
       accessory: 'Accessoire',
       color: 'Couleur',
-      randomize: 'Aléatoire'
+      randomize: 'Aléatoire',
+      style: 'Style',
+      seed: 'Graine',
+      seedHelp: 'Différentes graines créent différents avatars',
+      backgroundColor: 'Couleur de fond',
+      flip: 'Retourner horizontalement',
+      rotate: 'Rotation',
+      scale: 'Échelle'
     },
     joinGame: {
       title: 'Rejoindre le jeu',

@@ -54,6 +54,21 @@ const Avatar: React.FC<AvatarProps> = ({
     `;
   };
   
+  // Process the avatar SVG to ensure proper sizing
+  const processAvatarSvg = (): string => {
+    if (!avatarSvg) return '';
+    
+    // Check if it's a DiceBear SVG (contains dicebear in the data attributes)
+    if (avatarSvg.includes('data-dicebear-')) {
+      // Preserve all attributes but update width and height
+      return avatarSvg.replace(/<svg(.*?)width="[^"]*"(.*?)height="[^"]*"(.*?)>/, 
+                             `<svg$1width="${size}"$2height="${size}"$3>`);
+    }
+    
+    // For custom SVGs we created previously
+    return avatarSvg.replace('width="100" height="100"', `width="${size}" height="${size}"`);
+  };
+  
   return (
     <div 
       className={`avatar ${className}`}
@@ -68,7 +83,7 @@ const Avatar: React.FC<AvatarProps> = ({
       {avatarSvg ? (
         <div 
           dangerouslySetInnerHTML={{ 
-            __html: avatarSvg.replace('width="100" height="100"', `width="${size}" height="${size}"`) 
+            __html: processAvatarSvg()
           }} 
         />
       ) : (
