@@ -93,6 +93,16 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg 
     }
   }, [initialAvatarSvg]);
   
+  // Generate random avatar
+  const randomizeAvatar = () => {
+    setFaceShape(Math.floor(Math.random() * FACE_SHAPES.length));
+    setEyes(Math.floor(Math.random() * EYES.length));
+    setMouth(Math.floor(Math.random() * MOUTHS.length));
+    setHair(Math.floor(Math.random() * HAIRS.length));
+    setAccessory(Math.floor(Math.random() * ACCESSORIES.length));
+    setColor(Math.floor(Math.random() * COLORS.length));
+  };
+  
   // Generate SVG string
   const generateAvatarSvg = (): string => {
     const selectedFace = FACE_SHAPES[faceShape];
@@ -140,12 +150,22 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg 
             <div dangerouslySetInnerHTML={{ __html: generateAvatarSvg() }} />
           </div>
           
-          <button 
-            className="btn btn-primary d-block mx-auto" 
-            onClick={handleSave}
-          >
-            {t('avatarCreator.save', language) || 'Save Avatar'}
-          </button>
+          <div className="d-flex justify-content-center mb-3">
+            <button 
+              className="btn btn-outline-primary me-2" 
+              onClick={randomizeAvatar}
+              title="Generate random avatar"
+            >
+              <i className="bi bi-shuffle"></i> {t('avatarCreator.randomize', language) || 'Randomize'}
+            </button>
+            
+            <button 
+              className="btn btn-primary" 
+              onClick={handleSave}
+            >
+              {t('avatarCreator.save', language) || 'Save Avatar'}
+            </button>
+          </div>
         </div>
         
         <div className="col-md-6">

@@ -300,7 +300,8 @@ const translations: { [lang: string]: TranslationMap } = {
       mouth: 'Mouth',
       hair: 'Hair',
       accessory: 'Accessory',
-      color: 'Color'
+      color: 'Color',
+      randomize: 'Randomize'
     },
     joinGame: {
       title: 'Join Game',
@@ -626,7 +627,8 @@ const translations: { [lang: string]: TranslationMap } = {
       mouth: 'Mund',
       hair: 'Haar',
       accessory: 'Zusatz',
-      color: 'Farbe'
+      color: 'Farbe',
+      randomize: 'Zufällig'
     },
     joinGame: {
       title: 'Spiel beitreten',
@@ -940,7 +942,8 @@ const translations: { [lang: string]: TranslationMap } = {
       mouth: 'Bouche',
       hair: 'Cheveux',
       accessory: 'Accessoire',
-      color: 'Couleur'
+      color: 'Couleur',
+      randomize: 'Aléatoire'
     },
     joinGame: {
       title: 'Rejoindre le jeu',
@@ -1254,7 +1257,8 @@ const translations: { [lang: string]: TranslationMap } = {
       mouth: 'Mond',
       hair: 'Haar',
       accessory: 'Accessoire',
-      color: 'Kleur'
+      color: 'Kleur',
+      randomize: 'Willekeurig'
     },
     joinGame: {
       title: 'Deelnemen aan spel',
@@ -1568,7 +1572,8 @@ const translations: { [lang: string]: TranslationMap } = {
       mouth: 'Usta',
       hair: 'Włosy',
       accessory: 'Akcesoria',
-      color: 'Kolor'
+      color: 'Kolor',
+      randomize: 'Losowy'
     },
     joinGame: {
       title: 'Dołącz do gry',
@@ -1882,7 +1887,8 @@ const translations: { [lang: string]: TranslationMap } = {
       mouth: '嘴巴',
       hair: '头发',
       accessory: '配件',
-      color: '颜色'
+      color: '颜色',
+      randomize: '随机'
     },
     joinGame: {
       title: '加入游戏',
