@@ -824,6 +824,11 @@ io.on('connection', (socket) => {
           persistentPlayerId: socket.data.persistentPlayerId,
           isActive: true
         });
+        
+        // Broadcast the full game state to ensure all clients, including the GM, 
+        // immediately see the updated player status
+        broadcastGameState(roomCode);
+        
         break;
       }
     }
@@ -2337,6 +2342,9 @@ io.on('connection', (socket) => {
         persistentPlayerId: actualPersistentId,
         isActive: true
       });
+      
+      // Broadcast the full game state to all clients to ensure GM view is updated immediately
+      broadcastGameState(roomCode);
       
       // Confirm room joined
       socket.emit('room_joined', { 
