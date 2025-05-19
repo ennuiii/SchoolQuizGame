@@ -33,6 +33,7 @@ export class SocketService {
   private eventListeners: Map<string, Set<Function>> = new Map();
   private connectionStateListeners: ((state: string, detailInfo?: any) => void)[] = [];
   private url: string;
+  private isReconnecting: boolean = false;
 
   // New persistent state variables
   private persistentPlayerId: string | null = null;
@@ -122,16 +123,54 @@ export class SocketService {
     this.connectionStateListeners.forEach(listener => listener(newState, detailInfo));
   }
 
+  // Force reconnect to fix "Already connected" errors
+  async forceReconnect(): Promise<Socket | null> {
+    // Perform a clean disconnect first
+    console.log('[SocketService] Force reconnecting to clear "Already connected" state...');
+    this.isReconnecting = true;
+    
+    // Complete disconnect first
+    if (this.socket) {
+      // Properly clean up existing connection
+      try {
+        const roomCode = localStorage.getItem('roomCode');
+        if (roomCode && this.socket.connected) {
+          console.log(`[SocketService] Sending leave_room message before force reconnect from room ${roomCode}`);
+          this.socket.emit('leave_room', { roomCode });
+        }
+        
+        // Force disconnect
+        this.socket.disconnect();
+        this.socket = null;
+      } catch (error) {
+        console.error('[SocketService] Error during force disconnect:', error);
+      }
+    }
+    
+    // Reset connection state
+    this.connectionPromise = null;
+    this.updateConnectionState('disconnected');
+    
+    // Wait a short delay before reconnecting
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log('[SocketService] Disconnected, now reconnecting with fresh connection...');
+    this.isReconnecting = false;
+    
+    // Now initiate a new connection
+    return this.connect();
+  }
+
   // Connect to socket.io server with CSR
   connect(): Promise<Socket | null> {
     // If we're already connecting, return the existing promise
-    if (this.connectionPromise) {
+    if (this.connectionPromise && !this.isReconnecting) {
       console.log('[SocketService] Connection already in progress, reusing promise');
       return this.connectionPromise;
     }
 
     // If we're already connected, return the existing socket
-    if (this.socket?.connected) {
+    if (this.socket?.connected && !this.isReconnecting) {
       console.log('[SocketService] Already connected, reusing socket');
       return Promise.resolve(this.socket);
     }

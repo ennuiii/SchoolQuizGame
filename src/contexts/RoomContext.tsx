@@ -430,6 +430,15 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const onErrorHandler = (errorData: string | { message: string }) => {
         const error = typeof errorData === 'string' ? errorData : errorData.message;
         console.error('[RoomContext] main useEffect: Socket error event:', error);
+        
+        // More specific error handling for "Already connected"
+        if (error.includes('Already connected from another tab/device')) {
+          const helpfulMessage = 'Already connected from another tab/device. Try using the "Reset Connection" button below to fix this issue.';
+          setErrorMsg(helpfulMessage);
+          setIsLoading(false);
+          return;
+        }
+        
         setErrorMsg(error);
         // No setIsLoading(false) here, as error might not relate to initial loading
         if (error.includes('Invalid room code') || error.includes('not found') || error.includes('Room does not exist')) {

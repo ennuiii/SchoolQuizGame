@@ -23,6 +23,7 @@ const JoinGame: React.FC = () => {
   const [isSpectator, setIsSpectator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const { language } = useLanguage();
   
   const {
@@ -152,6 +153,28 @@ const JoinGame: React.FC = () => {
     // No cleanup needed for the promise itself
   }, []);
 
+  // Handle force reconnect to fix "Already connected" errors
+  const handleResetConnection = async () => {
+    setIsResetting(true);
+    setErrorMsg("");
+    
+    try {
+      // Clear any stored player data that might cause reconnection issues
+      localStorage.removeItem('roomCode');
+      
+      // Force reconnect using the new method
+      await socketService.forceReconnect();
+      
+      // Update UI state
+      console.log('[JoinGame] Connection reset successful');
+      setIsResetting(false);
+    } catch (error) {
+      console.error('[JoinGame] Error resetting connection:', error);
+      setErrorMsg('Failed to reset connection. Please refresh the page.');
+      setIsResetting(false);
+    }
+  };
+
   return (
     <>
       <SettingsControl />
@@ -230,10 +253,21 @@ const JoinGame: React.FC = () => {
                 <button 
                   className="btn btn-primary btn-lg mt-3"
                   onClick={handleJoinGame}
-                  disabled={isLoading || isConnecting}
+                  disabled={isLoading || isConnecting || isResetting}
                 >
                   {isLoading ? t('joinGame.processing', language) : isConnecting ? t('joinGame.connecting', language) : t('joinGame.joinGame', language)}
                 </button>
+                
+                {errorMsg && errorMsg.includes("Already connected") && (
+                  <button 
+                    className="btn btn-warning mt-3 ms-2"
+                    onClick={handleResetConnection}
+                    disabled={isResetting}
+                  >
+                    {isResetting ? "Resetting..." : "Reset Connection"}
+                  </button>
+                )}
+                
                 <button 
                   className="btn btn-outline-secondary mt-3"
                   onClick={() => navigate('/')}
