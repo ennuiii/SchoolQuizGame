@@ -2250,12 +2250,13 @@ io.on('connection', (socket) => {
   });
 
   // Handle rejoin_room for reconnections (especially after F5)
-  socket.on('rejoin_room', ({ roomCode, isGameMaster, persistentPlayerId }) => {
+  socket.on('rejoin_room', ({ roomCode, isGameMaster, persistentPlayerId, avatarSvg }) => {
     console.log(`[Server] Received rejoin_room request:`, {
       roomCode,
       socketId: socket.id,
       persistentPlayerId: persistentPlayerId || socket.data.persistentPlayerId,
       isGameMaster,
+      hasAvatar: !!avatarSvg,
       timestamp: new Date().toISOString()
     });
     
@@ -2318,6 +2319,12 @@ io.on('connection', (socket) => {
       // Update player info
       player.id = socket.id;
       player.isActive = true;
+      
+      // Update the player's avatar if provided
+      if (avatarSvg) {
+        player.avatarSvg = avatarSvg;
+        console.log(`[Server] Updated avatar for player ${player.name} (${actualPersistentId}) during rejoin`);
+      }
       
       // Clear any disconnect timer
       if (player.disconnectTimer) {

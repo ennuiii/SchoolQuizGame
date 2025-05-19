@@ -589,10 +589,25 @@ export class SocketService {
   }
 
   async rejoinRoom(roomCode: string, isGameMaster: boolean = false): Promise<void> {
+    // Get avatar from localStorage if available
+    let avatarSvg: string | null = null;
+    if (this.persistentPlayerId) {
+      avatarSvg = localStorage.getItem(`avatar_${this.persistentPlayerId}`);
+    }
+    
+    console.log('[SocketService] Rejoining room with avatar:', {
+      roomCode,
+      isGameMaster,
+      persistentPlayerId: this.persistentPlayerId,
+      hasAvatar: !!avatarSvg,
+      timestamp: new Date().toISOString()
+    });
+    
     await this.robustEmit('rejoin_room', { 
       roomCode, 
       isGameMaster, 
-      persistentPlayerId: this.persistentPlayerId
+      persistentPlayerId: this.persistentPlayerId,
+      avatarSvg
     });
   }
 
