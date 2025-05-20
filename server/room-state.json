@@ -10,7 +10,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": false,
@@ -20,7 +21,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "1Z7SL1": {
     "roomCode": "1Z7SL1",
@@ -33,7 +34,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": true,
@@ -89,7 +91,7 @@
     "questionStartTime": 1747662857536,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "EPPH2F": {
     "roomCode": "EPPH2F",
@@ -102,7 +104,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": false,
@@ -112,7 +115,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "EHEKXE": {
     "roomCode": "EHEKXE",
@@ -125,7 +128,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "75HM9F": {
     "roomCode": "75HM9F",
@@ -138,7 +141,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": false,
@@ -148,7 +152,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "E04GOM": {
     "roomCode": "E04GOM",
@@ -161,7 +165,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "BI7YKS": {
     "roomCode": "BI7YKS",
@@ -174,7 +178,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": false,
@@ -184,7 +189,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "KPXS5C": {
     "roomCode": "KPXS5C",
@@ -197,7 +202,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": true,
@@ -253,7 +259,7 @@
     "questionStartTime": 1747677436262,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "24J4XL": {
     "roomCode": "24J4XL",
@@ -266,7 +272,8 @@
         "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
+        "answers": [],
+        "disconnectTimer": null
       }
     ],
     "started": false,
@@ -276,7 +283,7 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   },
   "DA5T7G": {
     "roomCode": "DA5T7G",
@@ -289,6 +296,6 @@
     "questionStartTime": null,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-20T15:16:51.653Z"
   }
 }

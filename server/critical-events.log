@@ -80,3 +80,15 @@
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-19T20:26:09.776Z","details":{"roomCode":"KPXS5C","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-19T20:26:09.777Z","details":{"roomCode":"24J4XL","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-19T20:26:09.778Z","details":{"roomCode":"DA5T7G","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"GAMEMASTER_RECONNECTED","timestamp":"2025-05-20 14:50:11","details":{"roomCode":"KE3J66"}}
+{"eventType":"GAMEMASTER_DISCONNECTED","timestamp":"2025-05-20 14:51:26","details":{"roomCode":"KE3J66","disconnectTime":"2025-05-20T14:51:26.538Z"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.656Z","details":{"roomCode":"218151","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.657Z","details":{"roomCode":"1Z7SL1","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.658Z","details":{"roomCode":"EPPH2F","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.658Z","details":{"roomCode":"EHEKXE","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.659Z","details":{"roomCode":"75HM9F","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.660Z","details":{"roomCode":"E04GOM","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.661Z","details":{"roomCode":"BI7YKS","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.661Z","details":{"roomCode":"KPXS5C","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.662Z","details":{"roomCode":"24J4XL","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-20T15:16:21.662Z","details":{"roomCode":"DA5T7G","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
