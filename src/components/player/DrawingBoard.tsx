@@ -8,6 +8,9 @@ import { fabric } from 'fabric';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
 
+// Import PencilBrush for better TypeScript compatibility
+const { PencilBrush } = fabric;
+
 // Match the BoardData type used in Player.tsx
 interface BoardData {
   data: string;
@@ -43,6 +46,13 @@ const BRUSH_SIZES = [
   { name: 'XL', value: 16 },
 ];
 
+// Define preset eraser sizes
+const ERASER_SIZES = [
+  { name: 'S', value: 10 },
+  { name: 'M', value: 20 },
+  { name: 'L', value: 30 },
+];
+
 const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   onUpdate,
   disabled,
@@ -64,29 +74,124 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
   // Add state for brush color and size
   const [brushColor, setBrushColor] = useState(CHALK_COLORS[0]); // Default white chalk
   const [brushSize, setBrushSize] = useState(BRUSH_SIZES[2].value); // Default medium size
+  const [isEraserMode, setIsEraserMode] = useState(false);
+  const [eraserSize, setEraserSize] = useState(ERASER_SIZES[1].value); // Default medium eraser
+  const lastBrushColorRef = useRef(brushColor);
+  const lastBrushSizeRef = useRef(brushSize);
   
-  // Apply brush settings whenever they change or canvas changes
+  // Apply brush settings or switch to eraser
   useEffect(() => {
     if (!canvas) return;
-    if (canvas.freeDrawingBrush) {
-      canvas.freeDrawingBrush.color = brushColor;
-      canvas.freeDrawingBrush.width = brushSize;
+    
+    if (isEraserMode) {
+      // Store current brush settings before switching to eraser
+      lastBrushColorRef.current = brushColor;
+      lastBrushSizeRef.current = brushSize;
+      
+      try {
+        // Try to use the EraserBrush if fabric.js version supports it
+        console.log('[DrawingBoard] Setting up EraserBrush');
+        // @ts-ignore - EraserBrush might not be in the types
+        if (fabric.EraserBrush) {
+          // @ts-ignore - EraserBrush might not be in the types
+          const eraserBrush = new fabric.EraserBrush(canvas);
+          eraserBrush.width = eraserSize;
+          canvas.freeDrawingBrush = eraserBrush;
+          
+          // Add event listeners for eraser start/end
+          eraserBrush.on('start', () => {
+            console.log('[DrawingBoard] Eraser start');
+          });
+          
+          eraserBrush.on('end', () => {
+            console.log('[DrawingBoard] Eraser end');
+            
+            // Send the updated board state after erasing
+            if (roomCode && !disabled && !submittedAnswer) {
+              const currentState = getCanvasState();
+              if (currentState && currentState !== lastSentState) {
+                console.log('[DrawingBoard] Sending updated board state after erasing');
+                setLastSentState(currentState);
+                if (onUpdate) {
+                  onUpdate({
+                    data: currentState,
+                    timestamp: Date.now()
+                  });
+                }
+              }
+            }
+          });
+        } else {
+          throw new Error('EraserBrush not available');
+        }
+      } catch (error) {
+        console.error('[DrawingBoard] Error setting up EraserBrush:', error);
+        // Fallback to standard brush with background color if EraserBrush fails
+        const fallbackBrush = new PencilBrush(canvas);
+        fallbackBrush.color = '#0C6A35'; // Match the chalkboard background color
+        fallbackBrush.width = eraserSize;
+        canvas.freeDrawingBrush = fallbackBrush;
+      }
+    } else {
+      // Standard drawing brush setup
+      const pencilBrush = new PencilBrush(canvas);
+      pencilBrush.color = brushColor;
+      pencilBrush.width = brushSize;
       
       // For chalk effect - make the brush have a subtle shadow and opacity
-      if (canvas.freeDrawingBrush.shadow) {
-        canvas.freeDrawingBrush.shadow.blur = 1;
-        canvas.freeDrawingBrush.shadow.offsetX = 1;
-        canvas.freeDrawingBrush.shadow.offsetY = 1;
-        canvas.freeDrawingBrush.shadow.color = 'rgba(0,0,0,0.3)';
+      if ((pencilBrush as any).shadow) {
+        (pencilBrush as any).shadow.blur = 1;
+        (pencilBrush as any).shadow.offsetX = 1;
+        (pencilBrush as any).shadow.offsetY = 1;
+        (pencilBrush as any).shadow.color = 'rgba(0,0,0,0.3)';
       }
       
       // Set the opacity slightly less than 1 for chalk effect
-      if (canvas.freeDrawingBrush.opacity !== undefined) {
-        canvas.freeDrawingBrush.opacity = 0.9;
+      if ((pencilBrush as any).opacity !== undefined) {
+        (pencilBrush as any).opacity = 0.9;
+      }
+      
+      canvas.freeDrawingBrush = pencilBrush;
+    }
+    
+    canvas.renderAll();
+  }, [canvas, brushColor, brushSize, isEraserMode, eraserSize, roomCode, disabled, submittedAnswer, getCanvasState, lastSentState, onUpdate]);
+  
+  // Toggle between eraser and normal brush
+  const toggleEraserMode = useCallback(() => {
+    if (isEraserMode) {
+      // Switch back to brush mode with last used settings
+      setIsEraserMode(false);
+      setBrushColor(lastBrushColorRef.current);
+      setBrushSize(lastBrushSizeRef.current);
+    } else {
+      // Switch to eraser mode
+      setIsEraserMode(true);
+    }
+  }, [isEraserMode]);
+  
+  // Change eraser size
+  const changeEraserSize = useCallback((size: number) => {
+    setEraserSize(size);
+  }, []);
+
+  // Force update canvas state manually
+  const forceUpdateCanvasState = useCallback(() => {
+    if (!canvas || !roomCode || disabled || submittedAnswer) return;
+    
+    console.log('[DrawingBoard] Force updating canvas state');
+    const currentState = getCanvasState();
+    if (currentState && currentState !== lastSentState) {
+      setLastSentState(currentState);
+      if (onUpdate) {
+        onUpdate({
+          data: currentState,
+          timestamp: Date.now()
+        });
       }
     }
-  }, [canvas, brushColor, brushSize]);
-  
+  }, [canvas, roomCode, disabled, submittedAnswer, getCanvasState, lastSentState, onUpdate]);
+
   // Get canvas state and send to server periodically
   useEffect(() => {
     if (!canvas || !gameStarted || gameOver || disabled || submittedAnswer || !roomCode || connectionStatus !== 'connected') {
@@ -251,52 +356,95 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
     return (
       <div className="drawing-board-external-controls d-flex justify-content-between w-100 mt-2 mb-2">
         <div className="drawing-controls-left d-flex align-items-center gap-2">
-          <div className="brush-size-controls">
-            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.size', language)}:</label>
-            <div className="btn-group">
-              {BRUSH_SIZES.map((size) => (
-                <button
-                  key={size.name}
-                  className={`btn btn-sm ${brushSize === size.value ? 'btn-light' : 'btn-outline-light'}`}
-                  onClick={() => setBrushSize(size.value)}
-                  title={`${size.name} ${t('drawingBoard.brush', language)} (${size.value}px)`}
-                >
-                  {size.name}
-                </button>
-              ))}
-            </div>
+          {/* Mode toggle button */}
+          <div className="mode-toggle me-3">
+            <button
+              className={`btn ${isEraserMode ? 'btn-light' : 'btn-outline-light'}`}
+              onClick={toggleEraserMode}
+              title={isEraserMode ? t('drawingBoard.switchToBrush', language) || 'Switch to Brush' : t('drawingBoard.switchToEraser', language) || 'Switch to Eraser'}
+              style={{ minWidth: '120px' }}
+            >
+              {isEraserMode ? (
+                <span>
+                  <i className="bi bi-brush me-1"></i>
+                  {t('drawingBoard.brushMode', language) || 'Brush'}
+                </span>
+              ) : (
+                <span>
+                  <i className="bi bi-eraser me-1"></i>
+                  {t('drawingBoard.eraserMode', language) || 'Eraser'}
+                </span>
+              )}
+            </button>
           </div>
           
-          <div className="color-palette d-flex align-items-center ms-3">
-            <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.color', language)}:</label>
-            <div className="d-flex gap-1">
-              {CHALK_COLORS.map((color) => (
-                <button
-                  key={color}
-                  className="btn btn-sm color-button p-0"
-                  onClick={() => setBrushColor(color)}
-                  title={color === '#FFFFFF' ? t('drawingBoard.whiteChalk', language) : 
-                         color === '#FFE66D' ? t('drawingBoard.yellowChalk', language) : 
-                         color === '#7BDFF2' ? t('drawingBoard.blueChalk', language) : 
-                         color === '#FF6B6B' ? t('drawingBoard.redChalk', language) : 
-                         color === '#B1E77B' ? t('drawingBoard.greenChalk', language) : t('drawingBoard.pinkChalk', language)}
-                  style={{
-                    width: '24px',
-                    height: '24px',
-                    backgroundColor: color,
-                    border: color === brushColor ? '2px solid #fff' : '1px solid rgba(255,255,255,0.5)',
-                    borderRadius: '50%',
-                    boxShadow: color === brushColor ? '0 0 0 2px #0C6A35' : 'none'
-                  }}
-                >
-                  <span className="visually-hidden">{color}</span>
-                </button>
-              ))}
+          {/* Size controls - show brush sizes or eraser sizes based on mode */}
+          {isEraserMode ? (
+            <div className="eraser-size-controls">
+              <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.size', language) || 'Size'}:</label>
+              <div className="btn-group">
+                {ERASER_SIZES.map((size) => (
+                  <button
+                    key={size.name}
+                    className={`btn btn-sm ${eraserSize === size.value ? 'btn-light' : 'btn-outline-light'}`}
+                    onClick={() => changeEraserSize(size.value)}
+                    title={`${size.name} ${t('drawingBoard.eraser', language) || 'Eraser'} (${size.value}px)`}
+                  >
+                    {size.name}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
+          ) : (
+            <>
+              <div className="brush-size-controls">
+                <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.size', language) || 'Size'}:</label>
+                <div className="btn-group">
+                  {BRUSH_SIZES.map((size) => (
+                    <button
+                      key={size.name}
+                      className={`btn btn-sm ${brushSize === size.value ? 'btn-light' : 'btn-outline-light'}`}
+                      onClick={() => setBrushSize(size.value)}
+                      title={`${size.name} ${t('drawingBoard.brush', language) || 'Brush'} (${size.value}px)`}
+                    >
+                      {size.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              <div className="color-palette d-flex align-items-center ms-3">
+                <label className="me-2 fw-bold" style={{ color: "#FFF" }}>{t('drawingBoard.color', language) || 'Color'}:</label>
+                <div className="d-flex gap-1">
+                  {CHALK_COLORS.map((color) => (
+                    <button
+                      key={color}
+                      className="btn btn-sm color-button p-0"
+                      onClick={() => setBrushColor(color)}
+                      title={color === '#FFFFFF' ? t('drawingBoard.whiteChalk', language) : 
+                             color === '#FFE66D' ? t('drawingBoard.yellowChalk', language) : 
+                             color === '#7BDFF2' ? t('drawingBoard.blueChalk', language) : 
+                             color === '#FF6B6B' ? t('drawingBoard.redChalk', language) : 
+                             color === '#B1E77B' ? t('drawingBoard.greenChalk', language) : t('drawingBoard.pinkChalk', language)}
+                      style={{
+                        width: '24px',
+                        height: '24px',
+                        backgroundColor: color,
+                        border: color === brushColor ? '2px solid #fff' : '1px solid rgba(255,255,255,0.5)',
+                        borderRadius: '50%',
+                        boxShadow: color === brushColor ? '0 0 0 2px #0C6A35' : 'none'
+                      }}
+                    >
+                      <span className="visually-hidden">{color}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
         </div>
         
-        <div className="drawing-controls-right">
+        <div className="drawing-controls-right d-flex gap-2">
           <button 
             className="btn" 
             onClick={clearCanvas}
@@ -308,7 +456,7 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
               fontWeight: 'bold'
             }}
           >
-            {t('drawingBoard.clearCanvas', language)}
+            {t('drawingBoard.clearCanvas', language) || 'Clear'}
           </button>
         </div>
       </div>
