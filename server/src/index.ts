@@ -173,7 +173,7 @@ io.use((socket: ExtendedSocket, next) => {
     
     // Check for Game Master flag in query parameters
     const isGameMasterQuery = query.isGameMaster === "true";
-    const roomCodeQuery = query.roomCode;
+    // const roomCodeQuery = query.roomCode; // Not used in this block
     const isInitialConnection = query.isInitialConnection === "true";
 
     console.log(`[AUTH] Socket ${socket.id} authentication check:`, {
@@ -188,22 +188,27 @@ io.use((socket: ExtendedSocket, next) => {
     // Set Game Master flag
     socket.data.isGameMaster = isGameMasterQuery;
     
-    // Set player name from auth
-    socket.data.playerName = auth.playerName;
-    
-    // Handle persistentPlayerId logic - ensure it's ALWAYS present
-    if (auth.persistentPlayerId) {
-      // Use existing persistentPlayerId if provided
-      socket.data.persistentPlayerId = auth.persistentPlayerId;
-    } else if (isGameMasterQuery) {
-      // Generate new persistentPlayerId for Game Master
+    // Handle persistentPlayerId logic
+    if (isGameMasterQuery) {
+      // If connecting as GameMaster, always assign a new GM-prefixed ID.
+      // This ensures a distinct ID for GM sessions, even if localStorage had a non-GM ID.
       socket.data.persistentPlayerId = `GM-${uuidv4()}`;
+      // GM name is typically 'GameMaster' or set from auth if provided
+      // If auth.playerName is provided by a GM connection, use it, otherwise default to 'GameMaster'
+      socket.data.playerName = auth.playerName || 'GameMaster';
+    } else if (auth.persistentPlayerId) {
+      // For players, use existing persistentPlayerId if provided
+      socket.data.persistentPlayerId = auth.persistentPlayerId;
+      socket.data.playerName = auth.playerName; // Use player name from auth
     } else if (auth.playerName) {
-      // Generate new persistentPlayerId for regular Player
+      // Generate new persistentPlayerId for a new Player with a name
       socket.data.persistentPlayerId = `P-${uuidv4()}`;
+      socket.data.playerName = auth.playerName;
     } else {
-      // Always provide a fallback ID for compatibility with older clients
+      // Fallback for initial connections without name or persistentId (e.g., join screen before name entry)
       socket.data.persistentPlayerId = `F-${uuidv4()}`;
+      // Player name will be undefined here, set upon joining a room.
+      socket.data.playerName = undefined;
     }
     
     // Log the assigned values
