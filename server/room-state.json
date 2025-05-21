@@ -1,34 +1,11 @@
 {
-  "218151": {
-    "roomCode": "218151",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+  "D2ME72": {
+    "roomCode": "D2ME72",
+    "gamemasterPersistentId": "P-maxqkb3g-5u5r1a3p",
     "players": [
       {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "asdsa",
-        "lives": 3,
-        "isActive": false,
-        "isSpectator": false,
-        "joinedAsSpectator": false,
-        "answers": []
-      }
-    ],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "1Z7SL1": {
-    "roomCode": "1Z7SL1",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [
-      {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "sadsa",
+        "persistentPlayerId": "P-maxqkb3g-5u5r1a3p",
+        "name": "asd",
         "lives": 3,
         "isActive": false,
         "isSpectator": false,
@@ -48,247 +25,128 @@
         "language": "de"
       },
       {
-        "id": "80",
-        "text": "Was ist der Unterschied zwischen der Zahl 5 und der Zahl 2?",
+        "id": "185",
+        "text": "Wie sagt man 'Guten Morgen' auf Englisch?",
         "type": "text",
-        "answer": "5 ist größer als 2.",
+        "answer": "Good morning",
         "grade": 2,
-        "subject": "Mathematik",
+        "subject": "Englisch",
         "language": "de"
       },
       {
-        "id": "2",
-        "text": "Löse: 12 × 9 = ?",
+        "id": "34",
+        "text": "Was ist der Unterschied zwischen einem Dachs und einem Fuchs?",
         "type": "text",
-        "answer": "108",
+        "answer": "Ein Dachs hat eine charakteristische weiße Gesichtsmaske, ein Fuchs hat einen langen Schwanz.",
         "grade": 3,
-        "subject": "Mathematik",
+        "subject": "Deutsch",
         "language": "de"
       },
       {
-        "id": "89",
-        "text": "Was passiert, wenn man einen Eiswürfel in Wasser legt?",
+        "id": "195",
+        "text": "Was ist ein Synonym für das Wort 'langsam'?",
         "type": "text",
-        "answer": "Der Eiswürfel schmilzt, weil er sich erwärmt.",
+        "answer": "träge",
         "grade": 4,
-        "subject": "Sachkunde",
+        "subject": "Deutsch",
         "language": "de"
       },
       {
-        "id": "137",
-        "text": "Was ist der Hauptbestandteil der Luft?",
+        "id": "212",
+        "text": "Welcher Kontinent ist der größte?",
         "type": "text",
-        "answer": "Stickstoff",
+        "answer": "Asien",
         "grade": 5,
-        "subject": "Naturwissenschaften",
+        "subject": "Geographie",
         "language": "de"
       }
     ],
     "currentQuestionIndex": 0,
     "timeLimit": 99999,
-    "questionStartTime": 1747662857536,
+    "questionStartTime": 1747819637836,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-21T10:38:02.907Z"
   },
-  "EPPH2F": {
-    "roomCode": "EPPH2F",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
+  "5N5DUS": {
+    "roomCode": "5N5DUS",
+    "gamemasterPersistentId": "P-maxqkb3g-5u5r1a3p",
     "players": [
       {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "asds",
+        "persistentPlayerId": "P-maxqkb3g-5u5r1a3p",
+        "name": "sadas",
         "lives": 3,
-        "isActive": false,
+        "isActive": true,
         "isSpectator": false,
         "joinedAsSpectator": false,
-        "answers": []
-      }
-    ],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "EHEKXE": {
-    "roomCode": "EHEKXE",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "75HM9F": {
-    "roomCode": "75HM9F",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [
-      {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "sadsa",
-        "lives": 3,
-        "isActive": false,
-        "isSpectator": false,
-        "joinedAsSpectator": false,
-        "answers": []
-      }
-    ],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "E04GOM": {
-    "roomCode": "E04GOM",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "BI7YKS": {
-    "roomCode": "BI7YKS",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [
-      {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "asds",
-        "lives": 3,
-        "isActive": false,
-        "isSpectator": false,
-        "joinedAsSpectator": false,
-        "answers": []
-      }
-    ],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "KPXS5C": {
-    "roomCode": "KPXS5C",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [
-      {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "test",
-        "lives": 3,
-        "isActive": false,
-        "isSpectator": false,
-        "joinedAsSpectator": false,
-        "answers": []
+        "answers": [
+          {
+            "playerId": "pGljcB8PqkKzrDobAAAH",
+            "persistentPlayerId": "P-maxqkb3g-5u5r1a3p",
+            "playerName": "sadas",
+            "answer": "asdsa",
+            "hasDrawing": true,
+            "drawingData": "{\"version\":\"5.5.2\",\"objects\":[{\"type\":\"path\",\"version\":\"5.5.2\",\"originX\":\"left\",\"originY\":\"top\",\"left\":200.34,\"top\":2.99,\"width\":231.83,\"height\":177.01,\"fill\":null,\"stroke\":\"#FFFFFF\",\"strokeWidth\":8,\"strokeDashArray\":null,\"strokeLineCap\":\"round\",\"strokeDashOffset\":0,\"strokeLineJoin\":\"round\",\"strokeUniform\":false,\"strokeMiterLimit\":10,\"scaleX\":1,\"scaleY\":1,\"angle\":0,\"flipX\":false,\"flipY\":false,\"opacity\":1,\"shadow\":{\"color\":\"rgba(0,0,0,0.3)\",\"blur\":1,\"offsetX\":1,\"offsetY\":1,\"affectStroke\":true,\"nonScaling\":false},\"visible\":true,\"backgroundColor\":\"\",\"fillRule\":\"nonzero\",\"paintFirst\":\"fill\",\"globalCompositeOperation\":\"source-over\",\"skewX\":0,\"skewY\":0,\"path\":[[\"M\",252.3094714141301,63.992],[\"Q\",252.30147141413008,64,249.80343704369315,66.5],[\"Q\",247.30540267325622,69,245.80658205099405,71.5],[\"Q\",244.3077614287319,74,241.80972705829498,78],[\"Q\",239.31169268785803,82,235.81444456924635,87],[\"Q\",232.31719645063464,92,228.32034145793554,98],[\"Q\",224.32348646523644,104,221.82545209479952,110.5],[\"Q\",219.3274177243626,117,216.82938335392566,122],[\"Q\",214.3313489834887,127,211.83331461305178,132],[\"Q\",209.33528024261486,137,208.3360664944401,143],[\"Q\",207.33685274626532,149,205.83803212400318,154],[\"Q\",204.339211501741,159,204.339211501741,163],[\"Q\",204.339211501741,167,204.339211501741,170.5],[\"Q\",204.339211501741,174,204.339211501741,176.5],[\"Q\",204.339211501741,179,205.33842524991576,180.5],[\"Q\",206.33763899809054,182,208.83567336852747,183],[\"Q\",211.3337077389644,184,213.83174210940132,184],[\"Q\",216.32977647983827,184,221.32584522071215,184],[\"Q\",226.321913961586,184,231.31798270245986,184],[\"Q\",236.3140514433337,184,241.31012018420756,183],[\"Q\",246.30618892508144,182,253.80029203639225,181],[\"Q\",261.294395147703,180,268.78849825901386,177.5],[\"Q\",276.28260137032464,175,282.2778838593733,172.5],[\"Q\",288.2731663484219,170,294.76805571155796,166],[\"Q\",301.26294507469396,162,307.2582275637426,158.5],[\"Q\",313.2535100527912,155,322.24643378636415,147.5],[\"Q\",331.23935751993713,140,341.23149500168483,131],[\"Q\",351.2236324834326,122,361.2157699651803,109.5],[\"Q\",371.207907446928,97,382.1992586768505,83.5],[\"Q\",393.19060990677303,70,414.67370549253064,38.5],[\"L\",436.16480107828824,6.992]]}]}",
+            "timestamp": 1747823877045,
+            "isCorrect": null,
+            "answerAttemptId": "maxt7ir8-kqgg9okc"
+          }
+        ]
       }
     ],
     "started": true,
     "questions": [
       {
-        "id": "130",
-        "text": "Was ist 5 + 3?",
+        "id": "26",
+        "text": "Was ist der Unterschied zwischen einem Hund und einer Katze?",
         "type": "text",
-        "answer": "8",
+        "answer": "Hunde bellen, Katzen miauen.",
         "grade": 1,
-        "subject": "Mathematik",
+        "subject": "Deutsch",
         "language": "de"
       },
       {
-        "id": "178",
-        "text": "Was ist 12 - 7?",
+        "id": "96",
+        "text": "Wer war der erste Bundeskanzler der Bundesrepublik Deutschland?",
         "type": "text",
-        "answer": "5",
+        "answer": "Konrad Adenauer",
         "grade": 2,
+        "subject": "Politik",
+        "language": "de"
+      },
+      {
+        "id": "192",
+        "text": "Was bedeutet 'Nächstenliebe'?",
+        "type": "text",
+        "answer": "Liebe und Hilfe für andere Menschen",
+        "grade": 3,
+        "subject": "Religion/Ethik",
+        "language": "de"
+      },
+      {
+        "id": "194",
+        "text": "Was ist 25 - 12?",
+        "type": "text",
+        "answer": "13",
+        "grade": 4,
         "subject": "Mathematik",
         "language": "de"
       },
       {
-        "id": "134",
-        "text": "Wie heißt das größte Land der Erde?",
+        "id": "17",
+        "text": "Which planet in our solar system is known as the 'Red Planet'?",
         "type": "text",
-        "answer": "Russland",
-        "grade": 3,
-        "subject": "Geographie",
-        "language": "de"
-      },
-      {
-        "id": "156",
-        "text": "Wer war der erste Präsident der Vereinigten Staaten?",
-        "type": "text",
-        "answer": "George Washington",
-        "grade": 4,
-        "subject": "Geschichte",
-        "language": "de"
-      },
-      {
-        "id": "215",
-        "text": "Was ist die Haupttechnik des Impressionismus?",
-        "type": "text",
-        "answer": "Das Malen mit kurzen, schnellen Pinselstrichen.",
+        "answer": "Mars",
         "grade": 5,
-        "subject": "Kunst",
-        "language": "de"
+        "subject": "Astronomy",
+        "language": "en"
       }
     ],
     "currentQuestionIndex": 0,
     "timeLimit": 99999,
-    "questionStartTime": 1747677436262,
+    "questionStartTime": 1747823873976,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "24J4XL": {
-    "roomCode": "24J4XL",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [
-      {
-        "persistentPlayerId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-        "name": "test",
-        "lives": 3,
-        "isActive": false,
-        "isSpectator": false,
-        "joinedAsSpectator": false,
-        "answers": []
-      }
-    ],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
-  },
-  "DA5T7G": {
-    "roomCode": "DA5T7G",
-    "gamemasterPersistentId": "P-625be625-c55f-41dd-b0a7-b7e953e9266b",
-    "players": [],
-    "started": false,
-    "questions": [],
-    "currentQuestionIndex": 0,
-    "timeLimit": null,
-    "questionStartTime": null,
-    "isStreamerMode": false,
-    "isConcluded": false,
-    "lastSaved": "2025-05-19T20:35:10.457Z"
+    "lastSaved": "2025-05-21T10:38:02.907Z"
   }
 }

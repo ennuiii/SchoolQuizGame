@@ -80,3 +80,6 @@
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-19T20:26:09.776Z","details":{"roomCode":"KPXS5C","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-19T20:26:09.777Z","details":{"roomCode":"24J4XL","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-19T20:26:09.778Z","details":{"roomCode":"DA5T7G","gamemasterPersistentId":"P-625be625-c55f-41dd-b0a7-b7e953e9266b"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-21T09:27:12.037Z","details":{"roomCode":"D2ME72","gamemasterPersistentId":"P-maxqkb3g-5u5r1a3p"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-21T10:37:32.900Z","details":{"roomCode":"D2ME72","gamemasterPersistentId":"P-maxqkb3g-5u5r1a3p"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-21T10:37:40.810Z","details":{"roomCode":"5N5DUS","gamemasterPersistentId":"P-maxqkb3g-5u5r1a3p"}}
