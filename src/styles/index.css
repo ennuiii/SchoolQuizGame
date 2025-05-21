@@ -1050,4 +1050,14 @@ body {
   stroke-linejoin: round !important;
   stroke-linecap: round !important;
   mix-blend-mode: destination-out; /* This helps with blending into the background */
+}
+
+/* Make eraser strokes invisible in preview overlay */
+.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
+.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"],
+.preview-whiteboard-card .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
+.preview-whiteboard-card .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
+  opacity: 0 !important;
+  stroke-opacity: 0 !important;
+  visibility: hidden !important;
 } 

@@ -107,9 +107,24 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
                 if (obj.type === 'path') {
                   const pathColor = (obj as any).stroke || (obj as any).fill;
                   if (pathColor) {
+                    // Check if this is an eraser stroke (same color as the chalkboard background)
+                    const isEraserStroke = pathColor === '#0C6A35' || 
+                                           pathColor === 'rgb(12,106,53)' || 
+                                           pathColor === 'rgb(12, 106, 53)';
+                    
+                    if (isEraserStroke) {
+                      try {
+                        // Make eraser paths almost invisible in the SVG output
+                        // This will help them blend with the background in the preview
+                        (obj as any).opacity = 0.01; // Almost transparent but not fully removed to preserve the SVG structure
+                        (obj as any).strokeOpacity = 0.01;
+                        console.log('[FabricJsonToSvg] Detected and handled eraser stroke');
+                      } catch (eraserError) {
+                        console.warn('[FabricJsonToSvg] Could not handle eraser stroke:', eraserError);
+                      }
+                    }
                     // Check if this is a white or very light color
-                    const isWhiteOrVeryLight = isLightColor(pathColor);
-                    if (isWhiteOrVeryLight) {
+                    else if (isLightColor(pathColor)) {
                       try {
                         // Slightly increase stroke width for better visibility
                         (obj as any).strokeWidth = Math.max(1.2, (obj as any).strokeWidth || 0);
