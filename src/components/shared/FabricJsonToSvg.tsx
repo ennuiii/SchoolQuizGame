@@ -98,45 +98,28 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
               const objectCount = tempCanvas.getObjects().length;
               console.log('[FabricJsonToSvg] Objects loaded to canvas:', objectCount);
               
-              // Enhance visibility of white or light-colored paths
+              // Make paths non-selectable and prepare them for display
               tempCanvas.forEachObject(obj => {
                 obj.selectable = false;
                 obj.evented = false;
                 
-                // Modify paths to ensure they'll be visible against our green chalkboard background
                 if (obj.type === 'path') {
                   const pathColor = (obj as any).stroke || (obj as any).fill;
-                  if (pathColor) {
-                    // Check if this is an eraser stroke (same color as the chalkboard background)
-                    const isEraserStroke = pathColor === '#0C6A35' || 
-                                           pathColor === 'rgb(12,106,53)' || 
-                                           pathColor === 'rgb(12, 106, 53)';
-                    
-                    if (isEraserStroke) {
-                      try {
-                        // Make eraser paths almost invisible in the SVG output
-                        // This will help them blend with the background in the preview
-                        (obj as any).opacity = 0.01; // Almost transparent but not fully removed to preserve the SVG structure
-                        (obj as any).strokeOpacity = 0.01;
-                        console.log('[FabricJsonToSvg] Detected and handled eraser stroke');
-                      } catch (eraserError) {
-                        console.warn('[FabricJsonToSvg] Could not handle eraser stroke:', eraserError);
+                  
+                  // Skip eraser stroke processing completely
+                  // Only enhance light-colored strokes for visibility
+                  if (pathColor && isLightColor(pathColor)) {
+                    try {
+                      // Slightly increase stroke width for better visibility of light colors
+                      (obj as any).strokeWidth = Math.max(1.2, (obj as any).strokeWidth || 0);
+                      
+                      // If it's pure white, make it slightly off-white for better visibility
+                      // This helps with the contrast on the chalkboard background
+                      if ((obj as any).stroke === '#FFFFFF' || (obj as any).stroke === '#ffffff' || (obj as any).stroke === 'white') {
+                        (obj as any).stroke = '#F8F8F8';
                       }
-                    }
-                    // Check if this is a white or very light color
-                    else if (isLightColor(pathColor)) {
-                      try {
-                        // Slightly increase stroke width for better visibility
-                        (obj as any).strokeWidth = Math.max(1.2, (obj as any).strokeWidth || 0);
-                        
-                        // If it's pure white, make it slightly off-white for better visibility
-                        // This helps with the contrast on the chalkboard background
-                        if ((obj as any).stroke === '#FFFFFF' || (obj as any).stroke === '#ffffff' || (obj as any).stroke === 'white') {
-                          (obj as any).stroke = '#F8F8F8';
-                        }
-                      } catch (enhanceError) {
-                        console.warn('[FabricJsonToSvg] Could not enhance path visibility:', enhanceError);
-                      }
+                    } catch (enhanceError) {
+                      console.warn('[FabricJsonToSvg] Could not enhance path visibility:', enhanceError);
                     }
                   }
                 }

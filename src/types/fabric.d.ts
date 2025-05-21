@@ -225,6 +225,33 @@ declare module 'fabric' {
       reviver?: (element: SVGElement, object: fabric.Object) => void
     ): void;
 
+    /**
+     * Represents a circle object in Fabric.js.
+     */
+    export class Circle extends Object {
+      /**
+       * Radius of the circle
+       */
+      radius: number;
+      
+      /**
+       * Constructor
+       * @param options Options object
+       */
+      constructor(options?: {
+        radius?: number;
+        left?: number;
+        top?: number;
+        fill?: string | Pattern | null;
+        stroke?: string | null;
+        strokeWidth?: number;
+        selectable?: boolean;
+        evented?: boolean;
+        opacity?: number;
+        // Add other properties as needed
+      });
+    }
+
     // Add other Fabric classes/namespaces if needed (e.g., fabric.Rect, fabric.Circle, fabric.Text, fabric.BaseBrush)
   }
 }

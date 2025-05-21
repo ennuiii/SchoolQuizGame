@@ -66,7 +66,7 @@
     "questionStartTime": 1747819637836,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-21T10:45:03.041Z"
+    "lastSaved": "2025-05-21T21:31:32.933Z"
   },
   "5N5DUS": {
     "roomCode": "5N5DUS",
@@ -76,7 +76,7 @@
         "persistentPlayerId": "P-maxqkb3g-5u5r1a3p",
         "name": "sadas",
         "lives": 3,
-        "isActive": true,
+        "isActive": false,
         "isSpectator": false,
         "joinedAsSpectator": false,
         "answers": [
@@ -147,6 +147,1081 @@
     "questionStartTime": 1747823873976,
     "isStreamerMode": false,
     "isConcluded": false,
-    "lastSaved": "2025-05-21T10:45:03.041Z"
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "0NJ9C7": {
+    "roomCode": "0NJ9C7",
+    "gamemasterPersistentId": "GM-06f223f4-7dba-4449-8f72-1ea33a7714a5",
+    "players": [
+      {
+        "persistentPlayerId": "GM-06f223f4-7dba-4449-8f72-1ea33a7714a5",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "666",
+        "text": "Zähle bis 5.",
+        "type": "text",
+        "answer": "1, 2, 3, 4, 5",
+        "grade": 1,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "663",
+        "text": "Was ist die Hälfte von 10?",
+        "type": "text",
+        "answer": "5",
+        "grade": 2,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "588",
+        "text": "Was ist der Unterschied zwischen einem Vokal und einem Konsonanten?",
+        "type": "text",
+        "answer": "Vokale (Selbstlaute) können alleine eine Silbe bilden, Konsonanten (Mitlaute) meist nur mit einem Vokal.",
+        "grade": 3,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "464",
+        "text": "What is 'Hund' in English?",
+        "type": "text",
+        "answer": "Dog",
+        "grade": 4,
+        "subject": "Englisch",
+        "language": "de"
+      },
+      {
+        "id": "687",
+        "text": "Translate: 'My name is...'",
+        "type": "text",
+        "answer": "Mein Name ist...",
+        "grade": 5,
+        "subject": "Englisch",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747838566004,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "N8PXI0": {
+    "roomCode": "N8PXI0",
+    "gamemasterPersistentId": "GM-4de3a5e2-f67f-4e2b-917b-159588c15df1",
+    "players": [
+      {
+        "persistentPlayerId": "GM-4de3a5e2-f67f-4e2b-917b-159588c15df1",
+        "name": "asdas",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "438",
+        "text": "Was kommt nach der Zahl 3?",
+        "type": "text",
+        "answer": "4",
+        "grade": 1,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "662",
+        "text": "Welches Tier legt Eier und hat Federn?",
+        "type": "text",
+        "answer": "Ein Vogel",
+        "grade": 2,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "676",
+        "text": "Nenne ein Möbelstück.",
+        "type": "text",
+        "answer": "Stuhl (Beispiel)",
+        "grade": 3,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "682",
+        "text": "What is 'Apfel' in English?",
+        "type": "text",
+        "answer": "Apple",
+        "grade": 4,
+        "subject": "Englisch",
+        "language": "de"
+      },
+      {
+        "id": "471",
+        "text": "Bestimme die Wortart von 'schnell' im Satz: 'Das Auto fährt schnell.'",
+        "type": "text",
+        "answer": "Adverb",
+        "grade": 5,
+        "subject": "Deutsch",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747838819543,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "XMVDZU": {
+    "roomCode": "XMVDZU",
+    "gamemasterPersistentId": "GM-842e17e4-0f6a-4486-887d-3b6ca2f3d75e",
+    "players": [
+      {
+        "persistentPlayerId": "GM-842e17e4-0f6a-4486-887d-3b6ca2f3d75e",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": [
+          {
+            "playerId": "YJuSi6xQEK1LchRAAAAf",
+            "persistentPlayerId": "GM-842e17e4-0f6a-4486-887d-3b6ca2f3d75e",
+            "playerName": "sadsa",
+            "answer": "asds",
+            "hasDrawing": true,
+            "drawingData": "{\"version\":\"6.6.5\",\"objects\":[{\"type\":\"Path\",\"version\":\"6.6.5\",\"originX\":\"left\",\"originY\":\"top\",\"left\":199.332,\"top\":116.992,\"width\":269.8037,\"height\":155.008,\"fill\":null,\"stroke\":\"#FFFFFF\",\"strokeWidth\":8,\"strokeDashArray\":null,\"strokeLineCap\":\"round\",\"strokeDashOffset\":0,\"strokeLineJoin\":\"round\",\"strokeUniform\":false,\"strokeMiterLimit\":10,\"scaleX\":1,\"scaleY\":1,\"angle\":0,\"flipX\":false,\"flipY\":false,\"opacity\":1,\"shadow\":null,\"visible\":true,\"backgroundColor\":\"\",\"fillRule\":\"nonzero\",\"paintFirst\":\"fill\",\"globalCompositeOperation\":\"source-over\",\"skewX\":0,\"skewY\":0,\"path\":[[\"M\",203.3319977535662,120.992],[\"Q\",203.33999775356622,121,204.33921150174098,123.5],[\"Q\",205.33842524991576,126,207.83645962035268,129.5],[\"Q\",210.33449399078964,133,212.83252836122657,138],[\"Q\",215.3305627316635,143,219.3274177243626,147],[\"Q\",223.3242727170617,151,225.82230708749861,154.5],[\"Q\",228.32034145793554,158,233.31641019880942,163],[\"Q\",238.31247893968327,168,243.30854768055713,173],[\"Q\",248.30461642143098,178,251.8018645400427,183],[\"Q\",255.2991126586544,188,261.79400202179045,194.5],[\"Q\",268.28889138492644,201,273.2849601258003,206],[\"Q\",278.28102886667415,211,284.2763113557228,216],[\"Q\",290.2715938447714,221,295.2676625856453,224.5],[\"Q\",300.2637313265192,228,305.25980006739303,230.5],[\"Q\",310.2558688082669,233,317.74997191957766,238],[\"Q\",325.2440750308885,243,332.7381781421993,247],[\"Q\",340.23228125351005,251,346.72717061664605,253.5],[\"Q\",353.2220599797821,256,359.21734246883074,258.5],[\"Q\",365.21262495787937,261,371.7075143210154,263.5],[\"Q\",378.2024036841514,266,385.69650679546226,267],[\"Q\",393.19060990677303,268,399.18589239582167,269.5],[\"Q\",405.1811748848703,271,410.17724362574415,272],[\"Q\",415.173312366618,273,419.17016735931713,273],[\"Q\",423.1670223520162,273,426.6642704706279,274.5],[\"Q\",430.1615185892396,276,434.1583735819387,276],[\"Q\",438.15522857463776,276,440.65326294507474,276],[\"Q\",443.15129731551167,276,445.6493316859486,276],[\"Q\",448.1473660563855,276,450.64540042682245,276],[\"Q\",453.1434347972594,276,455.6414691676963,275],[\"Q\",458.1395035381332,274,460.63753790857015,271.5],[\"Q\",463.1355722790071,269,468.13164101988093,263],[\"L\",473.1357097607548,256.992]]},{\"type\":\"Path\",\"version\":\"6.6.5\",\"originX\":\"left\",\"originY\":\"top\",\"left\":282.2747,\"top\":68.992,\"width\":251.8099,\"height\":223.016,\"fill\":null,\"stroke\":\"#FFFFFF\",\"strokeWidth\":8,\"strokeDashArray\":null,\"strokeLineCap\":\"round\",\"strokeDashOffset\":0,\"strokeLineJoin\":\"round\",\"strokeUniform\":false,\"strokeMiterLimit\":10,\"scaleX\":1,\"scaleY\":1,\"angle\":0,\"flipX\":false,\"flipY\":false,\"opacity\":1,\"shadow\":null,\"visible\":true,\"backgroundColor\":\"\",\"fillRule\":\"nonzero\",\"paintFirst\":\"fill\",\"globalCompositeOperation\":\"source-over\",\"skewX\":0,\"skewY\":0,\"path\":[[\"M\",286.27473885207235,72.992],[\"Q\",286.27473885207235,73,286.27473885207235,74.5],[\"Q\",286.27473885207235,76,286.27473885207235,77],[\"Q\",286.27473885207235,78,287.2739526002471,80.5],[\"Q\",288.2731663484219,83,289.27238009659663,85.5],[\"Q\",290.2715938447714,88,291.77041446703356,92],[\"Q\",293.26923508929576,96,295.7672694597327,99.5],[\"Q\",298.2653038301696,103,300.76333820060654,108],[\"Q\",303.26137257104347,113,305.7594069414804,117],[\"Q\",308.2574413119173,121,311.754689430529,124.5],[\"Q\",315.25193754914073,128,317.74997191957766,132],[\"Q\",320.24800629001464,136,322.74604066045157,141],[\"Q\",325.2440750308885,146,329.24093002358757,149.5],[\"Q\",333.23778501628664,153,335.7358193867236,158],[\"Q\",338.23385375716055,163,341.7311018757722,167],[\"Q\",345.2283499943839,171,349.225204987083,176],[\"Q\",353.2220599797821,181,356.7193080983938,184.5],[\"Q\",360.2165562170055,188,365.21262495787937,193],[\"Q\",370.2086936987532,198,375.2047624396271,203],[\"Q\",380.200831180501,208,385.19689992137484,213],[\"Q\",390.1929686622487,218,396.6878580253847,223],[\"Q\",403.18274738852074,228,408.1788161293946,233],[\"Q\",413.17488487026844,238,418.1709536111423,242],[\"Q\",423.1670223520162,246,428.16309109289006,249.5],[\"Q\",433.1591598337639,253,436.6564079523756,257],[\"Q\",440.1536560709873,261,444.1505110636864,262],[\"Q\",448.1473660563855,263,451.64461417499723,265.5],[\"Q\",455.14186229360894,268,459.138717286308,269.5],[\"Q\",463.1355722790071,271,465.633606649444,272],[\"Q\",468.131641019881,273,471.6288891384927,274.5],[\"Q\",475.12613725710435,276,477.6241716275413,277],[\"Q\",480.12220599797826,278,482.6202403684152,279.5],[\"Q\",485.1182747388521,281,489.1151297315512,281],[\"Q\",493.11198472425025,281,496.60923284286196,282],[\"Q\",500.10648096147366,283,502.60451533191065,284.5],[\"Q\",505.1025497023476,286,507.6005840727845,287],[\"Q\",510.0986184432214,288,514.0954734359204,288],[\"Q\",518.0923284286196,288,520.5903627990565,289.5],[\"Q\",523.0883971694934,291,525.5864315399303,291],[\"Q\",528.0844659103673,291,529.083679658542,292],[\"Q\",530.0828934067168,293,532.5809277771538,293],[\"Q\",535.0789621475907,293,536.5777827698529,294.5],[\"L\",538.0846033921151,296.008]]}]}",
+            "timestamp": 1747839126471,
+            "isCorrect": null,
+            "answerAttemptId": "may2adae-19ue40gm"
+          }
+        ]
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "438",
+        "text": "Was kommt nach der Zahl 3?",
+        "type": "text",
+        "answer": "4",
+        "grade": 1,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "448",
+        "text": "Wie viele Tage hat eine Woche?",
+        "type": "text",
+        "answer": "7 Tage",
+        "grade": 2,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "678",
+        "text": "How do you say 'Guten Morgen' in English?",
+        "type": "text",
+        "answer": "Good morning",
+        "grade": 3,
+        "subject": "Englisch",
+        "language": "de"
+      },
+      {
+        "id": "469",
+        "text": "Nenne einen Beruf, bei dem man Menschen hilft.",
+        "type": "text",
+        "answer": "Arzt/Ärztin (Beispiel)",
+        "grade": 4,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "580",
+        "text": "Was ist ein Dreieck mit drei gleich langen Seiten?",
+        "type": "text",
+        "answer": "Gleichseitiges Dreieck",
+        "grade": 5,
+        "subject": "Mathematik",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747839114953,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "KZG6FA": {
+    "roomCode": "KZG6FA",
+    "gamemasterPersistentId": "GM-a5caa3e8-dec3-4062-913f-9afa0062aaf1",
+    "players": [
+      {
+        "persistentPlayerId": "GM-a5caa3e8-dec3-4062-913f-9afa0062aaf1",
+        "name": "asdsad",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "442",
+        "text": "Wie viele Finger hast du an einer Hand?",
+        "type": "text",
+        "answer": "Fünf",
+        "grade": 1,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "579",
+        "text": "Nenne eine Farbe des Regenbogens.",
+        "type": "text",
+        "answer": "Rot (Beispiel)",
+        "grade": 2,
+        "subject": "Sachunterricht/Kunst",
+        "language": "de"
+      },
+      {
+        "id": "452",
+        "text": "Wie viele Minuten hat eine halbe Stunde?",
+        "type": "text",
+        "answer": "30 Minuten",
+        "grade": 3,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "640",
+        "text": "What is 'Katze' in English?",
+        "type": "text",
+        "answer": "Cat",
+        "grade": 4,
+        "subject": "Englisch",
+        "language": "de"
+      },
+      {
+        "id": "476",
+        "text": "Nenne einen Planeten unseres Sonnensystems.",
+        "type": "text",
+        "answer": "Mars (Beispiel)",
+        "grade": 5,
+        "subject": "Sachunterricht/Physik",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747839221315,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "PCMOPY": {
+    "roomCode": "PCMOPY",
+    "gamemasterPersistentId": "GM-295da843-39b7-433e-99a7-d79d769a4a5c",
+    "players": [
+      {
+        "persistentPlayerId": "GM-4662777c-08ee-4799-b48e-c572abeaa67a",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-8707d2eb-5653-46b1-979f-90b62fb24a44",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-20f11884-c18f-4685-a16a-e8fdefae1f8f",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-633426cb-761b-4897-8565-c0193587fa5a",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-43d17bce-24b6-4267-b0be-8f0f66d28431",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-ee26b159-b450-46e1-9e92-dd203038419b",
+        "name": "sadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "JE4Z51": {
+    "roomCode": "JE4Z51",
+    "gamemasterPersistentId": "GM-19196920-ea2a-4bfe-a05d-8b69337ccebe",
+    "players": [
+      {
+        "persistentPlayerId": "F-d0a7a356-2638-4429-9fef-f9dbd8bfabf6",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-faa2c365-21c3-4d61-8345-6f35a06afaf9",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-a0be2340-dfe6-42ed-be9e-eeeab6ba6491",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-e6e0eca0-99c4-4391-aa01-d4a368b89755",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-955b3471-201c-4de0-9eff-4a92e2ea0f2d",
+        "name": "asds",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "YJFFPM": {
+    "roomCode": "YJFFPM",
+    "gamemasterPersistentId": "P-955b3471-201c-4de0-9eff-4a92e2ea0f2d",
+    "players": [
+      {
+        "persistentPlayerId": "P-955b3471-201c-4de0-9eff-4a92e2ea0f2d",
+        "name": "Test",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "0LS7O4": {
+    "roomCode": "0LS7O4",
+    "gamemasterPersistentId": "P-955b3471-201c-4de0-9eff-4a92e2ea0f2d",
+    "players": [
+      {
+        "persistentPlayerId": "P-955b3471-201c-4de0-9eff-4a92e2ea0f2d",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+        "name": "asdsasadsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "KYJRKS": {
+    "roomCode": "KYJRKS",
+    "gamemasterPersistentId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+    "players": [
+      {
+        "persistentPlayerId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "7KIO61": {
+    "roomCode": "7KIO61",
+    "gamemasterPersistentId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+    "players": [
+      {
+        "persistentPlayerId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+        "name": "sads",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "I2EXFT": {
+    "roomCode": "I2EXFT",
+    "gamemasterPersistentId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+    "players": [
+      {
+        "persistentPlayerId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+        "name": "sadas",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "9FT77I": {
+    "roomCode": "9FT77I",
+    "gamemasterPersistentId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+    "players": [
+      {
+        "persistentPlayerId": "P-307b17e1-695a-4aeb-9990-1d14f4e5bd61",
+        "name": "asdasd",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "634",
+        "text": "Wie viele Beine hat eine Spinne?",
+        "type": "text",
+        "answer": "Acht",
+        "grade": 1,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "449",
+        "text": "Was ist das Gegenteil von 'groß'?",
+        "type": "text",
+        "answer": "Klein",
+        "grade": 2,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "455",
+        "text": "Wie nennt man die Zeichen, mit denen Musik aufgeschrieben wird?",
+        "type": "text",
+        "answer": "Noten",
+        "grade": 3,
+        "subject": "Musik",
+        "language": "de"
+      },
+      {
+        "id": "632",
+        "text": "Nenne einen bekannten deutschen Fluss.",
+        "type": "text",
+        "answer": "Rhein (Beispiel)",
+        "grade": 4,
+        "subject": "Sachunterricht/Erdkunde",
+        "language": "de"
+      },
+      {
+        "id": "643",
+        "text": "Was ist ein 'Subjekt' in einem Satz?",
+        "type": "text",
+        "answer": "Der Satzgegenstand; das, worüber im Satz etwas ausgesagt wird (Wer oder Was?).",
+        "grade": 5,
+        "subject": "Deutsch",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747855584321,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "1ZC5QN": {
+    "roomCode": "1ZC5QN",
+    "gamemasterPersistentId": "GM-d41144b2-e14e-4118-aeb8-fcc032f18bbf",
+    "players": [
+      {
+        "persistentPlayerId": "F-144f43fa-5406-472f-80df-c123be839868",
+        "name": "test",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-1ad535a9-f7c0-4710-b964-a1c3ba289f1b",
+        "name": "test",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "TYKLFZ": {
+    "roomCode": "TYKLFZ",
+    "gamemasterPersistentId": "GM-d26bc13b-752c-41c7-851f-3e025999acdb",
+    "players": [
+      {
+        "persistentPlayerId": "F-81a1f921-a69b-440f-ab2c-9e6b3b5ed754",
+        "name": "Test",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-d0c868a9-184f-4e49-870b-8b9e5768ffdd",
+        "name": "Test",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "9DHJWU": {
+    "roomCode": "9DHJWU",
+    "gamemasterPersistentId": "GM-766a9a1b-beab-4fbc-8033-b6cdd81c3118",
+    "players": [
+      {
+        "persistentPlayerId": "F-c7010313-4133-4705-98b4-54366b4c7d77",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-f04a768d-c467-40d5-946f-fa830b4053b7",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-8569fedb-3108-44a5-9392-758a722e47f2",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "0V0P1T": {
+    "roomCode": "0V0P1T",
+    "gamemasterPersistentId": "GM-5dcf089c-4e10-4de5-8db6-1200c458ec4b",
+    "players": [
+      {
+        "persistentPlayerId": "F-0843e54d-6d4b-4304-9c68-7b3c07469cb2",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-fffd1ecb-e114-469a-aeb5-7963ab02bfdb",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-db74d9cd-7600-464f-97f1-7d8ace89c8dd",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-f2f8b1c3-5a95-43a3-82ee-097f6facef28",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-1ebc2ca6-4048-492d-98b3-635d846c5397",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-0f0211f2-1646-4e8a-a2d9-7115f82f8e41",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "P-56b66537-5c73-44f3-ba4d-1ebfb287693d",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      },
+      {
+        "persistentPlayerId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [],
+    "currentQuestionIndex": 0,
+    "timeLimit": null,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "IG3D7D": {
+    "roomCode": "IG3D7D",
+    "gamemasterPersistentId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+    "players": [
+      {
+        "persistentPlayerId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+        "name": "asd",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "665",
+        "text": "Was ist das Gegenteil von 'Tag'?",
+        "type": "text",
+        "answer": "Nacht",
+        "grade": 1,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "447",
+        "text": "Warum feiern wir Weihnachten? (vereinfacht)",
+        "type": "text",
+        "answer": "Weil Jesus geboren wurde / Als Fest der Liebe und Familie",
+        "grade": 2,
+        "subject": "Religion/Ethik",
+        "language": "de"
+      },
+      {
+        "id": "455",
+        "text": "Wie nennt man die Zeichen, mit denen Musik aufgeschrieben wird?",
+        "type": "text",
+        "answer": "Noten",
+        "grade": 3,
+        "subject": "Musik",
+        "language": "de"
+      },
+      {
+        "id": "681",
+        "text": "Was ist ein Verb (Tunwort)? Gib ein Beispiel.",
+        "type": "text",
+        "answer": "Ein Wort, das eine Tätigkeit oder einen Zustand beschreibt. Beispiel: 'laufen'",
+        "grade": 4,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "643",
+        "text": "Was ist ein 'Subjekt' in einem Satz?",
+        "type": "text",
+        "answer": "Der Satzgegenstand; das, worüber im Satz etwas ausgesagt wird (Wer oder Was?).",
+        "grade": 5,
+        "subject": "Deutsch",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747860058127,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "UNB8N4": {
+    "roomCode": "UNB8N4",
+    "gamemasterPersistentId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+    "players": [
+      {
+        "persistentPlayerId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+        "name": "sadas",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "666",
+        "text": "Zähle bis 5.",
+        "type": "text",
+        "answer": "1, 2, 3, 4, 5",
+        "grade": 1,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "670",
+        "text": "Was macht man mit einem Buch?",
+        "type": "text",
+        "answer": "Lesen",
+        "grade": 2,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "459",
+        "text": "Welches Tier lebt im Wasser und hat Schuppen?",
+        "type": "text",
+        "answer": "Fisch",
+        "grade": 3,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "641",
+        "text": "Nenne ein Blasinstrument.",
+        "type": "text",
+        "answer": "Trompete, Flöte (Beispiele)",
+        "grade": 4,
+        "subject": "Musik",
+        "language": "de"
+      },
+      {
+        "id": "473",
+        "text": "Nenne drei Teile einer Pflanze.",
+        "type": "text",
+        "answer": "Wurzel, Stängel, Blatt (Beispiele)",
+        "grade": 5,
+        "subject": "Biologie",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747862141520,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "XWQ1B0": {
+    "roomCode": "XWQ1B0",
+    "gamemasterPersistentId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+    "players": [
+      {
+        "persistentPlayerId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": true,
+    "questions": [
+      {
+        "id": "435",
+        "text": "Welche Jahreszeit kommt nach dem Sommer?",
+        "type": "text",
+        "answer": "Herbst",
+        "grade": 1,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "662",
+        "text": "Welches Tier legt Eier und hat Federn?",
+        "type": "text",
+        "answer": "Ein Vogel",
+        "grade": 2,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "457",
+        "text": "Was ist 4 multipliziert mit 5?",
+        "type": "text",
+        "answer": "20",
+        "grade": 3,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "463",
+        "text": "Was ist die Hauptstadt von Deutschland?",
+        "type": "text",
+        "answer": "Berlin",
+        "grade": 4,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "479",
+        "text": "Nenne ein bekanntes Märchen der Brüder Grimm.",
+        "type": "text",
+        "answer": "Hänsel und Gretel (Beispiel)",
+        "grade": 5,
+        "subject": "Deutsch",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": 1747862405794,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
+  },
+  "FMFWA9": {
+    "roomCode": "FMFWA9",
+    "gamemasterPersistentId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+    "players": [
+      {
+        "persistentPlayerId": "GM-692d204c-e606-4221-852d-8be66380a3e9",
+        "name": "asdsa",
+        "lives": 3,
+        "isActive": false,
+        "isSpectator": false,
+        "joinedAsSpectator": false,
+        "answers": []
+      }
+    ],
+    "started": false,
+    "questions": [
+      {
+        "id": "665",
+        "text": "Was ist das Gegenteil von 'Tag'?",
+        "type": "text",
+        "answer": "Nacht",
+        "grade": 1,
+        "subject": "Deutsch",
+        "language": "de"
+      },
+      {
+        "id": "671",
+        "text": "Nenne ein Gemüse.",
+        "type": "text",
+        "answer": "Karotte (Beispiel)",
+        "grade": 2,
+        "subject": "Sachunterricht",
+        "language": "de"
+      },
+      {
+        "id": "675",
+        "text": "Was ist 6 x 3?",
+        "type": "text",
+        "answer": "18",
+        "grade": 3,
+        "subject": "Mathematik",
+        "language": "de"
+      },
+      {
+        "id": "682",
+        "text": "What is 'Apfel' in English?",
+        "type": "text",
+        "answer": "Apple",
+        "grade": 4,
+        "subject": "Englisch",
+        "language": "de"
+      },
+      {
+        "id": "476",
+        "text": "Nenne einen Planeten unseres Sonnensystems.",
+        "type": "text",
+        "answer": "Mars (Beispiel)",
+        "grade": 5,
+        "subject": "Sachunterricht/Physik",
+        "language": "de"
+      }
+    ],
+    "currentQuestionIndex": 0,
+    "timeLimit": 99999,
+    "questionStartTime": null,
+    "isStreamerMode": false,
+    "isConcluded": false,
+    "lastSaved": "2025-05-21T21:31:32.934Z"
   }
 }

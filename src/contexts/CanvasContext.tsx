@@ -1,6 +1,9 @@
 import React, { createContext, useContext, useRef, useCallback, ReactNode, useState, useEffect } from 'react';
 import { fabric } from 'fabric';
 
+// Define a constant for the background color to ensure consistency
+export const CHALKBOARD_BACKGROUND_COLOR = '#0C6A35';
+
 interface CanvasContextType {
   canvas: fabric.Canvas | null;
   initializeCanvas: (container: HTMLElement, width?: number, height?: number) => void;
@@ -209,7 +212,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     container.appendChild(canvasEl);
 
     // Apply solid background to container
-    container.style.background = '#0C6A35';
+    container.style.background = CHALKBOARD_BACKGROUND_COLOR;
 
     // Calculate actual container size
     const containerRect = container.getBoundingClientRect();
@@ -224,7 +227,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     const fabricCanvas = new fabric.Canvas(canvasEl, {
       width: actualWidth,
       height: actualHeight,
-      backgroundColor: '#0C6A35', // Solid background color
+      backgroundColor: CHALKBOARD_BACKGROUND_COLOR, // Use the constant for consistency
       isDrawingMode: true,
       selection: false, // Disable group selection
       skipTargetFind: true, // Ignore all object selection
@@ -312,7 +315,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       canvas.clear();
       
       // Restore canvas settings after clear
-      canvas.backgroundColor = '#0C6A35';
+      canvas.backgroundColor = CHALKBOARD_BACKGROUND_COLOR;
       canvas.selection = false;
       canvas.skipTargetFind = true;
       canvas.preserveObjectStacking = true;

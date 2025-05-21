@@ -931,17 +931,19 @@ body {
 }
 
 .classroom-whiteboard-svg {
-  background: #0C6A35 !important;
-  border: 1px solid #8B4513 !important;
-  border-radius: 4px;
-  box-sizing: border-box;
-  margin-bottom: 10px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  overflow: hidden;
-  padding: 5px;
-  box-shadow: inset 0 0 8px rgba(0,0,0,0.15) !important;
+  width: 100% !important;
+  aspect-ratio: 2/1 !important;
+  min-height: 180px !important;
+  background-color: #0C6A35 !important;
+  border: 4px solid #8B4513 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.25) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
 }
 
 .classroom-whiteboard-answer {
@@ -1041,23 +1043,50 @@ body {
   }
 }
 
-/* Specific styling for eraser strokes (green paths) */
-.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
-.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
-  filter: none !important; /* Remove shadow */
-  stroke-width: 20 !important; /* Reduce the stroke width */
-  stroke-opacity: 0.85 !important; /* Make it slightly transparent */
+/* Enhanced chalk effect for all paths in SVG */
+.chalkboard-drawing-svg path {
+  stroke-linecap: round !important; 
   stroke-linejoin: round !important;
-  stroke-linecap: round !important;
-  mix-blend-mode: destination-out; /* This helps with blending into the background */
+  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3)); /* Default shadow for all paths */
 }
 
-/* Make eraser strokes invisible in preview overlay */
-.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
-.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"],
-.preview-whiteboard-card .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
-.preview-whiteboard-card .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
-  opacity: 0 !important;
-  stroke-opacity: 0 !important;
-  visibility: hidden !important;
+/* Style eraser strokes to be visible but without border effects */
+
+
+/* Consistent SVG display wrapper styles */
+.svg-display-wrapper {
+  width: 100% !important;
+  height: 100% !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  overflow: hidden !important;
+}
+
+/* Ensure consistent rendering of SVG content across all display modes */
+.svg-display-wrapper svg {
+  width: 100% !important;
+  height: 100% !important;
+  display: block !important;
+  max-width: 100% !important;
+  max-height: 100% !important;
+  object-fit: contain !important;
+}
+
+/* Consistent styling for classroom-whiteboard-svg across all components */
+.classroom-whiteboard-svg {
+  width: 100% !important;
+  aspect-ratio: 2/1 !important;
+  min-height: 180px !important;
+  background-color: #0C6A35 !important;
+  border: 4px solid #8B4513 !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.25) !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+  overflow: hidden !important;
+  box-sizing: border-box !important;
+  padding: 0 !important;
 } 

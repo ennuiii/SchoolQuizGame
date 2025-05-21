@@ -1,11 +1,13 @@
 // Copy of PreviewOverlay for alternate design testing
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGame } from '../../contexts/GameContext';
 import type { Player } from '../../types/game';
 import { useCanvas } from '../../contexts/CanvasContext';
 import FabricJsonToSvg from '../shared/FabricJsonToSvg';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
+import { fabric } from 'fabric';
+import { CHALKBOARD_BACKGROUND_COLOR } from '../../contexts/CanvasContext';
 
 interface AnswerSubmission {
   persistentPlayerId: string;
@@ -56,6 +58,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
   const context = useGame();
   const { setDrawingEnabled } = useCanvas();
   const { language } = useLanguage();
+  // Add state to store SVG strings for each player's board
+  const [boardSvgs, setBoardSvgs] = useState<Record<string, string>>({});
 
   if (!context.previewMode.isActive) return null;
 
@@ -66,6 +70,111 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
     setDrawingEnabled(false);
     return () => setDrawingEnabled(true);
   }, [setDrawingEnabled]);
+
+  // Effect to generate SVG for each player's board data
+  useEffect(() => {
+    // Create a function to generate SVG from Fabric JSON data
+    const generateSvg = async (boardData: string | undefined | null, playerId: string) => {
+      if (!boardData) {
+        // No board data, set empty SVG
+        setBoardSvgs(prev => ({
+          ...prev,
+          [playerId]: ''
+        }));
+        return;
+      }
+
+      try {
+        let tempCanvas: fabric.Canvas | null = null;
+        const fabricJSON = JSON.parse(boardData);
+          
+        // Check if the board data is empty
+        if (!fabricJSON.objects || fabricJSON.objects.length === 0) {
+          console.log('[PreviewOverlayV2] Board data contains no objects, rendering empty SVG');
+          setBoardSvgs(prev => ({
+            ...prev,
+            [playerId]: `<svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill="${CHALKBOARD_BACKGROUND_COLOR}" /></svg>`
+          }));
+          return;
+        }
+          
+        // Determine dimensions from JSON or use defaults
+        const jsonWidth = fabricJSON.canvas?.width || fabricJSON.width;
+        const jsonHeight = fabricJSON.canvas?.height || fabricJSON.height;
+
+        const viewBoxWidth = jsonWidth || 800;
+        const viewBoxHeight = jsonHeight || 400;
+
+        const tempCanvasEl = document.createElement('canvas');
+        tempCanvas = new fabric.Canvas(tempCanvasEl, {
+          width: viewBoxWidth,
+          height: viewBoxHeight,
+          backgroundColor: CHALKBOARD_BACKGROUND_COLOR,
+        });
+
+        await new Promise<void>((resolve, reject) => {
+          if (!tempCanvas) {
+            reject(new Error("Temporary canvas not initialized"));
+            return;
+          }
+          tempCanvas.loadFromJSON(fabricJSON, () => {
+            if (!tempCanvas) {
+              reject(new Error("Temporary canvas disposed during callback"));
+              return;
+            }
+            
+            tempCanvas.renderAll();
+            tempCanvas.forEachObject(obj => {
+              obj.selectable = false;
+              obj.evented = false;
+              
+              // Removed eraser stroke detection and processing
+            });
+
+            const svg = tempCanvas.toSVG({
+              viewBox: { x: 0, y: 0, width: viewBoxWidth, height: viewBoxHeight }
+            });
+            
+            // Add chalkboard class to SVG
+            const enhancedSvg = svg.replace('<svg ', '<svg class="chalkboard-drawing-svg" ');
+            
+            // Store the SVG string in state
+            setBoardSvgs(prev => ({
+              ...prev,
+              [playerId]: enhancedSvg
+            }));
+            
+            resolve();
+          });
+        }).catch(error => {
+          console.error('[PreviewOverlayV2] Error generating SVG:', error);
+          setBoardSvgs(prev => ({
+            ...prev,
+            [playerId]: `<svg viewBox="0 0 800 400"><text x="50%" y="50%" text-anchor="middle" fill="#ff0000">Error: ${error.message}</text></svg>`
+          }));
+        });
+
+        // Clean up
+        if (tempCanvas) {
+          tempCanvas.dispose();
+        }
+      } catch (error: any) {
+        console.error('[PreviewOverlayV2] Error parsing board data:', error);
+        setBoardSvgs(prev => ({
+          ...prev,
+          [playerId]: `<svg viewBox="0 0 800 400"><text x="50%" y="50%" text-anchor="middle" fill="#ff0000">Error: ${error.message}</text></svg>`
+        }));
+      }
+    };
+
+    // Process each player's board data
+    displayablePlayers.forEach(player => {
+      const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
+      if (boardSubmission) {
+        generateSvg(boardSubmission.boardData, player.persistentPlayerId);
+      }
+    });
+  }, [context.playerBoards, displayablePlayers]);
 
   const currentQuestion = context.currentQuestion;
 
@@ -127,15 +236,40 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                   ))}
                 </div>
                 
-                {/* Drawing Area with White Background */}
+                {/* Drawing Area with Chalkboard Background */}
                 <div
                   className="classroom-whiteboard-svg" 
+                  style={{
+                    width: '100%',
+                    aspectRatio: '2/1',
+                    minHeight: '180px',
+                    backgroundColor: CHALKBOARD_BACKGROUND_COLOR,
+                    border: '4px solid #8B4513',
+                    borderRadius: '8px',
+                    boxShadow: 'inset 0 0 15px rgba(0,0,0,0.25)',
+                    display: 'flex',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    overflow: 'hidden'
+                  }}
                 >
-                  <FabricJsonToSvg 
-                    jsonData={actualBoardData}
-                    className="scaled-svg-preview" 
+                  {/* Direct SVG rendering instead of FabricJsonToSvg */}
+                  <div 
+                    className="svg-display-wrapper" 
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      display: 'flex',
+                      justifyContent: 'center',
+                      alignItems: 'center'
+                    }}
+                    dangerouslySetInnerHTML={{ 
+                      __html: boardSvgs[player.persistentPlayerId] || 
+                        `<svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill="${CHALKBOARD_BACKGROUND_COLOR}" /></svg>` 
+                    }}
                   />
                 </div>
+                
                 {/* Answer with notepad effect - Show if an answer submission exists, even if text is empty */}
                 {answer !== undefined && (
                   <div className="notepad-answer mt-2 mb-2">
