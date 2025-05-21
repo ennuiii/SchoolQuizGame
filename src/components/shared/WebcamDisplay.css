@@ -19,11 +19,15 @@
   position: relative;
   min-width: 300px;
   min-height: 200px;
-  transition: box-shadow 0.3s ease;
+  transition: box-shadow 0.3s ease, transform 0.2s ease;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  background-color: #1a1a1a;
 }
 
 .draggable-webcam-container:hover {
-  box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.5);
+  box-shadow: 0 6px 12px rgba(0, 123, 255, 0.4);
+  transform: translateY(-2px);
 }
 
 .draggable-webcam-container.resizing {
@@ -31,14 +35,15 @@
 }
 
 .webcam-handle {
-  background-color: rgba(0, 0, 0, 0.3);
+  background-color: rgba(0, 0, 0, 0.5);
   height: 24px;
-  border-radius: 4px 4px 0 0;
+  border-radius: 8px 8px 0 0;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: move;
-  margin-bottom: 5px;
+  margin-bottom: 0;
+  padding: 4px 0;
 }
 
 .webcam-handle::before {
@@ -52,19 +57,25 @@
 .webcam-item {
   position: relative;
   border-radius: 8px;
-  border: 2px solid;
+  border: 2px solid rgba(0, 0, 0, 0.2);
   overflow: hidden;
-  background-color: transparent;
+  background-color: #1a1a1a;
   aspect-ratio: 4/3;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: none;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
   width: 100%;
   margin-bottom: 10px;
   transition: all 0.3s ease; /* Smooth transition when resizing */
   flex-grow: 1;
   height: auto;
+}
+
+/* Apply a subtle glow effect to active webcams */
+.webcam-item.active {
+  border-color: rgba(77, 148, 255, 0.6);
+  box-shadow: 0 0 15px rgba(77, 148, 255, 0.3);
 }
 
 /* Ensure the webcam content scales properly when parent container is resized */
@@ -106,9 +117,10 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background-color: transparent;
+  background-color: #111;
   position: relative;
   z-index: 1;
+  transition: opacity 0.3s ease;
 }
 
 /* Make sure the video scales properly when container is resized */
@@ -131,23 +143,32 @@
   display: flex;
   gap: 8px;
   z-index: 10;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.webcam-item:hover .video-controls-overlay {
+  opacity: 1;
 }
 
 .control-icon {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   border-radius: 50%;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(0, 0, 0, 0.6);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  color: white;
+  font-size: 1.2rem;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
 
 .control-icon:hover {
   transform: scale(1.1);
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.8);
 }
 
 .control-icon.active {
@@ -156,30 +177,37 @@
 
 .control-icon.inactive {
   color: #ff4d4d;
+  background-color: rgba(0, 0, 0, 0.7);
 }
 
 .name-tag-container {
   position: absolute;
-  bottom: 8px;
-  left: 8px;
+  bottom: 10px;
+  left: 10px;
   z-index: 10;
   display: flex;
   align-items: center;
   width: auto;
   max-width: 80%;
+  opacity: 0.8;
+  transition: opacity 0.2s ease;
+}
+
+.webcam-item:hover .name-tag-container {
+  opacity: 1;
 }
 
 .webcam-name-tag {
   background-color: rgba(0, 0, 0, 0.8);
   color: white;
-  font-size: 0.9rem;
-  padding: 5px 12px;
-  border-radius: 4px;
+  font-size: 0.95rem;
+  padding: 6px 14px;
+  border-radius: 20px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   font-weight: 600;
-  letter-spacing: 0.3px;
+  letter-spacing: 0.5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
   border: 1px solid rgba(255, 255, 255, 0.2);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
@@ -207,4 +235,84 @@
   font-size: 0.7rem;
   position: relative;
   z-index: 5;
+}
+
+.camera-disabled-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #f8f9fa;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 50%;
+  width: 80px;
+  height: 80px;
+  z-index: 5;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.camera-disabled-indicator i {
+  font-size: 2rem;
+  margin-bottom: 6px;
+}
+
+.camera-disabled-indicator span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+/* Connecting state indicator */
+.connecting-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #f8f9fa;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 10px;
+  padding: 15px;
+  z-index: 5;
+}
+
+.connecting-indicator i {
+  font-size: 2rem;
+  margin-bottom: 10px;
+  animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.connecting-indicator span {
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Remote control buttons - shown when viewing another user's camera */
+.remote-control-buttons {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: flex;
+  gap: 6px;
+  z-index: 10;
+  opacity: 0.5;
+  transition: opacity 0.2s ease;
+}
+
+.webcam-item:hover .remote-control-buttons {
+  opacity: 1;
 } 

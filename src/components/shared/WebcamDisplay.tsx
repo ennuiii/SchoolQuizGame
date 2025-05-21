@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useWebRTC, peerNameRegistry } from '../../contexts/WebRTCContext';
 import { useRoom } from '../../contexts/RoomContext'; // To get player names
 import socketService from '../../services/socketService'; // Import socketService
@@ -34,8 +34,8 @@ interface PeerVideoInfo {
   stream: MediaStream;
   playerName: string;
   isSelf: boolean;
-  isWebcamActive?: boolean; // Only for self or if we get remote status
-  isMicrophoneActive?: boolean; // Only for self or if we get remote status
+  isWebcamActive?: boolean; 
+  isMicrophoneActive?: boolean;
   borderColor?: string;
 }
 
@@ -49,9 +49,18 @@ const socketToNameMap = new Map<string, string>();
 // Map for persistent player IDs to names (more stable than socket IDs)
 const persistentIdToNameMap = new Map<string, string>();
 
+// Store user preferences for each peer's camera/mic visibility
+const peerPreferences = new Map<string, {
+  webcamHidden: boolean;
+  micMuted: boolean;
+}>();
+
 const WebcamDisplay: React.FC<WebcamDisplayProps> = () => {
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement | null }>({});
   const [forceRefreshCounter, setForceRefreshCounter] = useState(0);
+  // Track user preferences for remote peers' media
+  const [hiddenWebcams, setHiddenWebcams] = useState<Set<string>>(new Set());
+  const [mutedMics, setMutedMics] = useState<Set<string>>(new Set());
 
   const {
     localStream,
@@ -66,6 +75,32 @@ const WebcamDisplay: React.FC<WebcamDisplayProps> = () => {
 
   const { players: roomPlayers, persistentPlayerId: selfPersistentId, isGameMaster } = useRoom();
   const selfSocketId = socketService.getSocket()?.id; // Get self socket ID here
+
+  // Toggle webcam visibility for a remote peer
+  const togglePeerWebcam = useCallback((socketId: string) => {
+    setHiddenWebcams(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(socketId)) {
+        newSet.delete(socketId);
+      } else {
+        newSet.add(socketId);
+      }
+      return newSet;
+    });
+  }, []);
+
+  // Toggle microphone for a remote peer
+  const togglePeerMicrophone = useCallback((socketId: string) => {
+    setMutedMics(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(socketId)) {
+        newSet.delete(socketId);
+      } else {
+        newSet.add(socketId);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Function to get the best name for a peer
   const getPeerDisplayName = (socketId: string, fallbackName: string): string => {
@@ -164,22 +199,13 @@ const WebcamDisplay: React.FC<WebcamDisplayProps> = () => {
       const displayName = getPeerDisplayName(socketId, `Player ${socketId.substring(0, 4)}`);
       const player = roomPlayers.find(p => p.id === socketId);
       
-      // Debug log to check player matching
-      if (!player) {
-        console.warn(`[WebcamDisplay] Could not find player for socket ${socketId} in roomPlayers. Using name: ${displayName}`);
-      } else {
-        console.log(`[WebcamDisplay] Found player ${player.name} for socket ${socketId}`);
-      }
-      
       feeds.push({
         socketId,
         stream,
         playerName: displayName,
         isSelf: false,
-        // For remote users, we don't have their direct mic/video status from WebRTCContext yet.
-        // We'd need additional signaling for that. For now, icons could be placeholders.
-        isWebcamActive: true, // Assume remote video is active if stream exists
-        isMicrophoneActive: true, // Assume remote mic is active
+        isWebcamActive: !hiddenWebcams.has(socketId), // Use our UI state for webcam visibility
+        isMicrophoneActive: !mutedMics.has(socketId), // Use our UI state for mic muting
         borderColor: getColorForId(player?.persistentPlayerId || socketId, index),
       });
     });
@@ -276,15 +302,24 @@ const WebcamDisplay: React.FC<WebcamDisplayProps> = () => {
     // For local stream
     const selfVideoRef = videoRefs.current['self'];
     if (localStream && selfVideoRef) {
-      selfVideoRef.srcObject = localStream;
+      // Only set srcObject if it's not already set
+      if (selfVideoRef.srcObject !== localStream) {
+        selfVideoRef.srcObject = localStream;
+      }
     }
 
-    // For remote streams
+    // For remote streams, immediately attach streams
     Array.from(remoteStreams.entries()).forEach(([socketId, stream]) => {
       const videoRef = videoRefs.current[socketId];
       if (videoRef) {
-        console.log(`[WebcamDisplay] Attaching stream for socket ${socketId} to video element`);
-        videoRef.srcObject = stream;
+        // Only set srcObject if it's not already set to avoid flickering
+        if (videoRef.srcObject !== stream) {
+          console.log(`[WebcamDisplay] Attaching stream for socket ${socketId} to video element`);
+          videoRef.srcObject = stream;
+          
+          // Force play to fix the double-click issue
+          videoRef.play().catch(e => console.log(`[WebcamDisplay] Autoplay prevented: ${e}`));
+        }
       } else {
         console.warn(`[WebcamDisplay] No video ref found for socket ${socketId}`);
       }
@@ -306,8 +341,27 @@ const WebcamDisplay: React.FC<WebcamDisplayProps> = () => {
             ref={el => { videoRefs.current[feed.socketId] = el; }}
             autoPlay
             playsInline
-            muted={feed.isSelf} // Only mute self view by default
+            muted={feed.isSelf || mutedMics.has(feed.socketId)} // Mute self and remotely muted users
+            style={{ 
+              display: feed.isSelf ? (selfWebcamActive ? 'block' : 'none') : 
+                     (hiddenWebcams.has(feed.socketId) ? 'none' : 'block') 
+            }}
+            onClick={() => {
+              // Force play on click to fix autoplay issues
+              const videoEl = videoRefs.current[feed.socketId];
+              if (videoEl) videoEl.play().catch(e => console.log(`[WebcamDisplay] Play on click failed: ${e}`));
+            }}
           />
+          
+          {/* Camera disabled indicator */}
+          {((feed.isSelf && !selfWebcamActive) || 
+            (!feed.isSelf && hiddenWebcams.has(feed.socketId))) && (
+            <div className="camera-disabled-indicator">
+              <i className="bi bi-camera-video-off-fill"></i>
+              <span>Camera Off</span>
+            </div>
+          )}
+          
           <div className="video-controls-overlay">
             {feed.isSelf ? (
               <>
@@ -327,12 +381,20 @@ const WebcamDisplay: React.FC<WebcamDisplayProps> = () => {
                 </div>
               </>
             ) : (
-              <> {/* Placeholder icons for remote users */}
-                <div className={`control-icon active`} title="Webcam On">
-                  <i className="bi bi-camera-video-fill"></i>
+              <> {/* Controls for remote users */}
+                <div 
+                  className={`control-icon ${!hiddenWebcams.has(feed.socketId) ? 'active' : 'inactive'}`}
+                  onClick={() => togglePeerWebcam(feed.socketId)}
+                  title={!hiddenWebcams.has(feed.socketId) ? 'Hide Camera' : 'Show Camera'}
+                >
+                  <i className={`bi ${!hiddenWebcams.has(feed.socketId) ? 'bi-camera-video-fill' : 'bi-camera-video-off-fill'}`}></i>
                 </div>
-                <div className={`control-icon active`} title="Mic On">
-                  <i className="bi bi-mic-fill"></i>
+                <div 
+                  className={`control-icon ${!mutedMics.has(feed.socketId) ? 'active' : 'inactive'}`}
+                  onClick={() => togglePeerMicrophone(feed.socketId)}
+                  title={!mutedMics.has(feed.socketId) ? 'Mute' : 'Unmute'}
+                >
+                  <i className={`bi ${!mutedMics.has(feed.socketId) ? 'bi-mic-fill' : 'bi-mic-mute-fill'}`}></i>
                 </div>
               </>
             )}

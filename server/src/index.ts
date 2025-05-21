@@ -1467,26 +1467,84 @@ io.on('connection', (socket: ExtendedSocket) => {
     socket.data.isWebRTCReady = true;
     const room = gameRooms[roomCode];
     const currentIO = getIO();
-    const otherReadyPeers = room.players
-      .filter(p => p.id !== socket.id && currentIO.sockets.sockets.get(p.id)?.data.isWebRTCReady)
-      .map(p => ({ socketId: p.id, persistentPlayerId: p.persistentPlayerId, playerName: p.name, isGameMaster: p.persistentPlayerId === room.gamemasterPersistentId }));
     
+    console.log(`[WebRTC] Socket ${socket.id} is ready for WebRTC in room ${roomCode}.`);
+    
+    // Get all WebRTC-ready peers in the room, including GM and players
+    const otherReadyPeers = [];
+    
+    // Add GameMaster if they're ready
     const gmSocket = currentIO.sockets.sockets.get(room.gamemasterSocketId || '');
     if (gmSocket?.data.isWebRTCReady && room.gamemasterSocketId !== socket.id) {
-        otherReadyPeers.push({ socketId: room.gamemasterSocketId!, persistentPlayerId: room.gamemasterPersistentId, playerName: gmSocket.data.playerName || 'GameMaster', isGameMaster: true });
+      otherReadyPeers.push({ 
+        socketId: room.gamemasterSocketId!, 
+        persistentPlayerId: room.gamemasterPersistentId, 
+        playerName: gmSocket.data.playerName || 'GameMaster', 
+        isGameMaster: true 
+      });
     }
-    const uniqueOtherReadyPeers = Array.from(new Set(otherReadyPeers.map(p => p.socketId))).map(id => otherReadyPeers.find(p => p.socketId === id));
-    socket.emit('webrtc-existing-peers', { peers: uniqueOtherReadyPeers.filter(Boolean) });
-    const newPeerData = { socketId: socket.id, persistentPlayerId: socket.data.persistentPlayerId, playerName: socket.data.playerName, isGameMaster: socket.data.isGameMaster };
-    uniqueOtherReadyPeers.filter(Boolean).forEach(peer => {
-      currentIO.to(peer!.socketId).emit('webrtc-new-peer', { newPeer: newPeerData });
+    
+    // Add all ready players
+    room.players.forEach(player => {
+      const playerSocket = currentIO.sockets.sockets.get(player.id);
+      if (player.id !== socket.id && playerSocket?.data.isWebRTCReady) {
+        otherReadyPeers.push({
+          socketId: player.id,
+          persistentPlayerId: player.persistentPlayerId,
+          playerName: player.name,
+          isGameMaster: false
+        });
+      }
     });
+    
+    // Send existing peers to the new peer
+    socket.emit('webrtc-existing-peers', { peers: otherReadyPeers });
+    
+    // Send new peer to all existing peers
+    const newPeerData = { 
+      socketId: socket.id, 
+      persistentPlayerId: socket.data.persistentPlayerId, 
+      playerName: socket.data.playerName, 
+      isGameMaster: socket.data.isGameMaster 
+    };
+    
+    otherReadyPeers.forEach(peer => {
+      currentIO.to(peer.socketId).emit('webrtc-new-peer', { newPeer: newPeerData });
+    });
+    
+    // Force a broadcast of camera states to ensure everyone sees each other's state
+    currentIO.to(roomCode).emit('webrtc-refresh-states', { timestamp: Date.now() });
   });
 
-  socket.on('webrtc-offer', ({ offer, to, from }) => { getIO().to(to).emit('webrtc-offer', { offer, from }); });
-  socket.on('webrtc-answer', ({ answer, to, from }) => { getIO().to(to).emit('webrtc-answer', { answer, from }); });
-  socket.on('webrtc-ice-candidate', ({ candidate, to, from }) => { getIO().to(to).emit('webrtc-ice-candidate', { candidate, from }); });
-
+  socket.on('webrtc-offer', ({ offer, to, from }) => { 
+    console.log(`[WebRTC] Relaying offer from ${from} to ${to}`);
+    getIO().to(to).emit('webrtc-offer', { offer, from }); 
+  });
+  
+  socket.on('webrtc-answer', ({ answer, to, from }) => { 
+    console.log(`[WebRTC] Relaying answer from ${from} to ${to}`);
+    getIO().to(to).emit('webrtc-answer', { answer, from }); 
+  });
+  
+  socket.on('webrtc-ice-candidate', ({ candidate, to, from }) => { 
+    // No need to log every ICE candidate as it can be very verbose
+    getIO().to(to).emit('webrtc-ice-candidate', { candidate, from }); 
+  });
+  
+  // New events for webcam and microphone state broadcasting
+  socket.on('webcam-state-change', ({ roomCode, enabled, fromSocketId }) => {
+    if (!roomCode || !gameRooms[roomCode]) return;
+    
+    console.log(`[WebRTC] Broadcasting webcam state change from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
+    socket.to(roomCode).emit('webcam-state-change', { fromSocketId, enabled });
+  });
+  
+  socket.on('microphone-state-change', ({ roomCode, enabled, fromSocketId }) => {
+    if (!roomCode || !gameRooms[roomCode]) return;
+    
+    console.log(`[WebRTC] Broadcasting microphone state change from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
+    socket.to(roomCode).emit('microphone-state-change', { fromSocketId, enabled });
+  });
 });
 
 // Add handler for request_players event
