@@ -1,5 +1,7 @@
 import React from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface GameControlsProps {
   onStartGame: () => void;
@@ -23,12 +25,13 @@ const GameControls: React.FC<GameControlsProps> = ({
   onCancelEndRound
 }) => {
   const { gameStarted, currentQuestionIndex, questions, allAnswersThisRound } = useGame();
+  const { language } = useLanguage();
   const hasPendingAnswers = Object.keys(allAnswersThisRound).length > 0;
 
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
-        <h6 className="mb-0">Game Controls</h6>
+        <h6 className="mb-0">{t('gameControls.title', language)}</h6>
       </div>
       <div className="card-body">
         {!gameStarted ? (
@@ -37,7 +40,7 @@ const GameControls: React.FC<GameControlsProps> = ({
             onClick={onStartGame}
             disabled={isRestarting}
           >
-            {isRestarting ? 'Restarting...' : 'Start Game'}
+            {isRestarting ? t('gameControls.restarting', language) : t('gameControls.startGame', language)}
           </button>
         ) : (
           <div className="d-flex gap-2">
@@ -46,39 +49,39 @@ const GameControls: React.FC<GameControlsProps> = ({
               onClick={onNextQuestion}
               disabled={currentQuestionIndex >= questions.length - 1 || hasPendingAnswers}
             >
-              Next Question
+              {t('gameControls.nextQuestion', language)}
             </button>
             <button
               className="btn btn-warning flex-grow-1"
               onClick={onEndRoundEarly}
             >
-              End Round Early
+              {t('gameControls.endRoundEarly', language)}
             </button>
             <button
               className="btn btn-danger flex-grow-1"
               onClick={onRestartGame}
               disabled={isRestarting}
             >
-              {isRestarting ? 'Restarting...' : 'Restart Game'}
+              {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
             </button>
           </div>
         )}
 
         {showEndRoundConfirm && (
           <div className="alert alert-warning mt-3">
-            <p>Are you sure you want to end this round early?</p>
+            <p>{t('gameControls.endRoundConfirm', language)}</p>
             <div className="d-flex gap-2">
               <button
                 className="btn btn-warning flex-grow-1"
                 onClick={onConfirmEndRound}
               >
-                Yes, End Round
+                {t('gameControls.confirmEndRound', language)}
               </button>
               <button
                 className="btn btn-secondary flex-grow-1"
                 onClick={onCancelEndRound}
               >
-                Cancel
+                {t('gameControls.cancel', language)}
               </button>
             </div>
           </div>

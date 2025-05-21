@@ -16,6 +16,7 @@ export interface Question {
 
 interface Player {
   id: string;
+  persistentPlayerId: string;
   name: string;
   lives: number;
   answers: string[];
@@ -27,6 +28,8 @@ export interface PlayerBoard {
   playerId: string;
   playerName: string;
   boardData: string;
+  roundIndex?: number;
+  timestamp?: number;
 }
 
 interface AnswerSubmission {
@@ -34,6 +37,8 @@ interface AnswerSubmission {
   playerName: string;
   answer: string;
   timestamp?: number;
+  hasDrawing?: boolean;
+  drawingData?: string | null;
 }
 
 interface PreviewModeState {
@@ -196,6 +201,34 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
   }, []);
 
+  // New useEffect to default boards to visible when players list changes
+  useEffect(() => {
+    setVisibleBoards(prevVisibleBoards => {
+      const newVisibleBoards = new Set(prevVisibleBoards);
+      let changed = false;
+
+      // Remove players from visibleBoards if they are no longer active/non-spectators or not in the players list.
+      // This ensures that if a player was in prevVisibleBoards but is no longer valid (e.g., left, became spectator), they are removed.
+      // The GM's explicit action to hide a board is respected and not overridden here.
+      const validPlayerIds = new Set(players.filter(p => p.isActive && !p.isSpectator).map(p => p.id));
+
+      prevVisibleBoards.forEach(visiblePlayerId => {
+        if (!validPlayerIds.has(visiblePlayerId)) {
+          if (newVisibleBoards.has(visiblePlayerId)) { // Check if it was in the set we are building
+            newVisibleBoards.delete(visiblePlayerId);
+            changed = true;
+          }
+        }
+      });
+      
+      if (changed) {
+        console.log('[GameContext] Updated visibleBoards by removing inactive/spectator players:', newVisibleBoards);
+        return newVisibleBoards;
+      }
+      return prevVisibleBoards; // No change, return the original set
+    });
+  }, [players, gameStarted]); // Depends on GameContext's internal players list and gameStarted
+
   // Effect to subscribe to socket connection state changes
   useEffect(() => {
     const handleConnectionChange = (state: string) => {
@@ -290,15 +323,14 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const startPreviewMode = useCallback((roomCode: string) => {
-    socketService.startPreviewMode(roomCode);
-    setPreviewMode(prev => ({ ...prev, isActive: true }));
-    // Make all non-spectator player boards visible when entering preview mode
-    setVisibleBoards(new Set(players.filter(p => !p.isSpectator).map(p => p.id)));
-  }, [players]);
+    socketService.startPreviewMode(roomCode); // This emits to server, server broadcasts 'start_preview_mode'
+    // Client will react to 'start_preview_mode' event via startPreviewModeHandler above.
+    // No direct state change to visibleBoards here.
+  }, []);
 
   const stopPreviewMode = useCallback((roomCode: string) => {
-    socketService.stopPreviewMode(roomCode);
-    setPreviewMode({ isActive: false, focusedPlayerId: null });
+    socketService.stopPreviewMode(roomCode); // This emits to server, server broadcasts 'stop_preview_mode'
+    // Client will react to 'stop_preview_mode' event via stopPreviewModeHandler above.
   }, []);
 
   const focusSubmission = useCallback((roomCode: string, playerId: string) => {
@@ -330,6 +362,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const loadRandomQuestions = useCallback(async () => {
     setIsLoadingRandom(true);
     try {
+      // Fetch all questions based on filters
       const fetchedQuestions = await supabaseService.getQuestions({
         subject: selectedSubject,
         grade: selectedGrade === '' ? undefined : Number(selectedGrade),
@@ -337,20 +370,154 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sortByGrade: true
       });
 
-      const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
-      const selected = shuffled.slice(0, randomCount);
-      const convertedQuestions = selected.map(convertSupabaseQuestion);
-      
-      // Merge with existing selected questions
-      const newQuestions = [...questions, ...convertedQuestions]
-        .filter((q, index, self) => // Remove duplicates
-          index === self.findIndex(t => t.id === q.id)
-        )
-        .sort((a, b) => a.grade - b.grade); // Sort by grade
+      // If no grade is selected and we have multiple grades, distribute evenly
+      if (selectedGrade === '' && fetchedQuestions.length > 0) {
+        // Group questions by grade
+        const questionsByGrade: Record<number, any[]> = {};
+        fetchedQuestions.forEach(q => {
+          if (!questionsByGrade[q.grade]) {
+            questionsByGrade[q.grade] = [];
+          }
+          questionsByGrade[q.grade].push(q);
+        });
 
-      setQuestions(newQuestions);
-      setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
-      setTimeout(() => setQuestionErrorMsg(''), 3000);
+        const availableGrades = Object.keys(questionsByGrade).map(Number);
+        
+        // If we have multiple grades, distribute evenly
+        if (availableGrades.length > 1) {
+          let selected: any[] = [];
+          
+          // First pass: Get at least one question from each grade
+          availableGrades.forEach(grade => {
+            const gradeQuestions = questionsByGrade[grade];
+            if (gradeQuestions.length > 0) {
+              // Shuffle questions of this grade and take one
+              const shuffled = [...gradeQuestions].sort(() => 0.5 - Math.random());
+              selected.push(shuffled[0]);
+            }
+          });
+          
+          // Early return if we already have more than requested
+          if (selected.length >= randomCount) {
+            // Trim down to exactly randomCount, ensuring we have as many grades as possible
+            selected = selected.slice(0, randomCount);
+          } else {
+            // Second pass: Calculate questions per grade for remaining slots
+            const remainingSlots = randomCount - selected.length;
+            const additionalPerGrade = Math.floor(remainingSlots / availableGrades.length);
+            let extraQuestions = remainingSlots % availableGrades.length;
+            
+            // Distribute remaining slots
+            availableGrades.forEach(grade => {
+              const gradeQuestions = questionsByGrade[grade];
+              // Skip grades with no questions or already used 
+              if (gradeQuestions.length <= 1) return;
+              
+              // Take additional questions per grade, avoiding the one we already took
+              const shuffled = [...gradeQuestions].sort(() => 0.5 - Math.random());
+              const alreadySelected = selected.filter(q => q.grade === grade).length;
+              const canTakeMore = Math.min(additionalPerGrade, shuffled.length - alreadySelected);
+              
+              if (canTakeMore > 0) {
+                const startIndex = alreadySelected;
+                selected.push(...shuffled.slice(startIndex, startIndex + canTakeMore));
+              }
+              
+              // Add one extra question from grades with more questions if we need extras
+              if (extraQuestions > 0 && shuffled.length > (alreadySelected + canTakeMore)) {
+                selected.push(shuffled[alreadySelected + canTakeMore]);
+                extraQuestions--;
+              }
+            });
+            
+            // If we still need more questions, keep adding from grades with the most available
+            if (selected.length < randomCount) {
+              // Sort grades by number of remaining questions (descending)
+              const gradesWithRemainingQuestions = availableGrades
+                .filter(grade => {
+                  const alreadySelected = selected.filter(q => q.grade === grade).length;
+                  return questionsByGrade[grade].length > alreadySelected;
+                })
+                .sort((a, b) => {
+                  const aRemaining = questionsByGrade[a].length - selected.filter(q => q.grade === a).length;
+                  const bRemaining = questionsByGrade[b].length - selected.filter(q => q.grade === b).length;
+                  return bRemaining - aRemaining;
+                });
+              
+              let remaining = randomCount - selected.length;
+              
+              for (const grade of gradesWithRemainingQuestions) {
+                if (remaining <= 0) break;
+                
+                const gradeQuestions = questionsByGrade[grade];
+                const alreadySelected = selected.filter(q => q.grade === grade).length;
+                const remainingForGrade = gradeQuestions.length - alreadySelected;
+                const toTakeMore = Math.min(remaining, remainingForGrade);
+                
+                if (toTakeMore > 0) {
+                  const shuffled = [...gradeQuestions].sort(() => 0.5 - Math.random());
+                  // Avoid duplicates by using the already selected count as offset
+                  selected.push(...shuffled.slice(alreadySelected, alreadySelected + toTakeMore));
+                  remaining -= toTakeMore;
+                }
+              }
+            }
+          }
+          
+          // Final check to ensure we don't exceed randomCount
+          if (selected.length > randomCount) {
+            selected = selected.slice(0, randomCount);
+          }
+          
+          // Prepare the selected questions
+          const convertedQuestions = selected.map(convertSupabaseQuestion);
+          
+          // Merge with existing selected questions
+          const newQuestions = [...questions, ...convertedQuestions]
+            .filter((q, index, self) => // Remove duplicates
+              index === self.findIndex(t => t.id === q.id)
+            )
+            .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+          setQuestions(newQuestions);
+          setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions, distributed across grades`);
+          setTimeout(() => setQuestionErrorMsg(''), 3000);
+        } else {
+          // Use a simpler selection logic if only one grade is available
+          const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+          // Take exactly randomCount questions
+          const selected = shuffled.slice(0, Math.min(randomCount, shuffled.length));
+          const convertedQuestions = selected.map(convertSupabaseQuestion);
+          
+          // Merge with existing selected questions
+          const newQuestions = [...questions, ...convertedQuestions]
+            .filter((q, index, self) => // Remove duplicates
+              index === self.findIndex(t => t.id === q.id)
+            )
+            .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+          setQuestions(newQuestions);
+          setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
+          setTimeout(() => setQuestionErrorMsg(''), 3000);
+        }
+      } else {
+        // Use a simpler selection logic if specific grade is selected
+        const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+        // Take exactly randomCount questions
+        const selected = shuffled.slice(0, Math.min(randomCount, shuffled.length));
+        const convertedQuestions = selected.map(convertSupabaseQuestion);
+        
+        // Merge with existing selected questions
+        const newQuestions = [...questions, ...convertedQuestions]
+          .filter((q, index, self) => // Remove duplicates
+            index === self.findIndex(t => t.id === q.id)
+          )
+          .sort((a, b) => a.grade - b.grade); // Sort by grade
+
+        setQuestions(newQuestions);
+        setQuestionErrorMsg(`Added ${convertedQuestions.length} random questions`);
+        setTimeout(() => setQuestionErrorMsg(''), 3000);
+      }
     } catch (error) {
       console.error('Error loading random questions:', error);
       setQuestionErrorMsg('Failed to load random questions');
@@ -429,10 +596,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         // Make all non-spectator player boards visible by default
         // Use players from the event data if available, otherwise use the current 'players' state.
-        const currentPlayers = data.players || players;
-        const initialVisiblePlayerIds = new Set(currentPlayers.filter(p => !p.isSpectator).map(p => p.id));
+        const currentPlayers = data.players || players; // Use event data first
+        const initialVisiblePlayerIds = new Set(
+          currentPlayers.filter(p => p.isActive && !p.isSpectator).map(p => p.id)
+        );
         setVisibleBoards(initialVisiblePlayerIds);
-        console.log('[GameContext] Initial visible boards set:', initialVisiblePlayerIds);
+        console.log('[GameContext] Initial visible boards set in gameStartedHandler:', initialVisiblePlayerIds);
 
         console.log('[GameContext] State updated after game_started event:', {
           newGameStarted: true, newQuestion: data.question.text, newTimeLimit: data.timeLimit,
@@ -450,29 +619,114 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
 
     const gameStateUpdateHandler = (state: any) => {
-      console.log('[GameContext] Game state update received:', {
-        started: state.started, currentGameStarted: gameStarted, hasQuestion: !!state.currentQuestion,
-        currentQuestion: state.currentQuestion?.text, timeLimit: state.timeLimit,
-        playerCount: state.players?.length, answerCount: state.roundAnswers ? Object.keys(state.roundAnswers).length : 0,
-        timestamp: new Date().toISOString()
-      });
+      console.log('[GameContext] Game state update received:', JSON.stringify(state, null, 2)); // Log entire state
       try {
         if (state.started !== gameStarted) {
           console.log('[GameContext] Updating gameStarted state:', { from: gameStarted, to: state.started, timestamp: new Date().toISOString() });
           setGameStarted(state.started);
         }
-        if (state.currentQuestion && (!currentQuestion || currentQuestion.text !== state.currentQuestion.text)) {
-          console.log('[GameContext] Updating currentQuestion:', { from: currentQuestion?.text, to: state.currentQuestion.text, timestamp: new Date().toISOString() });
+        if (state.currentQuestion && (!currentQuestion || currentQuestion.id !== state.currentQuestion.id)) { // Compare by ID for robustness
+          console.log('[GameContext] Updating currentQuestion from gameStateUpdate:', { from: currentQuestion?.text, to: state.currentQuestion.text, timestamp: new Date().toISOString() });
           setCurrentQuestion(state.currentQuestion);
+          // When the question changes, always reset timer states based on the NEW question's time limit from the server state.
+          const newQuestionTimeLimit = state.currentQuestion.timeLimit !== undefined ? state.currentQuestion.timeLimit : state.timeLimit;
+          console.log('[GameContext] New question detected in gameStateUpdate. Resetting timer. New question timeLimit from state.currentQuestion.timeLimit or state.timeLimit:', newQuestionTimeLimit);
+          if (newQuestionTimeLimit !== null && newQuestionTimeLimit < 99999) {
+            setTimeLimit(newQuestionTimeLimit); // Update overall timeLimit state as well
+            setTimeRemaining(newQuestionTimeLimit);
+            setIsTimerRunning(true);
+          } else {
+            setTimeLimit(newQuestionTimeLimit); // Could be null or 99999
+            setTimeRemaining(null);
+            setIsTimerRunning(false);
+          }
         }
-        if (state.timeLimit !== timeLimit) {
-          console.log('[GameContext] Updating timeLimit:', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
+        // Update currentQuestionIndex
+        if (state.currentQuestionIndex !== undefined && state.currentQuestionIndex !== currentQuestionIndex) {
+          console.log('[GameContext] Updating currentQuestionIndex from gameStateUpdate:', { from: currentQuestionIndex, to: state.currentQuestionIndex, timestamp: new Date().toISOString() });
+          setCurrentQuestionIndex(state.currentQuestionIndex);
+        }
+        // This block handles explicit timeLimit changes if the question itself hasn't changed
+        // but the timeLimit for the current question was updated (e.g., by GM action - though not implemented).
+        // This might be redundant now with the above block, but kept for safety for now.
+        if (state.timeLimit !== timeLimit && (!state.currentQuestion || state.currentQuestion.id === currentQuestion?.id) ) {
+          console.log('[GameContext] Updating timeLimit from gameStateUpdate (question same or not in state):', { from: timeLimit, to: state.timeLimit, timestamp: new Date().toISOString() });
           setTimeLimit(state.timeLimit);
+          if (state.timeLimit !== null && state.timeLimit < 99999) {
+            setTimeRemaining(state.timeLimit);
+            setIsTimerRunning(true);
+          } else {
+            setTimeRemaining(null);
+            setIsTimerRunning(false);
+          }
         }
+        
         const newPlayers = state.players || [];
-        setPlayers(newPlayers);
+        // Detailed logging for players update in GameContext
+        setPlayers(prevPlayers => {
+          console.log('[GameContext] setPlayers (gameStateUpdate) - PREV players:', JSON.stringify(prevPlayers, null, 2));
+          console.log('[GameContext] setPlayers (gameStateUpdate) - RECEIVED players from event:', JSON.stringify(newPlayers, null, 2));
+          // Basic check: if newPlayers is substantially different, log more, or always log for now
+          if (JSON.stringify(prevPlayers) !== JSON.stringify(newPlayers)) {
+            console.log('[GameContext] setPlayers (gameStateUpdate) - Players array IS different. Updating.');
+          } else {
+            console.log('[GameContext] setPlayers (gameStateUpdate) - Players array is the same. No change to player list itself.');
+          }
+          return newPlayers; // Update with the new list from server
+        });
+
+        console.log('[GameContext] gameStateUpdateHandler: BEFORE setAllAnswersThisRound. Current context:', JSON.stringify(allAnswersThisRound), 'Incoming state.roundAnswers:', JSON.stringify(state.roundAnswers));
         setAllAnswersThisRound(state.roundAnswers || {});
+        console.log('[GameContext] gameStateUpdateHandler: AFTER setAllAnswersThisRound. New context:', JSON.stringify(state.roundAnswers || {}));
+
+        console.log('[GameContext] gameStateUpdateHandler: BEFORE setEvaluatedAnswers. Current context:', JSON.stringify(evaluatedAnswers), 'Incoming state.evaluatedAnswers:', JSON.stringify(state.evaluatedAnswers));
         setEvaluatedAnswers(state.evaluatedAnswers || {});
+        console.log('[GameContext] gameStateUpdateHandler: AFTER setEvaluatedAnswers. New context:', JSON.stringify(state.evaluatedAnswers || {}));
+
+        // Update player boards from server state - critical for reconnection recovery
+        if (state.playerBoards) {
+          console.log('[GameContext] Restoring player boards from server state:', Object.keys(state.playerBoards).length);
+          
+          const receivedBoards = Object.values(state.playerBoards).map((board: any) => ({
+            playerId: board.playerId,
+            playerName: board.playerName || getPlayerName(board.playerId),
+            boardData: board.boardData,
+            roundIndex: board.roundIndex,
+            timestamp: board.timestamp
+          }));
+          
+          setPlayerBoards(prevBoards => {
+            // If we have no boards but server has them, use server's completely
+            if (prevBoards.length === 0 && receivedBoards.length > 0) {
+              console.log('[GameContext] No local boards, using server boards completely');
+              return receivedBoards;
+            }
+            
+            // Otherwise merge, prioritizing server data for each player
+            const mergedBoards = [...prevBoards]; // Start with local boards
+            
+            // For each server board, update or add to our local collection
+            receivedBoards.forEach(serverBoard => {
+              const localBoardIndex = mergedBoards.findIndex(b => b.playerId === serverBoard.playerId);
+              
+              if (localBoardIndex !== -1) {
+                // Only override local board if server has newer data or local is empty
+                const localBoard = mergedBoards[localBoardIndex];
+                if (!localBoard.boardData || localBoard.boardData === '' || 
+                    (serverBoard.timestamp && (!localBoard.timestamp || serverBoard.timestamp > localBoard.timestamp))) {
+                  console.log(`[GameContext] Updating board for player ${serverBoard.playerId} with newer server data`);
+                  mergedBoards[localBoardIndex] = serverBoard;
+                }
+              } else {
+                // No local board for this player, add the server one
+                console.log(`[GameContext] Adding missing board for player ${serverBoard.playerId} from server`);
+                mergedBoards.push(serverBoard);
+              }
+            });
+            
+            return mergedBoards;
+          });
+        }
 
         // Update visible boards for new non-spectator players if game has started
         if (state.started) {
@@ -511,16 +765,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
     
     const newQuestionHandler = (data: { question: Question, timeLimit: number }) => { 
-        console.log('[GameContext] New question:', { questionText: data.question.text, timeLimit: data.timeLimit, timestamp: new Date().toISOString() });
-        setCurrentQuestion(data.question); 
-        setTimeLimit(data.timeLimit);
-        setTimeRemaining(data.timeLimit < 99999 ? data.timeLimit : null);
-        setIsTimerRunning(data.timeLimit < 99999);
-        setCurrentQuestionIndex(prev => { const newIndex = prev + 1; console.log('[GameContext] Updated question index:', { prev, new: newIndex }); return newIndex; });
-        setSubmittedAnswer(false); 
-        setAllAnswersThisRound({}); 
-        setEvaluatedAnswers({}); 
-        setPlayerBoards([]);
+        console.log(`[GameContext] 'new_question' event received. Question Text: ${data.question.text}, Time Limit: ${data.timeLimit}`);
+        // Most state is now set by gameStateUpdateHandler.
+        // This handler can be used for immediate client-side only logic if needed,
+        // or for things not covered by the main game state object from server.
+        setSubmittedAnswer(false); // Reset context-level submission flag (likely for GM UI)
+        
+        // Explicitly reset answers for new question to ensure drawing isn't disabled
+        console.log('[GameContext] Explicitly clearing allAnswersThisRound in newQuestionHandler');
+        setAllAnswersThisRound({});
     };
     const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
     const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };
@@ -532,11 +785,16 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsTimerRunning(false);
     };
     const startPreviewModeHandler = () => { 
-        console.log('[GameContext] Starting preview mode'); setPreviewMode(prev => ({ ...prev, isActive: true }));
-        const nonSpectatorIds = players.filter(p => !p.isSpectator).map(p => p.id);
-        setVisibleBoards(new Set(nonSpectatorIds));
+        console.log('[GameContext] Starting preview mode (socket event)'); 
+        setPreviewMode(prev => ({ ...prev, isActive: true }));
+        // DO NOT alter visibleBoards here; let GM control visibility via toggleBoardVisibility
+        // The useEffect above will ensure new/active players are visible by default.
     };
-    const stopPreviewModeHandler = () => { console.log('[GameContext] Stopping preview mode'); setPreviewMode({ isActive: false, focusedPlayerId: null }); };
+    const stopPreviewModeHandler = () => { 
+        console.log('[GameContext] Stopping preview mode (socket event)'); 
+        setPreviewMode({ isActive: false, focusedPlayerId: null }); 
+        // DO NOT alter visibleBoards here either.
+    };
     const focusSubmissionHandler = (data: { playerId: string }) => { console.log('[GameContext] Focusing submission:', { playerId: data.playerId, playerName: players.find(p => p.id === data.playerId)?.name }); setPreviewMode(prev => ({ ...prev, focusedPlayerId: data.playerId })); };
     const answerEvaluatedHandler = (data: any) => { console.log('[GameContext] answer_evaluated received', data); /* Placeholder */ };
     const roundOverHandler = (data: any) => { console.log('[GameContext] round_over received', data); /* Placeholder */ }; 
@@ -572,6 +830,36 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRecapSelectedTabKey(data.selectedTabKey);
     };
 
+    // Add handler for game_restarted event
+    const gameRestartedHandler = (data: { roomCode: string }) => {
+      console.log('[GameContext] Game restarted event received:', data);
+      // Reset all game state for a fresh start
+      setGameStarted(false);
+      setCurrentQuestion(null);
+      setCurrentQuestionIndex(-1);
+      setSubmittedAnswer(false);
+      setAllAnswersThisRound({});
+      setEvaluatedAnswers({});
+      setPlayerBoards([]);
+      setIsGameConcluded(false);
+      setGameOver(false);
+      setIsWinner(false);
+      setGameRecapData(null);
+      setRecapSelectedRoundIndex(0);
+      setRecapSelectedTabKey('overallResults');
+    };
+
+    const playerDisconnectedStatusHandler = (data: { playerId: string; persistentPlayerId: string; isActive: boolean; temporary: boolean }) => {
+      console.log('[GameContext] player_disconnected_status received:', data);
+      setPlayers(prevPlayers => 
+        prevPlayers.map(p => 
+          p.persistentPlayerId === data.persistentPlayerId || p.id === data.playerId 
+            ? { ...p, isActive: data.isActive } 
+            : p
+        )
+      );
+    };
+
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
@@ -591,6 +879,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('game_recap', gameRecapHandler);
     socketService.on('recap_round_changed', recapRoundChangedHandler);
     socketService.on('recap_tab_changed', recapTabChangedHandler);
+    socketService.on('game_restarted', gameRestartedHandler);
+    socketService.on('player_disconnected_status', playerDisconnectedStatusHandler);
 
     // Cleanup
     return () => {
@@ -615,15 +905,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('game_recap');
       socketService.off('recap_round_changed');
       socketService.off('recap_tab_changed');
+      socketService.off('game_restarted');
+      socketService.off('player_disconnected_status');
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
-  }, [gameStarted, currentQuestion, timeLimit, players, socketConnectionStatus, boardUpdateHandler]); // Added boardUpdateHandler to dependencies
+  }, [socketConnectionStatus, boardUpdateHandler, gameStarted]); // REMOVED 'players' from dependency array
 
   // Question Management Functions
   const addQuestionToSelected = useCallback((question: Question) => {
     if (questions.some(q => q.id === question.id)) {
       setQuestionErrorMsg('This question is already selected');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     const newQuestions = [...questions, question].sort((a, b) => a.grade - b.grade);
@@ -643,6 +936,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const clearAllSelectedQuestions = useCallback(() => {
     if (questions.length === 0) {
       setQuestionErrorMsg('No questions to clear');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
@@ -674,18 +968,20 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Validate inputs
     if (!text.trim()) {
       setQuestionErrorMsg('Question text cannot be empty');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
     if (isNaN(grade) || grade < 1 || grade > 13) {
       setQuestionErrorMsg('Grade must be between 1 and 13');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
     const newQuestion: Question = {
       id: Date.now().toString(), // Convert timestamp to string
       text: text.trim(),
-      type: 'text',
+      type: 'text', // Always set type to 'text' for custom questions
       answer: answer?.trim(),
       subject: subject.trim(),
       grade: Math.min(13, Math.max(1, grade)),
@@ -700,6 +996,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     if (isDuplicate) {
       setQuestionErrorMsg('A similar question already exists in the selection');
+      setTimeout(() => setQuestionErrorMsg(''), 3000); // Clear message after 3 seconds
       return;
     }
     
@@ -820,7 +1117,7 @@ const sortByGrade = (a: Question, b: Question) => {
 const convertSupabaseQuestion = (q: any): Question => ({
   id: q.id.toString(),
   text: q.text,
-  type: q.type || 'text',
+  type: 'text', // Always default to 'text' type
   timeLimit: q.timeLimit,
   answer: q.answer,
   grade: parseInt(q.grade, 10) || 0,

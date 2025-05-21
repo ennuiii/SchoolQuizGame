@@ -33,7 +33,7 @@ const Dashboard: React.FC = () => {
           </Box>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Paper
             sx={{
               p: 2,
@@ -53,7 +53,7 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
-        <Grid item xs={12} md={6}>
+        <Grid xs={12} md={4} component="div">
           <Paper
             sx={{
               p: 2,
@@ -72,6 +72,26 @@ const Dashboard: React.FC = () => {
             </Typography>
           </Paper>
         </Grid>
+
+        {/* <Grid xs={12} md={4} component="div">
+          <Paper
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              height: 240,
+              cursor: 'pointer',
+            }}
+            onClick={() => navigate('/server-stats')}
+          >
+            <Typography component="h2" variant="h6" color="primary" gutterBottom>
+              Server Stats
+            </Typography>
+            <Typography>
+              View active game rooms and server statistics.
+            </Typography>
+          </Paper>
+        </Grid> */}
       </Grid>
     </Container>
   );

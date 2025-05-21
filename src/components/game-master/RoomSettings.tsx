@@ -1,5 +1,7 @@
 import React from 'react';
 import { useRoom } from '../../contexts/RoomContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface RoomSettingsProps {
   timeLimit: number | null;
@@ -8,15 +10,16 @@ interface RoomSettingsProps {
 
 const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange }) => {
   const { roomCode } = useRoom();
+  const { language } = useLanguage();
 
   return (
     <div className="card mb-3">
       <div className="card-header bg-light">
-        <h6 className="mb-0">Room Settings</h6>
+        <h6 className="mb-0">{t('roomSettings.title', language)}</h6>
       </div>
       <div className="card-body">
         <div className="mb-3">
-          <label htmlFor="timeLimit" className="form-label">Time Limit (seconds)</label>
+          <label htmlFor="timeLimit" className="form-label">{t('roomSettings.timeLimit', language)}</label>
           <div className="input-group">
             <input
               type="number"
@@ -29,18 +32,18 @@ const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChang
                 const value = e.target.value ? parseInt(e.target.value) : null;
                 onTimeLimitChange(value);
               }}
-              placeholder="No time limit"
+              placeholder={t('roomSettings.noTimeLimit', language)}
             />
             <button
               className="btn btn-outline-secondary"
               type="button"
               onClick={() => onTimeLimitChange(null)}
             >
-              Clear
+              {t('roomSettings.clear', language)}
             </button>
           </div>
           <div className="form-text">
-            Leave empty or set to 0 for no time limit. Actual value for no limit will be 99999.
+            {t('roomSettings.timeLimitHelp', language)}
           </div>
         </div>
       </div>

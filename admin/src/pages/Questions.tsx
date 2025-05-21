@@ -177,35 +177,35 @@ const Questions: React.FC = () => {
             label="Text"
             fullWidth
             value={formData.text || ''}
-            onChange={(e) => setFormData({ ...formData, text: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, text: e.target.value })}
           />
           <TextField
             margin="dense"
             label="Answer"
             fullWidth
             value={formData.answer || ''}
-            onChange={(e) => setFormData({ ...formData, answer: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, answer: e.target.value })}
           />
           <TextField
             margin="dense"
             label="Grade"
             fullWidth
             value={formData.grade || ''}
-            onChange={(e) => setFormData({ ...formData, grade: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, grade: e.target.value })}
           />
           <TextField
             margin="dense"
             label="Subject"
             fullWidth
             value={formData.subject || ''}
-            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, subject: e.target.value })}
           />
           <TextField
             margin="dense"
             label="Language"
             fullWidth
             value={formData.language || ''}
-            onChange={(e) => setFormData({ ...formData, language: e.target.value })}
+            onChange={(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setFormData({ ...formData, language: e.target.value })}
           />
         </DialogContent>
         <DialogActions>

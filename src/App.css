@@ -204,55 +204,154 @@ body {
 
 /* Drawing Board */
 .drawing-board-container {
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35;
   border: 4px solid #8B4513;
   border-radius: 12px;
   box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
-  margin-bottom: 16px;
+  margin-bottom: 0;
+  position: relative;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+/* This is the direct child of drawing-board-container, where Fabric will initialize */
+.drawing-board-container .canvas-container {
+  position: relative;
+  width: 100%;
+  flex-grow: 1;
+  min-height: 0;
+  box-sizing: border-box !important;
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Drawing board controls styling */
+.drawing-board-external-controls {
+  background: #0C6A35;
+  border: 4px solid #8B4513;
+  border-radius: 0 0 12px 12px;
+  margin-top: -4px !important;
+  padding: 8px 16px;
+  border-top: none;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.drawing-controls-left {
+  flex-wrap: wrap;
+}
+
+.color-palette .color-button {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.color-palette .color-button:hover {
+  transform: scale(1.15);
+  z-index: 5;
+}
+
+.color-palette .color-button:active {
+  transform: scale(0.95);
+}
+
+/* Brush size controls styling */
+.brush-size-controls .btn-group .btn {
+  min-width: 36px;
+  font-weight: bold;
+  transition: all 0.15s ease;
+}
+
+.brush-size-controls .btn-group .btn:hover {
+  transform: scale(1.1);
+  z-index: 5;
+}
+
+/* Chalk effect for brush size buttons */
+.brush-size-controls .btn-group .btn.btn-outline-light {
   position: relative;
   overflow: hidden;
 }
 
-.drawing-board-canvas-container {
-    background: #0C6A35;
-    border-width: 20px;
-    border-style: solid;
-    border-radius: 12px;
-    box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
-    margin-bottom: 16px;
-    position: relative;
-    overflow: hidden;
+.brush-size-controls .btn-group .btn.btn-outline-light::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: url('https://www.transparenttextures.com/patterns/noise-pattern-with-subtle-cross-lines.png');
+  opacity: 0.2;
+  z-index: -1;
+}
+
+/* Position the submitted overlay */
+.drawing-submitted-overlay {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 100;
+  max-width: 80%;
+  text-align: center;
+}
+
+/* Mobile responsive fixes for drawing controls */
+@media (max-width: 768px) {
+  .drawing-board-external-controls {
+    flex-direction: column;
+    gap: 10px;
+    padding: 8px;
   }
-
-.drawing-board-container::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: 
-    linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 20px 20px,
-    linear-gradient(0deg, rgba(255,255,255,0.03) 1px, transparent 1px) 0 0 / 20px 20px;
-  pointer-events: none;
+  
+  .drawing-controls-left {
+    flex-direction: column;
+    align-items: flex-start;
+    width: 100%;
+  }
+  
+  .drawing-controls-right {
+    width: 100%;
+  }
+  
+  .drawing-controls-right button {
+    width: 100%;
+  }
+  
+  .brush-size-controls, 
+  .color-palette {
+    width: 100%;
+    margin-left: 0 !important;
+    margin-top: 8px;
+  }
+  
+  .color-palette .d-flex {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .brush-size-controls .btn-group {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+  }
 }
 
-.drawing-board {
-  min-height: 300px;
-  background: transparent;
-  position: relative;
+/* Ensure nested Fabric canvas elements are sized correctly */
+.drawing-board-container .canvas-container .canvas-container {
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+  position: absolute !important;
 }
 
-.drawing-board::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  opacity: 0.1;
-  pointer-events: none;
+.drawing-board-container canvas {
+  width: 100% !important;
+  height: 100% !important;
+  left: 0 !important;
+  top: 0 !important;
+  display: block;
 }
 
 /* Preview Mode Controls */
@@ -507,21 +606,34 @@ body {
   }
 }
 
-/* Recap Modal Drawing Previews and Enlarged Modal */
+/* Recap Modal Drawing Previews */
 .recap-drawing-preview {
   width: 100%;
-  max-width: 250px; /* Adjust as needed */
-  height: 180px;    /* Fixed height for consistency */
+  max-width: 250px;
+  margin: 10px auto;
   border: 2px dashed #ffd166;
-  overflow: hidden;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  cursor: pointer;
-  background-color: #fff9e6; /* Light parchment background for the preview box */
   border-radius: 8px;
+  cursor: pointer;
+  background-color: #fff9e6;
   transition: box-shadow 0.2s ease-in-out, transform 0.2s ease-in-out;
-  margin: 0 auto; /* Center the preview box if its container is wider */
+  overflow: hidden;
+  position: relative;
+}
+
+.recap-drawing-preview::after {
+  content: '🔍';
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  font-size: 18px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  z-index: 2;
+  text-shadow: 0 0 3px white;
+}
+
+.recap-drawing-preview:hover::after {
+  opacity: 0.9;
 }
 
 .recap-drawing-preview:hover,
@@ -531,11 +643,28 @@ body {
   border-style: solid;
 }
 
-.recap-drawing-preview-inner-html svg {
-  max-width: 100%;
-  max-height: 100%;
-  display: block; /* Removes extra space below SVG */
-  margin: auto;    /* Centers SVG if it's smaller than container due to aspect ratio */
+.recap-drawing-preview .classroom-whiteboard-svg {
+  margin-bottom: 0;
+}
+
+/* Ensure proper sizing in the enlarged modal */
+.scaled-svg-preview.enlarged {
+  width: 100%;
+  height: 100%;
+  padding: 15px;
+  box-sizing: border-box;
+}
+
+.enlarged-drawing-svg-container {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: #fff;
+  border-radius: 8px;
+  padding: 10px;
+  box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
 
 .enlarged-drawing-modal-backdrop {
@@ -581,14 +710,6 @@ body {
   align-items: center;
   flex-grow: 1; /* Allow body to take available space */
   min-height: 300px; /* Ensure a minimum size for the body */
-}
-
-.enlarged-drawing-svg-container {
-  width: 100%;
-  height: 100%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
 }
 
 .enlarged-drawing-svg-container svg {
@@ -878,28 +999,27 @@ body {
 }
 
 .preview-whiteboard-card {
-  background: #fff;
-  border: 6px solid #1976d2;
-  border-radius: 18px;
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
+  border-radius: 22px;
   box-shadow: 0 4px 16px #0002, 0 2px 8px #0001;
-  min-width: 240px;
-  max-width: 340px;
-  min-height: 220px;
+  border: 7px solid #1976d2;
+  min-width: 300px;
+  max-width: 400px;
+  min-height: 0;
+  padding: 18px 12px 12px 12px;
   display: flex;
   flex-direction: column;
-  align-items: stretch;
   position: relative;
-  padding: 18px 12px 36px 12px;
   overflow: visible;
+  margin-bottom: 32px;
 }
 
 .preview-whiteboard-content {
-  flex: 1;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: flex-start;
-  min-height: 120px;
+  align-items: center; 
+  justify-content: flex-start; 
+  width: 100%;
 }
 
 .preview-whiteboard-svg {
@@ -980,191 +1100,64 @@ body {
   }
 }
 
-/* --- Classroom Preview Overlay Styles --- */
-.classroom-preview-overlay {
-  position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
-  z-index: 3000;
-  background: url('https://www.transparenttextures.com/patterns/wood-pattern.png'), #f5e6c8;
-  padding: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  justify-content: flex-start;
-}
-
-.classroom-preview-close-btn {
-  position: fixed;
-  top: 18px;
-  right: 18px;
-  z-index: 3100;
-  font-size: 2.2rem;
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  box-shadow: 0 2px 8px #0002;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.classroom-chalkboard {
-  position: static;
-  top: unset;
-  left: unset;
+/* Evaluation buttons container */
+.preview-whiteboard-content .d-flex.gap-2.justify-content-center {
+  margin-top: 10px;
+  margin-bottom: 5px;
   width: 100%;
-  max-width: 900px;
-  margin: 0 auto 48px auto;
-  min-height: 120px;
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  border: 6px solid #fff;
-  border-radius: 28px;
-  box-shadow: 0 6px 24px #0004, 0 2px 8px #0002;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  padding: 28px 44px 28px 44px;
-  z-index: 3050;
-  margin-top: 36px;
-}
-
-.classroom-chalkboard-sponge { display: none !important; }
-
-.classroom-whiteboard-grid {
-  width: 100vw;
-  max-width: 1400px;
-  margin: 0 auto;
-  margin-top: 0;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
-  gap: 48px;
-  justify-items: center;
-  z-index: 1;
-}
-
-.classroom-whiteboard-card {
-  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
-  border-radius: 22px;
-  box-shadow: 0 4px 16px #0002, 0 2px 8px #0001;
-  border: 7px solid #1976d2;
-  min-width: 300px;
-  max-width: 400px;
-  min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  position: relative;
-  padding: 18px 12px 36px 12px;
-  overflow: visible;
-  margin-bottom: 32px;
-}
-
-.classroom-whiteboard-svg {
-  width: 100%;
-  min-height: 120px;
-  max-height: 180px;
-  margin-bottom: 8px;
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
-  border-radius: 8px;
-  box-shadow: 0 1px 4px #0001;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.classroom-whiteboard-svg svg {
-  width: 100% !important;
-  height: 100% !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  object-fit: contain;
-  display: block;
-}
-
-.classroom-whiteboard-answer {
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.2rem;
-  color: #333;
-  margin-top: 4px;
-  text-align: center;
-}
-
-.classroom-whiteboard-badge {
-  margin-top: 8px;
-  font-size: 1rem;
-  font-weight: bold;
-  padding: 4px 12px;
-  border-radius: 12px;
-  display: inline-block;
-}
-.classroom-whiteboard-badge.correct {
-  background: #d4edda;
-  color: #388e3c;
-  border: 2px solid #388e3c;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.08em;
-  margin-top: 8px;
-}
-.classroom-whiteboard-badge.incorrect {
-  background: #f8d7da;
-  color: #d32f2f;
-  border: 2px solid #d32f2f;
-  font-family: 'Patrick Hand', 'Schoolbell', cursive;
-  font-size: 1.08em;
-  margin-top: 8px;
 }
 
 .classroom-whiteboard-label {
   position: absolute;
   left: 50%;
-  bottom: -24px;
+  bottom: -15px;
   transform: translateX(-50%);
+  width: auto;
+  padding: 6px 20px;
   background: #f7f7f7;
-  border-radius: 8px 8px 12px 12px;
-  box-shadow: 0 2px 8px #0002;
-  padding: 6px 28px;
-  min-width: 100px;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  border: 1px solid #dadada;
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.1rem;
+  color: #222;
+  font-weight: bold;
+  letter-spacing: 1px;
+  z-index: 10;
   display: flex;
   align-items: center;
   justify-content: center;
-  border: 2px solid #e0e0e0;
-  font-family: 'Schoolbell', 'Patrick Hand', cursive;
-  font-size: 1.2rem;
-  color: #222;
-  font-weight: bold;
-  letter-spacing: 2px;
-  z-index: 2;
+  white-space: nowrap;
 }
 
 .classroom-whiteboard-name {
-  font-family: 'Schoolbell', 'Patrick Hand', cursive;
-  font-size: 1.2rem;
-  color: #2d4739;
-  font-weight: bold;
-  letter-spacing: 2px;
-  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.classroom-whiteboard-name .bi {
+  margin-right: 6px;
+  font-size: 1em;
 }
 
 .classroom-whiteboard-tape {
   position: absolute;
-  width: 38px;
-  height: 16px;
+  width: 35px;
+  height: 15px;
   background: #d3d3d3;
-  border-radius: 4px;
-  top: -10px;
-  z-index: 1;
-  box-shadow: 0 1px 4px #0002;
+  border-radius: 3px;
+  top: -7px;
+  z-index: -1;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2);
 }
 .classroom-whiteboard-tape-left {
-  left: -18px;
-  transform: rotate(-8deg);
+  left: 5px;
+  transform: rotate(-15deg);
 }
 .classroom-whiteboard-tape-right {
-  right: -18px;
-  transform: rotate(8deg);
+  right: 5px;
+  transform: rotate(15deg);
 }
 
 @media (max-width: 900px) {
@@ -1261,4 +1254,483 @@ body {
   padding: 18px 12px 36px 12px;
   overflow: visible;
   margin-bottom: 32px;
+}
+
+/* PlayerBoardDisplay Styles */
+.player-board-display-wrapper {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+.player-board-header {
+  padding: 0.25rem 0; /* Minimal padding around the name banner */
+  margin-bottom: 8px;
+  display: flex; /* Already there, but confirm */
+  justify-content: space-between; /* Already there */
+  align-items: center; /* Already there */
+}
+
+.player-board-header .player-name {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.2rem; /* Ensure it's not too small */
+  font-weight: bold;
+  letter-spacing: 1px;
+  background: #ffe066; 
+  color: #2d4739;    
+  padding: 6px 18px;   /* Adjusted padding */
+  border-radius: 8px; 
+  border: 2px solid #ffd166; /* Solid border might be more visible */
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  display: inline-block; 
+  margin-right: auto; 
+  line-height: 1.4; /* Ensure text isn't cut off if padding is tight */
+}
+
+.player-board-header .board-controls {
+  /* Controls (Hide/Reset) are already flexed by parent, ensure they don't interfere */
+  white-space: nowrap; /* Prevent buttons from wrapping */
+}
+
+/* This is the visual chalkboard area on the GM page */
+.player-board-display-wrapper .drawing-board-container {
+  width: 100%; 
+  aspect-ratio: 2 / 1; /* Match player's typical 800x400 like ratio */
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  position: relative; 
+}
+
+/* Ensure the board-render-area within it fills this aspect-ratio container */
+.player-board-display-wrapper .board-render-area {
+  width: 100%;
+  height: 100%; /* Fill the parent that now has aspect-ratio controlled height */
+  flex-grow: 0; /* No longer needed if parent has explicit aspect ratio and height is 100% */
+  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  overflow: hidden;
+}
+
+.player-board-display-wrapper .svg-display-wrapper {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-board-display-wrapper .svg-display-wrapper svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain; /* This is key for scaling SVG content proportionally within its 100x100 box */
+}
+
+/* Fullscreen adjustments */
+.player-board-display-wrapper.fullscreen-wrapper .drawing-board-container {
+  min-height: 80vh;
+  height: auto; /* Allow it to grow in fullscreen */
+  padding: 20px;
+  border-width: 8px !important;
+}
+
+.player-board-display-wrapper.fullscreen-wrapper .player-board-header {
+  background-color: rgba(0,0,0,0.3);
+}
+
+/* PlayerBoardDisplay styles */
+.player-board-display.drawing-board-container {
+  /* This is the main wrapper for each player's board on GM screen */
+  /* It inherits .drawing-board-container for background/border */
+  margin-bottom: 20px;
+  min-height: 200px; /* Adjust as needed for GM view */
+  height: auto; /* Allow content to define height, or set a fixed one if preferred */
+  padding: 10px; /* Inner padding for the player name header */
+  display: flex;
+  flex-direction: column; /* Stack header and board-render-area */
+}
+
+.player-board-display .player-name-header {
+  /* Styling for the player name bar */
+  font-size: 1rem;
+  color: #ffe066; /* Chalk-like color for text on green board */
+  text-shadow: 1px 1px 0 #2d4739;
+  padding-bottom: 8px;
+  margin-bottom: 8px;
+  border-bottom: 2px dashed rgba(255, 224, 102, 0.5); /* Dashed line under name */
+}
+
+.player-board-display .board-render-area {
+  /* This div contains the svg-display-wrapper. It should fill available space */
+  width: 100%;
+  flex-grow: 1; /* Takes up remaining vertical space in the flex column */
+  position: relative; /* For potential absolute positioning of SVG if needed, and for pan/zoom container */
+  display: flex; /* To center its child (svg-display-wrapper) */
+  justify-content: center;
+  align-items: center;
+  overflow: hidden; /* Clip the scaled/panned content */
+  min-height: 150px; /* Minimum drawing area height */
+}
+
+.player-board-display .svg-display-wrapper {
+  /* This div is what gets transformed (scaled/panned) */
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.player-board-display .svg-display-wrapper svg {
+  /* The actual SVG element */
+  display: block;
+  width: 100%;    /* Force SVG to take full width of its wrapper */
+  height: 100%;   /* Force SVG to take full height of its wrapper */
+  /* Aspect ratio will be maintained by the browser based on the viewBox if width/height are 100% */
+  /* If the SVG itself has width/height attributes, these % values will be relative to that, */
+  /* so ensure toSVG() generates a scalable SVG, preferably without fixed root width/height or with them set to 100% */
+  object-fit: contain; /* Ensures the entire content of the SVG is scaled down to fit, maintaining aspect ratio */
+}
+
+/* Styles for the external controls container for PlayerPage drawing board */
+.drawing-board-external-controls {
+  padding-top: 10px; /* Add some space above the button */
+  padding-bottom: 10px; /* Add some space below the button */
+  /* d-flex justify-content-end w-100 from component handles alignment */
+}
+
+/* Ensure fullscreen PlayerBoardDisplay also has the chalkboard look */
+.player-board-display.fullscreen.drawing-board-container {
+  padding: 20px; /* More padding when fullscreen */
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 8px solid #8B4513 !important;
+}
+
+/* Ensure the main overlay has a distinct background if needed */
+.preview-overlay-v2.classroom-preview-overlay {
+  background: url('https://www.transparenttextures.com/patterns/wood-pattern.png'), #f5e6c8; /* Original wood background */
+  /* other overlay styles like padding, position fixed etc. are already there */
+}
+
+/* Chalkboard for the Question in PreviewOverlayV2 */
+.preview-overlay-v2 .classroom-chalkboard {
+  position: static; /* Was static, ensure it remains */
+  margin: 0 auto 30px auto; /* Adjusted margin-bottom */
+  left: unset;
+  top: unset;
+  width: 100%;
+  max-width: 900px; 
+  min-height: 100px; /* Adjusted min-height */
+  background: #0C6A35;
+  border: 8px solid #8B4513; /* Wooden frame like player board */
+  border-radius: 18px; /* Match player board */
+  box-shadow: 0 6px 24px rgba(0,0,0,0.3), inset 0 0 15px rgba(0,0,0,0.25);
+  display: flex;
+  flex-direction: column; /* Stack grade and question */
+  align-items: center; /* Center content */
+  justify-content: center; /* Center content */
+  padding: 20px 30px;
+  z-index: 3050; /* From original */
+  margin-top: 20px; /* Space from top */
+}
+
+.preview-overlay-v2 .classroom-chalkboard-content {
+  text-align: center;
+}
+
+.preview-overlay-v2 .classroom-chalkboard-grade {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.2rem;
+  color: #ffe066;
+  margin-bottom: 8px;
+}
+
+.preview-overlay-v2 .classroom-chalkboard-question {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.6rem; /* Slightly adjusted */
+  color: #fff;
+  text-shadow: 1px 1px 1px rgba(0,0,0,0.4);
+  white-space: pre-line;
+}
+
+.preview-whiteboard-card .classroom-whiteboard-svg {
+  width: 100%; 
+  aspect-ratio: 2 / 1; /* Match player board's aspect ratio */
+  background-color: #FFFFFF; 
+  border: 1px solid #eee;
+  border-radius: 4px;
+  box-sizing: border-box; 
+  margin-bottom: 10px; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+  overflow: hidden; 
+}
+
+/* The .scaled-svg-preview (root of FabricJsonToSvg) needs to fill its parent and have padding */
+.preview-whiteboard-card .scaled-svg-preview {
+  width: 100%;
+  height: 100%;
+  padding: 5px; /* Apply padding directly here */
+  box-sizing: border-box;
+  display: flex; 
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-whiteboard-card .scaled-svg-preview svg {
+  display: block;
+  max-width: 100%; 
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Ensure label is positioned correctly relative to the card bottom after content */
+.classroom-whiteboard-label {
+  position: absolute;
+  left: 50%;
+  bottom: -15px; /* Overlap bottom of the card */
+  transform: translateX(-50%);
+  z-index: 10;
+  /* ... other existing label styles (background, padding, font, etc.) ... */
+  width: auto; 
+  padding: 6px 20px; 
+  background: #f7f7f7;
+  border-radius: 8px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  border: 1px solid #dadada;
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.1rem;
+  color: #222;
+  font-weight: bold;
+  letter-spacing: 1px;
+  display: flex; 
+  align-items: center;
+  justify-content: center;
+  white-space: nowrap;
+}
+
+/* Drawing Area with Chalkboard Background for better white chalk visibility */
+.classroom-whiteboard-svg {
+  width: 100%;
+  aspect-ratio: 2 / 1; /* 2:1 aspect ratio for consistency */
+  background: #0C6A35 !important;
+  border: 1px solid #8B4513 !important;
+  border-radius: 4px;
+  box-sizing: border-box;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  padding: 5px;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+}
+
+/* Make sure all FabricJsonToSvg components within classroom-whiteboard-svg have chalkboard background */
+.classroom-whiteboard-svg .scaled-svg-preview svg {
+  background: transparent !important;
+}
+
+/* Enhanced visibility for SVG paths in the drawings */
+.classroom-whiteboard-svg svg path {
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
+}
+
+/* Similar treatment for SVG elements in the enlarged modal and other SVG displays */
+.enlarged-drawing-modal-body .classroom-whiteboard-svg {
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 4px solid #8B4513 !important;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+}
+
+.drawing-board-container .classroom-whiteboard-svg {
+  border-width: 0 !important; /* No border inside the already bordered drawing board container */
+}
+
+/* Make sure RecapModal's submission drawing areas use the chalkboard background */
+.list-group-item .classroom-whiteboard-svg {
+  width: 100%;
+  aspect-ratio: 2 / 1;
+  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  border: 2px solid #8B4513 !important;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: inset 0 0 10px rgba(0,0,0,0.3);
+}
+
+/* Evaluation badges for classroom whiteboards */
+.classroom-whiteboard-badge {
+  margin-top: 10px;
+  margin-bottom: 5px;
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 6px 16px;
+  border-radius: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  letter-spacing: 0.5px;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+  transition: transform 0.2s ease;
+}
+
+/* Animation for badge appearance */
+@keyframes fadeInScale {
+  0% {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.classroom-whiteboard-badge.correct {
+  background: #4caf50;
+  color: white;
+  border: 2px solid #43a047;
+}
+
+.classroom-whiteboard-badge.incorrect {
+  background: #f44336;
+  color: white;
+  border: 2px solid #e53935;
+}
+
+.classroom-whiteboard-badge i {
+  margin-right: 6px;
+  font-size: 1.2em;
+}
+
+/* The SVG preview component styles */
+.scaled-svg-preview {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+}
+
+.scaled-svg-preview svg {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+/* Specific styles for SVGs with the chalkboard-drawing-svg class */
+.chalkboard-drawing-svg {
+  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.5));
+}
+
+.chalkboard-drawing-svg path {
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+}
+
+/* Additional styling for paths in SVG to enhance the chalk effect */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFFFF"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffffff"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="white"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#F8F8F8"] {
+  filter: drop-shadow(0px 0px 2px rgba(0,0,0,0.5)) !important;
+  stroke-width: 1.2; /* slightly thicker for white chalk */
+  stroke: #F8F8F8 !important; /* Slightly off-white for better visibility */
+}
+
+/* Enhanced SVG styling in the drawing display */
+.classroom-whiteboard-svg {
+  background: #0C6A35 !important;
+  box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
+}
+
+.classroom-whiteboard-svg svg {
+  filter: none !important;
+}
+
+.classroom-whiteboard-svg svg path {
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+}
+
+/* Ensure specific chalk colors have good visibility against the green background */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="yellow"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFF00"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffff00"] {
+  filter: drop-shadow(0px 0px 3px rgba(0,0,0,0.6)) !important;
+}
+
+/* Enhanced chalk effect for all paths in SVG */
+.chalkboard-drawing-svg path {
+  stroke-linecap: round !important; 
+  stroke-linejoin: round !important;
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Ensure SVG container in recap modal has proper background */
+.list-group-item .classroom-whiteboard-svg,
+.enlarged-drawing-modal-body .classroom-whiteboard-svg,
+.preview-whiteboard-svg {
+  background: #0C6A35 !important;
+  border: 2px solid #8B4513 !important;
+}
+
+/* Fix for chalk stroke rendering - overrides any previous styles */
+.drawing-board-container svg path,
+.classroom-whiteboard-svg svg path,
+.preview-whiteboard-svg svg path,
+.preview-overlay-v2 svg path,
+.chalkboard-drawing-svg path {
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
+  stroke-dasharray: none !important;
+  filter: none !important;
+  shape-rendering: geometricPrecision !important;
+}
+
+/* Remove all duplicate rules that apply shadows to paths */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="yellow"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFF00"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffff00"] {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Remove all filters from SVG containers that might affect paths */
+.classroom-whiteboard-svg svg,
+.drawing-board-container svg,
+.preview-whiteboard-svg svg,
+.preview-overlay-v2 svg {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Override any previous shadow styles for SVG paths */
+.chalkboard-drawing-svg path {
+  stroke-linecap: round !important; 
+  stroke-linejoin: round !important;
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
+  stroke-dasharray: none !important;
 } 

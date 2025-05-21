@@ -3,8 +3,11 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import socketService from '../services/socketService';
 import { useRoom } from '../contexts/RoomContext';
 import PlayerList from '../components/shared/PlayerList';
+import AvatarCreator from '../components/shared/AvatarCreator';
 import RoomCode from '../components/shared/RoomCode';
-import MusicControl from '../components/shared/MusicControl';
+import SettingsControl from '../components/shared/SettingsControl';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 interface Player {
   id: string;
@@ -21,6 +24,9 @@ const JoinGame: React.FC = () => {
   const [isSpectator, setIsSpectator] = useState(false);
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
+  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
+  const { language } = useLanguage();
   
   const {
     roomCode,
@@ -31,8 +37,19 @@ const JoinGame: React.FC = () => {
     setPlayerName,
     setErrorMsg,
     joinRoom,
-    players
+    players,
+    persistentPlayerId
   } = useRoom();
+
+  // Check if player already has an avatar
+  const [hasAvatar, setHasAvatar] = useState<boolean>(false);
+  
+  useEffect(() => {
+    if (persistentPlayerId) {
+      const savedAvatar = localStorage.getItem(`avatar_${persistentPlayerId}`);
+      setHasAvatar(!!savedAvatar);
+    }
+  }, [persistentPlayerId]);
 
   // Read room code from URL when component mounts
   useEffect(() => {
@@ -46,6 +63,21 @@ const JoinGame: React.FC = () => {
   useEffect(() => {
     const connectSocket = async () => {
       try {
+        // Add isInitialConnection parameter to socket
+        // Mark this as an initial connection to bypass player name requirement
+        socketService.setConnectionParams({ isInitialConnection: true });
+        
+        // Set player details if available from previous session
+        const savedPlayerName = sessionStorage.getItem('playerName');
+        if (savedPlayerName) {
+          socketService.setPlayerDetails(savedPlayerName);
+        }
+        
+        console.log('[JoinGame] Connecting with initial parameters:', { 
+          isInitialConnection: true,
+          playerName: savedPlayerName || null
+        });
+        
         const socket = await socketService.connect();
         if (!socket) {
           console.error('Failed to connect to socket server');
@@ -85,6 +117,21 @@ const JoinGame: React.FC = () => {
 
     setIsConnecting(true);
     try {
+      // Save player name to sessionStorage for persistence
+      sessionStorage.setItem('playerName', playerName);
+      
+      // Set player details for the actual join attempt
+      socketService.setPlayerDetails(playerName);
+      
+      // Reset connection params (no longer an initial connection)
+      socketService.setConnectionParams({ isInitialConnection: false });
+      
+      console.log('[JoinGame] Attempting to join room with params:', {
+        roomCode,
+        playerName,
+        isInitialConnection: false
+      });
+      
       const socket = await socketService.connect();
       if (!socket || !socket.connected) {
         setErrorMsg('Not connected to server. Please try again.');
@@ -119,23 +166,66 @@ const JoinGame: React.FC = () => {
     // No cleanup needed for the promise itself
   }, []);
 
+  // Handle force reconnect to fix "Already connected" errors
+  const handleResetConnection = async () => {
+    setIsResetting(true);
+    setErrorMsg("");
+    
+    try {
+      // Clear any stored player data that might cause reconnection issues
+      localStorage.removeItem('roomCode');
+      
+      // Force reconnect using the new method
+      await socketService.forceReconnect();
+      
+      // Update UI state
+      console.log('[JoinGame] Connection reset successful');
+      setIsResetting(false);
+    } catch (error) {
+      console.error('[JoinGame] Error resetting connection:', error);
+      setErrorMsg('Failed to reset connection. Please refresh the page.');
+      setIsResetting(false);
+    }
+  };
+
+  // Handle avatar creation
+  const handleAvatarSave = (avatarSvg: string) => {
+    // Avatar is automatically saved to localStorage in the AvatarCreator component
+    setHasAvatar(true);
+    setShowAvatarCreator(false);
+  };
+
   return (
     <>
-      <MusicControl />
+      <SettingsControl />
       <div className="container-fluid px-2 px-md-4">
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
           <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
             <span className="bi bi-mortarboard section-icon" aria-label="School"></span>
-            {'Join Game'}
+            {t('joinGame.title', language)}
           </div>
         </div>
         
-        {!hasJoined ? (
+        {showAvatarCreator ? (
+          <div className="row justify-content-center">
+            <div className="col-12 col-md-8">
+              <div className="card p-4">
+                <AvatarCreator onSave={handleAvatarSave} />
+                <button 
+                  className="btn btn-secondary mt-3"
+                  onClick={() => setShowAvatarCreator(false)}
+                >
+                  {t('avatarCreator.cancel', language) || 'Cancel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : !hasJoined ? (
           <div className="row justify-content-center">
             <div className="col-12 col-md-6">
               <div className="card p-4 text-center">
-                <h3>Join a Game</h3>
-                <p>Enter the room code and your name to join the game.</p>
+                <h3>{t('joinGame.title', language)}</h3>
+                <p>{t('joinGame.subtitle', language)}</p>
                 
                 <div className="form-check mb-3">
                   <input
@@ -146,17 +236,17 @@ const JoinGame: React.FC = () => {
                     onChange={(e) => setIsSpectator(e.target.checked)}
                   />
                   <label className="form-check-label" htmlFor="spectatorCheckbox">
-                    Join as Spectator
+                    {t('joinGame.joinAsSpectator', language)}
                   </label>
                 </div>
 
                 <div className="form-group mb-3">
-                  <label htmlFor="roomCodeInput" className="form-label">Room Code:</label>
+                  <label htmlFor="roomCodeInput" className="form-label">{t('joinGame.roomCodeLabel', language)}</label>
                   <input
                     type="text"
                     id="roomCodeInput"
                     className="form-control"
-                    placeholder="Enter room code"
+                    placeholder={t('joinGame.roomCodePlaceholder', language)}
                     value={roomCode || ''}
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                     maxLength={6}
@@ -164,20 +254,45 @@ const JoinGame: React.FC = () => {
                 </div>
 
                 <div className="form-group mb-3">
-                  <label htmlFor="playerNameInput" className="form-label">Your Name:</label>
+                  <label htmlFor="playerNameInput" className="form-label">{t('joinGame.playerNameLabel', language)}</label>
                   <input
                     type="text"
                     id="playerNameInput"
                     className="form-control"
-                    placeholder="Enter your name"
+                    placeholder={t('joinGame.playerNamePlaceholder', language)}
                     value={playerName}
-                    onChange={(e) => setPlayerName(e.target.value)}
+                    onChange={(e) => {
+                      const newName = e.target.value;
+                      setPlayerName(newName);
+                      // Update player details in socketService when name is entered
+                      if (newName) {
+                        socketService.setPlayerDetails(newName);
+                      }
+                    }}
                   />
                 </div>
+                
+                {persistentPlayerId && (
+                  <div className="mb-3">
+                    <button 
+                      className="btn btn-outline-primary" 
+                      onClick={() => setShowAvatarCreator(true)}
+                    >
+                      {hasAvatar 
+                        ? t('avatarCreator.changeAvatar', language) || 'Change Avatar' 
+                        : t('avatarCreator.createAvatar', language) || 'Create Avatar'}
+                    </button>
+                    {hasAvatar && (
+                      <div className="mt-2 text-success">
+                        <small>{t('avatarCreator.avatarCreated', language) || 'You have a custom avatar'}</small>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {errorMsg && (
                   <div className="alert alert-danger" role="alert">
-                    {errorMsg}
+                    {t(errorMsg, language) || errorMsg}
                     <button 
                       type="button" 
                       className="btn-close float-end" 
@@ -190,15 +305,26 @@ const JoinGame: React.FC = () => {
                 <button 
                   className="btn btn-primary btn-lg mt-3"
                   onClick={handleJoinGame}
-                  disabled={isLoading || isConnecting}
+                  disabled={isLoading || isConnecting || isResetting}
                 >
-                  {isLoading ? 'Processing...' : isConnecting ? 'Connecting...' : 'Join Game'}
+                  {isLoading ? t('joinGame.processing', language) : isConnecting ? t('joinGame.connecting', language) : t('joinGame.joinGame', language)}
                 </button>
+                
+                {errorMsg && errorMsg.includes("Already connected") && (
+                  <button 
+                    className="btn btn-warning mt-3 ms-2"
+                    onClick={handleResetConnection}
+                    disabled={isResetting}
+                  >
+                    {isResetting ? "Resetting..." : "Reset Connection"}
+                  </button>
+                )}
+                
                 <button 
                   className="btn btn-outline-secondary mt-3"
                   onClick={() => navigate('/')}
                 >
-                  Back to Home
+                  {t('joinGame.backToHome', language)}
                 </button>
               </div>
             </div>
@@ -215,17 +341,17 @@ const JoinGame: React.FC = () => {
             <div className="row g-3">
               <div className="col-12 col-md-4">
                 <RoomCode />
-                <PlayerList title="Players" />
+                <PlayerList title={t('players', language)} />
               </div>
               <div className="col-12 col-md-8">
                 <div className="card">
                   <div className="card-header">
                     <h3 className="mb-0">
-                      {'Waiting for Game Master'}
+                      {t('joinGame.waitingForGM', language)}
                     </h3>
                   </div>
                   <div className="card-body">
-                    <p className="mb-4">You have joined the room. Please wait for the Game Master to start the game.</p>
+                    <p className="mb-4">{t('joinGame.joinedRoom', language)}</p>
                   </div>
                 </div>
               </div>

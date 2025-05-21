@@ -9,6 +9,7 @@ export interface Question {
 
 export interface Player {
   id: string;
+  persistentPlayerId: string;
   name: string;
   lives: number;
   answers: string[];
@@ -20,13 +21,17 @@ export interface PlayerBoard {
   playerId: string;
   playerName: string;
   boardData: string;
+  timestamp?: number;
+  roundIndex?: number;
 }
 
 export interface AnswerSubmission {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   answer: string;
   timestamp?: number;
+  hasDrawing?: boolean;
+  drawingData?: string | null;
 }
 
 export interface PreviewModeState {

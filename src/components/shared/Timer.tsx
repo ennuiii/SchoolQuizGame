@@ -1,5 +1,7 @@
 import React from 'react';
 import { useGame } from '../../contexts/GameContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface TimerProps {
   isActive: boolean;
@@ -11,6 +13,7 @@ const Timer: React.FC<TimerProps> = ({
   showSeconds = false
 }) => {
   const { timeLimit, timeRemaining } = useGame();
+  const { language } = useLanguage();
 
   if (timeLimit === null || timeRemaining === null || timeLimit >= 99999) {
     return null;
@@ -26,14 +29,14 @@ const Timer: React.FC<TimerProps> = ({
     <div className="d-flex justify-content-center align-items-center gap-2">
       <div className={`timer ${timeRemaining <= 10 ? 'text-danger' : ''}`}>
         {showSeconds ? (
-          <span>{timeRemaining}s</span>
+          <span>{t('seconds', language).replace('{seconds}', timeRemaining.toString())}</span>
         ) : (
           <span>{formatTime(timeRemaining)}</span>
         )}
       </div>
       {isActive && (
         <div className="spinner-border spinner-border-sm text-primary" role="status">
-          <span className="visually-hidden">Loading...</span>
+          <span className="visually-hidden">{t('loading', language)}</span>
         </div>
       )}
     </div>

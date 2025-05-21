@@ -10,15 +10,20 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "render-build": "npm install --legacy-peer-deps && npm run build && mkdir -p server/build && cp -r build/* server/build/ && cd server && npm install --legacy-peer-deps"
+    "render-build": "npm install --legacy-peer-deps && cd server && npm install --legacy-peer-deps"
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^7.1.0",
+    "@mui/material": "^7.1.0",
     "@supabase/supabase-js": "^2.39.3",
     "@types/lodash": "^4.17.16",
     "@types/react-toastify": "^4.0.2",
     "ajv": "^8.12.0",
     "ajv-keywords": "^5.1.0",
     "bootstrap": "^5.3.3",
+    "bootstrap-icons": "^1.13.1",
     "cors": "^2.8.5",
     "dotenv": "^16.4.4",
     "express": "^4.18.2",

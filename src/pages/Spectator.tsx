@@ -8,12 +8,15 @@ import { useGame } from '../contexts/GameContext';
 import { useRoom } from '../contexts/RoomContext';
 import QuestionDisplayCard from '../components/shared/QuestionDisplayCard';
 import RecapModal from '../components/shared/RecapModal';
-import MusicControl from '../components/shared/MusicControl';
+import SettingsControl from '../components/shared/SettingsControl';
 import { useAudio } from '../contexts/AudioContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { t } from '../i18n';
 
 const Spectator: React.FC = () => {
   const navigate = useNavigate();
   const { playBackgroundMusic } = useAudio();
+  const { language } = useLanguage();
   
   const {
     gameStarted,
@@ -34,54 +37,56 @@ const Spectator: React.FC = () => {
   const {
     roomCode,
     playerName,
-    sessionRestored
+    connectionStatus,
   } = useRoom();
 
   useEffect(() => {
     playBackgroundMusic();
   }, [playBackgroundMusic]);
 
+  // Handle reconnection
+  useEffect(() => {
+    if (connectionStatus === 'connected' && roomCode) {
+      console.log('[Spectator] Connected with room code, attempting to rejoin:', roomCode);
+      
+      // Rejoin the room
+      socketService.rejoinRoom(roomCode, false); // false = not GM
+      
+      // Request current state
+      socketService.requestGameState(roomCode);
+      socketService.requestPlayers(roomCode);
+    }
+  }, [connectionStatus, roomCode]);
+
   const handleJoinAsPlayer = useCallback(() => {
     if (!roomCode || !playerName) return;
     sessionStorage.setItem('isSpectator', 'false');
-    socketService.switchToPlayer(roomCode, playerName);
+    socketService.setPlayerDetails(playerName);
+    socketService.disconnect();
     navigate('/player');
   }, [roomCode, playerName, navigate]);
 
   const showAllBoards = useCallback(() => {
-    const activePlayerBoardIds = playerBoards
-      .filter(b => players.find(p => p.id === b.playerId && !p.isSpectator))
-      .map(b => b.playerId);
-    toggleBoardVisibility(new Set(activePlayerBoardIds));
-  }, [playerBoards, players, toggleBoardVisibility]);
+    const activePlayerIds = players
+      .filter(p => !p.isSpectator && p.isActive)
+      .map(p => p.id);
+    toggleBoardVisibility(new Set(activePlayerIds));
+  }, [players, toggleBoardVisibility]);
 
   const hideAllBoardsAction = useCallback(() => {
     toggleBoardVisibility(new Set());
   }, [toggleBoardVisibility]);
 
-  if (!sessionRestored) {
-    return (
-      <div className="container mt-5">
-        <div className="text-center">
-          <h2>Restoring session...</h2>
-          <div className="spinner-border text-primary mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   if (isGameConcluded && !gameRecapData) {
     return (
       <div className="container text-center mt-5">
         <div className="card p-5">
-          <h2 className="h4 mb-3">Game Over!</h2>
-          <p>Waiting for the game recap to be generated...</p>
+          <h2 className="h4 mb-3">{t('spectatorPage.gameOver', language)}</h2>
+          <p>{t('spectatorPage.waitingForRecap', language)}</p>
           <div className="spinner-border text-primary mx-auto mt-3" role="status">
-            <span className="visually-hidden">Loading...</span>
+            <span className="visually-hidden">{t('loading', language)}</span>
           </div>
-          <button className="btn btn-outline-secondary mt-4" onClick={() => navigate('/')}>Back to Home</button>
+          <button className="btn btn-outline-secondary mt-4" onClick={() => navigate('/')}>{t('spectatorPage.backToHome', language)}</button>
         </div>
       </div>
     );
@@ -102,43 +107,43 @@ const Spectator: React.FC = () => {
 
   return (
     <>
-      <MusicControl />
+      <SettingsControl />
       <div className="container-fluid px-2 px-md-4 py-4">
         <div className="d-flex flex-column flex-md-row justify-content-between align-items-center mb-4">
           <div className="dashboard-caption mb-3 mb-md-0" style={{ width: '100%', textAlign: 'center' }}>
             <span className="bi bi-eye section-icon" aria-label="Spectator"></span>
-            Spectator View {roomCode && <small className="text-muted"> (Room: {roomCode})</small>}
+            {t('spectatorPage.spectatorView', language)} {roomCode && <small className="text-muted"> (Room: {roomCode})</small>}
           </div>
         </div>
         <div className="row g-3">
           <div className="col-12 col-md-4">
-            <PlayerList title="Players" />
+            <PlayerList title={t('spectatorPage.players', language)} />
             <div className="d-grid gap-2 mt-3">
-              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>Leave Game</button>
+              <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>{t('spectatorPage.leaveGame', language)}</button>
               <button
                 className="btn btn-success"
                 onClick={handleJoinAsPlayer}
                 disabled={gameStarted}
-                title={gameStarted ? "You can only join as a player when a round is not in progress." : ""}
+                title={gameStarted ? t('spectatorPage.joinAsPlayerInfo', language) : ''}
               >
-                Join as Player
+                {t('spectatorPage.joinAsPlayer', language)}
               </button>
               {gameStarted && (
                 <div className="text-muted small mt-1">
-                  You can only join as a player when a round is not in progress.
+                  {t('spectatorPage.joinAsPlayerInfo', language)}
                 </div>
               )}
             </div>
           </div>
           <div className="col-12 col-md-8">
-            <QuestionDisplayCard question={currentQuestion} showAnswer={false} title={currentQuestion ? "Current Question" : "Waiting for game to start..."} />
+            <QuestionDisplayCard question={currentQuestion} showAnswer={false} title={currentQuestion ? t('spectatorPage.currentQuestion', language) : t('spectatorPage.waitingForGame', language)} />
             {gameStarted && currentQuestion && (
               <div className="card mb-4">
                 <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                  <h5 className="mb-0">Player Boards</h5>
+                  <h5 className="mb-0">{t('spectatorPage.playerBoards', language)}</h5>
                   <div className="d-flex gap-2">
-                    <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>Show All</button>
-                    <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoardsAction}>Hide All</button>
+                    <button className="btn btn-sm btn-outline-primary" onClick={showAllBoards}>{t('spectatorPage.showAll', language)}</button>
+                    <button className="btn btn-sm btn-outline-secondary" onClick={hideAllBoardsAction}>{t('spectatorPage.hideAll', language)}</button>
                   </div>
                 </div>
                 <div className="card-body">
@@ -153,25 +158,28 @@ const Spectator: React.FC = () => {
                       alignItems: 'stretch',
                     }}
                   >
-                    {players.filter(player => !player.isSpectator).map(player => {
-                      const boardEntry = playerBoards.find(b => b.playerId === player.id);
-                      const boardForDisplay = {
-                        playerId: player.id,
-                        playerName: player.name,
-                        boardData: boardEntry ? boardEntry.boardData : ''
-                      };
-                      return (
-                        <PlayerBoardDisplay
-                          key={player.id}
-                          board={boardForDisplay}
-                          isVisible={visibleBoards.has(player.id)}
-                          onToggleVisibility={id => toggleBoardVisibility(id)}
-                          transform={{ scale: 1, x: 0, y: 0 }}
-                          onScale={() => {}}
-                          onPan={() => {}}
-                          onReset={() => {}}
-                        />
-                      );
+                    {players
+                      .filter(player => !player.isSpectator && player.isActive)
+                      .map(player => {
+                        const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                        if (!boardEntry) return null;
+                        
+                        return (
+                          <PlayerBoardDisplay
+                            key={player.id}
+                            board={{
+                              playerId: player.id,
+                              playerName: player.name,
+                              boardData: boardEntry.boardData
+                            }}
+                            isVisible={visibleBoards.has(player.id)}
+                            onToggleVisibility={() => toggleBoardVisibility(player.id)}
+                            transform={{ scale: 1, x: 0, y: 0 }}
+                            onScale={() => {}}
+                            onPan={() => {}}
+                            onReset={() => {}}
+                          />
+                        );
                     })}
                   </div>
                 </div>

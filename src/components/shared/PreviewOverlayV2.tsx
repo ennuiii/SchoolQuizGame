@@ -1,26 +1,14 @@
 // Copy of PreviewOverlay for alternate design testing
 import React, { useEffect, useRef } from 'react';
 import { useGame } from '../../contexts/GameContext';
+import type { Player } from '../../types/game';
 import { useCanvas } from '../../contexts/CanvasContext';
-import { fabric } from 'fabric';
-
-interface Player {
-  id: string;
-  name: string;
-  lives: number;
-  answers: string[];
-  isActive: boolean;
-  isSpectator: boolean;
-}
-
-interface PlayerBoard {
-  playerId: string;
-  playerName: string;
-  boardData: string;
-}
+import FabricJsonToSvg from '../shared/FabricJsonToSvg';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface AnswerSubmission {
-  playerId: string;
+  persistentPlayerId: string;
   playerName: string;
   answer: string;
   timestamp?: number;
@@ -67,6 +55,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
 }) => {
   const context = useGame();
   const { setDrawingEnabled } = useCanvas();
+  const { language } = useLanguage();
 
   if (!context.previewMode.isActive) return null;
 
@@ -90,10 +79,10 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
       <div className="classroom-chalkboard" style={{ position: 'static', margin: '0 auto', left: 'unset', top: 'unset', width: '100%', maxWidth: 900, marginBottom: 48 }}>
         <div className="classroom-chalkboard-content">
           <div className="classroom-chalkboard-grade">
-            {currentQuestion ? <><i className="bi bi-easel me-2"></i>{`${currentQuestion.grade}. Klasse – ${currentQuestion.subject}`}</> : ''}
+            {currentQuestion ? <><i className="bi bi-easel me-2"></i>{`${currentQuestion.grade}. ${t('class', language)} – ${currentQuestion.subject}`}</> : ''}
           </div>
           <div className="classroom-chalkboard-question">
-            {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : 'No question'}
+            {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : t('noQuestion', language)}
           </div>
         </div>
         {/* Removed sponge */}
@@ -112,56 +101,89 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
         }}
       >
         {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
+          // Use player.id (which is the socket.id) to match PlayerBoard.playerId
           const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
           const actualBoardData = boardSubmission?.boardData;
-          const answer = context.allAnswersThisRound[player.id];
-          const evaluation = context.evaluatedAnswers[player.id];
+          const answer = context.allAnswersThisRound[player.persistentPlayerId]; // Answers are keyed by persistentPlayerId
+          const evaluation = context.evaluatedAnswers[player.persistentPlayerId]; // Evaluations are keyed by persistentPlayerId
           const borderColor = boardColors[idx % boardColors.length];
           const tapeColor = getRandomTapeColor(idx);
           return (
             <div
-              key={player.id} // Use player.id as key
+              key={player.persistentPlayerId} // Use player.persistentPlayerId as key
               className="classroom-whiteboard-card"
               style={{ borderColor, minWidth: displayablePlayers.length <= 3 ? 340 : 300, maxWidth: displayablePlayers.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
               <div className="classroom-whiteboard-content">
-                {/* Player lives */}
-                <div style={{ marginBottom: 6 }}>
+                {/* Player lives - ensure this is visually separated and above drawing */}
+                <div style={{
+                  marginBottom: 8, 
+                  textAlign: 'left', // Align hearts to the left within their own row
+                  width: '100%', // Ensure it takes width for alignment
+                  paddingLeft: '5px' // Small padding from left edge of card content
+                }}>
                   {[...Array(player?.lives || 0)].map((_, i) => (
-                    <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 2 }}>❤</span>
+                    <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
                   ))}
                 </div>
+                
+                {/* Drawing Area with White Background */}
                 <div
-                  className="classroom-whiteboard-svg"
-                  style={{ minHeight: 120, maxHeight: 180, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  className="classroom-whiteboard-svg eraser-visible-mode" 
+                  style={{ 
+                    background: '#0C6A35',
+                    position: 'relative',
+                    minHeight: '120px',
+                    width: '100%'
+                  }}
                 >
-                  {/* Ensure SVG is scaled to fit the container */}
-                  <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                    <div style={{ width: '100%', height: '100%', overflow: 'hidden', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                      dangerouslySetInnerHTML={{ __html: actualBoardData || '' }} // Use actualBoardData or empty string
-                    />
-                  </div>
+                  <FabricJsonToSvg 
+                    jsonData={actualBoardData}
+                    className="scaled-svg-preview" 
+                  />
                 </div>
-                {/* Answer with notepad effect */}
-                {answer && (
+                {/* Answer with notepad effect - Show if an answer submission exists, even if text is empty */}
+                {answer !== undefined && (
                   <div className="notepad-answer mt-2 mb-2">
                     <span className="notepad-label">
-                      <i className="bi bi-card-text me-1"></i>Answer:
+                      <i className="bi bi-card-text me-1"></i>{t('answer', language)}:
                     </span>
-                    <span className="notepad-text ms-2">{answer.answer}</span>
+                    <span className="notepad-text ms-2">
+                      {answer.hasDrawing && !answer.answer ? t('drawingOnly', language) : (answer.answer || "-")}
+                    </span>
                   </div>
                 )}
-                {/* Correct/Incorrect buttons for GameMaster */}
-                {isGameMaster && answer && evaluation === undefined && onEvaluate && (
+                {/* Correct/Incorrect buttons for GameMaster - Show if a submission exists and is pending evaluation */}
+                {isGameMaster && answer !== undefined && evaluation === undefined && onEvaluate && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
-                    <button className="btn btn-success btn-sm" onClick={() => onEvaluate(player.id, true)}><i className="bi bi-check-circle-fill me-1"></i>Correct</button>
-                    <button className="btn btn-danger btn-sm" onClick={() => onEvaluate(player.id, false)}><i className="bi bi-x-circle-fill me-1"></i>Incorrect</button>
+                    <button 
+                        className="btn btn-success btn-sm" 
+                        onClick={() => onEvaluate(player.persistentPlayerId, true)} 
+                        title={t('markAsCorrect', language)}
+                    >
+                        <i className="bi bi-check-circle-fill me-1"></i>{t('correct', language)}
+                    </button>
+                    <button 
+                        className="btn btn-danger btn-sm" 
+                        onClick={() => onEvaluate(player.persistentPlayerId, false)} 
+                        title={t('markAsIncorrect', language)}
+                    >
+                        <i className="bi bi-x-circle-fill me-1"></i>{t('incorrect', language)}
+                    </button>
                   </div>
                 )}
                 {/* Show badge if evaluated */}
                 {evaluation !== undefined && (
-                  <span className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}>
-                    {evaluation ? <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>}
+                  <span 
+                    className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}
+                    style={{ 
+                      animation: 'fadeInScale 0.3s ease-out'
+                    }}
+                  >
+                    {evaluation ? 
+                      <><i className="bi bi-patch-check-fill me-1"></i>{t('correct', language)}</> : 
+                      <><i className="bi bi-patch-exclamation-fill me-1"></i>{t('incorrect', language)}</>
+                    }
                   </span>
                 )}
               </div>

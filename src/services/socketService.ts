@@ -10,50 +10,173 @@ interface Question {
   subject: string;
 }
 
+// Define ConnectionStatusType to represent all possible connection states
+export type ConnectionStatusType = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'reconnect_failed' | 'error';
+
 // Determine the server URL based on environment
 const SOCKET_URL = process.env.REACT_APP_SOCKET_URL || 
   (process.env.NODE_ENV === 'production' 
     ? 'https://schoolquizgame.onrender.com' // Fallback for production
     : 'http://localhost:5000'); // Fallback for development
 
+// For testing/debugging: force local server during development
+// Set to false to use production server
+const FORCE_LOCAL_SERVER = false;
+
+// Timeout for connection attempts (in milliseconds)
+const CONNECTION_TIMEOUT = 10000; // 10 seconds
+
 export class SocketService {
   private socket: Socket | null = null;
-  private connectionState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' = 'disconnected';
+  private connectionState: ConnectionStatusType = 'disconnected';
   private connectionPromise: Promise<Socket | null> | null = null;
-  private reconnectAttempts = 0;
-  private readonly maxReconnectAttempts = 5;
-  private reconnectTimer: NodeJS.Timeout | null = null;
   private eventListeners: Map<string, Set<Function>> = new Map();
-  private connectionStateListeners: ((state: string) => void)[] = [];
+  private connectionStateListeners: ((state: string, detailInfo?: any) => void)[] = [];
   private url: string;
-  private reconnectListeners: ((attemptNumber: number) => void)[] = [];
+  private isReconnecting: boolean = false;
+
+  // New persistent state variables
+  private persistentPlayerId: string | null = null;
+  private currentSessionPlayerName: string | null = null;
+  private tempRoomCodeForGM: string | null = null;
+  private tempIsGameMasterQuery: boolean = false;
+  private connectionParams: Record<string, any> = {};
 
   constructor() {
-    this.url = process.env.REACT_APP_SOCKET_URL || 'https://schoolquizgame.onrender.com';
+    // Use FORCE_LOCAL_SERVER to override production URLs during development
+    this.url = process.env.REACT_APP_SOCKET_URL || 
+      (FORCE_LOCAL_SERVER && process.env.NODE_ENV !== 'production' ? 'http://localhost:5000' : SOCKET_URL);
+    
     console.log('[SocketService] Initializing with URL:', this.url);
+    
+    // Load persistent player ID on initialization
+    this.loadPersistentPlayerId();
+  }
+
+  // Method to set additional connection parameters
+  public setConnectionParams(params: Record<string, any>): void {
+    this.connectionParams = { ...this.connectionParams, ...params };
+  }
+
+  // Private method to load persistentPlayerId from localStorage
+  private loadPersistentPlayerId(): void {
+    try {
+      const storedId = localStorage.getItem('persistentPlayerId_schoolquiz');
+      if (storedId) {
+        this.persistentPlayerId = storedId;
+        console.log('[SocketService] Loaded persistent player ID from localStorage:', storedId);
+      }
+    } catch (error) {
+      console.error('[SocketService] Error loading persistent player ID:', error);
+    }
+  }
+
+  // Method to set persistentPlayerId in memory and localStorage
+  private setPersistentPlayerId(id: string): void {
+    if (!id) return;
+    
+    this.persistentPlayerId = id;
+    try {
+      localStorage.setItem('persistentPlayerId_schoolquiz', id);
+      console.log('[SocketService] Stored persistent player ID in localStorage:', id);
+    } catch (error) {
+      console.error('[SocketService] Error storing persistent player ID:', error);
+    }
+  }
+
+  // Getter for persistentPlayerId
+  public getPersistentPlayerId(): string | null {
+    return this.persistentPlayerId;
+  }
+
+  // Method to clear persistentPlayerId
+  public clearPersistentPlayerId(): void {
+    try {
+      localStorage.removeItem('persistentPlayerId_schoolquiz');
+      this.persistentPlayerId = null;
+      console.log('[SocketService] Cleared persistent player ID');
+    } catch (error) {
+      console.error('[SocketService] Error clearing persistent player ID:', error);
+    }
+  }
+
+  // Set player details for connection auth
+  public setPlayerDetails(playerName: string): void {
+    this.currentSessionPlayerName = playerName;
+  }
+
+  // Set GM connection details
+  public setGMConnectionDetails(isGM: boolean, roomCode?: string): void {
+    this.tempIsGameMasterQuery = isGM;
+    this.tempRoomCodeForGM = roomCode || null;
   }
 
   // Add method to listen for connection state changes
-  onConnectionStateChange(callback: (state: string) => void) {
+  onConnectionStateChange(callback: (state: string, detailInfo?: any) => void) {
     this.connectionStateListeners.push(callback);
     // Immediately call with current state
     callback(this.connectionState);
   }
 
-  private updateConnectionState(newState: 'connected' | 'disconnected' | 'connecting' | 'reconnecting') {
+  private updateConnectionState(newState: ConnectionStatusType, detailInfo?: any) {
     this.connectionState = newState;
-    this.connectionStateListeners.forEach(listener => listener(newState));
+    this.connectionStateListeners.forEach(listener => listener(newState, detailInfo));
   }
 
+  // Force reconnect to fix "Already connected" errors
+  async forceReconnect(): Promise<Socket | null> {
+    // Perform a clean disconnect first
+    console.log('[SocketService] Force reconnecting to clear "Already connected" state...');
+    this.isReconnecting = true;
+    
+    // Complete disconnect first
+    if (this.socket) {
+      // Properly clean up existing connection
+      try {
+        const roomCode = localStorage.getItem('roomCode');
+        if (roomCode && this.socket.connected) {
+          console.log(`[SocketService] Sending leave_room message before force reconnect from room ${roomCode}`);
+          this.socket.emit('leave_room', { roomCode });
+        }
+        
+        // Force disconnect
+        this.socket.disconnect();
+        this.socket = null;
+      } catch (error) {
+        console.error('[SocketService] Error during force disconnect:', error);
+      }
+    }
+    
+    // Reset connection state
+    this.connectionPromise = null;
+    this.updateConnectionState('disconnected');
+    
+    // Wait a short delay before reconnecting
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    console.log('[SocketService] Disconnected, now reconnecting with fresh connection...');
+    this.isReconnecting = false;
+    
+    // Set parameters for the initial connection to bypass player name requirement
+    this.setConnectionParams({ isInitialConnection: true });
+    
+    // Set a temporary player name for authentication if needed
+    this.setPlayerDetails('TemporaryUser');
+    
+    // Now initiate a new connection
+    return this.connect();
+  }
+
+  // Connect to socket.io server with CSR
   connect(): Promise<Socket | null> {
     // If we're already connecting, return the existing promise
-    if (this.connectionPromise) {
+    if (this.connectionPromise && !this.isReconnecting) {
       console.log('[SocketService] Connection already in progress, reusing promise');
       return this.connectionPromise;
     }
 
     // If we're already connected, return the existing socket
-    if (this.socket?.connected) {
+    if (this.socket?.connected && !this.isReconnecting) {
       console.log('[SocketService] Already connected, reusing socket');
       return Promise.resolve(this.socket);
     }
@@ -61,159 +184,327 @@ export class SocketService {
     console.log('[SocketService] Attempting to connect to:', this.url);
     this.updateConnectionState('connecting');
 
+    // Prepare query parameters for connection - stringify all boolean values
+    const queryParams: Record<string, string> = {};
+    
+    // Convert connectionParams values to strings
+    Object.entries(this.connectionParams).forEach(([key, value]) => {
+      queryParams[key] = typeof value === 'boolean' ? String(value) : value;
+    });
+    
+    if (this.tempIsGameMasterQuery) {
+      queryParams.isGameMaster = "true";
+      if (this.tempRoomCodeForGM) {
+        queryParams.roomCode = this.tempRoomCodeForGM;
+      }
+    }
+
+    console.log('[SocketService] Connecting with query params:', queryParams);
+
     this.connectionPromise = new Promise((resolve, reject) => {
+      // Setup connection timeout
+      const timeoutId = setTimeout(() => {
+        console.error(`[SocketService] Connection attempt timed out after ${CONNECTION_TIMEOUT}ms`);
+        this.updateConnectionState('error', { message: 'Connection timeout' });
+        if (this.socket) {
+          this.socket.disconnect();
+        }
+        this.connectionPromise = null;
+        reject(new Error('Connection timeout'));
+      }, CONNECTION_TIMEOUT);
+
+      // Socket.IO client options with CSR support
       this.socket = io(this.url, {
+        reconnection: true,
+        reconnectionAttempts: 5,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+        timeout: 20000,
+        query: queryParams,
+        // Add transport options
         transports: ['websocket', 'polling'],
-        reconnectionAttempts: this.maxReconnectAttempts,
-        timeout: 10000,
-        forceNew: false
+        // Add forceNew to ensure fresh connection
+        forceNew: true,
+        // Add upgrade to allow transport upgrade
+        upgrade: true,
+        // Add rememberUpgrade to remember transport preference
+        rememberUpgrade: true,
+        // Authentication callback for CSR
+        auth: (cb) => {
+          const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
+          let idToSend = this.persistentPlayerId;
+
+          if (this.tempIsGameMasterQuery) {
+            // GM connection attempt
+            if (this.persistentPlayerId && !this.persistentPlayerId.startsWith('GM-')) {
+              // GM is connecting, but localStorage has a non-GM ID (e.g., P- or F-).
+              // This indicates a client-side state inconsistency.
+              // Send null to signal server to assign a fresh GM ID for this new GM session.
+              console.warn(`[SocketService] GM Auth: localStorage ID ("${this.persistentPlayerId}") is not GM-prefixed. Requesting new GM ID from server.`);
+              idToSend = null;
+            }
+            // If persistentPlayerId from localStorage IS GM-prefixed, idToSend will be that GM ID.
+            // If persistentPlayerId was null/undefined, idToSend remains so.
+          } else {
+            // Player connection attempt
+            if (this.persistentPlayerId && this.persistentPlayerId.startsWith('GM-')) {
+              // Player is connecting, but localStorage has a GM-prefixed ID.
+              // Send null to signal server to assign a fresh Player ID.
+              console.log(`[SocketService] Player Auth: localStorage ID ("${this.persistentPlayerId}") is GM-prefixed. Requesting new Player ID from server.`);
+              idToSend = null; 
+            }
+            // If persistentPlayerId from localStorage is P- or F- prefixed (or null), idToSend will reflect that.
+          }
+
+          if (idToSend) {
+            payload.persistentPlayerId = idToSend;
+          }
+          // currentSessionPlayerName is set by setPlayerDetails. For GM, it's 'GameMaster'. For Players, their chosen name.
+          if (this.currentSessionPlayerName) {
+            payload.playerName = this.currentSessionPlayerName;
+          }
+          
+          console.log('[SocketService] Auth callback sending:', payload, "Intended GM:", this.tempIsGameMasterQuery);
+          cb(payload);
+        }
       });
 
-      this.socket.once('connect', () => {
+      // Reset temporary connection parameters
+      this.tempIsGameMasterQuery = false;
+      this.tempRoomCodeForGM = null;
+      this.connectionParams = {}; // Clear connection params after use
+
+      console.log('[SocketService] io() called, socket instance created:', this.socket ? 'Exists' : 'Null', 'ID before connect event:', this.socket?.id);
+
+      // Set up event handlers
+      this.socket.on('connect', () => {
+        // Clear the timeout since we connected successfully
+        clearTimeout(timeoutId);
+
         console.log('[SocketService] Connected successfully:', {
           socketId: this.socket?.id,
+          recovered: this.socket?.recovered,
           timestamp: new Date().toISOString(),
           url: this.url
         });
-        this.updateConnectionState('connected');
-        this.reconnectAttempts = 0;
+        this.updateConnectionState('connected', { recovered: this.socket?.recovered });
         this.connectionPromise = null;
+        this.setupCommonEventHandlers();
         resolve(this.socket);
       });
 
-      this.socket.once('connect_error', (error) => {
-        console.error('[SocketService] Connection error:', error);
-        this.connectionPromise = null;
-        reject(error);
+      this.socket.on('connect_error', (error: Error) => {
+        console.error('[SocketService] Connection Error:', error.message, error.stack);
+        
+        // Clear the timeout since we got an error response
+        clearTimeout(timeoutId);
+        
+        this.updateConnectionState('error', { message: error.message });
+        
+        // Check for fatal errors that should cause us to stop reconnecting
+        if (error.message.includes('CORS') || 
+            error.message.includes('transport error') || 
+            error.message.includes('xhr poll error')) {
+          // Fatal errors - disconnect and reject the promise
+          console.error('[SocketService] Fatal connection error, stopping reconnection attempts');
+          if (this.socket) {
+            this.socket.disconnect();
+          }
+          this.connectionPromise = null;
+          reject(new Error(`Connection failed: ${error.message}`));
+        }
+        // For other errors, let Socket.IO's built-in reconnection handle it
       });
-
-      this.setupEventHandlers();
     });
 
     return this.connectionPromise;
   }
 
-  private setupEventHandlers() {
+  // Setup common event handlers for all connection-related events
+  private setupCommonEventHandlers(): void {
     if (!this.socket) return;
 
-    this.socket.on('connect', () => {
-      console.log('[SocketService] Connected successfully:', {
-        socketId: this.socket?.id,
-        timestamp: new Date().toISOString(),
-        url: this.url
-      });
-      this.updateConnectionState('connected');
-      this.reconnectAttempts = 0;
-      this.emit('connection_established');
-    });
-
-    this.socket.on('reconnect', (attemptNumber) => {
-      // This event is fired by socket.io-client after a successful reconnection
-      console.log(`[SocketService] Reconnected after ${attemptNumber} attempts at`, new Date().toISOString());
-      // Notify listeners (contexts) that a reconnect happened
-      if (this.reconnectListeners) {
-        this.reconnectListeners.forEach(cb => cb(attemptNumber));
-      }
-    });
-
-    this.socket.on('connect_error', (error) => {
-      console.error('[SocketService] Connection error:', {
-        error: error.message,
-        url: this.url,
-        attempt: this.reconnectAttempts + 1,
-        maxAttempts: this.maxReconnectAttempts,
-        timestamp: new Date().toISOString()
-      });
-      this.handleReconnect();
-    });
-
-    this.socket.on('disconnect', (reason) => {
+    // Disconnect handler
+    this.socket.on('disconnect', (reason: Socket.DisconnectReason) => {
       console.log('[SocketService] Disconnected:', {
         reason,
         timestamp: new Date().toISOString()
       });
-      this.updateConnectionState('disconnected');
-      this.handleReconnect();
+      
+      if (reason === "io server disconnect" || reason === "io client disconnect") {
+        // Intentional disconnect - go to disconnected state
+        this.updateConnectionState('disconnected', { reason });
+        
+        // For server-forced disconnects, we shouldn't reconnect automatically
+        if (reason === "io server disconnect" && this.socket?.io) {
+          this.socket.io.opts.reconnection = false;
+        }
+      } else {
+        // Unexpected disconnect - try to reconnect
+        this.updateConnectionState('reconnecting', { reason });
+        
+        // Force a reconnection attempt if it's not already trying
+        if (this.socket?.io && !this.socket.io._reconnecting) {
+          console.log('[SocketService] Forcing reconnection attempt...');
+          this.socket.io.connect();
+        }
+      }
     });
 
-    this.socket.on('error', (error) => {
+    // Reconnection handlers
+    this.socket.io?.on('reconnect_attempt', (attempt: number) => {
+      console.log(`[SocketService] Reconnect attempt #${attempt}`);
+      // Only update state if this is a new attempt
+      if (attempt === 1) {
+        this.updateConnectionState('reconnecting', { attempt });
+      }
+      
+      // Try to use WebSocket first, then fall back to polling
+      if (attempt === 1 && this.socket?.io) {
+        this.socket.io.opts.transports = ['websocket', 'polling'];
+      }
+    });
+
+    this.socket.io?.on('reconnect_failed', () => {
+      console.log('[SocketService] Reconnection failed after max attempts');
+      this.updateConnectionState('reconnect_failed');
+      
+      // Don't try to force reconnect on failure - let user handle it
+      console.log('[SocketService] Max reconnection attempts reached. Please refresh the page to try again.');
+    });
+
+    this.socket.io?.on('reconnect_error', (error: Error) => {
+      console.error('[SocketService] Reconnection error:', error);
+      
+      // Only switch transport on first error
+      if (error.message.includes('transport error') && this.socket?.io?.engine) {
+        const currentTransport = this.socket.io.engine.transport.name;
+        const newTransport = currentTransport === 'websocket' ? 'polling' : 'websocket';
+        console.log(`[SocketService] Switching transport from ${currentTransport} to ${newTransport}`);
+        this.socket.io.opts.transports = [newTransport];
+      }
+    });
+
+    this.socket.io.on('reconnect', (attempt: number) => {
+      console.log(`[SocketService] Reconnected after ${attempt} attempts. Socket recovered:`, this.socket?.recovered);
+      this.updateConnectionState('connected', { attempt, recovered: this.socket?.recovered });
+      
+      // If we have a room code, try to rejoin
+      const roomCode = localStorage.getItem('roomCode');
+      if (roomCode) {
+        this.rejoinRoom(roomCode).catch(error => {
+          console.error('[SocketService] Failed to rejoin room after reconnection:', error);
+        });
+      }
+    });
+
+    // Server error handler
+    this.socket.on('error', (error: any) => {
       console.error('[SocketService] Socket error:', {
         error,
         timestamp: new Date().toISOString()
       });
-      this.emit('error', error);
-    });
-  }
-
-  private handleReconnect() {
-    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[SocketService] Max reconnection attempts reached:', {
-        attempts: this.reconnectAttempts,
-        maxAttempts: this.maxReconnectAttempts,
-        timestamp: new Date().toISOString()
-      });
-      this.updateConnectionState('disconnected');
-      this.emit('connection_failed');
-      return;
-    }
-
-    this.reconnectAttempts++;
-    this.updateConnectionState('reconnecting');
-    console.log(`[SocketService] Attempting to reconnect:`, {
-      attempt: this.reconnectAttempts,
-      maxAttempts: this.maxReconnectAttempts,
-      timestamp: new Date().toISOString()
-    });
-    
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-    }
-
-    // Exponential backoff for reconnection attempts
-    const delay = Math.min(1000 * Math.pow(2, this.reconnectAttempts - 1), 10000);
-    
-    this.reconnectTimer = setTimeout(() => {
-      if (this.connectionState !== 'connected') {
-        console.log('[SocketService] Executing reconnection attempt:', {
-          attempt: this.reconnectAttempts,
-          delay,
-          timestamp: new Date().toISOString()
-        });
-        this.connect();
+      
+      // Handle kick-related errors separately
+      if (error?.message?.includes('kick') || error?.message?.includes('Only the Game Master can kick')) {
+        console.log('[SocketService] Kick-related error:', error.message);
+        // Emit a specific event for kick errors that the UI can handle
+        this.socket?.emit('kick_error', { message: error.message });
+        return;
       }
-    }, delay);
+      
+      // Only update state if it's not already in an error state
+      if (this.connectionState !== 'error') {
+        this.updateConnectionState('error', { error });
+      }
+    });
+
+    // Add specific handler for kick errors
+    this.socket.on('kick_error', (error: any) => {
+      console.log('[SocketService] Received kick error:', error);
+      // Don't update connection state, just let the UI handle the error
+    });
+
+    // Handle persistent ID assignment
+    this.socket.on('persistent_id_assigned', ({ persistentPlayerId }) => {
+      console.log('[SocketService] Received persistent ID assignment:', persistentPlayerId);
+      this.setPersistentPlayerId(persistentPlayerId);
+    });
+
+    // Handle session recovery failure
+    this.socket.on('session_not_fully_recovered_join_manually', () => {
+      console.log('[SocketService] Session not fully recovered. Manual rejoin may be needed.');
+      // The context will handle this event to attempt a rejoin
+    });
   }
 
-  // Game-specific methods
-  async createRoom(roomCode: string) {
-    console.log('[SocketService] Creating room:', { roomCode, timestamp: new Date().toISOString() });
+  // Robust emit with connection check
+  public async robustEmit(event: string, data: any = {}): Promise<void> {
     try {
-      const socket = await this.connect();
-      if (!socket) {
-        throw new Error('Failed to connect socket');
+      const socket = await this.ensureConnected();
+      socket.emit(event, data);
+    } catch (error) {
+      console.error(`[SocketService] Failed to emit ${event}:`, error);
+      throw error;
+    }
+  }
+
+  // Ensure we have a connected socket
+  private async ensureConnected(): Promise<Socket> {
+    if (this.socket?.connected) {
+      return this.socket;
+    }
+
+    if (this.connectionPromise) {
+      const socket = await this.connectionPromise;
+      if (socket && socket.connected) {
+        return socket;
       }
-      socket.emit('create_room', { roomCode, timestamp: new Date().toISOString() });
+      throw new Error('Connection attempt failed');
+    }
+
+    const socket = await this.connect();
+    if (socket && socket.connected) {
+      return socket;
+    }
+    throw new Error('Failed to connect');
+  }
+
+  // Game-specific methods - now using robustEmit
+  async createRoom(roomCode: string, isStreamerMode: boolean = false) {
+    console.log('[SocketService] Creating room:', { roomCode, isStreamerMode, timestamp: new Date().toISOString() });
+    try {
+      await this.robustEmit('create_room', { roomCode, isStreamerMode, timestamp: new Date().toISOString() });
     } catch (error) {
       console.error('[SocketService] Failed to create room:', error);
       throw error;
     }
   }
 
-  joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
+  async joinRoom(roomCode: string, playerName: string, isSpectator: boolean = false) {
     console.log('[SocketService] Joining room:', {
       roomCode,
       playerName,
       isSpectator,
       timestamp: new Date().toISOString()
     });
-    this.emit('join_room', { roomCode, playerName, isSpectator });
+    
+    // Get avatar from localStorage if available
+    let avatarSvg: string | null = null;
+    const persistentPlayerId = this.getPersistentPlayerId();
+    
+    if (persistentPlayerId) {
+      avatarSvg = localStorage.getItem(`avatar_${persistentPlayerId}`);
+    }
+    
+    await this.robustEmit('join_room', { roomCode, playerName, isSpectator, avatarSvg });
   }
 
-  startGame(roomCode: string, questions: Question[], timeLimit: number): void {
-    this.emit('start_game', { roomCode, questions, timeLimit });
+  async startGame(roomCode: string, questions: Question[], timeLimit: number): Promise<void> {
+    await this.robustEmit('start_game', { roomCode, questions, timeLimit });
   }
 
-  submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false, drawingData?: string | null) {
+  async submitAnswer(roomCode: string, answer: string, hasDrawing: boolean = false, drawingData?: string | null) {
     console.log('[SocketService] Submitting answer:', {
       roomCode,
       answerLength: answer.length,
@@ -221,24 +512,36 @@ export class SocketService {
       drawingDataLength: drawingData?.length || 0,
       timestamp: new Date().toISOString()
     });
-    this.emit('submit_answer', { roomCode, answer, hasDrawing, drawingData });
-  }
-
-  updateBoard(roomCode: string, boardData: any) {
-    console.log('[SocketService] Updating board:', {
-      roomCode,
-      dataSize: boardData?.length || 0,
-      timestamp: new Date().toISOString()
+    
+    // Generate a unique ID for this answer attempt for idempotency
+    const answerAttemptId = this.generateUniqueId();
+    
+    await this.robustEmit('submit_answer', { 
+      roomCode, 
+      answer, 
+      hasDrawing, 
+      drawingData,
+      answerAttemptId
     });
-    this.emit('update_board', { roomCode, boardData });
   }
 
-  requestGameState(roomCode: string) {
+  // For high-frequency but non-critical updates, use socket.volatile.emit if connected
+  updateBoard(roomCode: string, boardData: any) {
+    if (!this.socket?.connected) {
+      console.log('[SocketService] Socket not connected, skipping board update');
+      return;
+    }
+    
+    // Use volatile emission for board updates to prevent buffering
+    this.socket.volatile.emit('update_board', { roomCode, boardData });
+  }
+
+  async requestGameState(roomCode: string) {
     console.log('[SocketService] Requesting game state:', {
       roomCode,
       timestamp: new Date().toISOString()
     });
-    this.emit('get_game_state', { roomCode });
+    await this.robustEmit('get_game_state', { roomCode });
   }
 
   // Event handling methods
@@ -262,83 +565,104 @@ export class SocketService {
     }
   }
 
-  public emit(event: string, data: any = {}): void {
-    if (!this.socket) {
-      console.error('[SocketService] Socket not connected');
-      return;
-    }
-    this.socket.emit(event, data);
+  // Use robustEmit for all outgoing events
+  public async emit(event: string, data: any = {}): Promise<void> {
+    await this.robustEmit(event, data);
   }
 
   // GameMaster actions
-  startPreviewMode(roomCode: string) {
-    this.emit('start_preview_mode', { roomCode });
+  async startPreviewMode(roomCode: string) {
+    await this.robustEmit('start_preview_mode', { roomCode });
   }
 
-  stopPreviewMode(roomCode: string) {
-    this.emit('stop_preview_mode', { roomCode });
+  async stopPreviewMode(roomCode: string) {
+    await this.robustEmit('stop_preview_mode', { roomCode });
   }
 
-  focusSubmission(roomCode: string, playerId: string) {
-    this.emit('focus_submission', { roomCode, playerId });
+  async focusSubmission(roomCode: string, playerId: string) {
+    await this.robustEmit('focus_submission', { roomCode, playerId });
   }
 
   // Player actions
-  joinAsSpectator(roomCode: string, playerName: string) {
+  async joinAsSpectator(roomCode: string, playerName: string) {
     console.log(`Joining room ${roomCode} as spectator ${playerName}`);
-    this.emit('join_as_spectator', { roomCode, playerName });
+    await this.robustEmit('join_as_spectator', { roomCode, playerName });
   }
 
-  switchToSpectator(roomCode: string, playerId: string) {
-    if (this.socket) {
-      this.socket.emit('switch_to_spectator', { roomCode, playerId });
-    }
+  async switchToSpectator(roomCode: string, playerId: string) {
+    await this.robustEmit('switch_to_spectator', { roomCode, playerId });
   }
 
-  switchToPlayer(roomCode: string, playerName: string) {
-    if (this.socket) {
-      this.socket.emit('switch_to_player', { roomCode, playerName });
-    }
+  async switchToPlayer(roomCode: string, playerName: string) {
+    await this.robustEmit('switch_to_player', { roomCode, playerName });
   }
 
   getSocketId() {
     return this.socket?.id;
   }
 
-  getConnectionState(): 'connected' | 'disconnected' | 'connecting' | 'reconnecting' {
+  getConnectionState(): ConnectionStatusType {
     return this.connectionState;
   }
 
   disconnect() {
     console.log('[SocketService] Disconnecting');
-    if (this.reconnectTimer) {
-      clearTimeout(this.reconnectTimer);
-      this.reconnectTimer = null;
+    try {
+      // First leave any rooms if we're in any
+      if (this.socket?.connected) {
+        // Send a graceful leave message
+        const roomCode = localStorage.getItem('roomCode');
+        if (roomCode) {
+          console.log(`[SocketService] Sending leave_room message before disconnecting from room ${roomCode}`);
+          this.socket.emit('leave_room', { roomCode });
+        }
+        
+        // Allow some time for the leave_room message to be sent
+        setTimeout(() => {
+          // Then disconnect
+          this.socket?.disconnect();
+          this.socket = null;
+          this.updateConnectionState('disconnected');
+          console.log('[SocketService] Disconnected socket and cleaned up');
+        }, 100);
+      } else {
+        // If not connected, just clean up
+        this.socket = null;
+        this.updateConnectionState('disconnected');
+      }
+    } catch (error) {
+      console.error('[SocketService] Error during disconnect:', error);
+      this.socket = null;
+      this.updateConnectionState('disconnected');
     }
-    this.socket?.disconnect();
-    this.socket = null;
-    this.updateConnectionState('disconnected');
+  }
+
+  // Helper method to generate a unique ID
+  private generateUniqueId(): string {
+    const timestamp = new Date().getTime().toString(36);
+    const randomPart = Math.random().toString(36).substring(2, 10);
+    return `${timestamp}-${randomPart}`;
   }
 
   // Add missing methods
-  nextQuestion(roomCode: string): void {
-    this.emit('next_question', { roomCode });
+  async nextQuestion(roomCode: string): Promise<void> {
+    await this.robustEmit('next_question', { roomCode });
   }
 
-  evaluateAnswer(roomCode: string, playerId: string, isCorrect: boolean): void {
-    this.emit('evaluate_answer', { roomCode, playerId, isCorrect });
+  async evaluateAnswer(roomCode: string, playerId: string, isCorrect: boolean): Promise<void> {
+    await this.robustEmit('evaluate_answer', { roomCode, playerId, isCorrect });
   }
 
-  endGame(roomCode: string): void {
-    this.emit('end_game', { roomCode });
+  async endGame(roomCode: string): Promise<void> {
+    await this.robustEmit('end_game', { roomCode });
   }
 
-  restartGame(roomCode: string): void {
-    this.emit('restart_game', { roomCode });
+  async restartGame(roomCode: string): Promise<void> {
+    await this.robustEmit('restart_game', { roomCode });
   }
 
-  endRoundEarly(roomCode: string): void {
-    this.emit('end_round_early', { roomCode });
+  async endRoundEarly(roomCode: string): Promise<void> {
+    await this.robustEmit('end_round_early', { roomCode });
   }
 
   onError(callback: (error: string) => void): void {
@@ -349,13 +673,114 @@ export class SocketService {
     return this.socket;
   }
 
-  // --- Reconnect event subscription for contexts ---
-  /**
-   * Subscribe to socket reconnect events. Contexts can use this to trigger rejoin logic.
-   * @param callback Called with the attempt number after a successful reconnect.
-   */
-  onReconnect(callback: (attemptNumber: number) => void) {
-    this.reconnectListeners.push(callback);
+  async requestPlayers(roomCode: string): Promise<void> {
+    await this.robustEmit('request_players', { roomCode });
+  }
+
+  async rejoinRoom(roomCode: string, isGameMaster: boolean = false): Promise<void> {
+    // Get avatar from localStorage if available
+    let avatarSvg: string | null = null;
+    if (this.persistentPlayerId) {
+      avatarSvg = localStorage.getItem(`avatar_${this.persistentPlayerId}`);
+    }
+    
+    console.log('[SocketService] Attempting to rejoin room:', {
+      roomCode,
+      isGameMaster,
+      persistentPlayerId: this.persistentPlayerId,
+      hasAvatar: !!avatarSvg,
+      socketConnected: this.socket?.connected,
+      timestamp: new Date().toISOString()
+    });
+    
+    try {
+      // Simplified: Rely on robustEmit to handle connection. 
+      // If robustEmit fails (e.g., ensureConnected throws), the promise will be rejected.
+      await this.robustEmit('rejoin_room', { 
+        roomCode, 
+        isGameMaster, 
+        persistentPlayerId: this.persistentPlayerId,
+        avatarSvg
+      });
+      console.log('[SocketService] Rejoin room request sent successfully via robustEmit.');
+    } catch (error) {
+      console.error('[SocketService] Failed to send rejoin_room event:', error);
+      // Propagate the error so callers (like the 'reconnect' event handler) can be aware.
+      throw error;
+    }
+  }
+
+  async kickPlayer(roomCode: string, playerIdToKick: string): Promise<void> {
+    console.log(`[SocketService] Sending kick_player event for player ${playerIdToKick} in room ${roomCode}`);
+    
+    // Include the socketId to help server identify which connection to kick
+    // when persistent IDs might be the same
+    const socketId = this.socket?.id;
+    await this.robustEmit('kick_player', { 
+      roomCode, 
+      playerIdToKick, 
+      kickerSocketId: socketId
+    });
+  }
+
+  // Method to kick player by socket ID directly
+  async kickPlayerBySocketId(roomCode: string, playerSocketId: string): Promise<void> {
+    console.log(`[SocketService] Kicking player with socket ID ${playerSocketId} in room ${roomCode}`);
+    
+    // Use the kick_player event directly with the socket ID
+    // The server will handle finding the player by socket ID
+    await this.robustEmit('kick_player', { 
+      roomCode, 
+      playerIdToKick: playerSocketId  // Send socket ID instead of persistentPlayerId
+    });
+  }
+
+  async updateAvatar(roomCode: string, persistentPlayerId: string, avatarSvg: string): Promise<void> {
+    console.log('[SocketService] Updating avatar:', {
+      roomCode,
+      persistentPlayerId,
+      hasAvatar: !!avatarSvg,
+      timestamp: new Date().toISOString()
+    });
+    await this.robustEmit('update_avatar', { roomCode, persistentPlayerId, avatarSvg });
+  }
+
+  // WebRTC Signaling Methods
+  async sendWebRTCReady(roomCode: string): Promise<void> {
+    // Get current player details
+    const playerName = sessionStorage.getItem('playerName') || 'Unknown';
+    const isGameMaster = sessionStorage.getItem('isGameMaster') === 'true';
+    
+    console.log(`[SocketService] Emitting 'webrtc-ready' for room ${roomCode}`, {
+      roomCode,
+      playerName,
+      isGameMaster,
+      persistentPlayerId: this.persistentPlayerId,
+      socketId: this.getSocketId()
+    });
+    
+    // Include player name and role in the signal
+    await this.robustEmit('webrtc-ready', { 
+      roomCode,
+      playerName,
+      isGameMaster,
+      persistentPlayerId: this.persistentPlayerId
+    });
+  }
+
+  async sendWebRTCOffer(offer: RTCSessionDescriptionInit, toSocketId: string, fromSocketId: string): Promise<void> {
+    console.log(`[SocketService] Sending WebRTC offer from ${fromSocketId} to ${toSocketId}`);
+    await this.robustEmit('webrtc-offer', { offer, to: toSocketId, from: fromSocketId });
+  }
+
+  async sendWebRTCAnswer(answer: RTCSessionDescriptionInit, toSocketId: string, fromSocketId: string): Promise<void> {
+    console.log(`[SocketService] Sending WebRTC answer from ${fromSocketId} to ${toSocketId}`);
+    await this.robustEmit('webrtc-answer', { answer, to: toSocketId, from: fromSocketId });
+  }
+
+  async sendWebRTCICECandidate(candidate: RTCIceCandidate, toSocketId: string, fromSocketId: string): Promise<void> {
+    // console.log(`[SocketService] Sending WebRTC ICE candidate from ${fromSocketId} to ${toSocketId}`); // Can be verbose
+    await this.robustEmit('webrtc-ice-candidate', { candidate, to: toSocketId, from: fromSocketId });
   }
 }
 

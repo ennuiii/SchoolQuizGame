@@ -49,6 +49,25 @@ declare module 'fabric' {
       stroke?: string | null;
       /** Stroke width of an object. */
       strokeWidth?: number;
+      /** When true, object horizontal movement is locked */
+      lockMovementX?: boolean;
+      /** When true, object vertical movement is locked */
+      lockMovementY?: boolean;
+      /** When false, object controls (resize/rotate) are hidden */
+      hasControls?: boolean;
+      /** When false, object borders are hidden */
+      hasBorders?: boolean;
+      /** Scale factor for the object in the X direction. */
+      scaleX?: number;
+      /** Scale factor for the object in the Y direction. */
+      scaleY?: number;
+      /** Angle of rotation for the object. */
+      angle?: number;
+      /** Origin point for scaling and rotation. */
+      originX?: string;
+      /** Origin point for scaling and rotation. */
+      originY?: string;
+      
       // Add more common Object properties as needed
       // constructor(options?: any);
 
@@ -58,6 +77,11 @@ declare module 'fabric' {
       toObject(propertiesToInclude?: string[]): any;
       /** Returns svg representation of an instance */
       toSVG(reviver?: (svg: string) => string): string;
+      // Common method to get scaled dimensions
+      getScaledWidth?(): number;
+      getScaledHeight?(): number;
+      // Add getBoundingRect
+      getBoundingRect(absolute?: boolean, withoutTransformations?: boolean): { left: number; top: number; width: number; height: number; };
       // ... other common methods
     }
 
@@ -86,6 +110,10 @@ declare module 'fabric' {
       height: number;
       /** Indicates whether object selection is enabled. */
       selection: boolean;
+      /** When true, canvas doesn't process events on objects */
+      skipTargetFind: boolean;
+      /** When true, objects remain in their current stacking order when selected */
+      preserveObjectStacking: boolean;
       /** * Background image of the canvas.
        * Can be a fabric.Image instance or a fabric.Pattern instance.
        */

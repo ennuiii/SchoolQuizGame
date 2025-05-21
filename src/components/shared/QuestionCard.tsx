@@ -1,6 +1,8 @@
 import React, { useState, useEffect, ChangeEvent } from 'react';
 import type { Question } from '../../contexts/GameContext';
 import QuestionDisplayCard from './QuestionDisplayCard';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 interface QuestionCardProps {
   question: Question | null;
@@ -10,12 +12,14 @@ interface QuestionCardProps {
 }
 
 const QuestionCard: React.FC<QuestionCardProps> = ({ question, timeRemaining, onSubmit, submitted }) => {
+  const { language } = useLanguage();
+
   if (!question) {
-    return <QuestionDisplayCard question={null} showAnswer={false} title="Question" />;
+    return <QuestionDisplayCard question={null} showAnswer={false} title={t('question', language)} />;
   }
 
   return (
-    <QuestionDisplayCard question={question} showAnswer={false} title="Question" />
+    <QuestionDisplayCard question={question} showAnswer={false} title={t('question', language)} />
   );
 };
 

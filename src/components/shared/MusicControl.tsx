@@ -1,8 +1,27 @@
 import React from 'react';
 import { useAudio } from '../../contexts/AudioContext';
+import { useLanguage } from '../../contexts/LanguageContext';
+import { t } from '../../i18n';
 
 const MusicControl: React.FC = () => {
   const { isMuted, volume, toggleMute, setVolume } = useAudio();
+  const { language } = useLanguage();
+
+  const handleToggleMute = async () => {
+    try {
+      toggleMute();
+    } catch (error) {
+      console.error('Error toggling mute:', error);
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    try {
+      setVolume(parseFloat(e.target.value));
+    } catch (error) {
+      console.error('Error setting volume:', error);
+    }
+  };
 
   return (
     <div
@@ -22,8 +41,8 @@ const MusicControl: React.FC = () => {
       <button
         className="btn btn-outline-secondary btn-sm d-flex align-items-center justify-content-center"
         style={{ minWidth: 36, minHeight: 36, borderRadius: '50%' }}
-        onClick={toggleMute}
-        title={isMuted ? 'Unmute Music' : 'Mute Music'}
+        onClick={handleToggleMute}
+        title={isMuted ? t('unmuteMusic', language) : t('muteMusic', language)}
       >
         {isMuted ? (
           <i className="bi bi-volume-mute-fill" style={{ fontSize: 20 }}></i>
@@ -37,9 +56,9 @@ const MusicControl: React.FC = () => {
         max={1}
         step={0.01}
         value={volume}
-        onChange={e => setVolume(parseFloat(e.target.value))}
+        onChange={handleVolumeChange}
         style={{ width: 70 }}
-        aria-label="Music Volume"
+        aria-label={t('musicVolume', language)}
         disabled={isMuted}
       />
     </div>

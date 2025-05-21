@@ -17,7 +17,7 @@ services:
     name: schoolquizgame-admin
     env: node
     buildCommand: cd admin && npm install && npm run build
-    startCommand: cd admin && npm start
+    startCommand: cd admin && npx serve -s build -l $PORT
     envVars:
       - key: NODE_ENV
         value: production
