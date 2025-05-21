@@ -941,7 +941,7 @@ body {
   justify-content: center;
   overflow: hidden;
   padding: 5px;
-  box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.15) !important;
 }
 
 .classroom-whiteboard-answer {
@@ -1039,4 +1039,15 @@ body {
     max-width: 98vw;
     padding: 10px 4px 28px 4px;
   }
+}
+
+/* Specific styling for eraser strokes (green paths) */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
+  filter: none !important; /* Remove shadow */
+  stroke-width: 20 !important; /* Reduce the stroke width */
+  stroke-opacity: 0.85 !important; /* Make it slightly transparent */
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+  mix-blend-mode: destination-out; /* This helps with blending into the background */
 } 
