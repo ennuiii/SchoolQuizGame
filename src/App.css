@@ -204,7 +204,7 @@ body {
 
 /* Drawing Board */
 .drawing-board-container {
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35;
   border: 4px solid #8B4513;
   border-radius: 12px;
   box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
@@ -1424,7 +1424,7 @@ body {
   width: 100%;
   max-width: 900px; 
   min-height: 100px; /* Adjusted min-height */
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35;
   border: 8px solid #8B4513; /* Wooden frame like player board */
   border-radius: 18px; /* Match player board */
   box-shadow: 0 6px 24px rgba(0,0,0,0.3), inset 0 0 15px rgba(0,0,0,0.25);
@@ -1517,7 +1517,7 @@ body {
 .classroom-whiteboard-svg {
   width: 100%;
   aspect-ratio: 2 / 1; /* 2:1 aspect ratio for consistency */
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  background: #0C6A35 !important;
   border: 1px solid #8B4513 !important;
   border-radius: 4px;
   box-sizing: border-box;
@@ -1652,7 +1652,7 @@ body {
 
 /* Enhanced SVG styling in the drawing display */
 .classroom-whiteboard-svg {
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  background: #0C6A35 !important;
   box-shadow: inset 0 0 15px rgba(0,0,0,0.3);
 }
 
@@ -1683,6 +1683,6 @@ body {
 .list-group-item .classroom-whiteboard-svg,
 .enlarged-drawing-modal-body .classroom-whiteboard-svg,
 .preview-whiteboard-svg {
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png') !important;
+  background: #0C6A35 !important;
   border: 2px solid #8B4513 !important;
 } 

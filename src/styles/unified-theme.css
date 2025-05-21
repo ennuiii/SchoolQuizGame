@@ -441,12 +441,13 @@ html[data-theme="dark"] .question-selector {
 
 /* DrawingBoard styling */
 .drawing-board-container {
-  position: relative;
-  background: #0C6A35 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  background: #0C6A35;
   border: 4px solid #8B4513;
   border-radius: 12px;
+  box-shadow: 0 4px 16px #00000033, inset 0 0 24px rgba(0,0,0,0.22);
+  margin-bottom: 0;
+  position: relative;
   overflow: hidden;
-  will-change: transform; /* optimize for GPU acceleration */
 }
 
 .canvas-container {

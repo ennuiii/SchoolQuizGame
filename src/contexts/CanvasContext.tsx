@@ -208,8 +208,8 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     const canvasEl = document.createElement('canvas');
     container.appendChild(canvasEl);
 
-    // Apply textured background to container
-    container.style.background = '#0C6A35 url("https://www.transparenttextures.com/patterns/green-dust-and-scratches.png")';
+    // Apply solid background to container
+    container.style.background = '#0C6A35';
 
     // Calculate actual container size
     const containerRect = container.getBoundingClientRect();
@@ -224,7 +224,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
     const fabricCanvas = new fabric.Canvas(canvasEl, {
       width: actualWidth,
       height: actualHeight,
-      backgroundColor: null,
+      backgroundColor: '#0C6A35', // Solid background color
       isDrawingMode: true,
       selection: false, // Disable group selection
       skipTargetFind: true, // Ignore all object selection
@@ -312,7 +312,7 @@ export const CanvasProvider: React.FC<CanvasProviderProps> = ({ children }) => {
       canvas.clear();
       
       // Restore canvas settings after clear
-      canvas.backgroundColor = null;
+      canvas.backgroundColor = '#0C6A35';
       canvas.selection = false;
       canvas.skipTargetFind = true;
       canvas.preserveObjectStacking = true;

@@ -60,6 +60,13 @@ const PlayerBoardDisplay: React.FC<PlayerBoardDisplayProps> = ({
         try {
           const fabricJSON = JSON.parse(board.boardData);
           
+          // Check if the board data is empty (meaning all content was erased)
+          if (!fabricJSON.objects || fabricJSON.objects.length === 0) {
+            console.log('[PlayerBoardDisplay] Board data contains no objects, rendering empty SVG');
+            setSvgString('<svg viewBox="0 0 100 75"><rect width="100%" height="100%" fill="#0C6A35" /></svg>');
+            return;
+          }
+          
           // Determine the original dimensions for the viewBox and temp canvas
           // Prioritize dimensions from the JSON, then use more standard defaults for aspect ratio.
           const jsonWidth = fabricJSON.canvas?.width || fabricJSON.width;
