@@ -1536,11 +1536,7 @@ body {
 }
 
 /* Enhanced visibility for SVG paths in the drawings */
-.classroom-whiteboard-svg svg path {
-  stroke-linejoin: round;
-  stroke-linecap: round;
-  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
-}
+
 
 /* Similar treatment for SVG elements in the enlarged modal and other SVG displays */
 .enlarged-drawing-modal-body .classroom-whiteboard-svg {
@@ -1665,19 +1661,9 @@ body {
   stroke-linejoin: round !important;
 }
 
-/* Ensure specific chalk colors have good visibility against the green background */
-.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="yellow"],
-.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFF00"],
-.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffff00"] {
-  filter: drop-shadow(0px 0px 3px rgba(0,0,0,0.6)) !important;
-}
 
-/* Enhanced chalk effect for all paths in SVG */
-.chalkboard-drawing-svg path {
-  stroke-linecap: round !important; 
-  stroke-linejoin: round !important;
-  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
-}
+
+
 
 /* Ensure SVG container in recap modal has proper background */
 .list-group-item .classroom-whiteboard-svg,
@@ -1685,4 +1671,28 @@ body {
 .preview-whiteboard-svg {
   background: #0C6A35 !important;
   border: 2px solid #8B4513 !important;
-} 
+}
+
+/* Special styling for eraser strokes - ensure no artifacts */
+
+
+/* Fix for SVG eraser paths with inline style attributes */
+
+
+/* Match eraser color to chalkboard background to ensure perfect erasing */
+
+
+/* Apply better chalk effects to all drawing strokes */
+
+
+
+
+/* Ensure all chalk strokes have consistent caps and joins */
+
+
+/* Improve smooth rendering on high-DPI displays */
+.classroom-whiteboard-svg svg,
+.preview-whiteboard-svg svg {
+  shape-rendering: geometricPrecision;
+}
+
