@@ -333,7 +333,22 @@ export class SocketService {
         error,
         timestamp: new Date().toISOString()
       });
+      
+      // Handle kick-related errors separately
+      if (error?.message?.includes('kick') || error?.message?.includes('Only the Game Master can kick')) {
+        console.log('[SocketService] Kick-related error:', error.message);
+        // Emit a specific event for kick errors that the UI can handle
+        this.socket?.emit('kick_error', { message: error.message });
+        return;
+      }
+      
       this.updateConnectionState('error', { error });
+    });
+
+    // Add specific handler for kick errors
+    this.socket.on('kick_error', (error: any) => {
+      console.log('[SocketService] Received kick error:', error);
+      // Don't update connection state, just let the UI handle the error
     });
 
     // Handle persistent ID assignment

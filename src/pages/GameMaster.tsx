@@ -102,6 +102,18 @@ const GameMaster: React.FC = () => {
     playBackgroundMusic
   } = useAudio();
 
+  useEffect(() => {
+    // Listen for kick errors
+    socketService.on('kick_error', (error: any) => {
+      console.log('[GameMaster] Received kick error:', error);
+      toast.error(error.message || 'Failed to kick player');
+    });
+
+    return () => {
+      socketService.off('kick_error');
+    };
+  }, []);
+
   const handleKickPlayer = useCallback((playerId: string) => {
     if (!roomCode) {
       console.error('[GameMaster] Cannot kick player: No room code');
