@@ -367,22 +367,28 @@ const Player: React.FC = () => {
   // If we have a stored roomCode but connection is lost, request game state update upon reconnection
   useEffect(() => {
     if (connectionStatus === 'connected' && roomCode) {
-      // Attempt to rejoin the room
-      console.log('[Player] Connected with room code, attempting to rejoin:', roomCode);
-      
-      if (!isRoomLoading) {
-        socketService.rejoinRoom(roomCode, false); // false = not GM
-      }
-      
-      // Request the latest state
-      socketService.requestGameState(roomCode);
-      socketService.requestPlayers(roomCode);
-      
+      console.log('[Player] Connected with room code, requesting game state and players...');
+      // REMOVED: Explicit rejoinRoom() call from here.
+      // Rely on socketService internal reconnection logic and server CSR.
+      // If CSR fails, 'session_not_fully_recovered_join_manually' event should be handled by context/UI.
+
+      socketService.requestGameState(roomCode).catch(error => {
+        console.error('[Player] Error requesting game state on connect:', error);
+        toast.error('Failed to get game state: ' + (error as Error).message);
+      });
+      socketService.requestPlayers(roomCode).catch(error => {
+        console.error('[Player] Error requesting players on connect:', error);
+        toast.error('Failed to get player list: ' + (error as Error).message);
+      });
+
       // Set a timeout to retry getting players if the list is empty
       const retryTimeout = setTimeout(() => {
         if (players.length === 0) {
           console.log('[Player] Player list is still empty after connection. Retrying request players...');
-          socketService.requestPlayers(roomCode);
+          socketService.requestPlayers(roomCode).catch(error => {
+            console.error('[Player] Error retrying request players:', error);
+            toast.error('Failed to retry getting player list: ' + (error as Error).message);
+          });
         }
       }, 2000);
       
@@ -390,7 +396,6 @@ const Player: React.FC = () => {
       const forceLoadTimeout = setTimeout(() => {
         if (connectionStatus === 'connected' && roomCode && players.length > 0) {
           console.log('[Player] Force proceeding after timeout - connection is established and player list exists');
-          // This will trigger a re-render which should show the game screen
           setIsLoading(false); 
         }
       }, 5000);
@@ -400,7 +405,7 @@ const Player: React.FC = () => {
         clearTimeout(forceLoadTimeout);
       };
     }
-  }, [connectionStatus, roomCode, isRoomLoading, players.length]);
+  }, [connectionStatus, roomCode, players.length]); // Removed isRoomLoading, ensure setIsLoading is handled by other effects
 
   // Add a connection effect that initializes when component mounts
   useEffect(() => {

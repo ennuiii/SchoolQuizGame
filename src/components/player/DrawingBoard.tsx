@@ -140,15 +140,13 @@ const FabricDrawingBoard: React.FC<DrawingBoardProps> = ({
       
       // For chalk effect - make the brush have a subtle shadow and opacity
       if ((pencilBrush as any).shadow) {
-        (pencilBrush as any).shadow.blur = 1;
-        (pencilBrush as any).shadow.offsetX = 1;
-        (pencilBrush as any).shadow.offsetY = 1;
-        (pencilBrush as any).shadow.color = 'rgba(0,0,0,0.3)';
+        // Disable shadows to prevent double lines
+        (pencilBrush as any).shadow = null;
       }
       
       // Set the opacity slightly less than 1 for chalk effect
       if ((pencilBrush as any).opacity !== undefined) {
-        (pencilBrush as any).opacity = 0.9;
+        (pencilBrush as any).opacity = 0.95; // Slightly increased opacity for better visibility
       }
       
       canvas.freeDrawingBrush = pencilBrush;

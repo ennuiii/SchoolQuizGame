@@ -167,67 +167,66 @@ declare module 'socket.io' {
 // Authentication Middleware for persistentPlayerId management
 io.use((socket: ExtendedSocket, next) => {
   try {
-    // Extract data from socket.handshake
     const auth: any = socket.handshake.auth || {};
     const query: any = socket.handshake.query || {};
     
-    // Check for Game Master flag in query parameters
     const isGameMasterQuery = query.isGameMaster === "true";
-    // const roomCodeQuery = query.roomCode; // Not used in this block
     const isInitialConnection = query.isInitialConnection === "true";
 
-    console.log(`[AUTH] Socket ${socket.id} authentication check:`, {
-      query,
-      isInitialConnection,
-      auth
-    });
-
-    // Initialize socket.data property
     socket.data = socket.data || {};
-    
-    // Set Game Master flag
     socket.data.isGameMaster = isGameMasterQuery;
-    
-    // Handle persistentPlayerId logic
+
+    let assignedPersistentId: string;
+    let assignedPlayerName: string | undefined = auth.playerName;
+
     if (isGameMasterQuery) {
-      // If connecting as GameMaster, always assign a new GM-prefixed ID.
-      // This ensures a distinct ID for GM sessions, even if localStorage had a non-GM ID.
-      socket.data.persistentPlayerId = `GM-${uuidv4()}`;
-      // GM name is typically 'GameMaster' or set from auth if provided
-      // If auth.playerName is provided by a GM connection, use it, otherwise default to 'GameMaster'
-      socket.data.playerName = auth.playerName || 'GameMaster';
-    } else if (auth.persistentPlayerId) {
-      // For players, use existing persistentPlayerId if provided
-      socket.data.persistentPlayerId = auth.persistentPlayerId;
-      socket.data.playerName = auth.playerName; // Use player name from auth
-    } else if (auth.playerName) {
-      // Generate new persistentPlayerId for a new Player with a name
-      socket.data.persistentPlayerId = `P-${uuidv4()}`;
-      socket.data.playerName = auth.playerName;
+      socket.data.isGameMaster = true;
+      if (auth.persistentPlayerId && auth.persistentPlayerId.startsWith('GM-')) {
+        // GM is reconnecting (potentially) or re-opening tab, has a GM-prefixed ID from localStorage
+        assignedPersistentId = auth.persistentPlayerId;
+        console.log(`[AUTH] GameMaster connection with existing GM-prefixed ID: ${assignedPersistentId}`);
+      } else {
+        // New GM session or GM connecting with a non-GM ID (should be corrected to new GM ID)
+        assignedPersistentId = `GM-${uuidv4()}`;
+        console.log(`[AUTH] New GameMaster session or non-GM ID presented for GM role. Assigning new GM ID: ${assignedPersistentId}`);
+      }
+      assignedPlayerName = auth.playerName || 'GameMaster';
     } else {
-      // Fallback for initial connections without name or persistentId (e.g., join screen before name entry)
-      socket.data.persistentPlayerId = `F-${uuidv4()}`;
-      // Player name will be undefined here, set upon joining a room.
-      socket.data.playerName = undefined;
+      // Player connection path
+      socket.data.isGameMaster = false;
+      if (auth.persistentPlayerId) {
+        if (auth.persistentPlayerId.startsWith('GM-')) {
+          console.warn(`[AUTH] Player ${socket.id} (name: ${auth.playerName}) using GM-prefixed persistentId ${auth.persistentPlayerId}. Assigning new Player ID.`);
+          assignedPersistentId = `P-${uuidv4()}`;
+        } else {
+          assignedPersistentId = auth.persistentPlayerId; // Existing P- or F- ID
+        }
+      } else if (auth.playerName) {
+        assignedPersistentId = `P-${uuidv4()}`;
+        console.log(`[AUTH] New player ${auth.playerName}, assigning Player ID: ${assignedPersistentId}`);
+      } else {
+        assignedPersistentId = `F-${uuidv4()}`;
+        console.log(`[AUTH] Initial/Fallback connection, assigning Fallback ID: ${assignedPersistentId}`);
+      }
     }
+
+    socket.data.persistentPlayerId = assignedPersistentId;
+    socket.data.playerName = assignedPlayerName;
     
-    // Log the assigned values
-    console.log(`[AUTH] Socket ${socket.id} authenticated:`, {
+    console.log(`[AUTH] Socket ${socket.id} processed:`, {
       persistentPlayerId: socket.data.persistentPlayerId,
       playerName: socket.data.playerName,
       isGameMaster: socket.data.isGameMaster,
       isInitialConnection,
+      recovered_status_in_auth_middleware: socket.recovered, // Log recovery status available at this stage
       timestamp: new Date().toISOString()
     });
 
-    // Allow initial connections without player name (for the Join Game page)
-    // Also allow game masters and recovered sessions
-    if (isInitialConnection || socket.data.isGameMaster || socket.recovered || socket.data.playerName) {
-      return next();
-    }
-    
-    // For non-initial player connection attempts without a name, return error
-    return next(new Error('Player name required'));
+    // Emit persistent_id_assigned earlier, right after auth middleware determines it.
+    // This helps client update its stored ID sooner if server corrected/assigned it.
+    socket.emit('persistent_id_assigned', { persistentPlayerId: socket.data.persistentPlayerId });
+
+    return next();
   } catch (error) {
     console.error('[AUTH] Middleware error:', error);
     next(new Error('Authentication error'));
@@ -633,18 +632,14 @@ io.on('connection', (socket: ExtendedSocket) => {
       roomCode,
       playerName,
       playerId: socket.id,
-      persistentPlayerId: socket.data.persistentPlayerId,
+      socketDataPersistentId: socket.data.persistentPlayerId, 
       isSpectator,
       hasAvatar: !!avatarSvg,
       timestamp: new Date().toISOString()
     });
     
     if (!gameRooms[roomCode]) {
-      console.error(`[Server] Join room failed - Invalid room code:`, {
-        roomCode,
-        playerName,
-        playerId: socket.id
-      });
+      console.error(`[Server] Join room failed - Invalid room code:`, { roomCode, playerName, playerId: socket.id });
       socket.emit('room_not_found', { message: 'Room not found. It may have expired or been deleted. Please join a different room.' });
       socket.emit('error', 'Invalid room code');
       return;
@@ -652,74 +647,75 @@ io.on('connection', (socket: ExtendedSocket) => {
 
     const room = gameRooms[roomCode];
     room.lastActivity = new Date().toISOString();
-    socket.data.isGameMaster = false;
 
-    const persistentPlayerId = socket.data.persistentPlayerId || `F-${socket.id.substring(0,8)}`;
-    const currentPlayerName = playerName || socket.data.playerName || `Player_${persistentPlayerId.substring(0,5)}`;
+    const currentPersistentId = socket.data.persistentPlayerId || `F-${socket.id.substring(0,8)}`; // Ensure fallback
+    const currentPlayerName = playerName || socket.data.playerName || `Player_${currentPersistentId.substring(0,5)}`;
 
-    const existingPlayerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
+    if (playerName && socket.data.playerName !== playerName) {
+        socket.data.playerName = playerName;
+        console.log(`[Server] Player name for socket ${socket.id} updated to ${playerName} during join_room.`);
+    }
+
+    const existingPlayerIndex = room.players.findIndex(p => p.persistentPlayerId === currentPersistentId);
     
     if (existingPlayerIndex !== -1) {
       const existingPlayer = room.players[existingPlayerIndex];
-      
+      console.log(`[Server] Existing player found with persistentId ${currentPersistentId}:`, existingPlayer);
+
       if (existingPlayer.isActive === false) {
-        console.log(`[Server] Player ${persistentPlayerId} rejoining room ${roomCode}`);
-        existingPlayer.id = socket.id;
+        console.log(`[Server] Player ${currentPersistentId} rejoining room ${roomCode}. Old socket: ${existingPlayer.id}, New socket: ${socket.id}`);
+        existingPlayer.id = socket.id; 
         existingPlayer.isActive = true;
         if (currentPlayerName && currentPlayerName !== existingPlayer.name) {
           existingPlayer.name = currentPlayerName;
         }
-        if (avatarSvg) {
-          existingPlayer.avatarSvg = avatarSvg;
-        }
+        if (avatarSvg) existingPlayer.avatarSvg = avatarSvg;
         if (existingPlayer.disconnectTimer) {
           clearTimeout(existingPlayer.disconnectTimer);
           existingPlayer.disconnectTimer = null;
         }
         socket.join(roomCode);
         socket.roomCode = roomCode;
-        console.log(`[Server] Player rejoined successfully:`, { roomCode, playerName: existingPlayer.name, playerId: socket.id, persistentPlayerId, timestamp: new Date().toISOString() });
-        socket.emit('room_joined', { roomCode, playerId: persistentPlayerId, isStreamerMode: room.isStreamerMode });
+        console.log(`[Server] Player re-associated and rejoined successfully:`, { roomCode, playerName: existingPlayer.name, playerId: socket.id, persistentPlayerId: currentPersistentId });
+        socket.emit('room_joined', { roomCode, playerId: currentPersistentId, isStreamerMode: room.isStreamerMode });
         const currentIO = getIO();
-        currentIO.to(roomCode).emit('player_reconnected_status', { playerId: socket.id, persistentPlayerId, isActive: true });
-        const gameState = getGameState(roomCode);
-        if (gameState) socket.emit('game_state_update', gameState);
+        currentIO.to(roomCode).emit('player_reconnected_status', { playerId: socket.id, persistentPlayerId: currentPersistentId, isActive: true, name: existingPlayer.name, avatarSvg: existingPlayer.avatarSvg });
         broadcastGameState(roomCode);
         return;
-      } 
-      else if (existingPlayer.isActive === true && existingPlayer.id !== socket.id) {
+      } else if (existingPlayer.isActive === true && existingPlayer.id !== socket.id) {
         const currentIO = getIO();
         const existingSocket = currentIO.sockets.sockets.get(existingPlayer.id);
         if (!existingSocket || !existingSocket.connected) {
-          console.log(`[Server] Found stale connection for player. Old socket ${existingPlayer.id} is no longer connected. Updating player record.`);
-          existingPlayer.id = socket.id;
-          existingPlayer.isActive = true;
+          console.log(`[Server] Stale connection found for active player ${currentPersistentId}. Old socket ${existingPlayer.id} not connected. Updating to new socket ${socket.id}.`);
+          existingPlayer.id = socket.id; 
+          if (currentPlayerName && currentPlayerName !== existingPlayer.name) existingPlayer.name = currentPlayerName;
+          if (avatarSvg) existingPlayer.avatarSvg = avatarSvg;
           socket.join(roomCode);
           socket.roomCode = roomCode;
-          socket.emit('room_joined', { roomCode, playerId: persistentPlayerId, isStreamerMode: room.isStreamerMode });
-          const gameState = getGameState(roomCode);
-          if (gameState) socket.emit('game_state_update', gameState);
+          socket.emit('room_joined', { roomCode, playerId: currentPersistentId, isStreamerMode: room.isStreamerMode });
           broadcastGameState(roomCode);
           return;
         }
-        console.error(`[Server] Join room failed - Already connected from another tab/device:`, { roomCode, persistentPlayerId, existingSocketId: existingPlayer.id, newSocketId: socket.id });
-        socket.emit('error', 'Already connected from another tab/device');
+        console.error(`[Server] Join room failed - Player ${currentPersistentId} already connected with active socket ${existingPlayer.id}. New attempt from ${socket.id}.`);
+        socket.emit('error', 'Already connected from another tab/device. Please close other instances.');
         return;
-      }
-      else if (existingPlayer.isActive === true && existingPlayer.id === socket.id) {
-        console.log(`[Server] Redundant join request from ${socket.id} for room ${roomCode}. Ensuring state consistency.`);
-        socket.join(roomCode);
+      } else if (existingPlayer.isActive === true && existingPlayer.id === socket.id) {
+        console.log(`[Server] Redundant join for player ${currentPersistentId} on same socket ${socket.id}. Ensuring state consistency.`);
+        if (currentPlayerName && currentPlayerName !== existingPlayer.name) existingPlayer.name = currentPlayerName;
+        if (avatarSvg && avatarSvg !== existingPlayer.avatarSvg) existingPlayer.avatarSvg = avatarSvg;
+        socket.join(roomCode); 
         socket.roomCode = roomCode;
-        socket.emit('room_joined', { roomCode, playerId: persistentPlayerId, isStreamerMode: room.isStreamerMode });
-        const gameState = getGameState(roomCode);
-        if (gameState) socket.emit('game_state_update', gameState);
+        socket.emit('room_joined', { roomCode, playerId: currentPersistentId, isStreamerMode: room.isStreamerMode });
+        broadcastGameState(roomCode); 
         return;
       }
+    } else {
+      console.log(`[Server] New player joining with persistentId ${currentPersistentId} (name: ${currentPlayerName})`);
     }
     
-    const isDuplicateName = room.players.some(player => player.name.toLowerCase() === currentPlayerName.toLowerCase());
+    const isDuplicateName = room.players.some(p => p.isActive && p.name.toLowerCase() === currentPlayerName.toLowerCase());
     if (isDuplicateName) {
-      console.error(`[Server] Join room failed - Name already taken:`, { roomCode, playerName: currentPlayerName, playerId: socket.id });
+      console.error(`[Server] Join room failed - Name "${currentPlayerName}" already taken by an active player in room ${roomCode}.`);
       socket.emit('error', 'This name is already taken in the room. Please choose a different name.');
       return;
     }
@@ -729,25 +725,23 @@ io.on('connection', (socket: ExtendedSocket) => {
     
     const player: Player = {
       id: socket.id,
-      persistentPlayerId: persistentPlayerId,
+      persistentPlayerId: currentPersistentId, 
       name: currentPlayerName,
       lives: 3,
       answers: [],
       isActive: true,
-      isSpectator: !!isSpectator, // Ensure boolean
+      isSpectator: !!isSpectator,
       joinedAsSpectator: !!isSpectator,
       disconnectTimer: null,
       avatarSvg: avatarSvg || null
     };
     room.players.push(player);
 
-    console.log(`[Server] Player joined successfully:`, { roomCode, playerName: currentPlayerName, playerId: socket.id, persistentPlayerId, totalPlayers: room.players.length, timestamp: new Date().toISOString() });
-    socket.emit('room_joined', { roomCode, playerId: persistentPlayerId, isStreamerMode: room.isStreamerMode });
-    console.log(`[Server] Sent room_joined event to player:`, { roomCode, playerId: socket.id, persistentPlayerId, isStreamerMode: room.isStreamerMode, timestamp: new Date().toISOString() });
+    console.log(`[Server] Player added and joined successfully:`, { roomCode, playerName: currentPlayerName, playerId: socket.id, persistentPlayerId: currentPersistentId, totalPlayers: room.players.length });
+    socket.emit('room_joined', { roomCode, playerId: currentPersistentId, isStreamerMode: room.isStreamerMode });
     const gameState = getGameState(roomCode);
     if (gameState) {
       socket.emit('game_state_update', gameState);
-      console.log(`[Server] Sent initial game state to player:`, { roomCode, playerId: socket.id, gameStarted: gameState.started, currentQuestionIndex: gameState.currentQuestionIndex });
     }
     broadcastGameState(roomCode);
   });
@@ -1382,74 +1376,92 @@ io.on('connection', (socket: ExtendedSocket) => {
   });
 
   socket.on('rejoin_room', ({ roomCode, isGameMaster, persistentPlayerId, avatarSvg }) => {
-    console.log(`[Server Rejoin] Received rejoin_room:`, { roomCode, socketId: socket.id, persistentPlayerId: persistentPlayerId || socket.data.persistentPlayerId, isGameMaster, hasAvatar: !!avatarSvg });
-    socket.data.persistentPlayerId = persistentPlayerId || socket.data.persistentPlayerId;
-    socket.data.isGameMaster = isGameMaster;
+    console.log(`[Server Rejoin] Received rejoin_room:`, { roomCode, socketId: socket.id, clientSentPersistentId: persistentPlayerId, socketDataPersistentId: socket.data.persistentPlayerId, isGameMasterClientFlag: isGameMaster, socketDataIsGM: socket.data.isGameMaster, hasAvatar: !!avatarSvg });
+    
     const room = gameRooms[roomCode];
     if (!room) {
-      socket.emit('room_not_found', { message: 'Room not found. Please create a new room.' });
-      socket.emit('error', { message: 'Room not found'});
+      socket.emit('room_not_found', { message: 'Room not found. Cannot rejoin.' });
+      socket.emit('error', { message: 'Room not found for rejoin'});
       return;
     }
-    const actualPersistentId = socket.data.persistentPlayerId || '';
-    if (isGameMaster === true && room.gamemasterPersistentId === actualPersistentId) {
+
+    // Prioritize server-assigned ID from socket.data, then client-sent, then fallback to a new temporary ID if all else fails.
+    const actualPersistentId = socket.data.persistentPlayerId || persistentPlayerId || `TEMP-${socket.id}`;
+    const intentIsGameMaster = socket.data.isGameMaster; // Authoritative GM status from auth middleware
+
+    if (intentIsGameMaster) {
+      // This socket is trying to rejoin as the Game Master
+      console.log(`[Server Rejoin] GM with new socket ${socket.id} (Persistent ID: ${actualPersistentId}) attempting to rejoin/reclaim room ${roomCode}. Original GM PID: ${room.gamemasterPersistentId}`);
+      
+      room.gamemasterPersistentId = actualPersistentId; 
       room.gamemaster = socket.id;
       room.gamemasterSocketId = socket.id;
       socket.join(roomCode);
       socket.roomCode = roomCode;
+      
       if (room.gamemasterDisconnected) {
         if (room.gamemasterDisconnectTimer) clearTimeout(room.gamemasterDisconnectTimer);
         room.gamemasterDisconnectTimer = null;
         room.gamemasterDisconnected = false;
         getIO().to(roomCode).emit('gm_disconnected_status', { disconnected: false });
+        console.log(`[Server Rejoin] GM reconnected and status updated for room ${roomCode}`);
       }
-      socket.data.playerName = 'GameMaster';
-      socket.emit('room_created', { roomCode, isStreamerMode: room.isStreamerMode });
-      const gameState = getGameState(roomCode);
-      if (gameState) socket.emit('game_state_update', gameState);
-      socket.emit('players_update', room.players);
+      
+      socket.data.playerName = 'GameMaster'; 
+      socket.emit('room_created', { roomCode, isStreamerMode: room.isStreamerMode }); 
+      broadcastGameState(roomCode); 
       room.lastActivity = new Date().toISOString();
       saveRoomState();
+      console.log(`[Server Rejoin] GM ${actualPersistentId} successfully rejoined/reclaimed room ${roomCode} with new socket ${socket.id}`);
       return;
     }
+    
+    // Player rejoin logic (non-GM)
     const playerIndex = room.players.findIndex(p => p.persistentPlayerId === actualPersistentId);
     if (playerIndex !== -1) {
       const player = room.players[playerIndex];
-      player.id = socket.id;
+      console.log(`[Server Rejoin] Player ${actualPersistentId} rejoining. Current socket: ${player.id}, New socket: ${socket.id}`);
+      player.id = socket.id; 
       player.isActive = true;
       if (avatarSvg) player.avatarSvg = avatarSvg;
       if (player.disconnectTimer) clearTimeout(player.disconnectTimer);
       player.disconnectTimer = null;
+      
       socket.join(roomCode);
       socket.roomCode = roomCode;
-      socket.data.playerName = player.name;
-      getIO().to(roomCode).emit('player_reconnected_status', { playerId: socket.id, persistentPlayerId: actualPersistentId, isActive: true });
+      if(player.name && !socket.data.playerName) socket.data.playerName = player.name; 
+
+      getIO().to(roomCode).emit('player_reconnected_status', { playerId: socket.id, persistentPlayerId: actualPersistentId, isActive: true, name: player.name, avatarSvg: player.avatarSvg });
       broadcastGameState(roomCode);
       room.lastActivity = new Date().toISOString();
       socket.emit('room_joined', { roomCode, playerId: actualPersistentId, isStreamerMode: room.isStreamerMode });
-      const gameState = getGameState(roomCode);
-      if (gameState) socket.emit('game_state_update', gameState);
-      socket.emit('players_update', room.players);
+      console.log(`[Server Rejoin] Player ${actualPersistentId} successfully rejoined room ${roomCode} with new socket ${socket.id}`);
       saveRoomState();
       return;
     }
-    if (actualPersistentId && isGameMaster === false) {
-      const playerName = socket.data.playerName || `Player_${actualPersistentId.substring(0, 5)}`;
-      const newPlayer: Player = { id: socket.id, persistentPlayerId: actualPersistentId, name: playerName, lives: 3, isActive: true, isSpectator: false, joinedAsSpectator: false, answers: [], disconnectTimer: null, avatarSvg: avatarSvg || null };
-      room.players.push(newPlayer);
-      socket.join(roomCode);
-      socket.roomCode = roomCode;
-      socket.data.playerName = playerName;
-      getIO().to(roomCode).emit('player_joined' as any, newPlayer); // Cast to any for now
-      room.lastActivity = new Date().toISOString();
-      socket.emit('room_joined', { roomCode, playerId: actualPersistentId, isStreamerMode: room.isStreamerMode });
-      const gameState = getGameState(roomCode);
-      if (gameState) socket.emit('game_state_update', gameState);
-      socket.emit('players_update', room.players);
-      saveRoomState();
-      return;
+
+    if (socket.data.playerName && !intentIsGameMaster) {
+        console.log(`[Server Rejoin] Player with persistentId ${actualPersistentId} not found. Adding as new player: ${socket.data.playerName}`);
+        const newPlayer: Player = {
+            id: socket.id,
+            persistentPlayerId: actualPersistentId,
+            name: socket.data.playerName,
+            lives: 3, isActive: true, isSpectator: false, joinedAsSpectator: false, answers: [],
+            disconnectTimer: null, avatarSvg: avatarSvg || null
+        };
+        room.players.push(newPlayer);
+        socket.join(roomCode);
+        socket.roomCode = roomCode;
+        getIO().to(roomCode).emit('player_joined', newPlayer);
+        broadcastGameState(roomCode);
+        room.lastActivity = new Date().toISOString();
+        socket.emit('room_joined', { roomCode, playerId: actualPersistentId, isStreamerMode: room.isStreamerMode });
+        saveRoomState();
+        return;
     }
-    socket.emit('error', { message: 'Not authorized to rejoin this room' });
+
+    console.warn(`[Server Rejoin] Failed to process rejoin for socket ${socket.id}, persistentId ${actualPersistentId} in room ${roomCode}. Player/GM not found or mismatched state.`);
+    socket.emit('error', { message: 'Not authorized or unable to rejoin this room with current details.' });
   });
 
   socket.on('update_avatar', ({ roomCode, persistentPlayerId, avatarSvg }) => {

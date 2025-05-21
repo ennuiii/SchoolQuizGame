@@ -20,8 +20,8 @@ const SOCKET_URL = process.env.NODE_ENV === 'production'
   : 'http://localhost:5000'; // Use port 5000 to match server
 
 // For testing/debugging: force local server during development
-// Comment out this line to use production server
-const FORCE_LOCAL_SERVER = true;
+// Set to false to use production server
+const FORCE_LOCAL_SERVER = false;
 
 // Timeout for connection attempts (in milliseconds)
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
@@ -216,17 +216,55 @@ export class SocketService {
       // Socket.IO client options with CSR support
       this.socket = io(this.url, {
         reconnection: true,
-        reconnectionAttempts: Infinity,
+        reconnectionAttempts: 5,
         reconnectionDelay: 1000,
-        reconnectionDelayMax: 10000,
+        reconnectionDelayMax: 5000,
         timeout: 20000,
         query: queryParams,
+        // Add transport options
+        transports: ['websocket', 'polling'],
+        // Add forceNew to ensure fresh connection
+        forceNew: true,
+        // Add upgrade to allow transport upgrade
+        upgrade: true,
+        // Add rememberUpgrade to remember transport preference
+        rememberUpgrade: true,
         // Authentication callback for CSR
         auth: (cb) => {
           const payload: { persistentPlayerId?: string | null; playerName?: string | null } = {};
-          if (this.persistentPlayerId) payload.persistentPlayerId = this.persistentPlayerId;
-          if (this.currentSessionPlayerName) payload.playerName = this.currentSessionPlayerName;
-          console.log('[SocketService] Auth callback sending:', payload);
+          let idToSend = this.persistentPlayerId;
+
+          if (this.tempIsGameMasterQuery) {
+            // GM connection attempt
+            if (this.persistentPlayerId && !this.persistentPlayerId.startsWith('GM-')) {
+              // GM is connecting, but localStorage has a non-GM ID (e.g., P- or F-).
+              // This indicates a client-side state inconsistency.
+              // Send null to signal server to assign a fresh GM ID for this new GM session.
+              console.warn(`[SocketService] GM Auth: localStorage ID ("${this.persistentPlayerId}") is not GM-prefixed. Requesting new GM ID from server.`);
+              idToSend = null;
+            }
+            // If persistentPlayerId from localStorage IS GM-prefixed, idToSend will be that GM ID.
+            // If persistentPlayerId was null/undefined, idToSend remains so.
+          } else {
+            // Player connection attempt
+            if (this.persistentPlayerId && this.persistentPlayerId.startsWith('GM-')) {
+              // Player is connecting, but localStorage has a GM-prefixed ID.
+              // Send null to signal server to assign a fresh Player ID.
+              console.log(`[SocketService] Player Auth: localStorage ID ("${this.persistentPlayerId}") is GM-prefixed. Requesting new Player ID from server.`);
+              idToSend = null; 
+            }
+            // If persistentPlayerId from localStorage is P- or F- prefixed (or null), idToSend will reflect that.
+          }
+
+          if (idToSend) {
+            payload.persistentPlayerId = idToSend;
+          }
+          // currentSessionPlayerName is set by setPlayerDetails. For GM, it's 'GameMaster'. For Players, their chosen name.
+          if (this.currentSessionPlayerName) {
+            payload.playerName = this.currentSessionPlayerName;
+          }
+          
+          console.log('[SocketService] Auth callback sending:', payload, "Intended GM:", this.tempIsGameMasterQuery);
           cb(payload);
         }
       });
@@ -304,27 +342,60 @@ export class SocketService {
       } else {
         // Unexpected disconnect - try to reconnect
         this.updateConnectionState('reconnecting', { reason });
+        
+        // Force a reconnection attempt if it's not already trying
+        if (this.socket?.io && !this.socket.io._reconnecting) {
+          console.log('[SocketService] Forcing reconnection attempt...');
+          this.socket.io.connect();
+        }
       }
     });
 
-    // Reconnection handlers on the io manager (Socket.IO < 4.0 style)
-    this.socket.io.on('reconnect_attempt', (attempt: number) => {
+    // Reconnection handlers
+    this.socket.io?.on('reconnect_attempt', (attempt: number) => {
       console.log(`[SocketService] Reconnect attempt #${attempt}`);
-      this.updateConnectionState('reconnecting', { attempt });
+      // Only update state if this is a new attempt
+      if (attempt === 1) {
+        this.updateConnectionState('reconnecting', { attempt });
+      }
+      
+      // Try to use WebSocket first, then fall back to polling
+      if (attempt === 1 && this.socket?.io) {
+        this.socket.io.opts.transports = ['websocket', 'polling'];
+      }
     });
 
-    this.socket.io.on('reconnect_failed', () => {
+    this.socket.io?.on('reconnect_failed', () => {
       console.log('[SocketService] Reconnection failed after max attempts');
       this.updateConnectionState('reconnect_failed');
+      
+      // Don't try to force reconnect on failure - let user handle it
+      console.log('[SocketService] Max reconnection attempts reached. Please refresh the page to try again.');
     });
 
-    this.socket.io.on('reconnect_error', (error: Error) => {
+    this.socket.io?.on('reconnect_error', (error: Error) => {
       console.error('[SocketService] Reconnection error:', error);
+      
+      // Only switch transport on first error
+      if (error.message.includes('transport error') && this.socket?.io?.engine) {
+        const currentTransport = this.socket.io.engine.transport.name;
+        const newTransport = currentTransport === 'websocket' ? 'polling' : 'websocket';
+        console.log(`[SocketService] Switching transport from ${currentTransport} to ${newTransport}`);
+        this.socket.io.opts.transports = [newTransport];
+      }
     });
 
     this.socket.io.on('reconnect', (attempt: number) => {
       console.log(`[SocketService] Reconnected after ${attempt} attempts. Socket recovered:`, this.socket?.recovered);
       this.updateConnectionState('connected', { attempt, recovered: this.socket?.recovered });
+      
+      // If we have a room code, try to rejoin
+      const roomCode = localStorage.getItem('roomCode');
+      if (roomCode) {
+        this.rejoinRoom(roomCode).catch(error => {
+          console.error('[SocketService] Failed to rejoin room after reconnection:', error);
+        });
+      }
     });
 
     // Server error handler
@@ -342,7 +413,10 @@ export class SocketService {
         return;
       }
       
-      this.updateConnectionState('error', { error });
+      // Only update state if it's not already in an error state
+      if (this.connectionState !== 'error') {
+        this.updateConnectionState('error', { error });
+      }
     });
 
     // Add specific handler for kick errors
@@ -610,55 +684,28 @@ export class SocketService {
       avatarSvg = localStorage.getItem(`avatar_${this.persistentPlayerId}`);
     }
     
-    console.log('[SocketService] Rejoining room with avatar:', {
+    console.log('[SocketService] Attempting to rejoin room:', {
       roomCode,
       isGameMaster,
       persistentPlayerId: this.persistentPlayerId,
       hasAvatar: !!avatarSvg,
+      socketConnected: this.socket?.connected,
       timestamp: new Date().toISOString()
     });
     
     try {
-      // Add retry logic for reconnection
-      let retries = 0;
-      const maxRetries = 3;
-      
-      while (retries < maxRetries) {
-        try {
-          // Ensure we're connected before attempting to rejoin
-          if (!this.socket?.connected) {
-            console.log(`[SocketService] Socket not connected. Attempting to connect before rejoin. Retry ${retries + 1}/${maxRetries}`);
-            await this.connect();
-            // Small delay to ensure connection is stable
-            await new Promise(resolve => setTimeout(resolve, 500));
-          }
-          
-          // Now attempt the rejoin
-          await this.robustEmit('rejoin_room', { 
-            roomCode, 
-            isGameMaster, 
-            persistentPlayerId: this.persistentPlayerId,
-            avatarSvg
-          });
-          
-          console.log('[SocketService] Rejoin request sent successfully');
-          break; // Exit retry loop if successful
-        } catch (error) {
-          retries++;
-          console.error(`[SocketService] Rejoin attempt ${retries} failed:`, error);
-          
-          if (retries >= maxRetries) {
-            throw new Error(`Failed to rejoin after ${maxRetries} attempts`);
-          }
-          
-          // Exponential backoff: wait longer between each retry (1s, 2s, 4s...)
-          const backoffMs = Math.pow(2, retries) * 1000;
-          console.log(`[SocketService] Waiting ${backoffMs}ms before retry ${retries + 1}...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
-        }
-      }
+      // Simplified: Rely on robustEmit to handle connection. 
+      // If robustEmit fails (e.g., ensureConnected throws), the promise will be rejected.
+      await this.robustEmit('rejoin_room', { 
+        roomCode, 
+        isGameMaster, 
+        persistentPlayerId: this.persistentPlayerId,
+        avatarSvg
+      });
+      console.log('[SocketService] Rejoin room request sent successfully via robustEmit.');
     } catch (error) {
-      console.error('[SocketService] Failed to rejoin room after all retries:', error);
+      console.error('[SocketService] Failed to send rejoin_room event:', error);
+      // Propagate the error so callers (like the 'reconnect' event handler) can be aware.
       throw error;
     }
   }

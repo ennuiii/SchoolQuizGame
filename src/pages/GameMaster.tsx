@@ -209,21 +209,21 @@ const GameMaster: React.FC = () => {
   // Request game state update upon reconnection if we already have a roomCode
   useEffect(() => {
     if (connectionStatus === 'connected' && roomCode) {
-      console.log('[GameMaster] Connected with room code, requesting game state update...');
-      
-      // Join the room first if reconnecting
-      if (socketService.getConnectionState() === 'connected' && !isRoomLoading) {
-        console.log('[GameMaster] Attempting to rejoin room after reconnection:', roomCode);
-        socketService.rejoinRoom(roomCode, true); // true = isGameMaster
-      }
-      
-      // Request game state
-      socketService.requestGameState(roomCode);
-      
-      // Also explicitly request current player list
-      socketService.requestPlayers(roomCode);
+      console.log('[GameMaster] Connected with room code, requesting game state and players...');
+      // REMOVED: Explicit forceReconnect() and rejoinRoom() calls from here.
+      // Rely on socketService internal reconnection logic and server CSR.
+      // If CSR fails, 'session_not_fully_recovered_join_manually' event should be handled by context/UI.
+
+      socketService.requestGameState(roomCode).catch(error => {
+        console.error('[GameMaster] Error requesting game state on connect:', error);
+        toast.error('Failed to get game state: ' + (error as Error).message);
+      });
+      socketService.requestPlayers(roomCode).catch(error => {
+        console.error('[GameMaster] Error requesting players on connect:', error);
+        toast.error('Failed to get player list: ' + (error as Error).message);
+      });
     }
-  }, [connectionStatus, roomCode, isRoomLoading]);
+  }, [connectionStatus, roomCode]); // Removed isRoomLoading from deps as it's not directly causing this effect's main action. Add back if other logic inside here needs it.
 
   // Add a special effect to handle player board visibility after reconnection
   useEffect(() => {
@@ -290,6 +290,40 @@ const GameMaster: React.FC = () => {
     setIsRoomLoading(true);
     createRoom(newRoomCode, isStreamerMode);
   }, [createRoom, inputRoomCode, setIsRoomLoading, connectionStatus, isStreamerMode]);
+
+  // Function to force reconnect if we detect connection issues
+  const forceReconnectToGame = useCallback(async () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot force reconnect - No room code found');
+      toast.error('Room not found. Please create a room first.');
+      return;
+    }
+    
+    try {
+      console.log('[GameMaster] Attempting force reconnect for room:', roomCode);
+      setIsRoomLoading(true);
+      
+      // First force a clean reconnect to the server
+      await socketService.forceReconnect();
+      
+      // Small delay to ensure we're fully connected
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // Now rejoin the specific room as game master
+      await socketService.rejoinRoom(roomCode, true);
+      
+      // Request fresh state updates
+      socketService.requestGameState(roomCode);
+      socketService.requestPlayers(roomCode);
+      
+      setIsRoomLoading(false);
+      toast.success('Successfully reconnected to the game!');
+    } catch (error) {
+      console.error('[GameMaster] Force reconnect failed:', error);
+      setIsRoomLoading(false);
+      toast.error('Failed to reconnect. Try refreshing the page.');
+    }
+  }, [roomCode, setIsRoomLoading]);
 
   useEffect(() => {
     console.log('[GameMaster] Game state changed:', {
@@ -690,7 +724,18 @@ const GameMaster: React.FC = () => {
 
         <div className="container-fluid py-4">
           <LoadingOverlay isVisible={isRoomLoading} />
-          <ConnectionStatus showDetails={true} />
+          <div className="d-flex align-items-center mb-2">
+            <ConnectionStatus showDetails={true} />
+            {connectionStatus !== 'connected' && roomCode && (
+              <button 
+                className="btn btn-sm btn-warning ms-2" 
+                onClick={forceReconnectToGame}
+                disabled={isRoomLoading}
+              >
+                {isRoomLoading ? 'Reconnecting...' : 'Force Reconnect'}
+              </button>
+            )}
+          </div>
           
           {showEndRoundConfirm && (
             <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>

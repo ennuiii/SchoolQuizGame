@@ -1657,7 +1657,7 @@ body {
 }
 
 .classroom-whiteboard-svg svg {
-  filter: drop-shadow(0px 0px 1px rgba(255, 255, 255, 0.1));
+  filter: none !important;
 }
 
 .classroom-whiteboard-svg svg path {
@@ -1676,7 +1676,10 @@ body {
 .chalkboard-drawing-svg path {
   stroke-linecap: round !important; 
   stroke-linejoin: round !important;
-  filter: drop-shadow(0px 0px 1px rgba(0,0,0,0.3));
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
 }
 
 /* Ensure SVG container in recap modal has proper background */
@@ -1685,4 +1688,49 @@ body {
 .preview-whiteboard-svg {
   background: #0C6A35 !important;
   border: 2px solid #8B4513 !important;
+}
+
+/* Fix for chalk stroke rendering - overrides any previous styles */
+.drawing-board-container svg path,
+.classroom-whiteboard-svg svg path,
+.preview-whiteboard-svg svg path,
+.preview-overlay-v2 svg path,
+.chalkboard-drawing-svg path {
+  stroke-linejoin: round !important;
+  stroke-linecap: round !important;
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
+  stroke-dasharray: none !important;
+  filter: none !important;
+  shape-rendering: geometricPrecision !important;
+}
+
+/* Remove all duplicate rules that apply shadows to paths */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="yellow"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFF00"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#ffff00"] {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Remove all filters from SVG containers that might affect paths */
+.classroom-whiteboard-svg svg,
+.drawing-board-container svg,
+.preview-whiteboard-svg svg,
+.preview-overlay-v2 svg {
+  filter: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Override any previous shadow styles for SVG paths */
+.chalkboard-drawing-svg path {
+  stroke-linecap: round !important; 
+  stroke-linejoin: round !important;
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
+  stroke-dasharray: none !important;
 } 

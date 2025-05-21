@@ -114,11 +114,13 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
                     
                     if (isEraserStroke) {
                       try {
-                        // Make eraser paths almost invisible in the SVG output
-                        // This will help them blend with the background in the preview
-                        (obj as any).opacity = 0.01; // Almost transparent but not fully removed to preserve the SVG structure
-                        (obj as any).strokeOpacity = 0.01;
-                        console.log('[FabricJsonToSvg] Detected and handled eraser stroke');
+                        // Keep eraser strokes as they are, but add a data attribute for CSS targeting
+                        (obj as any).stroke = '#0C6A35'; // Ensure consistent color
+                        (obj as any).data = { isEraser: true }; // Add metadata for identification 
+                        // Leave width, opacity, etc. as they were originally
+                        // Just add data-eraser attribute to help with CSS targeting in SVG output
+                        (obj as any).eraserPath = true;
+                        console.log('[FabricJsonToSvg] Detected eraser stroke - preserving original appearance');
                       } catch (eraserError) {
                         console.warn('[FabricJsonToSvg] Could not handle eraser stroke:', eraserError);
                       }
@@ -134,6 +136,18 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
                         if ((obj as any).stroke === '#FFFFFF' || (obj as any).stroke === '#ffffff' || (obj as any).stroke === 'white') {
                           (obj as any).stroke = '#F8F8F8';
                         }
+                        
+                        // Remove any shadow properties to prevent double lines
+                        if ((obj as any).shadow) {
+                          (obj as any).shadow = null;
+                        }
+                        
+                        // Ensure no stroke-shadow in the output SVG
+                        (obj as any).strokeShadow = null;
+                        (obj as any).shadowBlur = 0;
+                        (obj as any).shadowOffsetX = 0;
+                        (obj as any).shadowOffsetY = 0;
+                        (obj as any).shadowColor = '';
                       } catch (enhanceError) {
                         console.warn('[FabricJsonToSvg] Could not enhance path visibility:', enhanceError);
                       }
@@ -154,7 +168,26 @@ const FabricJsonToSvg: React.FC<FabricJsonToSvgProps> = ({
                     console.log('[FabricJsonToSvg] Successfully generated SVG');
                     
                     // Add chalkboard class to SVG for consistent styling with CSS
-                    const enhancedSvg = svg.replace('<svg ', '<svg class="chalkboard-drawing-svg" ');
+                    let enhancedSvg = svg.replace('<svg ', '<svg class="chalkboard-drawing-svg" ');
+                    
+                    // Add a rect with the same color as the chalkboard background
+                    // This helps with eraser effects when using composite operations
+                    enhancedSvg = enhancedSvg.replace(/<svg class="chalkboard-drawing-svg"([^>]*)>/,
+                      '<svg class="chalkboard-drawing-svg"$1><rect x="0" y="0" width="100%" height="100%" fill="#0C6A35"></rect>');
+                    
+                    // Mark eraser paths with data attribute
+                    enhancedSvg = enhancedSvg.replace(/<path\s+style="[^"]*stroke:\s*rgb\(12,\s*106,\s*53\)[^"]*"\s+[^>]*>/g, 
+                      match => match.replace('>', ' data-eraser="true">'));
+                    
+                    enhancedSvg = enhancedSvg.replace(/<path\s+style="[^"]*stroke:\s*#0C6A35[^"]*"\s+[^>]*>/g, 
+                      match => match.replace('>', ' data-eraser="true">'));
+                    
+                    // Remove any shadow-related attributes from all path elements
+                    enhancedSvg = enhancedSvg.replace(/(stroke-shadow|shadow-blur|shadow-color|shadow-offset-x|shadow-offset-y)[^;]*;/g, '');
+                    
+                    // Clean up any remaining shadow styles
+                    enhancedSvg = enhancedSvg.replace(/filter:[^;]*shadow[^;]*;/g, '');
+                    
                     setSvgString(enhancedSvg);
                   } else {
                     console.error('[FabricJsonToSvg] toSVG produced invalid output:', svg);

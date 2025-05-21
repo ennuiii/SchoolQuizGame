@@ -129,7 +129,13 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 
                 {/* Drawing Area with White Background */}
                 <div
-                  className="classroom-whiteboard-svg" 
+                  className="classroom-whiteboard-svg eraser-visible-mode" 
+                  style={{ 
+                    background: '#0C6A35',
+                    position: 'relative',
+                    minHeight: '120px',
+                    width: '100%'
+                  }}
                 >
                   <FabricJsonToSvg 
                     jsonData={actualBoardData}

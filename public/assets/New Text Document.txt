@@ -1,0 +1,2097 @@
+{
+  "questions": [
+    {
+      "text": "Wie viele Äpfel sind 2 Äpfel und 3 Äpfel zusammen?",
+      "answer": "5 Äpfel",
+      "grade": "1",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Welcher Buchstabe kommt nach 'A' im Alphabet?",
+      "answer": "B",
+      "grade": "1",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Welche Jahreszeit kommt nach dem Sommer?",
+      "answer": "Herbst",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Welches Instrument macht 'Tromm, Tromm, Tromm'?",
+      "answer": "Die Trommel",
+      "grade": "1",
+      "subject": "Musik",
+      "language": "de"
+    },
+    {
+      "text": "Welche Farbe erhältst du, wenn du Blau und Gelb mischst?",
+      "answer": "Grün",
+      "grade": "1",
+      "subject": "Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Was kommt nach der Zahl 3?",
+      "answer": "4",
+      "grade": "1",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Welches Tier sagt 'Wau'?",
+      "answer": "Der Hund",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine geometrische Form mit drei Ecken.",
+      "answer": "Dreieck",
+      "grade": "1",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Zeichne einen Kreis.",
+      "answer": "(Zeichnung eines Kreises)",
+      "grade": "1",
+      "subject": "Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Finger hast du an einer Hand?",
+      "answer": "Fünf",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 15 - 7?",
+      "answer": "8",
+      "grade": "2",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Bilde ein Wort mit den Buchstaben L, B, A, L.",
+      "answer": "BALL",
+      "grade": "2",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne drei Haustiere.",
+      "answer": "Hund, Katze, Maus (Beispiele)",
+      "grade": "2",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine Ballsportart.",
+      "answer": "Fußball (Beispiel)",
+      "grade": "2",
+      "subject": "Sport",
+      "language": "de"
+    },
+    {
+      "text": "Warum feiern wir Weihnachten? (vereinfacht)",
+      "answer": "Weil Jesus geboren wurde / Als Fest der Liebe und Familie",
+      "grade": "2",
+      "subject": "Religion/Ethik",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Tage hat eine Woche?",
+      "answer": "7 Tage",
+      "grade": "2",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist das Gegenteil von 'groß'?",
+      "answer": "Klein",
+      "grade": "2",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Welches Wetter ist typisch für den Winter?",
+      "answer": "Kalt, Schnee, Eis (Beispiele)",
+      "grade": "2",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 3 + 3 + 3?",
+      "answer": "9",
+      "grade": "2",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Minuten hat eine halbe Stunde?",
+      "answer": "30 Minuten",
+      "grade": "3",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Mehrzahl von 'Haus'?",
+      "answer": "Häuser",
+      "grade": "3",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne die vier Himmelsrichtungen.",
+      "answer": "Norden, Süden, Osten, Westen",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Wie nennt man die Zeichen, mit denen Musik aufgeschrieben wird?",
+      "answer": "Noten",
+      "grade": "3",
+      "subject": "Musik",
+      "language": "de"
+    },
+    {
+      "text": "How do you say 'Danke' in English?",
+      "answer": "Thank you",
+      "grade": "3",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 4 multipliziert mit 5?",
+      "answer": "20",
+      "grade": "3",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Werkzeug, das ein Handwerker benutzt.",
+      "answer": "Hammer (Beispiel)",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Welches Tier lebt im Wasser und hat Schuppen?",
+      "answer": "Fisch",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Nomen (Namenwort)? Gib ein Beispiel.",
+      "answer": "Ein Wort, das ein Lebewesen, einen Gegenstand oder einen Begriff bezeichnet. Beispiel: 'Tisch'",
+      "grade": "3",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Ein Rechteck ist 5 cm lang und 3 cm breit. Was ist sein Umfang?",
+      "answer": "16 cm",
+      "grade": "4",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Setze das richtige Satzzeichen: Wann kommst du nach Hause_",
+      "answer": "?",
+      "grade": "4",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Hauptstadt von Deutschland?",
+      "answer": "Berlin",
+      "grade": "4",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "What is 'Hund' in English?",
+      "answer": "Dog",
+      "grade": "4",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Streichinstrument.",
+      "answer": "Geige (Beispiel)",
+      "grade": "4",
+      "subject": "Musik",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Bundesländer hat Deutschland?",
+      "answer": "16",
+      "grade": "4",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Adjektiv? Gib ein Beispiel.",
+      "answer": "Ein Wie-Wort, das ein Nomen näher beschreibt. Beispiel: 'schnell'",
+      "grade": "4",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 56 geteilt durch 7?",
+      "answer": "8",
+      "grade": "4",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne einen Beruf, bei dem man Menschen hilft.",
+      "answer": "Arzt/Ärztin (Beispiel)",
+      "grade": "4",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Berechne: 12 * 15.",
+      "answer": "180",
+      "grade": "5",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Bestimme die Wortart von 'schnell' im Satz: 'Das Auto fährt schnell.'",
+      "answer": "Adverb",
+      "grade": "5",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Translate: 'Ich bin zehn Jahre alt.'",
+      "answer": "I am ten years old.",
+      "grade": "5",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne drei Teile einer Pflanze.",
+      "answer": "Wurzel, Stängel, Blatt (Beispiele)",
+      "grade": "5",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Welcher ist der größte Kontinent der Erde?",
+      "answer": "Asien",
+      "grade": "5",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was bedeutet 'salve'?",
+      "answer": "Hallo / Sei gegrüßt",
+      "grade": "5",
+      "subject": "Latein",
+      "language": "de"
+    },
+    {
+      "text": "Nenne einen Planeten unseres Sonnensystems.",
+      "answer": "Mars (Beispiel)",
+      "grade": "5",
+      "subject": "Sachunterricht/Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Verb?",
+      "answer": "Ein Tu-Wort, das eine Tätigkeit oder einen Zustand ausdrückt.",
+      "grade": "5",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein rechter Winkel?",
+      "answer": "Ein Winkel von 90 Grad.",
+      "grade": "5",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein bekanntes Märchen der Brüder Grimm.",
+      "answer": "Hänsel und Gretel (Beispiel)",
+      "grade": "5",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 3/4 als Dezimalzahl?",
+      "answer": "0,75",
+      "grade": "6",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "In welcher Zeitform steht der Satz: 'Er hatte das Buch gelesen.'?",
+      "answer": "Plusquamperfekt",
+      "grade": "6",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What is the past tense of 'go'?",
+      "answer": "went",
+      "grade": "6",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Einheit der Geschwindigkeit?",
+      "answer": "Meter pro Sekunde (m/s) oder Kilometer pro Stunde (km/h)",
+      "grade": "6",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Wer waren die Römer?",
+      "answer": "Ein antikes Volk, das ein großes Reich im Mittelmeerraum und Europa errichtete.",
+      "grade": "6",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Vulkan?",
+      "answer": "Ein Berg, aus dem Magma, Asche und Gase aus dem Erdinneren austreten können.",
+      "grade": "6",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Nenne die drei Aggregatzustände von Wasser.",
+      "answer": "Fest (Eis), flüssig (Wasser), gasförmig (Wasserdampf)",
+      "grade": "6",
+      "subject": "Physik/Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Pronomen? Gib ein Beispiel.",
+      "answer": "Ein Fürwort, das ein Nomen ersetzt oder begleitet. Beispiel: 'er', 'sie', 'es'",
+      "grade": "6",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einem Säugetier und einem Vogel?",
+      "answer": "Säugetiere haben Fell und säugen ihre Jungen, Vögel haben Federn und legen Eier.",
+      "grade": "6",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine europäische Hauptstadt außer Berlin.",
+      "answer": "Paris (Beispiel)",
+      "grade": "6",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Löse die Gleichung: 2x + 5 = 11",
+      "answer": "x = 3",
+      "grade": "7",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Synonym für 'glücklich'?",
+      "answer": "Fröhlich, zufrieden (Beispiele)",
+      "grade": "7",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Form a question: 'You are from Germany.'",
+      "answer": "Are you from Germany?",
+      "grade": "7",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist das chemische Symbol für Wasser?",
+      "answer": "H₂O",
+      "grade": "7",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist Fotosynthese?",
+      "answer": "Der Prozess, bei dem grüne Pflanzen Lichtenergie nutzen, um Kohlendioxid und Wasser in Glukose (Zucker) und Sauerstoff umzuwandeln.",
+      "grade": "7",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Wer war Martin Luther?",
+      "answer": "Ein deutscher Mönch und Theologieprofessor, der die Reformation auslöste.",
+      "grade": "7",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Comment s'appelle la capitale de la France?",
+      "answer": "Paris",
+      "grade": "7",
+      "subject": "Französisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Ökosystem?",
+      "answer": "Ein Lebensraum und die darin lebenden Organismen sowie deren Wechselwirkungen.",
+      "grade": "7",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen direktem und indirektem Objekt?",
+      "answer": "Das direkte Objekt (Akkusativobjekt) ist das, was von der Handlung direkt betroffen ist (Wen/Was?). Das indirekte Objekt (Dativobjekt) gibt an, wem etwas geschieht (Wem?).",
+      "grade": "7",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine physikalische Größe und ihre Einheit.",
+      "answer": "Länge, Meter (m) (Beispiel)",
+      "grade": "7",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Berechne den Flächeninhalt eines Kreises mit Radius 5 cm (verwende π ≈ 3,14).",
+      "answer": "78,5 cm²",
+      "grade": "8",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Analysiere den Satzbau: 'Obwohl es regnete, ging er spazieren.'",
+      "answer": "Satzgefüge (Hauptsatz und Nebensatz)",
+      "grade": "8",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What is a 'noun'?",
+      "answer": "A word that represents a person, place, thing, or idea.",
+      "grade": "8",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was besagt das ohmsche Gesetz?",
+      "answer": "U = R * I (Spannung = Widerstand * Stromstärke)",
+      "grade": "8",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was war die Französische Revolution?",
+      "answer": "Eine Periode tiefgreifender sozialer und politischer Umwälzungen in Frankreich von 1789 bis 1799.",
+      "grade": "8",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Funktion des Herzens?",
+      "answer": "Es pumpt Blut durch den Körper, um Organe und Gewebe mit Sauerstoff und Nährstoffen zu versorgen.",
+      "grade": "8",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne drei verschiedene Musikepochen.",
+      "answer": "Barock, Klassik, Romantik (Beispiele)",
+      "grade": "8",
+      "subject": "Musik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Atom?",
+      "answer": "Der kleinste Baustein eines chemischen Elements.",
+      "grade": "8",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen Aktiv und Passiv im Satzbau?",
+      "answer": "Im Aktivsatz führt das Subjekt die Handlung aus. Im Passivsatz wird mit dem Subjekt etwas getan.",
+      "grade": "8",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine chemische Reaktion im Alltag.",
+      "answer": "Verbrennen von Holz, Rosten von Eisen (Beispiele)",
+      "grade": "8",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Vereinfache den Term: (a+b)²",
+      "answer": "a² + 2ab + b²",
+      "grade": "9",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was sind die Merkmale einer Kurzgeschichte?",
+      "answer": "Geringer Umfang, offener Anfang/Schluss, Alltagsthema, Pointe (Beispiele)",
+      "grade": "9",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Explain the difference between 'affect' and 'effect'.",
+      "answer": "'Affect' is usually a verb meaning 'to influence', while 'effect' is usually a noun meaning 'a result'.",
+      "grade": "9",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine Säure und was eine Base?",
+      "answer": "Säuren geben Protonen (H⁺-Ionen) ab, Basen nehmen Protonen auf oder geben Hydroxidionen (OH⁻-Ionen) ab.",
+      "grade": "9",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was sind die drei Gewalten im deutschen Staat?",
+      "answer": "Legislative (Gesetzgebung), Exekutive (ausführende Gewalt), Judikative (Rechtsprechung)",
+      "grade": "9",
+      "subject": "Politik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist Energieerhaltung?",
+      "answer": "Der Energieerhaltungssatz besagt, dass die Gesamtenergie in einem abgeschlossenen System konstant bleibt; Energie kann weder erzeugt noch vernichtet, sondern nur umgewandelt werden.",
+      "grade": "9",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Wer schrieb 'Romeo und Julia'?",
+      "answer": "William Shakespeare",
+      "grade": "9",
+      "subject": "Literatur/Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Hauptstadt von Spanien?",
+      "answer": "Madrid",
+      "grade": "9",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre den Begriff 'Gen'.",
+      "answer": "Ein Abschnitt auf der DNA, der die Information für ein bestimmtes Merkmal oder Protein enthält.",
+      "grade": "9",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Metapher'? Gib ein Beispiel.",
+      "answer": "Ein bildhafter Ausdruck, bei dem ein Wort nicht in seiner wörtlichen, sondern in einer übertragenen Bedeutung gebraucht wird. Beispiel: 'Das ist der Gipfel der Frechheit.'",
+      "grade": "9",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Löse das lineare Gleichungssystem: y = 2x + 1 und y = -x + 4",
+      "answer": "x = 1, y = 3",
+      "grade": "10",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Interpretiere das Gedicht 'Der Panther' von Rilke (kurze Kernaussage).",
+      "answer": "Das Gedicht thematisiert Gefangenschaft, Verlust von Vitalität und die Monotonie eines eingesperrten Daseins.",
+      "grade": "10",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Write a short summary of a book you have read recently (in English).",
+      "answer": "(Individuelle Beispielantwort, abhängig vom Buch)",
+      "grade": "10",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist Radioaktivität?",
+      "answer": "Die Eigenschaft instabiler Atomkerne, sich spontan unter Energieabgabe und Aussendung von Teilchen (Alpha-, Beta-Strahlung) oder Gammastrahlung umzuwandeln.",
+      "grade": "10",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Comment dit-on 'Guten Tag' en français?",
+      "answer": "Bonjour",
+      "grade": "10",
+      "subject": "Französisch",
+      "language": "de"
+    },
+    {
+      "text": "Was sind Chromosomen und welche Rolle spielen sie bei der Vererbung?",
+      "answer": "Chromosomen sind Träger der Erbinformation (DNA) in Zellen. Sie werden von den Eltern an die Nachkommen weitergegeben und bestimmen deren Merkmale.",
+      "grade": "10",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen Wetter und Klima?",
+      "answer": "Wetter ist der aktuelle Zustand der Atmosphäre an einem Ort, Klima ist der durchschnittliche Wetterverlauf über einen längeren Zeitraum.",
+      "grade": "10",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine erneuerbare Energiequelle.",
+      "answer": "Sonnenenergie (Beispiel)",
+      "grade": "10",
+      "subject": "Physik/Umwelt",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Satz des Pythagoras?",
+      "answer": "In einem rechtwinkligen Dreieck ist die Summe der Quadrate der Kathetenlängen gleich dem Quadrat der Hypotenusenlänge (a² + b² = c²).",
+      "grade": "10",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine wichtige Persönlichkeit der deutschen Nachkriegsgeschichte.",
+      "answer": "Konrad Adenauer (Beispiel)",
+      "grade": "10",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Bestimme die erste Ableitung der Funktion f(x) = 3x³ - 2x² + 5x - 7.",
+      "answer": "f'(x) = 9x² - 4x + 5",
+      "grade": "11",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Erläutere den Begriff 'Epoche' in der Literaturgeschichte am Beispiel der Romantik.",
+      "answer": "Eine Epoche ist ein abgegrenzter Zeitraum in der Literatur, der durch gemeinsame stilistische, thematische und weltanschauliche Merkmale gekennzeichnet ist. Die Romantik (ca. 1795-1848) betonte Gefühl, Individualität, Natur, das Irrationale und die Hinwendung zur Vergangenheit.",
+      "grade": "11",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Analyze the use of rhetorical devices in Martin Luther King Jr.'s 'I Have a Dream' speech.",
+      "answer": "(Beispielanalyse: Anaphora, Metaphern, Alliterationen zur Verstärkung der Botschaft von Gleichheit und Hoffnung)",
+      "grade": "11",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Beschreibe den Aufbau einer tierischen Zelle und die Funktion ihrer wichtigsten Organellen.",
+      "answer": "Zellmembran, Zytoplasma, Zellkern (enthält DNA), Mitochondrien (Energieproduktion), Ribosomen (Proteinsynthese), Endoplasmatisches Retikulum (Protein-/Lipidmodifikation), Golgi-Apparat (Verpackung/Versand von Proteinen).",
+      "grade": "11",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Diskutiere die Ursachen des Ersten Weltkriegs.",
+      "answer": "Komplexes Ursachenbündel: Imperialismus, Nationalismus, Wettrüsten, Bündnissysteme, Krisen auf dem Balkan, Attentat von Sarajevo.",
+      "grade": "11",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was sind Alkane, Alkene und Alkine? Nenne jeweils ein Beispiel.",
+      "answer": "Gesättigte (Alkane, z.B. Methan CH₄), ungesättigte mit einer Doppelbindung (Alkene, z.B. Ethen C₂H₄) und ungesättigte mit einer Dreifachbindung (Alkine, z.B. Ethin C₂H₂) Kohlenwasserstoffe.",
+      "grade": "11",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine Bilanz in der Betriebswirtschaftslehre?",
+      "answer": "Eine Gegenüberstellung von Vermögen (Aktiva) und Kapital (Passiva) eines Unternehmens zu einem bestimmten Zeitpunkt.",
+      "grade": "11",
+      "subject": "Wirtschaft",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre den Begriff 'Demokratie'.",
+      "answer": "Eine Staatsform, in der die Macht vom Volk ausgeht, meist durch Wahlen und Repräsentation.",
+      "grade": "11",
+      "subject": "Politik",
+      "language": "de"
+    },
+    {
+      "text": "Was versteht man unter 'Newtons Gesetzen' der Bewegung?",
+      "answer": "Drei Grundgesetze der Mechanik: Trägheitsgesetz, Aktionsprinzip (F=ma), Wechselwirkungsprinzip (actio=reactio).",
+      "grade": "11",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Werk von Franz Kafka und dessen Hauptthema.",
+      "answer": "'Die Verwandlung' - Entfremdung, Isolation, Verlust der Menschlichkeit (Beispiel).",
+      "grade": "11",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Berechne das Integral von f(x) = x² von 0 bis 1.",
+      "answer": "1/3",
+      "grade": "12",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Vergleiche die Darstellung der Frau in Goethes 'Faust I' und Lessings 'Emilia Galotti'.",
+      "answer": "(Vergleich hinsichtlich ihrer Rollen, Selbstbestimmung, gesellschaftlichen Zwänge und tragischen Schicksale)",
+      "grade": "12",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Discuss the concept of the 'American Dream' and its portrayal in American literature.",
+      "answer": "(Diskussion über Ideale wie Erfolg, Freiheit, Chancengleichheit und kritische Auseinandersetzungen damit in Werken wie 'The Great Gatsby' oder 'Death of a Salesman')",
+      "grade": "12",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre das Prinzip des chemischen Gleichgewichts und das Prinzip von Le Chatelier.",
+      "answer": "Ein Zustand, bei dem Hin- und Rückreaktion mit gleicher Geschwindigkeit ablaufen. Le Chatelier: Übt man auf ein im Gleichgewicht befindliches System einen Zwang aus (Änderung von Temperatur, Druck, Konzentration), so verschiebt sich das Gleichgewicht so, dass es dem Zwang ausweicht.",
+      "grade": "12",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Analysiere die Auswirkungen der Globalisierung auf die deutsche Wirtschaft.",
+      "answer": "Chancen (Exportmärkte, Innovation), Risiken (Wettbewerbsdruck, Verlagerung von Arbeitsplätzen, soziale Ungleichheit).",
+      "grade": "12",
+      "subject": "Sozialwissenschaften/Wirtschaft",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre das Doppelspaltexperiment und seine Bedeutung für die Quantenmechanik.",
+      "answer": "Ein Experiment, das zeigt, dass Teilchen (z.B. Elektronen, Photonen) sowohl Wellen- als auch Teilcheneigenschaften aufweisen können (Welle-Teilchen-Dualismus), ein Grundpfeiler der Quantenmechanik.",
+      "grade": "12",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Moralphilosophie'?",
+      "answer": "Ein Teilbereich der Philosophie, der sich mit Fragen des richtigen Handelns und der moralischen Werte befasst (Ethik).",
+      "grade": "12",
+      "subject": "Philosophie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein bekanntes Werk von Leonardo da Vinci.",
+      "answer": "Mona Lisa (Beispiel)",
+      "grade": "12",
+      "subject": "Kunstgeschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was sind die Mendelschen Regeln der Vererbung?",
+      "answer": "Uniformitätsregel, Spaltungsregel, Unabhängigkeitsregel.",
+      "grade": "12",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Erläutere den Begriff 'Kalte Krieg'.",
+      "answer": "Der geopolitische Konflikt zwischen den Westmächten unter Führung der USA und dem Ostblock unter Führung der Sowjetunion von ca. 1947 bis 1991, ohne direkte militärische Auseinandersetzung der Supermächte.",
+      "grade": "12",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Eine Urne enthält 3 rote und 2 blaue Kugeln. Es werden zwei Kugeln ohne Zurücklegen gezogen. Wie groß ist die Wahrscheinlichkeit, zwei rote Kugeln zu ziehen?",
+      "answer": "P(RR) = (3/5) * (2/4) = 6/20 = 3/10",
+      "grade": "13",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Erörtere die Bedeutung von Kommunikation in der modernen Gesellschaft unter Berücksichtigung verschiedener Kommunikationstheorien (z.B. Watzlawick).",
+      "answer": "(Erörterung über die Rolle von verbaler/nonverbaler Kommunikation, Massenmedien, digitale Kommunikation, Missverständnisse, Axiome Watzlawicks etc.)",
+      "grade": "13",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Evaluate the role of the media in shaping public opinion in contemporary society.",
+      "answer": "(Bewertung von Aspekten wie Gatekeeping, Framing, Agenda Setting, Fake News, soziale Medien und deren Einfluss auf politische und gesellschaftliche Diskurse)",
+      "grade": "13",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre die Grundprinzipien der speziellen Relativitätstheorie von Albert Einstein.",
+      "answer": "Zwei Postulate: 1. Relativitätsprinzip (Naturgesetze sind in allen Inertialsystemen gleich). 2. Konstanz der Lichtgeschwindigkeit (Lichtgeschwindigkeit im Vakuum ist für alle Beobachter gleich, unabhängig von der Bewegung der Lichtquelle).",
+      "grade": "13",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was versteht Immanuel Kant unter dem 'Kategorischen Imperativ'?",
+      "answer": "'Handle nur nach derjenigen Maxime, durch die du zugleich wollen kannst, dass sie ein allgemeines Gesetz werde.' Ein grundlegendes Prinzip der Ethik zur Beurteilung der Moralität von Handlungen.",
+      "grade": "13",
+      "subject": "Philosophie",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre den Unterschied zwischen einem Algorithmus und einem Programm.",
+      "answer": "Ein Algorithmus ist eine eindeutige Handlungsvorschrift zur Lösung eines Problems oder einer Klasse von Problemen. Ein Programm ist die konkrete Implementierung eines Algorithmus in einer bestimmten Programmiersprache.",
+      "grade": "13",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Erläutere die Evolutionstheorie nach Charles Darwin (Selektion, Variation).",
+      "answer": "Individuen einer Art zeigen Variationen in ihren Merkmalen. Diejenigen, die besser an ihre Umwelt angepasst sind (durch natürliche Selektion), haben höhere Überlebens- und Fortpflanzungschancen und geben ihre vorteilhaften Merkmale an die nächste Generation weiter.",
+      "grade": "13",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Datenbank' in der Informatik?",
+      "answer": "Ein System zur elektronischen Datenverwaltung, das große Datenmengen strukturiert speichert und Abfragen ermöglicht.",
+      "grade": "13",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Diskutiere die ethischen Implikationen von künstlicher Intelligenz.",
+      "answer": "(Diskussion über Themen wie Autonomie, Verantwortung, Bias, Datenschutz, Arbeitsplatzverlust, Überwachung)",
+      "grade": "13",
+      "subject": "Ethik/Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Vektor' in der Mathematik und Physik?",
+      "answer": "Eine gerichtete Größe, die durch Betrag und Richtung charakterisiert ist (z.B. Geschwindigkeit, Kraft).",
+      "grade": "13",
+      "subject": "Mathematik/Physik",
+      "language": "de"
+    },
+    {
+      "text": "Analysiere die Rolle der Europäischen Union in der Weltpolitik.",
+      "answer": "(Analyse von Aspekten wie wirtschaftliche Macht, politische Integration, Außen- und Sicherheitspolitik, Herausforderungen).",
+      "grade": "13",
+      "subject": "Sozialwissenschaften/Politik",
+      "language": "de"
+    },
+    {
+        "text": "Welches ist das kleinste Bundesland Deutschlands nach Fläche?",
+        "answer": "Bremen",
+        "grade": "7",
+        "subject": "Erdkunde",
+        "language": "de"
+    },
+    {
+        "text": "Was ist die Quadratwurzel von 81?",
+        "answer": "9",
+        "grade": "7",
+        "subject": "Mathematik",
+        "language": "de"
+    },
+    {
+        "text": "Nenne einen berühmten Komponisten der Wiener Klassik.",
+        "answer": "Wolfgang Amadeus Mozart (Beispiel)",
+        "grade": "8",
+        "subject": "Musik",
+        "language": "de"
+    },
+    {
+        "text": "Was versteht man unter 'Bruttoinlandsprodukt' (BIP)?",
+        "answer": "Der Gesamtwert aller Waren und Dienstleistungen, die innerhalb eines Jahres in einer Volkswirtschaft hergestellt werden.",
+        "grade": "10",
+        "subject": "Wirtschaft",
+        "language": "de"
+    },
+    {
+        "text": "Welches Ereignis markiert traditionell den Beginn des Mittelalters?",
+        "answer": "Der Untergang des Weströmischen Reiches (476 n. Chr.)",
+        "grade": "7",
+        "subject": "Geschichte",
+        "language": "de"
+    },
+    {
+        "text": "Was ist eine 'Variable' in der Programmierung?",
+        "answer": "Ein benannter Speicherbereich, der einen Wert aufnehmen kann, der sich während der Programmausführung ändern kann.",
+        "grade": "9",
+        "subject": "Informatik",
+        "language": "de"
+    },
+    {
+        "text": "Nenne eine Primzahl zwischen 20 und 30.",
+        "answer": "23 oder 29",
+        "grade": "6",
+        "subject": "Mathematik",
+        "language": "de"
+    },
+    {
+        "text": "Was ist die Funktion der Lunge?",
+        "answer": "Gasaustausch: Aufnahme von Sauerstoff ins Blut und Abgabe von Kohlendioxid aus dem Blut.",
+        "grade": "7",
+        "subject": "Biologie",
+        "language": "de"
+    },
+    {
+        "text": "Wer hat die Relativitätstheorie entwickelt?",
+        "answer": "Albert Einstein",
+        "grade": "10",
+        "subject": "Physik",
+        "language": "de"
+    },
+    {
+        "text": "Was ist der Unterschied zwischen einer Monarchie und einer Republik?",
+        "answer": "In einer Monarchie steht ein Monarch (König/Kaiser) an der Spitze, oft durch Erbfolge. In einer Republik wird das Staatsoberhaupt meist gewählt und es gibt keine Erbfolge.",
+        "grade": "9",
+        "subject": "Politik",
+        "language": "de"
+    },
+    {
+      "text": "Was ist die chemische Formel für Kochsalz?",
+      "answer": "NaCl",
+      "grade": "8",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine Metallsorte.",
+      "answer": "Eisen (Beispiel)",
+      "grade": "6",
+      "subject": "Chemie/Physik",
+      "language": "de"
+    },
+    {
+      "text": "What is the capital of the USA?",
+      "answer": "Washington, D.C.",
+      "grade": "7",
+      "subject": "Englisch/Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Wie nennt man die Kunst des schönen Schreibens?",
+      "answer": "Kalligraphie",
+      "grade": "7",
+      "subject": "Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Imperativ' in der Grammatik?",
+      "answer": "Die Befehlsform eines Verbs.",
+      "grade": "6",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Kontinente gibt es (gängige Zählung in Deutschland)?",
+      "answer": "7 (Europa, Asien, Afrika, Nordamerika, Südamerika, Australien, Antarktika)",
+      "grade": "5",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Welches Organ pumpt Blut durch den Körper?",
+      "answer": "Das Herz",
+      "grade": "5",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 100 geteilt durch 4?",
+      "answer": "25",
+      "grade": "4",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine Farbe des Regenbogens.",
+      "answer": "Rot (Beispiel)",
+      "grade": "2",
+      "subject": "Sachunterricht/Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Dreieck mit drei gleich langen Seiten?",
+      "answer": "Gleichseitiges Dreieck",
+      "grade": "5",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Wer war der erste Bundeskanzler der Bundesrepublik Deutschland?",
+      "answer": "Konrad Adenauer",
+      "grade": "9",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Einheit der elektrischen Spannung?",
+      "answer": "Volt (V)",
+      "grade": "8",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine Programmiersprache.",
+      "answer": "Python (Beispiel)",
+      "grade": "9",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Sonett' in der Lyrik?",
+      "answer": "Eine Gedichtform mit 14 Zeilen, oft mit spezifischem Reimschema und metrischer Struktur.",
+      "grade": "11",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Wie lautet die Kreiszahl Pi auf zwei Nachkommastellen gerundet?",
+      "answer": "3,14",
+      "grade": "7",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Hauptfunktion von Wurzeln bei Pflanzen?",
+      "answer": "Aufnahme von Wasser und Nährstoffen aus dem Boden, Verankerung der Pflanze.",
+      "grade": "6",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Welches Meer liegt nördlich von Deutschland?",
+      "answer": "Nordsee und Ostsee",
+      "grade": "5",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einem Vokal und einem Konsonanten?",
+      "answer": "Vokale (Selbstlaute) können alleine eine Silbe bilden, Konsonanten (Mitlaute) meist nur mit einem Vokal.",
+      "grade": "3",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "How many months are in a year?",
+      "answer": "Twelve",
+      "grade": "4",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Werkzeug, das ein Gärtner benutzt.",
+      "answer": "Spaten (Beispiel)",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Pixel' in der digitalen Bildverarbeitung?",
+      "answer": "Der kleinste Punkt oder Bildbaustein eines digitalen Rasterbildes.",
+      "grade": "10",
+      "subject": "Informatik/Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Wer entdeckte Amerika im Jahr 1492 (aus europäischer Sicht)?",
+      "answer": "Christoph Kolumbus",
+      "grade": "7",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Einheit der Masse im SI-System?",
+      "answer": "Kilogramm (kg)",
+      "grade": "7",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für ein soziales Netzwerk.",
+      "answer": "Facebook (Beispiel)",
+      "grade": "8",
+      "subject": "Informatik/Sozialkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Novelle'?",
+      "answer": "Eine kürzere Erzählung in Prosa, die sich auf ein einzelnes, außergewöhnliches Ereignis konzentriert.",
+      "grade": "10",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der pH-Wert einer neutralen Lösung?",
+      "answer": "7",
+      "grade": "9",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine nicht-erneuerbare Energiequelle.",
+      "answer": "Kohle (Beispiel)",
+      "grade": "8",
+      "subject": "Physik/Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was versteht man unter 'Inflation'?",
+      "answer": "Ein Anstieg des allgemeinen Preisniveaus, wodurch die Kaufkraft des Geldes sinkt.",
+      "grade": "11",
+      "subject": "Wirtschaft",
+      "language": "de"
+    },
+    {
+      "text": "Welches ist das höchste Gebirge der Welt?",
+      "answer": "Der Himalaya",
+      "grade": "7",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Bit' in der Informatik?",
+      "answer": "Die kleinste Informationseinheit, die entweder den Wert 0 oder 1 annehmen kann.",
+      "grade": "8",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Wer war der Autor von 'Die Leiden des jungen Werthers'?",
+      "answer": "Johann Wolfgang von Goethe",
+      "grade": "11",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Einheit der elektrischen Stromstärke?",
+      "answer": "Ampere (A)",
+      "grade": "8",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine Software-Anwendung.",
+      "answer": "Textverarbeitungsprogramm (Beispiel: Microsoft Word)",
+      "grade": "7",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Fabel'?",
+      "answer": "Eine kurze Erzählung, in der Tiere oder Pflanzen menschliche Eigenschaften haben und die oft eine moralische Lehre enthält.",
+      "grade": "5",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Hauptstadt von Frankreich?",
+      "answer": "Paris",
+      "grade": "6",
+      "subject": "Erdkunde/Französisch",
+      "language": "de"
+    },
+    {
+      "text": "Welches chemische Element hat das Symbol 'O'?",
+      "answer": "Sauerstoff",
+      "grade": "7",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne einen bekannten griechischen Philosophen der Antike.",
+      "answer": "Sokrates (Beispiel)",
+      "grade": "11",
+      "subject": "Philosophie/Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'CPU' in einem Computer?",
+      "answer": "Central Processing Unit (Zentraleinheit/Prozessor), das 'Gehirn' des Computers.",
+      "grade": "9",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen Prosa und Lyrik?",
+      "answer": "Prosa ist ungebundene Sprache (z.B. Romane, Erzählungen), Lyrik ist gebundene Sprache in Versform (Gedichte).",
+      "grade": "9",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Welches ist das größte Organ des menschlichen Körpers?",
+      "answer": "Die Haut",
+      "grade": "8",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der 'Goldene Schnitt' in der Kunst und Mathematik?",
+      "answer": "Ein bestimmtes Teilungsverhältnis einer Strecke oder anderen Größe, das oft als ästhetisch harmonisch empfunden wird.",
+      "grade": "11",
+      "subject": "Kunst/Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine Sportart, die bei den Olympischen Spielen vertreten ist.",
+      "answer": "Schwimmen (Beispiel)",
+      "grade": "5",
+      "subject": "Sport",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Funktion des Skeletts?",
+      "answer": "Stützung des Körpers, Schutz der inneren Organe, Ansatzpunkt für Muskeln, Blutbildung.",
+      "grade": "6",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Welche Note folgt auf 'C' in der C-Dur Tonleiter?",
+      "answer": "D",
+      "grade": "5",
+      "subject": "Musik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Browser'?",
+      "answer": "Eine Software zum Anzeigen von Webseiten im Internet.",
+      "grade": "6",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine berühmte deutsche Sage.",
+      "answer": "Die Nibelungensage (Beispiel)",
+      "grade": "7",
+      "subject": "Deutsch/Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Einheit der Frequenz?",
+      "answer": "Hertz (Hz)",
+      "grade": "9",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Betriebssystem'?",
+      "answer": "Die grundlegende Software, die die Hardware eines Computers verwaltet und die Ausführung von Anwendungsprogrammen ermöglicht.",
+      "grade": "10",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Wer malte die 'Sternennacht'?",
+      "answer": "Vincent van Gogh",
+      "grade": "10",
+      "subject": "Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die 'RNA' und welche Funktion hat sie?",
+      "answer": "Ribonukleinsäure; beteiligt an der Umsetzung genetischer Information in Proteine (z.B. mRNA, tRNA).",
+      "grade": "12",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre den Begriff 'Stoffwechsel' (Metabolismus).",
+      "answer": "Die Gesamtheit der chemischen Prozesse in Lebewesen, die dem Aufbau und der Erhaltung der Körpersubstanz sowie der Energiegewinnung dienen.",
+      "grade": "10",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Cloud' in der IT?",
+      "answer": "Ein Netzwerk von Servern, die Speicherplatz, Rechenleistung oder Software über das Internet bereitstellen.",
+      "grade": "11",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine philosophische Strömung.",
+      "answer": "Existentialismus (Beispiel)",
+      "grade": "12",
+      "subject": "Philosophie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 'Fair Trade'?",
+      "answer": "Ein kontrollierter Handel, bei dem Erzeuger in Entwicklungsländern für ihre Produkte einen Mindestpreis erhalten, der über dem Weltmarktpreis liegt, sowie soziale und ökologische Standards eingehalten werden.",
+      "grade": "10",
+      "subject": "Wirtschaft/Ethik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'digitale Signatur'?",
+      "answer": "Ein kryptographisches Verfahren, um die Authentizität und Integrität digitaler Daten sicherzustellen.",
+      "grade": "13",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Erläutere das Konzept der 'Nachhaltigkeit' (Drei-Säulen-Modell).",
+      "answer": "Ein Handlungsprinzip zur Ressourcennutzung, bei dem die Befriedigung der Bedürfnisse der heutigen Generation nicht die Möglichkeiten zukünftiger Generationen einschränkt; oft basierend auf ökologischer, ökonomischer und sozialer Nachhaltigkeit.",
+      "grade": "11",
+      "subject": "Erdkunde/Wirtschaft/Politik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen 'deduktivem' und 'induktivem' Denken?",
+      "answer": "Deduktiv: Vom Allgemeinen zum Besonderen schließen. Induktiv: Vom Besonderen auf das Allgemeine schließen.",
+      "grade": "12",
+      "subject": "Philosophie/Wissenschaftstheorie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Quantencomputer' (vereinfacht)?",
+      "answer": "Ein Computer, der quantenmechanische Phänomene wie Superposition und Verschränkung für Berechnungen nutzt, potenziell für bestimmte Aufgaben viel schneller als klassische Computer.",
+      "grade": "13",
+      "subject": "Informatik/Physik",
+      "language": "de"
+    },
+    {
+      "text": "Wer war Friedrich Schiller und nenne eines seiner Werke.",
+      "answer": "Ein bedeutender deutscher Dichter, Dramatiker und Philosoph. Werk: 'Die Räuber' (Beispiel)",
+      "grade": "10",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Blockchain' (vereinfacht)?",
+      "answer": "Eine dezentrale, fälschungssichere Datenbank, die Transaktionen oder Daten in Blöcken speichert, die kryptographisch miteinander verkettet sind.",
+      "grade": "12",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der 'Treibhauseffekt'?",
+      "answer": "Die Erwärmung der Erdatmosphäre durch Treibhausgase, die Wärmestrahlung von der Erdoberfläche absorbieren und zurückstrahlen.",
+      "grade": "9",
+      "subject": "Physik/Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Nenne einen bekannten deutschen Fluss.",
+      "answer": "Rhein (Beispiel)",
+      "grade": "4",
+      "subject": "Sachunterricht/Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Array' in der Programmierung?",
+      "answer": "Eine Datenstruktur, die eine feste Anzahl von Elementen desselben Typs unter einem gemeinsamen Namen speichert, auf die über einen Index zugegriffen werden kann.",
+      "grade": "10",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Beine hat eine Spinne?",
+      "answer": "Acht",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Welches Wort reimt sich auf 'Maus'?",
+      "answer": "Haus, Laus (Beispiele)",
+      "grade": "1",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 20 + 30?",
+      "answer": "50",
+      "grade": "2",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Obst, das rot ist.",
+      "answer": "Apfel, Erdbeere (Beispiele)",
+      "grade": "2",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Wie heißt die Hauptstadt von Bayern?",
+      "answer": "München",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Vielfaches von 3?",
+      "answer": "6, 9, 12 (Beispiele)",
+      "grade": "3",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "What is 'Katze' in English?",
+      "answer": "Cat",
+      "grade": "4",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Blasinstrument.",
+      "answer": "Trompete, Flöte (Beispiele)",
+      "grade": "4",
+      "subject": "Musik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einem Quadrat und einem Rechteck?",
+      "answer": "Ein Quadrat hat vier gleich lange Seiten, ein Rechteck hat gegenüberliegende Seiten gleich lang.",
+      "grade": "5",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Subjekt' in einem Satz?",
+      "answer": "Der Satzgegenstand; das, worüber im Satz etwas ausgesagt wird (Wer oder Was?).",
+      "grade": "5",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne einen römischen Gott.",
+      "answer": "Jupiter (Beispiel)",
+      "grade": "6",
+      "subject": "Geschichte/Latein",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Bruchteil'?",
+      "answer": "Ein Teil eines Ganzen, dargestellt als Bruch (Zähler/Nenner).",
+      "grade": "6",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Funktion der Nieren?",
+      "answer": "Filterung des Blutes und Ausscheidung von Abfallstoffen über den Urin.",
+      "grade": "7",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Quel âge as-tu?",
+      "answer": "Wie alt bist du?",
+      "grade": "7",
+      "subject": "Französisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Element' im chemischen Sinne?",
+      "answer": "Ein Reinstoff, der chemisch nicht weiter zerlegt werden kann und aus Atomen gleicher Protonenzahl besteht.",
+      "grade": "8",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine Energieform.",
+      "answer": "Elektrische Energie, Wärmeenergie (Beispiele)",
+      "grade": "8",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Weimarer Republik?",
+      "answer": "Die erste parlamentarische Demokratie in Deutschland (1918/19–1933).",
+      "grade": "9",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Algorithmus' (einfach erklärt)?",
+      "answer": "Eine Schritt-für-Schritt-Anleitung zur Lösung eines Problems.",
+      "grade": "9",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einer 'direkten Demokratie' und einer 'repräsentativen Demokratie'?",
+      "answer": "Direkte Demokratie: Volk entscheidet direkt über politische Sachfragen. Repräsentative Demokratie: Volk wählt Vertreter, die Entscheidungen treffen.",
+      "grade": "10",
+      "subject": "Politik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Werk der Aufklärungsliteratur.",
+      "answer": "Lessings 'Nathan der Weise' (Beispiel)",
+      "grade": "10",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Redoxreaktion'?",
+      "answer": "Eine chemische Reaktion, bei der Oxidation und Reduktion gleichzeitig ablaufen (Elektronenübertragung).",
+      "grade": "11",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 'Shakespearean English'?",
+      "answer": "Das Frühneuenglisch, das William Shakespeare in seinen Werken verwendete.",
+      "grade": "11",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Staatshaushalt'?",
+      "answer": "Ein Plan über die erwarteten Einnahmen und geplanten Ausgaben des Staates für einen bestimmten Zeitraum.",
+      "grade": "12",
+      "subject": "Wirtschaft/Politik",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre den Begriff 'Dialektik' (vereinfacht).",
+      "answer": "Eine Methode des Denkens oder der philosophischen Diskussion, die durch das Aufdecken und Aufheben von Widersprüchen zu Erkenntnis gelangt (These, Antithese, Synthese).",
+      "grade": "12",
+      "subject": "Philosophie/Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 'Machine Learning' (vereinfacht)?",
+      "answer": "Ein Teilbereich der künstlichen Intelligenz, bei dem Computersysteme lernen, Muster in Daten zu erkennen und Vorhersagen zu treffen, ohne explizit dafür programmiert zu sein.",
+      "grade": "13",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Diskutiere die Bedeutung der Menschenrechte.",
+      "answer": "(Diskussion über Universalität, Unteilbarkeit, Schutz des Individuums, historische Entwicklung, aktuelle Herausforderungen).",
+      "grade": "13",
+      "subject": "Ethik/Politik/Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 7 + 8?",
+      "answer": "15",
+      "grade": "1",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Wort, das mit 'S' beginnt.",
+      "answer": "Sonne (Beispiel)",
+      "grade": "1",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Welches Tier legt Eier und hat Federn?",
+      "answer": "Ein Vogel",
+      "grade": "2",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Hälfte von 10?",
+      "answer": "5",
+      "grade": "2",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne einen Wochentag.",
+      "answer": "Montag (Beispiel)",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist das Gegenteil von 'Tag'?",
+      "answer": "Nacht",
+      "grade": "1",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Zähle bis 5.",
+      "answer": "1, 2, 3, 4, 5",
+      "grade": "1",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Welche Farbe hat eine Banane, wenn sie reif ist?",
+      "answer": "Gelb",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 9 - 4?",
+      "answer": "5",
+      "grade": "1",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Ecken hat ein Viereck?",
+      "answer": "Vier",
+      "grade": "2",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Was macht man mit einem Buch?",
+      "answer": "Lesen",
+      "grade": "2",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Gemüse.",
+      "answer": "Karotte (Beispiel)",
+      "grade": "2",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist das Doppelte von 4?",
+      "answer": "8",
+      "grade": "2",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Welches Tier sagt 'Miau'?",
+      "answer": "Die Katze",
+      "grade": "1",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Monate hat ein Jahr?",
+      "answer": "12",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 6 x 3?",
+      "answer": "18",
+      "grade": "3",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Möbelstück.",
+      "answer": "Stuhl (Beispiel)",
+      "grade": "3",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Reimwort zu 'Hand'?",
+      "answer": "Sand, Wand (Beispiele)",
+      "grade": "3",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "How do you say 'Guten Morgen' in English?",
+      "answer": "Good morning",
+      "grade": "3",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist 100 - 20?",
+      "answer": "80",
+      "grade": "3",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne eine Stadt in Deutschland.",
+      "answer": "Hamburg (Beispiel)",
+      "grade": "4",
+      "subject": "Sachunterricht",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Verb (Tunwort)? Gib ein Beispiel.",
+      "answer": "Ein Wort, das eine Tätigkeit oder einen Zustand beschreibt. Beispiel: 'laufen'",
+      "grade": "4",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What is 'Apfel' in English?",
+      "answer": "Apple",
+      "grade": "4",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Wie viele Seiten hat ein Würfel?",
+      "answer": "Sechs",
+      "grade": "4",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein europäisches Land.",
+      "answer": "Italien (Beispiel)",
+      "grade": "5",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die Hauptstadt von Österreich?",
+      "answer": "Wien",
+      "grade": "5",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Synonym für 'reden'?",
+      "answer": "Sprechen, plaudern (Beispiele)",
+      "grade": "5",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Translate: 'My name is...'",
+      "answer": "Mein Name ist...",
+      "grade": "5",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Bruchstrich?",
+      "answer": "Der Strich, der Zähler und Nenner in einem Bruch trennt.",
+      "grade": "5",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Merkmal von Säugetieren.",
+      "answer": "Sie haben Fell/Haare, sie säugen ihre Jungen (Beispiele)",
+      "grade": "6",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist das Perfekt von 'singen'?",
+      "answer": "hat gesungen",
+      "grade": "6",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What is 'Schule' in English?",
+      "answer": "School",
+      "grade": "6",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Wer waren die Ritter?",
+      "answer": "Krieger zu Pferd im Mittelalter.",
+      "grade": "6",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Kompass und wozu dient er?",
+      "answer": "Ein Instrument zur Bestimmung der Himmelsrichtungen.",
+      "grade": "6",
+      "subject": "Erdkunde/Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einem Kreis und einer Kugel?",
+      "answer": "Ein Kreis ist eine zweidimensionale Fläche, eine Kugel ist ein dreidimensionaler Körper.",
+      "grade": "7",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für einen Nebensatz.",
+      "answer": "...weil es regnet. (Beispiel)",
+      "grade": "7",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What are the primary colors?",
+      "answer": "Red, yellow, blue",
+      "grade": "7",
+      "subject": "Englisch/Kunst",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein Molekül?",
+      "answer": "Ein Teilchen, das aus zwei oder mehr Atomen besteht.",
+      "grade": "7",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Organ des menschlichen Verdauungssystems.",
+      "answer": "Magen, Darm (Beispiele)",
+      "grade": "7",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einer Stadt und einem Dorf?",
+      "answer": "Städte sind in der Regel größer, haben mehr Einwohner und eine komplexere Infrastruktur als Dörfer.",
+      "grade": "8",
+      "subject": "Erdkunde",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine Ballade?",
+      "answer": "Ein längeres Gedicht, das eine Geschichte erzählt, oft mit dramatischen und dialogischen Elementen.",
+      "grade": "8",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Translate into German: 'I like to play football.'",
+      "answer": "Ich spiele gerne Fußball.",
+      "grade": "8",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist Schall?",
+      "answer": "Schwingungen, die sich in einem Medium (z.B. Luft) ausbreiten und vom Ohr wahrgenommen werden können.",
+      "grade": "8",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Wer war Christoph Kolumbus?",
+      "answer": "Ein Seefahrer, der 1492 im Auftrag Spaniens Amerika (wieder-)entdeckte.",
+      "grade": "8",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Prozentrechnung'?",
+      "answer": "Rechnen mit Anteilen von Hundert.",
+      "grade": "8",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Beispiel für eine rhetorische Frage.",
+      "answer": "Habe ich es dir nicht gesagt? (Beispiel)",
+      "grade": "9",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What does 'photosynthesis' mean?",
+      "answer": "The process by which green plants use sunlight, water, and carbon dioxide to create their own food and release oxygen.",
+      "grade": "9",
+      "subject": "Englisch/Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen einem Element und einer Verbindung in der Chemie?",
+      "answer": "Ein Element besteht aus nur einer Atomsorte, eine Verbindung aus mindestens zwei verschiedenen Atomsorten, die chemisch miteinander verbunden sind.",
+      "grade": "9",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist das Grundgesetz für die Bundesrepublik Deutschland?",
+      "answer": "Die Verfassung Deutschlands.",
+      "grade": "9",
+      "subject": "Politik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist der Unterschied zwischen Geschwindigkeit und Beschleunigung?",
+      "answer": "Geschwindigkeit ist die Rate der Ortsveränderung, Beschleunigung ist die Rate der Geschwindigkeitsänderung.",
+      "grade": "9",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Funktion' in der Mathematik?",
+      "answer": "Eine Beziehung zwischen zwei Mengen, die jedem Element der einen Menge (Definitionsbereich) genau ein Element der anderen Menge (Wertebereich) zuordnet.",
+      "grade": "9",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Nenne ein Drama von William Shakespeare.",
+      "answer": "Hamlet (Beispiel)",
+      "grade": "10",
+      "subject": "Englisch/Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Titration' in der Chemie?",
+      "answer": "Ein Verfahren zur quantitativen Bestimmung einer Substanz durch Umsetzung mit einer Maßlösung bekannter Konzentration.",
+      "grade": "10",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die 'DNA'?",
+      "answer": "Desoxyribonukleinsäure, der Träger der Erbinformation in Zellen.",
+      "grade": "10",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was war der 'Imperialismus'?",
+      "answer": "Das Bestreben von Staaten, ihre Macht und ihren Einfluss auf andere Länder oder Völker auszudehnen, oft durch Kolonien.",
+      "grade": "10",
+      "subject": "Geschichte",
+      "language": "de"
+    },
+    {
+      "text": "Was ist eine 'Sinusfunktion'?",
+      "answer": "Eine periodische mathematische Funktion, die in der Trigonometrie und bei der Beschreibung von Schwingungen wichtig ist.",
+      "grade": "10",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Erläutere den Begriff 'Sturm und Drang'.",
+      "answer": "Eine literarische Strömung in Deutschland (ca. 1767–1785), die Gefühl, Genie und Natur betonte und sich gegen starre Regeln wandte.",
+      "grade": "11",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "What is the difference between 'there', 'their', and 'they're'?",
+      "answer": "'There' indicates a place or is used to start a sentence. 'Their' is a possessive pronoun. 'They're' is a contraction of 'they are'.",
+      "grade": "11",
+      "subject": "Englisch",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Isotop'?",
+      "answer": "Atome desselben Elements mit gleicher Protonenzahl, aber unterschiedlicher Neutronenzahl (und damit unterschiedlicher Masse).",
+      "grade": "11",
+      "subject": "Chemie/Physik",
+      "language": "de"
+    },
+    {
+      "text": "Was versteht man unter 'Genexpression'?",
+      "answer": "Der Prozess, bei dem die genetische Information eines Gens genutzt wird, um ein funktionelles Genprodukt (meist ein Protein) herzustellen.",
+      "grade": "11",
+      "subject": "Biologie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die 'Europäische Zentralbank' (EZB) und was ist ihre Hauptaufgabe?",
+      "answer": "Die Zentralbank für die Eurozone; Hauptaufgabe ist die Gewährleistung der Preisstabilität.",
+      "grade": "11",
+      "subject": "Wirtschaft/Politik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Vektorraum'?",
+      "answer": "Eine algebraische Struktur in der Mathematik, die aus einer Menge von Vektoren und Skalaren besteht, für die bestimmte Operationen (Addition, Skalarmultiplikation) definiert sind.",
+      "grade": "12",
+      "subject": "Mathematik",
+      "language": "de"
+    },
+    {
+      "text": "Analysiere die Erzählperspektive in einem dir bekannten Roman.",
+      "answer": "(Individuelle Analyse, z.B. auktorial, personal, Ich-Erzähler)",
+      "grade": "12",
+      "subject": "Deutsch",
+      "language": "de"
+    },
+    {
+      "text": "Discuss the pros and cons of globalization.",
+      "answer": "(Diskussion über wirtschaftliche Vorteile, kulturellen Austausch, aber auch soziale Ungleichheit, Umweltprobleme, Verlust lokaler Identitäten).",
+      "grade": "12",
+      "subject": "Englisch/Sozialwissenschaften",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Katalysator' in der Chemie?",
+      "answer": "Ein Stoff, der die Geschwindigkeit einer chemischen Reaktion erhöht, ohne selbst dabei verbraucht zu werden, indem er die Aktivierungsenergie herabsetzt.",
+      "grade": "12",
+      "subject": "Chemie",
+      "language": "de"
+    },
+    {
+      "text": "Erkläre das Konzept der 'Gewaltenteilung' nach Montesquieu.",
+      "answer": "Die Aufteilung der Staatsmacht in Legislative (gesetzgebende), Exekutive (ausführende) und Judikative (richterliche) Gewalt, um Machtmissbrauch zu verhindern.",
+      "grade": "12",
+      "subject": "Politik/Geschichte/Philosophie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die 'Schrödinger-Gleichung' (qualitativ)?",
+      "answer": "Eine fundamentale Gleichung der Quantenmechanik, die die zeitliche Entwicklung des Zustands eines quantenmechanischen Systems beschreibt.",
+      "grade": "13",
+      "subject": "Physik",
+      "language": "de"
+    },
+    {
+      "text": "Erläutere den Begriff 'Postmoderne' in Literatur und Kunst.",
+      "answer": "Eine kulturelle und intellektuelle Strömung (ab ca. Mitte des 20. Jh.), die durch Merkmale wie Intertextualität, Ironie, Fragmentierung und die Infragestellung großer Erzählungen gekennzeichnet ist.",
+      "grade": "13",
+      "subject": "Deutsch/Kunst",
+      "language": "de"
+    },
+    {
+      "text": "What is 'existentialism' as a philosophical movement?",
+      "answer": "A philosophical theory or approach that emphasizes the existence of the individual person as a free and responsible agent determining their own development through acts of the will.",
+      "grade": "13",
+      "subject": "Englisch/Philosophie",
+      "language": "de"
+    },
+    {
+      "text": "Was ist ein 'Neuronales Netz' (vereinfacht)?",
+      "answer": "Ein von der Struktur des menschlichen Gehirns inspiriertes Rechenmodell, das aus miteinander verbundenen künstlichen Neuronen besteht und für Aufgaben wie Mustererkennung oder Klassifikation verwendet wird.",
+      "grade": "13",
+      "subject": "Informatik",
+      "language": "de"
+    },
+    {
+      "text": "Diskutiere die Herausforderungen des Klimawandels und mögliche Lösungsansätze.",
+      "answer": "(Diskussion über Ursachen, Folgen wie Erderwärmung, Extremwetter, Meeresspiegelanstieg; Lösungsansätze wie Reduktion von Treibhausgasen, erneuerbare Energien, Anpassungsstrategien).",
+      "grade": "13",
+      "subject": "Erdkunde/Physik/Biologie/Politik",
+      "language": "de"
+    },
+    {
+      "text": "Was ist die 'Standardabweichung' in der Statistik?",
+      "answer": "Ein Maß für die Streuung oder Dispersion von Werten um ihren Mittelwert.",
+      "grade": "13",
+      "subject": "Mathematik",
+      "language": "de"
+    }
+  ]
+}

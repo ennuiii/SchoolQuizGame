@@ -1043,21 +1043,49 @@ body {
 
 /* Specific styling for eraser strokes (green paths) */
 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
-.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
-  filter: none !important; /* Remove shadow */
-  stroke-width: 20 !important; /* Reduce the stroke width */
-  stroke-opacity: 0.85 !important; /* Make it slightly transparent */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[data-eraser="true"] {
+  mix-blend-mode: destination-out !important; /* Makes the stroke erase what's underneath */
   stroke-linejoin: round !important;
   stroke-linecap: round !important;
-  mix-blend-mode: destination-out; /* This helps with blending into the background */
+  /* No opacity changes - keep the stroke exactly as drawn */
 }
 
-/* Make eraser strokes invisible in preview overlay */
+/* Ensure eraser strokes work consistently across all components */
+.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[data-eraser="true"],
 .preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
-.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"],
-.preview-whiteboard-card .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(12,106,53)"],
-.preview-whiteboard-card .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
-  opacity: 0 !important;
-  stroke-opacity: 0 !important;
-  visibility: hidden !important;
+.preview-overlay-v2 .classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#0C6A35"] {
+  mix-blend-mode: destination-out !important;
+  /* Leave other properties as-is */
+}
+
+/* Remove the previous animations and styling for eraser strokes */
+.eraser-visible-mode .chalkboard-drawing-svg path[stroke="white"][stroke-dasharray="5,5"],
+.eraser-visible-mode .chalkboard-drawing-svg path[data-eraser="true"] {
+  /* Remove previous styling and keep the original appearance */
+  mix-blend-mode: destination-out !important;
+  filter: none !important;
+  /* No animations, keep original opacity and stroke width */
+}
+
+/* Remove shadow effects from all SVG paths */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path,
+.preview-overlay-v2 .chalkboard-drawing-svg path {
+  filter: none !important;
+  text-shadow: none !important;
+  box-shadow: none !important;
+  -webkit-filter: none !important;
+}
+
+/* Ensure clean rendering of chalk strokes */
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#FFFFFF"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="#F8F8F8"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="white"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(255,255,255)"],
+.classroom-whiteboard-svg .chalkboard-drawing-svg path[stroke="rgb(248,248,248)"] {
+  stroke-width: 2.5px !important; /* Slightly thicker for better visibility */
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  filter: none !important;
+  shadow: none !important;
 } 

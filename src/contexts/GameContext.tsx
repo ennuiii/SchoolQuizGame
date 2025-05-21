@@ -849,6 +849,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRecapSelectedTabKey('overallResults');
     };
 
+    const playerDisconnectedStatusHandler = (data: { playerId: string; persistentPlayerId: string; isActive: boolean; temporary: boolean }) => {
+      console.log('[GameContext] player_disconnected_status received:', data);
+      setPlayers(prevPlayers => 
+        prevPlayers.map(p => 
+          p.persistentPlayerId === data.persistentPlayerId || p.id === data.playerId 
+            ? { ...p, isActive: data.isActive } 
+            : p
+        )
+      );
+    };
+
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
@@ -869,6 +880,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('recap_round_changed', recapRoundChangedHandler);
     socketService.on('recap_tab_changed', recapTabChangedHandler);
     socketService.on('game_restarted', gameRestartedHandler);
+    socketService.on('player_disconnected_status', playerDisconnectedStatusHandler);
 
     // Cleanup
     return () => {
@@ -894,6 +906,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('recap_round_changed');
       socketService.off('recap_tab_changed');
       socketService.off('game_restarted');
+      socketService.off('player_disconnected_status');
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
