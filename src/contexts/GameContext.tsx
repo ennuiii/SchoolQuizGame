@@ -73,6 +73,7 @@ interface GameContextType {
   // Answers and Evaluations
   allAnswersThisRound: Record<string, AnswerSubmission>;
   evaluatedAnswers: Record<string, boolean | null>;
+  currentVotes?: Record<string, Record<string, 'correct' | 'incorrect'>>;
   
   // Preview Mode
   previewMode: PreviewModeState;
@@ -92,6 +93,7 @@ interface GameContextType {
   
   // Preview Overlay Version
   previewOverlayVersion: 'v1' | 'v2';
+  isCommunityVotingMode?: boolean;
   
   // Actions
   startGame: (roomCode: string, questions: Question[], timeLimit: number) => void;
@@ -123,9 +125,10 @@ interface GameContextType {
   hideRecap: () => void;
   gmNavigateRecapTab: (roomCode: string, tabKey: string) => void;
   
-  // Preview Overlay Version
+  // Preview Overlay Version & Community Voting
   setPreviewOverlayVersion: (version: 'v1' | 'v2') => void;
   togglePreviewOverlayVersion: () => void;
+  toggleCommunityVoting?: (roomCode: string) => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -159,6 +162,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Answers and Evaluations
   const [allAnswersThisRound, setAllAnswersThisRound] = useState<Record<string, AnswerSubmission>>({});
   const [evaluatedAnswers, setEvaluatedAnswers] = useState<Record<string, boolean | null>>({});
+  const [currentVotes, setCurrentVotes] = useState<Record<string, Record<string, 'correct' | 'incorrect'>>>({});
   
   // Preview Mode
   const [previewMode, setPreviewMode] = useState<PreviewModeState>({
@@ -184,6 +188,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Preview Overlay Version (sync across clients)
   const [previewOverlayVersion, setPreviewOverlayVersionState] = useState<'v1' | 'v2'>('v1');
+  const [isCommunityVotingMode, setIsCommunityVotingMode] = useState(false);
 
   const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
     console.log('[GameContext] board_update received', updatedBoard);
@@ -753,10 +758,17 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (state.isConcluded !== undefined && state.isConcluded !== isGameConcluded) {
           setIsGameConcluded(state.isConcluded);
         }
+        if (state.isCommunityVotingMode !== undefined && state.isCommunityVotingMode !== isCommunityVotingMode) {
+          setIsCommunityVotingMode(state.isCommunityVotingMode);
+        }
         if (state.started === false && gameStarted === true && state.isConcluded === false) { 
           setIsGameConcluded(false);
           setGameOver(false);
           setIsWinner(false);
+        }
+        // Update currentVotes if present in the server state
+        if (state.currentVotes) {
+          setCurrentVotes(state.currentVotes);
         }
         console.log('[GameContext] State update complete:', { gameStarted: state.started, hasQuestion: !!state.currentQuestion, playerCount: state.players?.length, timestamp: new Date().toISOString() });
       } catch (error: any) {
@@ -836,10 +848,11 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Reset all game state for a fresh start
       setGameStarted(false);
       setCurrentQuestion(null);
-      setCurrentQuestionIndex(-1);
+      setCurrentQuestionIndex(0);
       setSubmittedAnswer(false);
       setAllAnswersThisRound({});
       setEvaluatedAnswers({});
+      setCurrentVotes({});
       setPlayerBoards([]);
       setIsGameConcluded(false);
       setGameOver(false);
@@ -847,6 +860,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setGameRecapData(null);
       setRecapSelectedRoundIndex(0);
       setRecapSelectedTabKey('overallResults');
+      setPreviewMode({ isActive: false, focusedPlayerId: null });
+      setIsCommunityVotingMode(false);
     };
 
     // Attach listeners
@@ -1032,6 +1047,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     boardVisibility,
     allAnswersThisRound,
     evaluatedAnswers,
+    currentVotes,
     previewMode,
     questions,
     subjects,
@@ -1075,7 +1091,8 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     gmEndGameRequest,
     previewOverlayVersion,
     setPreviewOverlayVersion,
-    togglePreviewOverlayVersion
+    togglePreviewOverlayVersion,
+    isCommunityVotingMode
   };
 
   return (

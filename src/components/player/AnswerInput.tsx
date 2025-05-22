@@ -7,16 +7,28 @@ interface AnswerInputProps {
   answer: string;
   onAnswerChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
   onSubmitAnswer: () => void;
+  isSubmitted?: boolean;
+  controlledDisable?: boolean;
 }
 
 const AnswerInput: React.FC<AnswerInputProps> = ({
   answer,
   onAnswerChange,
-  onSubmitAnswer
+  onSubmitAnswer,
+  isSubmitted,
+  controlledDisable
 }) => {
-  const { timeLimit, timeRemaining, submittedAnswer } = useGame();
+  const { timeLimit, timeRemaining, submittedAnswer: contextSubmittedAnswer } = useGame();
   const { language } = useLanguage();
-  const isDisabled = submittedAnswer || !!(timeLimit && (!timeRemaining || timeRemaining <= 0));
+  
+  const effectivelySubmitted = isSubmitted !== undefined ? isSubmitted : contextSubmittedAnswer;
+  
+  let isDisabled: boolean;
+  if (controlledDisable !== undefined) {
+    isDisabled = controlledDisable;
+  } else {
+    isDisabled = effectivelySubmitted || !!(timeLimit && (!timeRemaining || timeRemaining <= 0));
+  }
 
   return (
     <div className="card mb-4">
@@ -49,7 +61,7 @@ const AnswerInput: React.FC<AnswerInputProps> = ({
           </div>
         )}
         
-        {submittedAnswer && (
+        {(controlledDisable === undefined && effectivelySubmitted) && (
           <div className="alert alert-info">
             {t('answerInput.submitted', language)}
           </div>

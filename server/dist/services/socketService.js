@@ -63,18 +63,53 @@ function getGameState(roomCode) {
         // Always ensure persistentPlayerId exists (for older clients compatibility)
         persistentPlayerId: player.persistentPlayerId || `F-${player.id.substring(0, 8)}`
     }));
+    let finalPlayersArray = safePlayersArray;
+    let finalPlayerBoards = { ...playerBoardsForState }; // Start with a copy
+    if (room.isCommunityVotingMode && room.gamemasterPersistentId) {
+        const gmAsPlayerExistsInPlayerArray = safePlayersArray.some(p => p.persistentPlayerId === room.gamemasterPersistentId);
+        if (!gmAsPlayerExistsInPlayerArray) {
+            finalPlayersArray = [
+                ...safePlayersArray,
+                {
+                    id: room.gamemasterSocketId || 'gamemaster-socket',
+                    persistentPlayerId: room.gamemasterPersistentId,
+                    name: 'GameMaster (Playing)',
+                    lives: 3,
+                    answers: room.roundAnswers[room.gamemasterPersistentId] ? [room.roundAnswers[room.gamemasterPersistentId]] : [],
+                    isActive: true,
+                    isSpectator: false,
+                    joinedAsSpectator: false,
+                    disconnectTimer: null,
+                    avatarSvg: null
+                }
+            ];
+        }
+        // Ensure GM's board data is in the playerBoards sent to clients if they have one
+        if (room.gameMasterBoardData && room.gamemasterSocketId) { // Use gamemasterSocketId as key for consistency if available
+            finalPlayerBoards[room.gamemasterSocketId] = {
+                playerId: room.gamemasterSocketId,
+                persistentPlayerId: room.gamemasterPersistentId,
+                boardData: room.gameMasterBoardData,
+                roundIndex: room.currentQuestionIndex,
+                timestamp: Date.now() // Or a more accurate timestamp if available
+            };
+        }
+    }
     return {
         started: room.started,
         currentQuestion: room.currentQuestion,
         currentQuestionIndex: room.currentQuestionIndex,
         timeLimit: room.timeLimit,
         questionStartTime: room.questionStartTime,
-        players: safePlayersArray,
+        players: finalPlayersArray,
         roundAnswers: room.roundAnswers || {},
         evaluatedAnswers: room.evaluatedAnswers || {},
         submissionPhaseOver: room.submissionPhaseOver || false,
         isConcluded: room.isConcluded || false,
-        playerBoards: playerBoardsForState
+        playerBoards: finalPlayerBoards, // Use the potentially augmented player boards
+        isCommunityVotingMode: room.isCommunityVotingMode || false,
+        gameMasterBoardData: room.gameMasterBoardData || null,
+        currentVotes: room.votes || {}
     };
 }
 /**

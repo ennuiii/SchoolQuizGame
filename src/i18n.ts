@@ -118,7 +118,8 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerMode: 'Streamer Mode (Hide Room Code)',
       streamerModeHelp: 'When enabled, the room code will be hidden but still copyable.',
       creating: 'Creating...',
-      createRoom: 'Create Room'
+      createRoom: 'Create Room',
+      communityVotingHelp: 'If enabled, the Game Master plays along and answers are evaluated by player votes.'
     },
     questionSelector: {
       title: 'Load Questions from Database',
@@ -335,7 +336,14 @@ const translations: { [lang: string]: TranslationMap } = {
     },
     theme: 'Theme',
     lightMode: 'Light Mode',
-    darkMode: 'Dark Mode'
+    darkMode: 'Dark Mode',
+    previewOverlay: {
+      showAnswer: 'Show Correct Answer',
+      showAnswerTitle: 'Reveal the correct answer to all players',
+      voteCorrect: 'Vote Correct',
+      voteIncorrect: 'Vote Incorrect',
+      correctAnswerWas: 'Correct Answer Was'
+    }
   },
   de: {
     settings: 'Einstellungen',
@@ -464,7 +472,8 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerMode: 'Streamer-Modus (Raumcode ausblenden)',
       streamerModeHelp: 'Wenn aktiviert, wird der Raumcode ausgeblendet, bleibt aber kopierbar.',
       creating: 'Wird erstellt...',
-      createRoom: 'Raum erstellen'
+      createRoom: 'Raum erstellen',
+      communityVotingHelp: 'Wenn aktiviert, spielt der Spielleiter mit und die Antworten werden durch Spielerabstimmung bewertet.'
     },
     questionSelector: {
       title: 'Fragen aus der Datenbank laden',
@@ -676,12 +685,19 @@ const translations: { [lang: string]: TranslationMap } = {
       currentQuestion: 'Aktuelle Frage',
       waitingForGame: 'Warten auf den Spielstart...',
       playerBoards: 'Spielerboards',
-      showAll: 'Alle anzeigen',
-      hideAll: 'Alle ausblenden'
+      showAll: 'Tout afficher',
+      hideAll: 'Tout masquer'
     },
     theme: 'Design',
     lightMode: 'Helles Design',
-    darkMode: 'Dunkles Design'
+    darkMode: 'Dunkles Design',
+    previewOverlay: { // Added section
+      showAnswer: 'Richtige Antwort anzeigen',
+      showAnswerTitle: 'Die richtige Antwort allen Spielern anzeigen',
+      voteCorrect: 'Richtig abstimmen',
+      voteIncorrect: 'Falsch abstimmen',
+      correctAnswerWas: 'Richtige Antwort war' // New key
+    }
   },
   fr: {
     settings: 'Paramètres',
@@ -800,7 +816,8 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerMode: 'Mode streamer (masquer le code de la salle)',
       streamerModeHelp: 'Lorsque activé, le code de la salle sera masqué mais toujours copiable.',
       creating: 'Création...',
-      createRoom: 'Créer une salle'
+      createRoom: 'Créer une salle',
+      communityVotingHelp: 'Si activé, le Maître du jeu participe et les réponses sont évaluées par les votes des joueurs.'
     },
     questionSelector: {
       title: 'Charger les questions depuis la base de données',
@@ -1008,14 +1025,21 @@ const translations: { [lang: string]: TranslationMap } = {
       joinAsPlayer: 'Rejoindre en tant que joueur',
       joinAsPlayerInfo: 'Vous ne pouvez rejoindre en tant que joueur que lorsqu\'un tour n\'est pas en cours.',
       currentQuestion: 'Question actuelle',
-      waitingForGame: 'En attente du démarrage du jeu...',
+      waitingForGame: 'Warten auf den Spielstart...',
       playerBoards: 'Tableaux des joueurs',
       showAll: 'Tout afficher',
       hideAll: 'Tout masquer'
     },
     theme: 'Thème',
     lightMode: 'Mode Clair',
-    darkMode: 'Mode Sombre'
+    darkMode: 'Mode Sombre',
+    previewOverlay: { // Added section
+      showAnswer: 'Afficher la bonne réponse',
+      showAnswerTitle: 'Révéler la bonne réponse à tous les joueurs',
+      voteCorrect: 'Voter Correct',
+      voteIncorrect: 'Voter Incorrect',
+      correctAnswerWas: 'La bonne réponse était' // New key
+    }
   },
   nl: {
     settings: 'Instellingen',
@@ -1134,7 +1158,8 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerMode: 'Streamermodus (verberg kamercode)',
       streamerModeHelp: 'Indien ingeschakeld, wordt de kamercode verborgen maar kan nog steeds worden gekopieerd.',
       creating: 'Aanmaken...',
-      createRoom: 'Kamer aanmaken'
+      createRoom: 'Kamer aanmaken',
+      communityVotingHelp: 'Indien ingeschakeld, speelt de Spelleider mee en worden antwoorden beoordeeld door stemmen van spelers.'
     },
     questionSelector: {
       title: 'Vragen laden uit database',
@@ -1313,36 +1338,43 @@ const translations: { [lang: string]: TranslationMap } = {
       spectatorRedirect: 'U bent een toeschouwer. U wordt binnenkort doorgestuurd.',
       missingPlayerInfo: 'Ontbrekende spelersinformatie.',
       otherPlayers: 'Andere spelers',
-      submitAnswer: 'Antwoord indienen',
+      submitAnswer: 'Prześlij odpowiedź',
       answerSubmitted: 'Uw antwoord is ingediend. Wachten op evaluatie door de spelleider.',
       disconnected: 'U bent momenteel niet verbonden. Uw invoer is uitgeschakeld tot de verbinding is hersteld.',
-      clearCanvas: 'Canvas wissen',
-      connectionError: 'Verbindingsfout',
-      couldNotConnect: 'Kon geen verbinding maken met de spelserver. Vernieuw de pagina om het opnieuw te proberen.',
-      refreshPage: 'Pagina vernieuwen',
-      disconnectedFromServer: 'Verbinding met server verbroken.',
-      attemptingReconnect: 'Bezig met opnieuw verbinden...',
+      clearCanvas: 'Wyczyść płótno',
+      connectionError: 'Błąd połączenia',
+      couldNotConnect: 'Nie można połączyć się z serwerem gry. Odśwież stronę, aby spróbować ponownie.',
+      refreshPage: 'Odśwież stronę',
+      disconnectedFromServer: 'Rozłączono z serwerem.',
+      attemptingReconnect: 'Próba ponownego połączenia...',
       waitingToJoinRoom: 'Waiting to join the room. If this persists, try refreshing the page.',
       redirectingToSpectator: 'Redirecting to spectator view...'
     },
     spectatorPage: {
-      gameOver: 'Spel afgelopen!',
-      waitingForRecap: 'Wachten tot het speloverzicht wordt gegenereerd...',
-      backToHome: 'Terug naar Home',
-      spectatorView: 'Toeschouwersweergave',
-      players: 'Spelers',
-      leaveGame: 'Spel verlaten',
-      joinAsPlayer: 'Deelnemen als speler',
-      joinAsPlayerInfo: 'U kunt alleen als speler deelnemen als er geen ronde bezig is.',
-      currentQuestion: 'Huidige vraag',
-      waitingForGame: 'Wachten tot het spel start...',
-      playerBoards: 'Spelersborden',
-      showAll: 'Alles tonen',
-      hideAll: 'Alles verbergen'
+      gameOver: 'Koniec gry!',
+      waitingForRecap: 'Oczekiwanie na wygenerowanie podsumowania gry...',
+      backToHome: 'Powrót na stronę główną',
+      spectatorView: 'Widok widza',
+      players: 'Gracze',
+      leaveGame: 'Opuść grę',
+      joinAsPlayer: 'Dołącz jako gracz',
+      joinAsPlayerInfo: 'Możesz dołączyć jako gracz tylko wtedy, gdy runda nie jest w toku.',
+      currentQuestion: 'Aktualne pytanie',
+      waitingForGame: 'Oczekiwanie na rozpoczęcie gry...',
+      playerBoards: 'Tablice graczy',
+      showAll: 'Pokaż wszystko',
+      hideAll: 'Ukryj wszystko'
     },
-    theme: 'Thema',
-    lightMode: 'Licht Modus',
-    darkMode: 'Donker Modus'
+    theme: 'Motyw',
+    lightMode: 'Tryb Jasny',
+    darkMode: 'Tryb Ciemny',
+    previewOverlay: { // Added section
+      showAnswer: 'Correct antwoord weergeven',
+      showAnswerTitle: 'Het juiste antwoord aan alle spelers onthullen',
+      voteCorrect: 'Correct stemmen',
+      voteIncorrect: 'Incorrect stemmen',
+      correctAnswerWas: 'Correct antwoord was' // New key
+    }
   },
   pl: {
     settings: 'Ustawienia',
@@ -1461,7 +1493,8 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerMode: 'Tryb streamera (ukryj kod pokoju)',
       streamerModeHelp: 'Po włączeniu kod pokoju będzie ukryty, ale nadal możliwy do skopiowania.',
       creating: 'Tworzenie...',
-      createRoom: 'Utwórz pokój'
+      createRoom: 'Utwórz pokój',
+      communityVotingHelp: 'Jeśli włączone, Mistrz Gry gra razem z innymi, a odpowiedzi są oceniane przez głosy graczy.'
     },
     questionSelector: {
       title: 'Załaduj pytania z bazy danych',
@@ -1669,7 +1702,14 @@ const translations: { [lang: string]: TranslationMap } = {
     },
     theme: 'Motyw',
     lightMode: 'Tryb Jasny',
-    darkMode: 'Tryb Ciemny'
+    darkMode: 'Tryb Ciemny',
+    previewOverlay: { // Added section
+      showAnswer: 'Pokaż poprawną odpowiedź',
+      showAnswerTitle: 'Odkryj poprawną odpowiedź dla wszystkich graczy',
+      voteCorrect: 'Głosuj Poprawnie',
+      voteIncorrect: 'Głosuj Niepoprawnie',
+      correctAnswerWas: 'Poprawna odpowiedź to' // New key
+    }
   },
   zh: {
     settings: '设置',
@@ -1788,7 +1828,8 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerMode: '主播模式（隐藏房间代码）',
       streamerModeHelp: '启用后，房间代码将被隐藏但仍可复制。',
       creating: '创建中...',
-      createRoom: '创建房间'
+      createRoom: '创建房间',
+      communityVotingHelp: '如果启用，游戏管理员将参与游戏，答案由玩家投票评估。'
     },
     questionSelector: {
       title: '从数据库加载问题',
@@ -1996,7 +2037,14 @@ const translations: { [lang: string]: TranslationMap } = {
     },
     theme: '主题',
     lightMode: '浅色模式',
-    darkMode: '深色模式'
+    darkMode: '深色模式',
+    previewOverlay: {
+      showAnswer: '显示正确答案',
+      showAnswerTitle: '向所有玩家显示正确答案',
+      voteCorrect: '投票正确',
+      voteIncorrect: '投票错误',
+      correctAnswerWas: '正确答案是' // New key
+    }
   },
 };
 
