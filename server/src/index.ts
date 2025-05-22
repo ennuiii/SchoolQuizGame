@@ -1387,24 +1387,59 @@ io.on('connection', (socket: ExtendedSocket) => {
         socket.emit('error', { message: 'Only the Game Master can kick players or room not found.' });
         return;
       }
-      if (playerIdToKick === socket.id || (room.players.find(p=>p.id === playerIdToKick)?.persistentPlayerId === room.gamemasterPersistentId) ) {
-         socket.emit('error', { message: 'Game Master cannot kick themselves.' });
+
+      // Check if trying to kick self
+      if (playerIdToKick === socket.id || (room.players.find(p => p.id === playerIdToKick)?.persistentPlayerId === room.gamemasterPersistentId)) {
+        socket.emit('error', { message: 'Game Master cannot kick themselves.' });
         return;
       }
+
+      // Find player by either socket ID or persistentPlayerId
       let playerIndex = room.players.findIndex(p => p.id === playerIdToKick || p.persistentPlayerId === playerIdToKick);
+      
       if (playerIndex === -1) {
         socket.emit('error', { message: 'Player not found.' });
         return;
       }
-      const kickedPlayer = room.players.splice(playerIndex, 1)[0];
+
+      const kickedPlayer = room.players[playerIndex];
+
+      // Clear any disconnect timer if it exists
+      if (kickedPlayer.disconnectTimer) {
+        clearTimeout(kickedPlayer.disconnectTimer);
+        kickedPlayer.disconnectTimer = null;
+      }
+
+      // Remove the player from the room
+      room.players.splice(playerIndex, 1);
+
+      // Try to notify the player if they're still connected
       const kickedPlayerSocket = getIO().sockets.sockets.get(kickedPlayer.id);
       if (kickedPlayerSocket) {
         kickedPlayerSocket.emit('kicked_from_room', { roomCode, reason: 'Kicked by Game Master' });
         kickedPlayerSocket.leave(roomCode);
       }
-      if (room.playerBoards && room.playerBoards[kickedPlayer.id]) delete room.playerBoards[kickedPlayer.id];
-      if (room.roundAnswers && room.roundAnswers[kickedPlayer.persistentPlayerId]) delete room.roundAnswers[kickedPlayer.persistentPlayerId];
-      if (room.evaluatedAnswers && room.evaluatedAnswers[kickedPlayer.persistentPlayerId]) delete room.evaluatedAnswers[kickedPlayer.persistentPlayerId];
+
+      // Clean up player data
+      if (room.playerBoards && room.playerBoards[kickedPlayer.id]) {
+        delete room.playerBoards[kickedPlayer.id];
+      }
+      if (room.roundAnswers && room.roundAnswers[kickedPlayer.persistentPlayerId]) {
+        delete room.roundAnswers[kickedPlayer.persistentPlayerId];
+      }
+      if (room.evaluatedAnswers && room.evaluatedAnswers[kickedPlayer.persistentPlayerId]) {
+        delete room.evaluatedAnswers[kickedPlayer.persistentPlayerId];
+      }
+
+      // Notify all clients about the player being kicked
+      getIO().to(roomCode).emit('player_kicked', {
+        playerId: kickedPlayer.id,
+        persistentPlayerId: kickedPlayer.persistentPlayerId,
+        playerName: kickedPlayer.name,
+        wasDisconnected: !kickedPlayer.isActive
+      });
+
+      // Broadcast updated game state
       broadcastGameState(roomCode);
     } catch (error: any) {
       console.error(`[Server Kick] Error:`, error);
@@ -2117,6 +2152,38 @@ io.on('connection', (socket: ExtendedSocket) => {
       console.error('[Server] Error processing force end voting:', error);
       socket.emit('error', 'Failed to process voting results.');
     }
+  });
+
+  socket.on('adjust_player_lives', ({ roomCode, playerId, adjustment }) => {
+    const room = gameRooms[roomCode];
+    if (!room) {
+      console.error(`[Server] Room ${roomCode} not found for adjust_player_lives`);
+      return;
+    }
+
+    const player = room.players.find(p => p.id === playerId);
+    if (!player) {
+      console.error(`[Server] Player ${playerId} not found in room ${roomCode}`);
+      return;
+    }
+
+    // Update player lives
+    player.lives = Math.max(0, player.lives + adjustment);
+    console.log(`[Server] Player ${player.name} lives adjusted to ${player.lives}`);
+
+    // If player has no lives left, make them a spectator
+    if (player.lives <= 0) {
+      player.isActive = false;
+      player.isSpectator = true;
+      const playerSocket = getIO().sockets.sockets.get(player.id);
+      if (playerSocket) {
+        playerSocket.emit('become_spectator');
+      }
+      console.log(`[Server] Player ${player.name} eliminated due to no lives`);
+    }
+
+    // Broadcast updated game state
+    broadcastGameState(roomCode);
   });
 
 });

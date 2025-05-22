@@ -253,6 +253,7 @@ export interface ClientToServerEvents {
   'webcam-state-change': (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
   'microphone-state-change': (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
   force_end_voting: (data: { roomCode: string }) => void;
+  adjust_player_lives: (data: { roomCode: string; playerId: string; adjustment: number }) => void;
 }
 
 export interface InterServerEvents {

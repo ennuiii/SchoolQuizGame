@@ -25,6 +25,7 @@ const JoinGame: React.FC = () => {
   const [hasJoined, setHasJoined] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [hideLobbyCode, setHideLobbyCode] = useState(false);
   const { language } = useLanguage();
   
   const {
@@ -211,7 +212,7 @@ const JoinGame: React.FC = () => {
                 <div className="form-group mb-3">
                   <label htmlFor="roomCodeInput" className="form-label">{t('joinGame.roomCodeLabel', language)}</label>
                   <input
-                    type="text"
+                    type={hideLobbyCode ? 'password' : 'text'}
                     id="roomCodeInput"
                     className="form-control"
                     placeholder={t('joinGame.roomCodePlaceholder', language)}
@@ -219,6 +220,22 @@ const JoinGame: React.FC = () => {
                     onChange={(e) => setRoomCode(e.target.value.toUpperCase())}
                     maxLength={6}
                   />
+                </div>
+
+                <div className="form-check mb-3">
+                  <input
+                    type="checkbox"
+                    className="form-check-input"
+                    id="hideLobbyCodeCheckbox"
+                    checked={hideLobbyCode}
+                    onChange={e => {
+                      setHideLobbyCode(e.target.checked);
+                      sessionStorage.setItem('hideLobbyCode', e.target.checked ? 'true' : 'false');
+                    }}
+                  />
+                  <label className="form-check-label" htmlFor="hideLobbyCodeCheckbox">
+                    {t('joinGame.hideLobbyCode', language) || 'Hide Lobby Code'}
+                  </label>
                 </div>
 
                 <div className="form-group mb-3">

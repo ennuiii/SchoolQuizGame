@@ -1727,3 +1727,196 @@ body {
   margin: auto;
 }
 
+/* Player Management Modal Styles */
+.player-management-modal {
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png');
+  border: 3px dashed #ffe066;
+  border-radius: 18px;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18);
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+}
+
+.player-management-modal .modal-header {
+  background: linear-gradient(90deg, #ffe066 80%, #ffd166 100%);
+  color: #2d4739;
+  border-bottom: 2px solid #ffd166;
+  border-radius: 15px 15px 0 0;
+  padding: 1rem;
+}
+
+.player-management-modal .modal-title {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.4rem;
+  font-weight: bold;
+  color: #2d4739;
+}
+
+.player-management-modal .modal-body {
+  padding: 1.5rem;
+  color: #2d4739;
+}
+
+.player-management-modal .player-name {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.3rem;
+  color: #2d4739;
+  font-weight: bold;
+}
+
+.player-management-modal .lives-title {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.2rem;
+  color: #2d4739;
+  font-weight: bold;
+}
+
+.player-management-modal .lives-display {
+  font-size: 1.8rem;
+}
+
+.player-management-modal .life {
+  color: #ff6b6b;
+  margin-right: 5px;
+  filter: drop-shadow(0 1px 0 #fffbe7);
+}
+
+.player-management-modal .btn-group {
+  gap: 8px;
+}
+
+.player-management-modal .btn {
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+  font-size: 1.1rem;
+  font-weight: bold;
+  padding: 0.5rem 1rem;
+  border-radius: 12px;
+  transition: all 0.2s ease;
+}
+
+.player-management-modal .btn-outline-danger {
+  color: #ff6b6b;
+  border-color: #ff6b6b;
+}
+
+.player-management-modal .btn-outline-danger:hover {
+  background-color: #ff6b6b;
+  color: #fffbe7;
+  transform: scale(1.05) rotate(-2deg);
+}
+
+.player-management-modal .btn-outline-success {
+  color: #4ecdc4;
+  border-color: #4ecdc4;
+}
+
+.player-management-modal .btn-outline-success:hover {
+  background-color: #4ecdc4;
+  color: #fffbe7;
+  transform: scale(1.05) rotate(-2deg);
+}
+
+.player-management-modal .modal-footer {
+  border-top: 2px solid #ffd166;
+  padding: 1rem;
+}
+
+.player-management-modal .btn-secondary {
+  background: #ffe066;
+  color: #2d4739;
+  border: 2px solid #ffd166;
+}
+
+.player-management-modal .btn-secondary:hover {
+  background: #ffd166;
+  transform: scale(1.05) rotate(-2deg);
+}
+
+/* Warning Modal Styles */
+.player-management-modal .warning-title {
+  color: #ff6b6b;
+  display: flex;
+  align-items: center;
+}
+
+.player-management-modal .warning-title i {
+  font-size: 1.4rem;
+}
+
+.player-management-modal .warning-message {
+  text-align: center;
+  padding: 1rem;
+}
+
+.player-management-modal .warning-message p {
+  font-size: 1.2rem;
+  margin-bottom: 1.5rem;
+  color: #2d4739;
+}
+
+.player-management-modal .warning-heart {
+  font-size: 3rem;
+  color: #ff6b6b;
+  margin: 1rem 0;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.2); }
+  100% { transform: scale(1); }
+}
+
+/* Badge Styles */
+.player-management-modal .badge {
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+  font-size: 0.9rem;
+  padding: 0.5rem 1rem;
+  margin-right: 0.5rem;
+}
+
+.player-management-modal .badge.bg-secondary {
+  background: #6c757d !important;
+  color: #fffbe7;
+}
+
+.player-management-modal .badge.bg-warning {
+  background: #ffd166 !important;
+  color: #2d4739;
+}
+
+/* Player Management Modal Styles */
+.player-management-modal .warning-title {
+  color: #dc3545;
+  display: flex;
+  align-items: center;
+}
+
+.player-management-modal .warning-message {
+  text-align: center;
+  padding: 1rem;
+}
+
+.player-management-modal .warning-heart {
+  font-size: 2rem;
+  margin: 1rem 0;
+  animation: pulse 1.5s infinite;
+}
+
+.player-management-modal .animated-heart {
+  color: #dc3545;
+  margin: 0 0.2rem;
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+

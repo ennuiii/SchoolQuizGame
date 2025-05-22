@@ -1,13 +1,22 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAudio } from '../contexts/AudioContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import { useNavigate } from 'react-router-dom';
+import socketService from '../services/socketService';
+import { GameState } from '../types/game';
+
+interface Notification {
+  type: 'info' | 'error' | 'success';
+  message: string;
+}
 
 const GameMaster: React.FC = () => {
   const { playBackgroundMusic, pauseBackgroundMusic } = useAudio();
   const { language } = useLanguage();
   const navigate = useNavigate();
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [notification, setNotification] = useState<Notification | null>(null);
 
   useEffect(() => {
     const initializeAudio = async () => {
@@ -22,6 +31,25 @@ const GameMaster: React.FC = () => {
       pauseBackgroundMusic();
     };
   }, [playBackgroundMusic, pauseBackgroundMusic]);
+
+  useEffect(() => {
+    socketService.setOnGameStateUpdate((gameState: GameState) => {
+      setGameState(gameState);
+    });
+
+    socketService.setOnPlayerKicked((data) => {
+      const { playerName, wasDisconnected } = data;
+      const message = wasDisconnected 
+        ? `Disconnected player ${playerName} has been kicked from the room.`
+        : `Player ${playerName} has been kicked from the room.`;
+      setNotification({ type: 'info', message });
+    });
+
+    return () => {
+      socketService.setOnGameStateUpdate(null);
+      socketService.setOnPlayerKicked(null);
+    };
+  }, []);
 
   const handleLeaveGame = () => {
     // Add any cleanup logic here

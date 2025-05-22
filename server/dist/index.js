@@ -1900,6 +1900,33 @@ io.on('connection', (socket) => {
             socket.emit('error', 'Failed to process voting results.');
         }
     });
+    socket.on('adjust_player_lives', ({ roomCode, playerId, adjustment }) => {
+        const room = roomService_1.gameRooms[roomCode];
+        if (!room) {
+            console.error(`[Server] Room ${roomCode} not found for adjust_player_lives`);
+            return;
+        }
+        const player = room.players.find(p => p.id === playerId);
+        if (!player) {
+            console.error(`[Server] Player ${playerId} not found in room ${roomCode}`);
+            return;
+        }
+        // Update player lives
+        player.lives = Math.max(0, player.lives + adjustment);
+        console.log(`[Server] Player ${player.name} lives adjusted to ${player.lives}`);
+        // If player has no lives left, make them a spectator
+        if (player.lives <= 0) {
+            player.isActive = false;
+            player.isSpectator = true;
+            const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(player.id);
+            if (playerSocket) {
+                playerSocket.emit('become_spectator');
+            }
+            console.log(`[Server] Player ${player.name} eliminated due to no lives`);
+        }
+        // Broadcast updated game state
+        (0, socketService_1.broadcastGameState)(roomCode);
+    });
 });
 // Add handler for request_players event
 app.get('/api/request_players', (req, res) => {

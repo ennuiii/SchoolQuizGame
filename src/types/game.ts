@@ -37,4 +37,17 @@ export interface AnswerSubmission {
 export interface PreviewModeState {
   isActive: boolean;
   focusedPlayerId: string | null;
+}
+
+export interface GameState {
+  roomCode: string;
+  players: Player[];
+  currentRound: number;
+  isGameStarted: boolean;
+  isGameEnded: boolean;
+  currentQuestion?: Question;
+  roundAnswers?: Record<string, AnswerSubmission>;
+  evaluatedAnswers?: Record<string, boolean>;
+  playerBoards?: Record<string, PlayerBoard>;
+  previewMode?: PreviewModeState;
 } 

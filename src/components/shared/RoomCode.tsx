@@ -3,7 +3,11 @@ import { useRoom } from '../../contexts/RoomContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
 
-const RoomCode: React.FC = () => {
+interface RoomCodeProps {
+  hideLobbyCode?: boolean;
+}
+
+const RoomCode: React.FC<RoomCodeProps> = ({ hideLobbyCode = false }) => {
   const { roomCode, isStreamerMode } = useRoom();
   const { language } = useLanguage();
   const [copied, setCopied] = useState(false);
@@ -48,7 +52,7 @@ const RoomCode: React.FC = () => {
         <div className="d-flex flex-column gap-2">
           <div className="room-code-display p-2 bg-light rounded text-center">
             <h3 className="mb-0">
-              {isStreamerMode ? '••••••' : roomCode}
+              {(isStreamerMode || hideLobbyCode) ? '••••••' : roomCode}
             </h3>
           </div>
           <div className="d-flex gap-2">

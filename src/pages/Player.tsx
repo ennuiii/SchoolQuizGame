@@ -41,6 +41,7 @@ const Player: React.FC = () => {
   const [receivedGameState, setReceivedGameState] = useState(false);
   const [playerOverlayLocallyClosed, setPlayerOverlayLocallyClosed] = useState(false);
   const [showAvatarCreatorPlayer, setShowAvatarCreatorPlayer] = useState(false);
+  const [hideLobbyCode, setHideLobbyCode] = useState(() => sessionStorage.getItem('hideLobbyCode') === 'true');
   
   // Get context values
   const {
@@ -969,16 +970,21 @@ const Player: React.FC = () => {
               <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
             </div>
           )}
-          {gameStarted && isCommunityVotingMode && previewMode.isActive && playerOverlayLocallyClosed && (
-            <div className="mb-3 text-center">
-              <button 
-                className="btn btn-info w-50"
-                onClick={() => setPlayerOverlayLocallyClosed(false)}
-              >
-                {t('playerPage.reopenVoting', language) || 'View Submissions & Vote'}
-              </button>
-            </div>
-          )}
+          <div className="form-check mb-3">
+            <input
+              type="checkbox"
+              className="form-check-input"
+              id="hideLobbyCodeCheckbox"
+              checked={hideLobbyCode}
+              onChange={e => {
+                setHideLobbyCode(e.target.checked);
+                sessionStorage.setItem('hideLobbyCode', e.target.checked ? 'true' : 'false');
+              }}
+            />
+            <label className="form-check-label" htmlFor="hideLobbyCodeCheckbox">
+              {t('joinGame.hideLobbyCode', language) || 'Hide Lobby Code'}
+            </label>
+          </div>
           <div className="row g-3">
             <div className="col-12 col-md-8">
               {!gameStarted ? (
@@ -1044,7 +1050,7 @@ const Player: React.FC = () => {
               )}
             </div>
             <div className="col-12 col-md-4">
-              <RoomCode />
+              <RoomCode hideLobbyCode={hideLobbyCode} />
               <PlayerList title={t('playerPage.otherPlayers', language)} />
             </div>
           </div>

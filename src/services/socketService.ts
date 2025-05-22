@@ -1,4 +1,5 @@
 import { io, Socket } from 'socket.io-client';
+import { GameState } from '../types/game';
 
 interface Question {
   id: string;
@@ -42,6 +43,20 @@ export class SocketService {
   private tempRoomCodeForGM: string | null = null;
   private tempIsGameMasterQuery: boolean = false;
   private connectionParams: Record<string, any> = {};
+
+  private onGameStateUpdate: ((gameState: GameState) => void) | null = null;
+  private onPlayerKicked: ((data: { 
+    playerId: string; 
+    persistentPlayerId: string;
+    playerName: string;
+    wasDisconnected: boolean;
+  }) => void) | null = null;
+  private onKicked: ((data: { roomCode: string; reason: string }) => void) | null = null;
+  private onReconnectAttempt: (() => void) | null = null;
+  private onReconnectFailed: (() => void) | null = null;
+  private onReconnectError: ((error: Error) => void) | null = null;
+  private onReconnect: ((attemptNumber: number) => void) | null = null;
+  private errorCallback: ((error: { message: string }) => void) | null = null;
 
   constructor() {
     // Use FORCE_LOCAL_SERVER to override production URLs during development
@@ -371,6 +386,18 @@ export class SocketService {
       console.log('[SocketService] Session not fully recovered. Manual rejoin may be needed.');
       // The context will handle this event to attempt a rejoin
     });
+
+    // Listen for player kicked event
+    this.socket.on('player_kicked', (data: { 
+      playerId: string; 
+      persistentPlayerId: string;
+      playerName: string;
+      wasDisconnected: boolean;
+    }) => {
+      if (this.onPlayerKicked) {
+        this.onPlayerKicked(data);
+      }
+    });
   }
 
   // Robust emit with connection check
@@ -514,6 +541,10 @@ export class SocketService {
     await this.robustEmit('start_preview_mode', { roomCode });
   }
 
+  async adjustPlayerLives(roomCode: string, playerId: string, adjustment: number) {
+    await this.robustEmit('adjust_player_lives', { roomCode, playerId, adjustment });
+  }
+
   async stopPreviewMode(roomCode: string) {
     await this.robustEmit('stop_preview_mode', { roomCode });
   }
@@ -604,8 +635,8 @@ export class SocketService {
     await this.robustEmit('end_round_early', { roomCode });
   }
 
-  onError(callback: (error: string) => void): void {
-    this.on('error', callback);
+  public onError(callback: (error: string) => void): void {
+    this.errorCallback = (error: { message: string }) => callback(error.message);
   }
 
   getSocket(): Socket | null {
@@ -754,6 +785,19 @@ export class SocketService {
     return () => {
       this.persistentIdUpdateListeners = this.persistentIdUpdateListeners.filter(cb => cb !== callback);
     };
+  }
+
+  public setOnPlayerKicked(callback: ((data: { 
+    playerId: string; 
+    persistentPlayerId: string;
+    playerName: string;
+    wasDisconnected: boolean;
+  }) => void) | null) {
+    this.onPlayerKicked = callback;
+  }
+
+  public setOnGameStateUpdate(callback: ((gameState: GameState) => void) | null) {
+    this.onGameStateUpdate = callback;
   }
 }
 

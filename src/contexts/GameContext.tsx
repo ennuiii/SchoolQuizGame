@@ -93,7 +93,7 @@ interface GameContextType {
   
   // Preview Overlay Version
   previewOverlayVersion: 'v1' | 'v2';
-  isCommunityVotingMode?: boolean;
+  isCommunityVotingMode: boolean;
   
   // Actions
   startGame: (roomCode: string, questions: Question[], timeLimit: number) => void;

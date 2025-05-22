@@ -819,7 +819,7 @@ const GameMaster: React.FC = () => {
               <div className="form-group mb-3">
                 <label htmlFor="roomCodeInput" className="form-label">{t('roomSettings.roomCodeLabel', language)}</label>
                 <input
-                  type="text"
+                  type={(document.getElementById('streamerModeCheckbox') as HTMLInputElement)?.checked ? "password" : "text"}
                   id="roomCodeInput"
                   className="form-control"
                   placeholder={t('roomSettings.roomCodePlaceholder', language)}
@@ -837,7 +837,14 @@ const GameMaster: React.FC = () => {
                   className="form-check-input"
                   id="streamerModeCheckbox"
                   checked={isStreamerMode}
-                  onChange={(e) => setIsStreamerMode(e.target.checked)}
+                  onChange={(e) => {
+                    setIsStreamerMode(e.target.checked);
+                    // Force input type update when checkbox changes
+                    const input = document.getElementById('roomCodeInput') as HTMLInputElement;
+                    if (input) {
+                      input.type = e.target.checked ? "password" : "text";
+                    }
+                  }}
                 />
                 <label className="form-check-label" htmlFor="streamerModeCheckbox">
                   {t('roomSettings.streamerMode', language)}
