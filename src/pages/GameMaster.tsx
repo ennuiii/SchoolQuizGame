@@ -25,6 +25,8 @@ import type { Player } from '../types/game';
 import SettingsControl from '../components/shared/SettingsControl';
 import { useWebRTC } from '../contexts/WebRTCContext';
 import WebcamDisplay from '../components/shared/WebcamDisplay';
+import DrawingBoard from '../components/player/DrawingBoard';
+import AnswerInput from '../components/player/AnswerInput';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -50,6 +52,10 @@ const GameMaster: React.FC = () => {
   const isDraggingRef = useRef(false);
   const offsetRef = useRef({ x: 0, y: 0 });
   const isResizingRef = useRef(false);
+  const [isCommunityVotingMode, setIsCommunityVotingMode] = useState(false);
+  const [gmTextAnswer, setGmTextAnswer] = useState('');
+  const [gmSubmittedCommunityAnswerForRound, setGmSubmittedCommunityAnswerForRound] = useState(false);
+  const [gmOverlayLocallyClosed, setGmOverlayLocallyClosed] = useState(false);
   
   const {
     roomCode,
@@ -95,12 +101,73 @@ const GameMaster: React.FC = () => {
     evaluatedAnswers,
     previewOverlayVersion,
     setPreviewOverlayVersion,
-    players: gamePlayers
+    players: gamePlayers,
+    currentVotes: gameContextCurrentVotes
   } = useGame();
 
   const {
     playBackgroundMusic
   } = useAudio();
+
+  // Determine if GM submitted their answer for the current round in community mode
+  const { currentQuestionIndex: gameCurrentQuestionIndex, allAnswersThisRound: gameAllAnswersThisRound } = useGame();
+  const gmHasSubmittedCommunityAnswer = useMemo(() => {
+    if (!isCommunityVotingMode || !persistentPlayerId || !gameAllAnswersThisRound) return false;
+    return !!gameAllAnswersThisRound[persistentPlayerId];
+  }, [isCommunityVotingMode, persistentPlayerId, gameAllAnswersThisRound, gameCurrentQuestionIndex]);
+
+  // Reset gmSubmittedCommunityAnswerForRound when the question changes or mode toggles
+  // Also reset GM text answer and overlay closed state when question changes
+  useEffect(() => {
+    if (gameStarted) { // Only reset if game has started and question truly changes
+      setGmTextAnswer('');
+      setGmSubmittedCommunityAnswerForRound(false);
+      setGmOverlayLocallyClosed(false);
+      // Clear the GM's board data on the server
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('clear_game_master_board', { roomCode });
+      }
+      // The DrawingBoard will be reset by its key prop changing
+    }
+  }, [gameCurrentQuestionIndex, gameStarted, roomCode, connectionStatus]);
+
+  // Also reset when game restarts
+  useEffect(() => {
+    if (!gameStarted) {
+      setGmTextAnswer('');
+      setGmSubmittedCommunityAnswerForRound(false);
+      setGmOverlayLocallyClosed(false);
+      // Clear the GM's board data on the server when game restarts
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('clear_game_master_board', { roomCode });
+      }
+    }
+  }, [gameStarted, roomCode, connectionStatus]);
+
+  // This effect for syncing with server state for GM submission might be redundant if we set locally and trust the submission went through,
+  // OR it acts as a confirmation. Let's keep it for now.
+  useEffect(() => {
+    if (isCommunityVotingMode && persistentPlayerId && gameAllAnswersThisRound?.[persistentPlayerId]) {
+      setGmSubmittedCommunityAnswerForRound(true);
+    }
+  }, [isCommunityVotingMode, persistentPlayerId, gameAllAnswersThisRound]);
+
+  // Listen for server ack of GM's community answer submission
+  useEffect(() => {
+    if (!isCommunityVotingMode || !currentQuestion) return;
+
+    const handleGmAnswerAccepted = (data: { questionId: string }) => {
+      if (data.questionId === currentQuestion.id) {
+        console.log("[GameMaster] Received gm_community_answer_accepted from server for current question. Disabling further input.");
+        setGmSubmittedCommunityAnswerForRound(true);
+      }
+    };
+
+    socketService.on('gm_community_answer_accepted', handleGmAnswerAccepted);
+    return () => {
+      socketService.off('gm_community_answer_accepted', handleGmAnswerAccepted);
+    };
+  }, [isCommunityVotingMode, currentQuestion, setGmSubmittedCommunityAnswerForRound]);
 
   useEffect(() => {
     // Listen for kick errors
@@ -113,6 +180,45 @@ const GameMaster: React.FC = () => {
       socketService.off('kick_error');
     };
   }, []);
+
+  const handleToggleCommunityVotingMode = useCallback(() => {
+    setIsCommunityVotingMode(prev => {
+      const newMode = !prev;
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('toggle_community_voting', { roomCode, isCommunityVotingMode: newMode });
+      }
+      setGmTextAnswer('');
+      return newMode;
+    });
+  }, [roomCode, connectionStatus]);
+
+  const handleGmAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setGmTextAnswer(e.target.value);
+  };
+
+  const handleGmSubmitAnswer = useCallback(async () => {
+    if (!roomCode || !currentQuestion || !isCommunityVotingMode || !persistentPlayerId) return;
+
+    // In community voting mode, GM submits answer (text part).
+    // Drawing part is handled by DrawingBoard emitting `update_game_master_board`.
+    // The server will combine these.
+
+    // For `hasDrawing`, we can infer it if the GM has a drawing board active.
+    // However, the actual drawing data resides on the server via `gameMasterBoardData`.
+    // So, we can optimistically say `hasDrawing: true` if GM *could* have drawn.
+    // The server can verify against `gameMasterBoardData`.
+    const gmHasDrawing = true; // Assume GM's board is active and might contain a drawing.
+
+    try {
+      // Send GM's text answer. Server will associate it with GM's drawing for the round.
+      await socketService.submitAnswer(roomCode, gmTextAnswer || '-', gmHasDrawing, null);
+      toast.success('Your answer submitted!');
+      setGmSubmittedCommunityAnswerForRound(true); // Set local submission state for GM immediately
+    } catch (error) {
+      toast.error('Failed to submit your answer.');
+      console.error('[GameMaster] Error submitting GM answer:', error);
+    }
+  }, [roomCode, currentQuestion, isCommunityVotingMode, gmTextAnswer, persistentPlayerId]);
 
   const handleKickPlayer = useCallback((playerId: string) => {
     if (!roomCode) {
@@ -201,6 +307,13 @@ const GameMaster: React.FC = () => {
       // We don't disconnect here as other components might still need the connection
     };
   }, [navigate]);
+
+  // Reset local overlay closed state when previewMode becomes inactive or mode changes
+  useEffect(() => {
+    if (!previewMode.isActive || !isCommunityVotingMode) {
+      setGmOverlayLocallyClosed(false);
+    }
+  }, [previewMode.isActive, isCommunityVotingMode]);
 
   useEffect(() => {
     playBackgroundMusic();
@@ -724,10 +837,17 @@ const GameMaster: React.FC = () => {
           
           <div className="row g-3">
             <div className="col-12 col-md-4">
-              <RoomSettings timeLimit={customTimeLimit} onTimeLimitChange={setCustomTimeLimit} />
+              <RoomSettings 
+                timeLimit={customTimeLimit} 
+                onTimeLimitChange={setCustomTimeLimit} 
+                isCommunityVotingMode={isCommunityVotingMode}
+                onToggleCommunityVotingMode={handleToggleCommunityVotingMode}
+                gameStarted={gameStarted}
+              />
               <RoomCode />
               
-              {gameStarted && !previewMode.isActive && (
+              {/* Preview button, shown if game started, not in preview, and NOT community voting mode */}
+              {gameStarted && !previewMode.isActive && !isCommunityVotingMode && (
                 <div className="mb-3">
                   <button 
                     className="btn btn-primary w-100" 
@@ -739,12 +859,13 @@ const GameMaster: React.FC = () => {
                 </div>
               )}
               
+              {/* PlayerList is always shown for the GM */}
               <PlayerList 
                 title={t('players', language)}
                 onPlayerSelect={handlePlayerSelect}
                 selectedPlayerId={selectedPlayerId}
                 isGameMasterView={true}
-                onKickPlayer={handleKickPlayer}
+                onKickPlayer={(!isCommunityVotingMode || !gameStarted) ? handleKickPlayer : undefined}
                 persistentPlayerId={persistentPlayerId || undefined}
               />
               
@@ -774,58 +895,16 @@ const GameMaster: React.FC = () => {
                   </button>
                 ) : (
                   <>
-                    <button 
-                      className="btn btn-primary" 
-                      onClick={handleNextQuestion}
-                      disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected' || !canProceedToNextQuestion}
-                      title={
-                        connectionStatus !== 'connected' ? t('connection.disconnected', language) :
-                        !currentQuestion ? t('gameControls.noQuestion', language) :
-                        isGameConcluded ? t('gameControls.gameConcluded', language) :
-                        isRestarting ? t('gameControls.restarting', language) :
-                        !allAnswersSubmitted ? t('gameControls.waitingForAnswers', language, { count: activePlayerCount }) :
-                        !allSubmittedAnswersEvaluated ? t('gameControls.evaluateAnswers', language) :
-                        t('gameControls.nextQuestion', language)
-                      }
-                    >
-                      {t('gameControls.nextQuestion', language)}
-                    </button>
-                    
-                    <button 
-                      className="btn btn-warning" 
-                      onClick={handleEndRoundEarlyAction}
-                      disabled={!currentQuestion || isRestarting || isGameConcluded || connectionStatus !== 'connected'}
-                    >
-                      {t('gameControls.endRoundEarly', language)}
-                    </button>
-                    
-                    <button 
-                      className="btn btn-info"
-                      onClick={handleRestartGame}
-                      disabled={isRestarting || !gameStarted || connectionStatus !== 'connected'}
-                    >
-                      {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
-                    </button>
-                    
-                    {!isGameConcluded && (
-                      <button 
-                        className="btn btn-danger" 
-                        onClick={handleEndGameRequest}
-                        disabled={isRestarting || connectionStatus !== 'connected'}
-                      >
-                        {t('gameControls.endGame', language)}
-                      </button>
-                    )}
-                    
-                    {isGameConcluded && (
-                      <button
-                        className="btn btn-success"
-                        onClick={handleShowRecapButtonClick}
-                        disabled={isRestarting || connectionStatus !== 'connected'}
-                      >
-                        {t('gameControls.showRecap', language)}
-                      </button>
-                    )}
+                    <GameControls
+                      onStartGame={handleStartGame}
+                      onNextQuestion={handleNextQuestion}
+                      onRestartGame={handleRestartGame}
+                      onEndRoundEarly={handleEndRoundEarlyAction}
+                      isRestarting={isRestarting}
+                      showEndRoundConfirm={showEndRoundConfirm}
+                      onConfirmEndRound={confirmEndRoundEarly}
+                      onCancelEndRound={cancelEndRoundEarly}
+                    />
                   </>
                 )}
               </div>
@@ -842,7 +921,7 @@ const GameMaster: React.FC = () => {
                 <>
                   <div className="card mb-3">
                     <div className="card-body">
-                      <QuestionDisplay question={currentQuestion} />
+                      <QuestionDisplay question={currentQuestion} isCommunityVotingMode={isCommunityVotingMode} />
                       {gameTimeLimit !== null && gameTimeLimit < 99999 && (
                         <div className="mt-3">
                           <Timer isActive={isTimerRunning} showSeconds={true} />
@@ -851,75 +930,141 @@ const GameMaster: React.FC = () => {
                     </div>
                   </div>
 
-                  <AnswerList onEvaluate={handleEvaluateAnswer} />
-                  
-                  <div className="card mb-3">
-                    <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                      <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
-                      <div className="d-flex gap-2">
-                        <button 
-                          className="btn btn-sm btn-outline-primary" 
-                          onClick={showAllBoards}
-                          disabled={connectionStatus !== 'connected'}
-                        >
-                          {t('gameControls.showAll', language)}
-                        </button>
-                        <button 
-                          className="btn btn-sm btn-outline-secondary" 
-                          onClick={hideAllBoards}
-                          disabled={connectionStatus !== 'connected'}
-                        >
-                          {t('gameControls.hideAll', language)}
-                        </button>
+                  {isCommunityVotingMode ? (
+                    <div className="card mb-3">
+                      <div className="card-header bg-light">
+                        <h5 className="mb-0">{t('gameControls.yourBoard', language)}</h5>
                       </div>
-                    </div>
-                    <div className="card-body">
-                      <div
-                        className="board-row"
-                        style={{
-                          display: 'grid',
-                          gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                          gap: '20px',
-                          width: '100%',
-                          overflowX: 'auto',
-                          alignItems: 'stretch',
-                        }}
-                      >
-                        {gamePlayers.filter(player => !player.isSpectator).map(player => {
-                          const boardEntry = playerBoards.find(b => b.playerId === player.id);
-                          const boardForDisplay = {
-                            playerId: player.id,
-                            persistentPlayerId: player.persistentPlayerId,
-                            playerName: player.name,
-                            boardData: boardEntry ? boardEntry.boardData : ''
-                          };
-                          return (
-                            <PlayerBoardDisplay
-                              key={player.id}
-                              board={boardForDisplay}
-                              isVisible={visibleBoards.has(player.id)}
-                              onToggleVisibility={toggleBoardVisibility}
-                              transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
-                              onScale={handleBoardScale}
-                              onPan={handleBoardPan}
-                              onReset={handleBoardReset}
+                      <div className="card-body">
+                        <DrawingBoard
+                          key={`gm-board-${gameCurrentQuestionIndex}`}
+                          onUpdate={(data) => {
+                            if (roomCode && connectionStatus === 'connected') {
+                              socketService.emit('update_game_master_board', { roomCode, boardData: data.data });
+                            }
+                          }}
+                          disabled={gmSubmittedCommunityAnswerForRound}
+                        />
+                        {!gmSubmittedCommunityAnswerForRound ? (
+                          <div className="mt-3">
+                            <AnswerInput 
+                              answer={gmTextAnswer} 
+                              onAnswerChange={handleGmAnswerChange} 
+                              onSubmitAnswer={handleGmSubmitAnswer}
+                              // Control disable state directly for GM
+                              controlledDisable={gmSubmittedCommunityAnswerForRound || !gameStarted || !currentQuestion || connectionStatus !== 'connected'}
                             />
-                          );
-                        })}
+                          </div>
+                        ) : (
+                          <div className="alert alert-info mt-3">
+                            {t('playerPage.answerSubmitted', language)} {/* Or a GM-specific message */}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  </div>
+                  ) : (
+                    <>
+                      {gameStarted && !isCommunityVotingMode && (
+                        <>
+                          <AnswerList onEvaluate={handleEvaluateAnswer} />
+                          <div className="card mb-3">
+                            <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                              <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
+                              <div className="d-flex gap-2">
+                                <button
+                                  className="btn btn-sm btn-outline-primary"
+                                  onClick={showAllBoards}
+                                  disabled={connectionStatus !== 'connected'}
+                                >
+                                  {t('gameControls.showAll', language)}
+                                </button>
+                                <button
+                                  className="btn btn-sm btn-outline-secondary"
+                                  onClick={hideAllBoards}
+                                  disabled={connectionStatus !== 'connected'}
+                                >
+                                  {t('gameControls.hideAll', language)}
+                                </button>
+                              </div>
+                            </div>
+                            <div className="card-body">
+                              <div
+                                className="board-row"
+                                style={{
+                                  display: 'grid',
+                                  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                                  gap: '20px',
+                                  width: '100%',
+                                  overflowX: 'auto',
+                                  alignItems: 'stretch',
+                                }}
+                              >
+                                {gamePlayers.filter(player => !player.isSpectator).map(player => {
+                                  const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                                  const boardForDisplay = {
+                                    playerId: player.id,
+                                    persistentPlayerId: player.persistentPlayerId,
+                                    playerName: player.name,
+                                    boardData: boardEntry ? boardEntry.boardData : ''
+                                  };
+                                  return (
+                                    <PlayerBoardDisplay
+                                      key={player.id}
+                                      board={boardForDisplay}
+                                      isVisible={visibleBoards.has(player.id)}
+                                      onToggleVisibility={toggleBoardVisibility}
+                                      transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
+                                      onScale={handleBoardScale}
+                                      onPan={handleBoardPan}
+                                      onReset={handleBoardReset}
+                                    />
+                                  );
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                        </>
+                      )}
+                    </>
+                  )}
                 </>
               )}
             </div>
           </div>
 
-          {previewMode.isActive && (
+          {/* Button to re-open preview if locally closed by GM during community voting */}
+          {gameStarted && isCommunityVotingMode && previewMode.isActive && gmOverlayLocallyClosed && (
+            <div className="mt-3 mb-3">
+              <button 
+                className="btn btn-info w-100"
+                onClick={() => setGmOverlayLocallyClosed(false)}
+              >
+                {t('gameControls.reopenVoting', language) || 'Re-open Voting Screen'}
+              </button>
+            </div>
+          )}
+
+          {previewMode.isActive && !gmOverlayLocallyClosed && (
             <PreviewOverlayV2
               onFocus={handleFocusSubmissionInternal}
-              onClose={handleStopPreview}
-              isGameMaster={true}
-              onEvaluate={handleEvaluateAnswer}
+              onClose={() => {
+                if (isCommunityVotingMode) {
+                  setGmOverlayLocallyClosed(true);
+                } else {
+                  handleStopPreview();
+                }
+              }}
+              isGameMaster={true} 
+              onEvaluate={!isCommunityVotingMode ? handleEvaluateAnswer : undefined} 
+              isCommunityVotingMode={isCommunityVotingMode} 
+              onVote={(answerPersistentPlayerId, vote) => {
+                if (roomCode && currentQuestion)
+                  socketService.emit('submit_vote', { roomCode, answerId: answerPersistentPlayerId, vote });
+              }}
+              onShowAnswer={() => {
+                if (roomCode && currentQuestion)
+                  socketService.emit('show_answer', { roomCode, questionId: currentQuestion.id });
+              }}
             />
           )}
 

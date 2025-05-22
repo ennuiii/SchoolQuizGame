@@ -60,7 +60,10 @@ function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
         isConcluded: false,
         isStreamerMode: false,
         createdAt: new Date().toISOString(),
-        lastActivity: new Date().toISOString()
+        lastActivity: new Date().toISOString(),
+        isCommunityVotingMode: false,
+        gameMasterBoardData: null,
+        votes: {}
     };
     // Log room creation as a critical event
     logEvent('ROOM_CREATED', {

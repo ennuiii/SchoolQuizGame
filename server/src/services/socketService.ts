@@ -64,18 +64,55 @@ export function getGameState(roomCode: string): GameState | null {
     persistentPlayerId: player.persistentPlayerId || `F-${player.id.substring(0, 8)}`
   }));
 
+  let finalPlayersArray = safePlayersArray;
+  let finalPlayerBoards = { ...playerBoardsForState }; // Start with a copy
+
+  if (room.isCommunityVotingMode && room.gamemasterPersistentId) {
+    const gmAsPlayerExistsInPlayerArray = safePlayersArray.some(p => p.persistentPlayerId === room.gamemasterPersistentId);
+    if (!gmAsPlayerExistsInPlayerArray) {
+      finalPlayersArray = [
+        ...safePlayersArray,
+        {
+          id: room.gamemasterSocketId || 'gamemaster-socket',
+          persistentPlayerId: room.gamemasterPersistentId,
+          name: 'GameMaster (Playing)',
+          lives: 3, 
+          answers: room.roundAnswers[room.gamemasterPersistentId] ? [room.roundAnswers[room.gamemasterPersistentId]] : [],
+          isActive: true,
+          isSpectator: false,
+          joinedAsSpectator: false,
+          disconnectTimer: null,
+          avatarSvg: null 
+        }
+      ];
+    }
+    // Ensure GM's board data is in the playerBoards sent to clients if they have one
+    if (room.gameMasterBoardData && room.gamemasterSocketId) { // Use gamemasterSocketId as key for consistency if available
+      finalPlayerBoards[room.gamemasterSocketId] = {
+        playerId: room.gamemasterSocketId,
+        persistentPlayerId: room.gamemasterPersistentId,
+        boardData: room.gameMasterBoardData,
+        roundIndex: room.currentQuestionIndex,
+        timestamp: Date.now() // Or a more accurate timestamp if available
+      };
+    }
+  }
+
   return {
     started: room.started,
     currentQuestion: room.currentQuestion,
     currentQuestionIndex: room.currentQuestionIndex,
     timeLimit: room.timeLimit,
     questionStartTime: room.questionStartTime,
-    players: safePlayersArray,
+    players: finalPlayersArray,
     roundAnswers: room.roundAnswers || {},
     evaluatedAnswers: room.evaluatedAnswers || {},
     submissionPhaseOver: room.submissionPhaseOver || false,
     isConcluded: room.isConcluded || false,
-    playerBoards: playerBoardsForState
+    playerBoards: finalPlayerBoards, // Use the potentially augmented player boards
+    isCommunityVotingMode: room.isCommunityVotingMode || false,
+    gameMasterBoardData: room.gameMasterBoardData || null, 
+    currentVotes: room.votes || {}
   };
 }
 
@@ -235,6 +272,18 @@ export function finalizeRoundAndAutoSubmit(roomCode: string): void {
   console.log(`[FinalizeRound] Finalizing round for room ${roomCode}. Current question index: ${room.currentQuestionIndex}`);
   room.submissionPhaseOver = true;
 
+  // Clear voting data for the current round
+  if (room.isCommunityVotingMode) {
+    console.log(`[FinalizeRound] Clearing community voting data for room ${roomCode}`);
+    room.votes = {};
+    
+    // Also clear GM's drawing board in community voting mode
+    if (room.gameMasterBoardData) {
+      console.log(`[FinalizeRound] Clearing game master's drawing board in community voting mode`);
+      room.gameMasterBoardData = null;
+    }
+  }
+
   if (room.players && room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null) {
     room.players.forEach(playerInRoom => {
       if (
@@ -301,6 +350,12 @@ export function concludeGameAndSendRecap(roomCode: string, winnerInfo: { id: str
 
   room.isConcluded = true;
   clearRoomTimer(roomCode); // Stop any active timers
+  
+  // Clear any remaining voting data when game concludes
+  if (room.votes) {
+    console.log(`[ConcludeGame] Clearing community voting data for room ${roomCode} on game conclusion`);
+    room.votes = {};
+  }
 
   console.log(`[ConcludeGame] Game concluded in room ${roomCode}. Emitting game_over_pending_recap.`);
   if (io) {
@@ -340,6 +395,12 @@ export function startQuestionTimer(roomCode: string): void {
 
   // Clear any existing timer for this room
   clearRoomTimer(roomCode);
+
+  // Clear any existing votes when starting a new question
+  if (room.isCommunityVotingMode && room.votes) {
+    console.log(`[TIMER] Clearing community voting data for room ${roomCode} at start of new question`);
+    room.votes = {};
+  }
 
   let timeRemaining = room.timeLimit;
   const startTime = Date.now();

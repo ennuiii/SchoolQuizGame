@@ -1,4 +1,17 @@
-/* Styles for WebcamDisplay component */
+/* Styles for WebcamDisplay component - Chalkboard Theme */
+
+:root {
+  --chalkboard-bg: #2a3b30;
+  --chalkboard-border: #1a2a20;
+  --chalk-white: #f5f5f5;
+  --chalk-yellow: #ffe66d;
+  --chalk-blue: #7bdff2;
+  --chalk-pink: #f7aef8;
+  --chalk-green: #b1e77b;
+  --wooden-frame: #8B4513;
+  --wooden-frame-light: #A0522D;
+  --chalk-shadow: rgba(255, 255, 255, 0.4);
+}
 
 .webcam-grid {
   display: flex;
@@ -6,10 +19,102 @@
   gap: 15px;
   width: 100%;
   height: 100%;
-  padding: 10px;
+  padding: 15px;
   position: relative;
   z-index: 5;
   overflow: hidden;
+  background-color: var(--chalkboard-bg);
+  border: 8px solid var(--wooden-frame);
+  border-radius: 10px;
+  box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4);
+}
+
+/* Chalk-style text for status messages */
+.webcam-grid p.text-muted {
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+  color: var(--chalk-white) !important;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  opacity: 0.9;
+  background-color: transparent !important;
+  font-size: 1rem !important;
+  padding: 10px;
+  margin-top: 15px;
+  text-align: center;
+  border-radius: 4px;
+}
+
+/* Fix for select dropdown in settings */
+.custom-select-wrapper select {
+  -webkit-appearance: menulist !important; /* Safari and Chrome */
+  -moz-appearance: menulist !important; /* Firefox */
+  appearance: menulist !important; /* Standard */
+}
+
+.custom-select-wrapper select:hover {
+  cursor: pointer;
+  border-color: #c1b871 !important;
+}
+
+.custom-select-wrapper select:focus {
+  box-shadow: 0 0 0 0.25rem rgba(87, 196, 184, 0.25) !important;
+  border-color: #57c4b8 !important;
+  outline: none !important;
+}
+
+.custom-select-wrapper select:disabled {
+  opacity: 0.6;
+  cursor: not-allowed !important;
+}
+
+.custom-select-wrapper select option {
+  background-color: #fff;
+  color: #333;
+  padding: 8px;
+}
+
+/* Better camera disabled indicator - Chalk style */
+.camera-disabled-indicator {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: var(--chalk-white);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.7);
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 12px;
+  width: auto;
+  min-width: 100px;
+  height: auto;
+  padding: 15px;
+  z-index: 5;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  border: 2px dashed rgba(255, 255, 255, 0.3);
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+
+.camera-disabled-indicator i {
+  font-size: 2rem;
+  margin-bottom: 6px;
+  color: var(--chalk-yellow);
+}
+
+.camera-disabled-indicator span {
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.camera-disabled-indicator small {
+  max-width: 200px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: center;
+  color: var(--chalk-blue);
 }
 
 /* Styles for draggable webcam container */
@@ -57,25 +162,25 @@
 .webcam-item {
   position: relative;
   border-radius: 8px;
-  border: 2px solid rgba(0, 0, 0, 0.2);
+  border: 3px solid var(--wooden-frame-light);
   overflow: hidden;
-  background-color: #1a1a1a;
+  background-color: var(--chalkboard-bg);
   aspect-ratio: 4/3;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4), inset 0 0 10px rgba(0, 0, 0, 0.5);
   width: 100%;
   margin-bottom: 10px;
-  transition: all 0.3s ease; /* Smooth transition when resizing */
+  transition: all 0.3s ease;
   flex-grow: 1;
   height: auto;
 }
 
-/* Apply a subtle glow effect to active webcams */
+/* Apply a chalk dust effect to active webcams */
 .webcam-item.active {
-  border-color: rgba(77, 148, 255, 0.6);
-  box-shadow: 0 0 15px rgba(77, 148, 255, 0.3);
+  border-color: var(--wooden-frame);
+  box-shadow: 0 0 15px rgba(255, 255, 255, 0.1), inset 0 0 15px rgba(255, 255, 255, 0.05);
 }
 
 /* Ensure the webcam content scales properly when parent container is resized */
@@ -117,10 +222,11 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
-  background-color: #111;
+  background-color: var(--chalkboard-bg);
   position: relative;
   z-index: 1;
   transition: opacity 0.3s ease;
+  border-radius: 4px;
 }
 
 /* Make sure the video scales properly when container is resized */
@@ -136,6 +242,7 @@
   border-bottom: 3px solid rgba(255, 255, 255, 0.9) !important;
 }
 
+/* Control icons with chalk effect */
 .video-controls-overlay {
   position: absolute;
   bottom: 10px;
@@ -143,7 +250,7 @@
   display: flex;
   gap: 8px;
   z-index: 10;
-  opacity: 0.5;
+  opacity: 0.7;
   transition: opacity 0.2s ease;
 }
 
@@ -161,25 +268,26 @@
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: white;
+  color: var(--chalk-white);
   font-size: 1.2rem;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .control-icon:hover {
   transform: scale(1.1);
-  background-color: rgba(0, 0, 0, 0.8);
+  background-color: rgba(20, 30, 25, 0.8);
 }
 
 .control-icon.active {
-  color: #fff;
+  color: var(--chalk-green);
 }
 
 .control-icon.inactive {
-  color: #ff4d4d;
-  background-color: rgba(0, 0, 0, 0.7);
+  color: var(--chalk-pink);
 }
 
+/* Name tag styling - Chalk-like label */
 .name-tag-container {
   position: absolute;
   bottom: 10px;
@@ -189,7 +297,7 @@
   align-items: center;
   width: auto;
   max-width: 80%;
-  opacity: 0.8;
+  opacity: 0.9;
   transition: opacity 0.2s ease;
 }
 
@@ -198,8 +306,8 @@
 }
 
 .webcam-name-tag {
-  background-color: rgba(0, 0, 0, 0.8);
-  color: white;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: var(--chalk-white);
   font-size: 0.95rem;
   padding: 6px 14px;
   border-radius: 20px;
@@ -209,63 +317,17 @@
   font-weight: 600;
   letter-spacing: 0.5px;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  font-family: 'Comic Sans MS', cursive, sans-serif;
+}
+
+.webcam-name-tag span.small {
+  color: var(--chalk-yellow);
 }
 
 .name-tag-tape {
   display: none;
-}
-
-/* Waiting message styling */
-.webcam-grid p.text-muted {
-  margin-top: 10px;
-  margin-bottom: 0;
-  font-size: 0.9rem;
-  color: rgba(255, 255, 255, 0.7) !important;
-  background-color: transparent !important;
-}
-
-/* Debug info styling */
-.debug-section {
-  background-color: rgba(0, 0, 0, 0.3);
-  padding: 5px;
-  border-radius: 4px;
-  margin-top: 10px;
-  font-size: 0.7rem;
-  position: relative;
-  z-index: 5;
-}
-
-.camera-disabled-indicator {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  color: #f8f9fa;
-  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.7);
-  background-color: rgba(0, 0, 0, 0.6);
-  border-radius: 50%;
-  width: 80px;
-  height: 80px;
-  z-index: 5;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-.camera-disabled-indicator i {
-  font-size: 2rem;
-  margin-bottom: 6px;
-}
-
-.camera-disabled-indicator span {
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.5px;
 }
 
 /* Connecting state indicator */
@@ -278,17 +340,19 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  color: #f8f9fa;
+  color: var(--chalk-white);
   background-color: rgba(0, 0, 0, 0.6);
   border-radius: 10px;
   padding: 15px;
   z-index: 5;
+  font-family: 'Comic Sans MS', cursive, sans-serif;
 }
 
 .connecting-indicator i {
   font-size: 2rem;
   margin-bottom: 10px;
   animation: spin 1.5s linear infinite;
+  color: var(--chalk-blue);
 }
 
 @keyframes spin {
@@ -314,5 +378,23 @@
 }
 
 .webcam-item:hover .remote-control-buttons {
+  opacity: 1;
+}
+
+/* Chalk dust animation on hover */
+.webcam-item:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle at center, transparent 90%, rgba(255, 255, 255, 0.08) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.webcam-item:hover:after {
   opacity: 1;
 } 

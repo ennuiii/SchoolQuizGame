@@ -38,6 +38,7 @@ const Player: React.FC = () => {
   const [answer, setAnswer] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [receivedGameState, setReceivedGameState] = useState(false);
+  const [playerOverlayLocallyClosed, setPlayerOverlayLocallyClosed] = useState(false);
   
   // Get context values
   const {
@@ -57,8 +58,11 @@ const Player: React.FC = () => {
     recapSelectedTabKey,
     hideRecap,
     allAnswersThisRound,
+    evaluatedAnswers,
+    currentVotes,
     players,
-    playerBoards
+    playerBoards,
+    isCommunityVotingMode
   } = useGame();
 
   const {
@@ -90,6 +94,9 @@ const Player: React.FC = () => {
   const isDraggingRef = useRef(false);
   const isResizingRef = useRef(false);
   const offsetRef = useRef({ x: 0, y: 0 });
+
+  // Add a ref to track if we've already logged the player match
+  const playerMatchLoggedRef = useRef(false);
 
   // Determine if player has already submitted answer from server state
   // This solves the issue where player can submit again after page refresh
@@ -154,12 +161,28 @@ const Player: React.FC = () => {
       questionIndex: currentQuestionIndex,
       timeRemaining,
       contextSubmittedAnswer: submittedAnswer,
-      localSubmissionLock: submittedAnswerLocal,
+      localPlayerSubmissionLock: submittedAnswerLocal,
       hasSubmittedToServer,
       gameRecapAvailable: !!gameRecapData,
+      isCommunityVotingMode,
+      previewModeActive: previewMode.isActive,
       timestamp: new Date().toISOString()
     });
-  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal, gameRecapData, hasSubmittedToServer]);
+  }, [gameStarted, currentQuestionIndex, timeRemaining, submittedAnswer, submittedAnswerLocal, gameRecapData, hasSubmittedToServer, isCommunityVotingMode, previewMode.isActive]);
+
+  // Reset local overlay closed state when previewMode becomes inactive or mode changes
+  useEffect(() => {
+    if (!previewMode.isActive || !isCommunityVotingMode) {
+      setPlayerOverlayLocallyClosed(false);
+    }
+  }, [previewMode.isActive, isCommunityVotingMode]);
+
+  // Reset local overlay closed state when the question changes
+  useEffect(() => {
+    if (gameStarted) { // Only reset if game has started and question truly changes
+        setPlayerOverlayLocallyClosed(false);
+    }
+  }, [currentQuestionIndex, gameStarted]);
 
   // Handle answer submission
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
@@ -367,9 +390,7 @@ const Player: React.FC = () => {
   // If we have a stored roomCode but connection is lost, request game state update upon reconnection
   useEffect(() => {
     if (connectionStatus === 'connected' && roomCode) {
-      // Attempt to rejoin the room
-      console.log('[Player] Connected with room code, attempting to rejoin:', roomCode);
-      
+      // Attempt to rejoin the room - but don't log every time
       if (!isRoomLoading) {
         socketService.rejoinRoom(roomCode, false); // false = not GM
       }
@@ -381,7 +402,7 @@ const Player: React.FC = () => {
       // Set a timeout to retry getting players if the list is empty
       const retryTimeout = setTimeout(() => {
         if (players.length === 0) {
-          console.log('[Player] Player list is still empty after connection. Retrying request players...');
+          // Don't log this every time
           socketService.requestPlayers(roomCode);
         }
       }, 2000);
@@ -389,6 +410,7 @@ const Player: React.FC = () => {
       // Set a timeout to force proceed if still loading after some time
       const forceLoadTimeout = setTimeout(() => {
         if (connectionStatus === 'connected' && roomCode && players.length > 0) {
+          // Only log this once when it actually happens
           console.log('[Player] Force proceeding after timeout - connection is established and player list exists');
           // This will trigger a re-render which should show the game screen
           setIsLoading(false); 
@@ -498,19 +520,19 @@ const Player: React.FC = () => {
     };
   }, []);
 
-  // Monitor for player data to exit loading screen
+  // Monitor for player data to exit loading screen - reduce logging
   useEffect(() => {
     // If we have connection, players data, and room code, we should exit loading state directly
     if (connectionStatus === 'connected' && players.length > 0 && roomCode) {
-      console.log('[Player] We have player data and connection, exiting loading state directly');
+      // Don't log this repeatedly
       setIsLoading(false);
     }
   }, [connectionStatus, players, roomCode]);
 
-  // Override isRoomLoading in some cases - we might need to exit loading screen even if RoomContext thinks we're still loading
+  // Override isRoomLoading in some cases - reduce logging
   useEffect(() => {
     if (isRoomLoading && receivedGameState && connectionStatus === 'connected' && players.length > 0) {
-      console.log('[Player] Overriding isRoomLoading because we have game state and player data');
+      // Don't log this repeatedly
       setIsLoading(false);
     }
   }, [isRoomLoading, receivedGameState, connectionStatus, players.length]);
@@ -650,24 +672,23 @@ const Player: React.FC = () => {
     );
   }
   
-  // Enhanced player detection with multiple checks and detailed logging
+  // Enhanced player detection with multiple checks but minimal logging
   const currentPlayerInRoom = players.some(p => {
     const socketMatch = p.id === socketService.getSocketId();
     const persistentIdMatch = p.persistentPlayerId === persistentPlayerId;
     const nameMatch = p.name === playerName; // Add name match as a fallback
     const isMatch = socketMatch || persistentIdMatch || (nameMatch && connectionStatus === 'connected');
     
-    if (isMatch) {
+    // We don't need to log this every time, as it happens repeatedly in polling
+    // Only log the first match we find and nothing after that
+    if (isMatch && !playerMatchLoggedRef.current) {
+      playerMatchLoggedRef.current = true;
       console.log('[Player] Player found in room with matches:', {
         playerName,
         playerInRoom: p.name,
         socketMatch,
         persistentIdMatch,
-        nameMatch,
-        socketId: socketService.getSocketId(),
-        playerSocketId: p.id,
-        persistentId: persistentPlayerId,
-        playerPersistentId: p.persistentPlayerId
+        nameMatch
       });
     }
     
@@ -750,8 +771,32 @@ const Player: React.FC = () => {
     return <LoadingOverlay isVisible={true} message={t('playerPage.redirectingToSpectator', language)} />;
   }
 
-  if (previewMode.isActive) {
-    return <PreviewOverlayV2 onClose={() => socketService.stopPreviewMode(roomCode)} onFocus={(pid) => socketService.focusSubmission(roomCode, pid)} isGameMaster={false} />;
+  // If preview mode is active, show the PreviewOverlayV2, respecting local close state for community voting
+  if (previewMode.isActive && !(isCommunityVotingMode && playerOverlayLocallyClosed)) {
+    return (
+      <PreviewOverlayV2
+        onFocus={() => {}}
+        onClose={() => {
+          if (isCommunityVotingMode) {
+            setPlayerOverlayLocallyClosed(true);
+          } else {
+            console.log('[PlayerPage] onClose called for PreviewOverlay in non-community mode.');
+          }
+        }}
+        isGameMaster={false}
+        isCommunityVotingMode={isCommunityVotingMode}
+        onVote={(answerPersistentPlayerId, vote) => {
+          if (roomCode && currentQuestion) {
+            socketService.emit('submit_vote', { roomCode, answerId: answerPersistentPlayerId, vote });
+          }
+        }}
+        onShowAnswer={() => {
+          if (roomCode && currentQuestion) {
+            socketService.emit('show_answer', { roomCode, questionId: currentQuestion.id });
+          }
+        }}
+      />
+    );
   }
 
   // If recap data is available, show recap modal. This takes precedence over game view.
@@ -759,13 +804,11 @@ const Player: React.FC = () => {
     return (
       <RecapModal
         show={!!gameRecapData}
-        onHide={() => hideRecap()} // Use hideRecap from context
-        recap={gameRecapData} // From context
-        selectedRoundIndex={recapSelectedRoundIndex ?? 0} // From context
-        isControllable={false} // Player cannot control navigation
-        activeTabKey={recapSelectedTabKey} // Pass activeTabKey from context
-        // onRoundChange is not needed as isControllable is false
-        // onTabChange is not needed as isControllable is false
+        onHide={() => hideRecap()}
+        recap={gameRecapData}
+        selectedRoundIndex={recapSelectedRoundIndex ?? 0}
+        isControllable={false}
+        activeTabKey={recapSelectedTabKey}
       />
     );
   }
@@ -780,8 +823,6 @@ const Player: React.FC = () => {
       if (roomCode && connectionStatus === 'connected' && !submittedAnswerLocal && !hasSubmittedToServer) {
         const emptyState = '{"objects":[]}';
         socketService.updateBoard(roomCode, emptyState);
-        // Optionally, call onUpdate if DrawingBoard needs to know about this specific clear action
-        // This depends on whether the parent (Player.tsx) tracks board state directly or relies on context/server
       }
       setCanvasKey(prev => prev + 1); // Reinstate to remount DrawingBoard and reset its internal state
     };
@@ -790,13 +831,12 @@ const Player: React.FC = () => {
       <div className="d-flex align-items-center justify-content-end gap-3 w-100">
         <button
           className="btn btn-outline-light"
-          onClick={handleClearCanvas} // Use the new handler
+          onClick={handleClearCanvas}
           disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
           style={{ backgroundColor: '#8B4513', borderColor: '#8B4513', color: 'white', minWidth: 120 }}
         >
           {t('playerPage.clearCanvas', language)}
         </button>
-        {/* Show ReviewNotification only if evaluated */}
         {(submittedAnswerLocal || hasSubmittedToServer) && socketService.getSocketId() && (
           <div style={{ minWidth: 180 }}>
             <ReviewNotification playerId={socketService.getSocketId()!} />
@@ -808,7 +848,6 @@ const Player: React.FC = () => {
 
   return (
     <div className="vh-100 player-page-layout position-relative">
-      {/* Main Content Area - Full Width */}
       <div 
         className="main-content-area p-0" 
         style={{ 
@@ -821,7 +860,7 @@ const Player: React.FC = () => {
         <button 
           className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'} position-fixed top-0 start-0 m-2`}
           onClick={handleToggleWebcamSidebar}
-          style={{zIndex: 2000}} // Ensure it's above other content
+          style={{zIndex: 2000}}
           title={isWebcamSidebarVisible ? 'Hide Webcams' : 'Show Webcams'}
         >
           <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
@@ -836,6 +875,16 @@ const Player: React.FC = () => {
           {connectionStatus === 'disconnected' && (
             <div className="alert alert-warning">
               <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
+            </div>
+          )}
+          {gameStarted && isCommunityVotingMode && previewMode.isActive && playerOverlayLocallyClosed && (
+            <div className="mb-3 text-center">
+              <button 
+                className="btn btn-info w-50"
+                onClick={() => setPlayerOverlayLocallyClosed(false)}
+              >
+                {t('playerPage.reopenVoting', language) || 'View Submissions & Vote'}
+              </button>
             </div>
           )}
           <div className="row g-3">
@@ -901,11 +950,6 @@ const Player: React.FC = () => {
                   )}
                 </>
               )}
-              <PreviewOverlayV2
-                onFocus={() => {}}
-                onClose={() => {}}
-                isGameMaster={false}
-              />
             </div>
             <div className="col-12 col-md-4">
               <RoomCode />
@@ -915,7 +959,6 @@ const Player: React.FC = () => {
         </div>
       </div>
 
-      {/* Floating Webcam Sidebar - Now Draggable and Resizable */}
       {isWebcamSidebarVisible && (
         <div 
           ref={dragRef}

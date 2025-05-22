@@ -68,6 +68,9 @@ export interface GameRoom {
   isStreamerMode: boolean;
   createdAt: string;
   lastActivity: string;
+  isCommunityVotingMode?: boolean;
+  gameMasterBoardData?: string | null;
+  votes?: Record<string, Record<string, 'correct' | 'incorrect'>>;
 }
 
 export interface GameState {
@@ -82,6 +85,9 @@ export interface GameState {
   submissionPhaseOver: boolean;
   isConcluded: boolean;
   playerBoards: Record<string, any>;
+  isCommunityVotingMode?: boolean;
+  gameMasterBoardData?: string | null;
+  currentVotes?: Record<string, Record<string, 'correct' | 'incorrect'>>;
 }
 
 export interface GameRecap {
@@ -201,6 +207,13 @@ export interface ServerToClientEvents {
   'webrtc-answer': (data: { answer: any, from: string }) => void;
   'webrtc-ice-candidate': (data: { candidate: any, from: string }) => void;
   'webrtc-user-left': (data: { socketId: string }) => void;
+  community_voting_status_changed: (data: { isCommunityVotingMode: boolean }) => void;
+  answer_voted: (data: { answerId: string, playerId: string, vote: 'correct' | 'incorrect', voteCounts: Record<string, {correct: number, incorrect: number}> }) => void;
+  correct_answer_revealed: (data: { questionId: string, correctAnswer: string }) => void;
+  webcam_state_change: (data: { fromSocketId: string, enabled: boolean }) => void;
+  microphone_state_change: (data: { fromSocketId: string, enabled: boolean }) => void;
+  all_votes_submitted: (data: { message: string }) => void;
+  gm_community_answer_accepted: (data: { questionId: string }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -231,6 +244,13 @@ export interface ClientToServerEvents {
   'webrtc-offer': (data: { offer: any, to: string, from: string }) => void;
   'webrtc-answer': (data: { answer: any, to: string, from: string }) => void;
   'webrtc-ice-candidate': (data: { candidate: any, to: string, from: string }) => void;
+  toggle_community_voting: (data: { roomCode: string, isCommunityVotingMode: boolean }) => void;
+  submit_vote: (data: { roomCode: string, answerId: string, vote: 'correct' | 'incorrect' }) => void;
+  show_answer: (data: { roomCode: string, questionId: string }) => void;
+  update_game_master_board: (data: { roomCode: string, boardData: string }) => void;
+  clear_game_master_board: (data: { roomCode: string }) => void;
+  webcam_state_change: (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
+  microphone_state_change: (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
 }
 
 export interface InterServerEvents {

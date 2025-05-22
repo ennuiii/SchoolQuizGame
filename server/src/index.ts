@@ -1003,41 +1003,67 @@ io.on('connection', (socket: ExtendedSocket) => {
     }
 
     const room = gameRooms[roomCode];
-    const player = room.players.find(p => p.persistentPlayerId === socket.data.persistentPlayerId);
+    const isGMSubmittingInCommunityMode = room.isCommunityVotingMode && socket.id === room.gamemaster;
+    
+    const effectivePersistentPlayerId = isGMSubmittingInCommunityMode 
+      ? room.gamemasterPersistentId 
+      : socket.data.persistentPlayerId;
 
-    if (!player || player.isSpectator || !player.isActive) {
-      console.warn(`[Server Socket SubmitAnswer] Denied for inactive/spectator player: ${socket.id}, persistentId: ${socket.data.persistentPlayerId}`);
-      socket.emit('error', 'Submission denied: you are a spectator or inactive.');
+    // For GM in community mode, create a temporary player-like object for answer processing.
+    // For actual players, find them in the room.players array.
+    const playerEntryForAnswer = isGMSubmittingInCommunityMode
+      ? { 
+          id: socket.id, 
+          name: 'GameMaster (Player)', // Special name for GM when playing
+          persistentPlayerId: room.gamemasterPersistentId, 
+          answers: room.roundAnswers[room.gamemasterPersistentId] ? [room.roundAnswers[room.gamemasterPersistentId]] : [], // Use existing answer if GM re-submits, else empty
+          lives: 3, // Not strictly needed for GM answer logic but good for consistency
+          isActive: true, 
+          isSpectator: false 
+        }
+      : room.players.find(p => p.persistentPlayerId === effectivePersistentPlayerId);
+
+    if (!playerEntryForAnswer || (!isGMSubmittingInCommunityMode && (playerEntryForAnswer.isSpectator || !playerEntryForAnswer.isActive))) {
+      console.warn(`[Server Socket SubmitAnswer] Denied: Invalid player or GM submission context. Socket: ${socket.id}, PersistentID: ${effectivePersistentPlayerId}, IsGMCommMode: ${isGMSubmittingInCommunityMode}`);
+      socket.emit('error', 'Submission denied: Invalid player context.');
       return;
     }
 
-    if (room.submissionPhaseOver) {
-      console.warn(`[Server Socket SubmitAnswer] Denied: submission phase over for room ${roomCode}, player ${socket.id}`);
+    // Standard players cannot submit if submission phase is over.
+    // GM in community mode might submit slightly later if their UI allows, but generally should also adhere.
+    if (room.submissionPhaseOver && !isGMSubmittingInCommunityMode) { 
+      console.warn(`[Server Socket SubmitAnswer] Denied for player: Submission phase over. Room: ${roomCode}, Player: ${socket.id}`);
       socket.emit('error', 'Submission phase is over for this round.');
       return;
     }
 
-    if (answerAttemptId && player.answers[room.currentQuestionIndex]?.answerAttemptId === answerAttemptId) {
-      console.log(`[Server Socket SubmitAnswer] Duplicate submission detected with answerAttemptId ${answerAttemptId}`);
+    // Check for duplicate submission with same answerAttemptId
+    const currentAnswerForPlayer = room.roundAnswers[effectivePersistentPlayerId!]; // Assert non-null, as effectivePersistentPlayerId should be set
+    if (answerAttemptId && currentAnswerForPlayer && currentAnswerForPlayer.answerAttemptId === answerAttemptId) {
+      console.log(`[Server Socket SubmitAnswer] Duplicate submission with ID ${answerAttemptId} for ${effectivePersistentPlayerId}`);
       socket.emit('answer_received', { status: 'success', message: 'Answer already received' });
       return;
     }
-
-    if (player.answers && player.answers[room.currentQuestionIndex] && !player.answers[room.currentQuestionIndex].answerAttemptId) {
-      console.log(`[Server Socket SubmitAnswer] Player ${socket.id} already submitted an answer for this question.`);
-      socket.emit('answer_received', { status: 'success', message: 'Answer already received' });
-      return;
-    }
+    
+    // If not a duplicate by attemptId, but an answer already exists for this player/round (without an attemptId, or different attemptId)
+    // this typically means a resubmission is being attempted. For now, we allow overwriting if not a direct duplicate by attemptId.
+    // More complex logic could be added here to prevent overwriting if desired.
 
     try {
       let drawingDataForStorage: string | null = null;
       let finalHasDrawing = false;
 
-      if (hasDrawing) {
+      if (isGMSubmittingInCommunityMode && hasDrawing) {
+        // GM's drawing comes from room.gameMasterBoardData
+        drawingDataForStorage = room.gameMasterBoardData || null;
+        finalHasDrawing = !!drawingDataForStorage;
+        console.log(`[Server Socket SubmitAnswer] GM in community mode: using gameMasterBoardData. HasDrawing: ${finalHasDrawing}`);
+      } else if (hasDrawing) { // Regular player submission with drawing
         if (drawingData && drawingData.trim() !== '') {
           drawingDataForStorage = drawingData;
           finalHasDrawing = true;
         } else {
+          // Fallback to playerBoards if client sends hasDrawing but no data
           if (room.playerBoards && room.playerBoards[socket.id]) {
             const playerBoardEntry = room.playerBoards[socket.id];
             if (playerBoardEntry.roundIndex === room.currentQuestionIndex && playerBoardEntry.boardData && playerBoardEntry.boardData.trim() !== '') {
@@ -1050,36 +1076,103 @@ io.on('connection', (socket: ExtendedSocket) => {
 
       const answerData: PlayerAnswer = {
         playerId: socket.id,
-        persistentPlayerId: player.persistentPlayerId, // Ensured this is player's persistentId
-        playerName: player.name,
+        persistentPlayerId: effectivePersistentPlayerId!,
+        playerName: playerEntryForAnswer.name,
         answer,
         hasDrawing: finalHasDrawing,
         drawingData: drawingDataForStorage,
         timestamp: Date.now(),
-        isCorrect: null,
+        isCorrect: null, // Evaluation pending
         answerAttemptId: answerAttemptId || null
       };
       
-      player.answers[room.currentQuestionIndex] = answerData;
+      // Store answer in room.roundAnswers, keyed by persistentPlayerId (for both players and GM in community mode)
       if (!room.roundAnswers) room.roundAnswers = {};
-      room.roundAnswers[player.persistentPlayerId] = answerData;
+      room.roundAnswers[effectivePersistentPlayerId!] = answerData;
 
-      if (finalHasDrawing && drawingDataForStorage) {
+      // If it's a regular player, also update their individual answers array
+      if (!isGMSubmittingInCommunityMode && playerEntryForAnswer.answers) {
+         // Ensure player.answers is an array of correct length if needed, though usually handled by game start/next question
+        if (playerEntryForAnswer.answers.length <= room.currentQuestionIndex) {
+            // Fill with undefined if necessary to reach currentQuestionIndex
+            for (let i = playerEntryForAnswer.answers.length; i <= room.currentQuestionIndex; i++) {
+                playerEntryForAnswer.answers[i] = undefined as any; 
+            }
+        }
+        playerEntryForAnswer.answers[room.currentQuestionIndex] = answerData;
+      }
+      
+      // If GM is submitting in community mode, update their entry in room.players as well
+      else if (isGMSubmittingInCommunityMode) {
+        const gmPlayerRecord = room.players.find(p => p.persistentPlayerId === room.gamemasterPersistentId && p.name === 'GameMaster (Playing)');
+        if (gmPlayerRecord) {
+          if (!gmPlayerRecord.answers) gmPlayerRecord.answers = [];
+          // Ensure answers array is long enough
+          while(gmPlayerRecord.answers.length <= room.currentQuestionIndex) {
+            gmPlayerRecord.answers.push(undefined as any);
+          }
+          gmPlayerRecord.answers[room.currentQuestionIndex] = answerData;
+          console.log(`[Server Socket SubmitAnswer] Updated GM's player record answers array.`);
+        }
+      }
+      
+      // Player boards for regular players (GM's drawing is already in room.gameMasterBoardData)
+      if (!isGMSubmittingInCommunityMode && finalHasDrawing && drawingDataForStorage) {
         if (!room.playerBoards) room.playerBoards = {};
         room.playerBoards[socket.id] = {
           boardData: drawingDataForStorage,
           roundIndex: room.currentQuestionIndex,
           timestamp: Date.now(),
           playerId: socket.id,
-          persistentPlayerId: player.persistentPlayerId
+          persistentPlayerId: effectivePersistentPlayerId!
         };
       }
 
-      console.log(`[Server Socket] Answer stored successfully:`, { roomCode, playerId: socket.id, persistentPlayerId: player.persistentPlayerId, playerName: player.name, questionIndex: room.currentQuestionIndex, timestamp: new Date().toISOString() });
+      console.log(`[Server Socket] Answer stored for ${effectivePersistentPlayerId}:`, { answer: answerData.answer, hasDrawing: answerData.hasDrawing, drawingLength: answerData.drawingData?.length });
       socket.emit('answer_received', { status: 'success', message: 'Answer received!' });
+      
+      // If GM submitted in community mode, send specific ack
+      if (isGMSubmittingInCommunityMode && room.currentQuestion) {
+        socket.emit('gm_community_answer_accepted', { questionId: room.currentQuestion.id });
+      }
+
       broadcastGameState(roomCode);
       const responseTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
-      gameAnalytics.recordAnswer(roomCode, player.persistentPlayerId, answer, null, responseTime);
+      gameAnalytics.recordAnswer(roomCode, effectivePersistentPlayerId!, answer, null, responseTime);
+      
+      // Check if all answers are in to start preview/voting phase automatically
+      // This check should run after every answer submission (player or GM in community mode)
+      const activePlayersInRoom = room.players.filter(p => p.isActive && !p.isSpectator);
+      let expectedParticipantPIds = activePlayersInRoom.map(p => p.persistentPlayerId);
+      
+      if (room.isCommunityVotingMode && room.gamemasterPersistentId) {
+        if (!expectedParticipantPIds.includes(room.gamemasterPersistentId)) {
+          expectedParticipantPIds.push(room.gamemasterPersistentId);
+        }
+      }
+
+      const allHaveSubmitted = expectedParticipantPIds.length > 0 && expectedParticipantPIds.every(pid => room.roundAnswers[pid]);
+
+      // Detailed log before checking allHaveSubmitted
+      console.log(`[Server Socket SubmitAnswer Check] Room: ${roomCode}, Submitter: ${effectivePersistentPlayerId}, IsGMPlaying: ${isGMSubmittingInCommunityMode}`);
+      console.log(`[Server Socket SubmitAnswer Check] Expected PIDs (${expectedParticipantPIds.length}): ${JSON.stringify(expectedParticipantPIds)}`);
+      console.log(`[Server Socket SubmitAnswer Check] roundAnswers Keys (${Object.keys(room.roundAnswers).length}): ${JSON.stringify(Object.keys(room.roundAnswers))}`);
+      console.log(`[Server Socket SubmitAnswer Check] allHaveSubmitted: ${allHaveSubmitted}`);
+
+      if (allHaveSubmitted) {
+        console.log(`[Server Socket SubmitAnswer] All ${expectedParticipantPIds.length} expected participants have submitted for room ${roomCode}.`);
+        if (!room.submissionPhaseOver) { // Only trigger if not already triggered by timer/manual end
+            console.log(`[Server Socket SubmitAnswer] Automatically starting preview mode.`);
+            room.submissionPhaseOver = true; 
+            clearRoomTimer(roomCode); 
+            broadcastGameState(roomCode); // Broadcast updated submissionPhaseOver
+            
+            const currentIO = getIO();
+            currentIO.to(roomCode).emit('start_preview_mode');
+        }
+      } else {
+        console.log(`[Server Socket SubmitAnswer] Still waiting for ${expectedParticipantPIds.length - Object.keys(room.roundAnswers).length} answers.`);
+      }
       
     } catch (error: any) {
       console.error('[Server Socket] Error storing answer:', { error: error.message, stack: error.stack, roomCode, playerId: socket.id });
@@ -1092,6 +1185,12 @@ io.on('connection', (socket: ExtendedSocket) => {
     const room = gameRooms[roomCode];
     if (!room || room.gamemaster !== socket.id) {
       socket.emit('error', 'Not authorized to evaluate answers');
+      return;
+    }
+
+    // Prevent GM evaluation if community voting is active for the room
+    if (room.isCommunityVotingMode) {
+      socket.emit('error', 'Direct evaluation is disabled when community voting is active.');
       return;
     }
 
@@ -1532,19 +1631,323 @@ io.on('connection', (socket: ExtendedSocket) => {
   });
   
   // New events for webcam and microphone state broadcasting
-  socket.on('webcam-state-change', ({ roomCode, enabled, fromSocketId }) => {
+  socket.on('webcam_state_change', ({ roomCode, enabled, fromSocketId }: { roomCode: string, enabled: boolean, fromSocketId: string }) => {
     if (!roomCode || !gameRooms[roomCode]) return;
     
     console.log(`[WebRTC] Broadcasting webcam state change from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
-    socket.to(roomCode).emit('webcam-state-change', { fromSocketId, enabled });
+    socket.to(roomCode).emit('webcam_state_change', { fromSocketId, enabled });
   });
   
-  socket.on('microphone-state-change', ({ roomCode, enabled, fromSocketId }) => {
+  socket.on('microphone_state_change', ({ roomCode, enabled, fromSocketId }: { roomCode: string, enabled: boolean, fromSocketId: string }) => {
     if (!roomCode || !gameRooms[roomCode]) return;
     
     console.log(`[WebRTC] Broadcasting microphone state change from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
-    socket.to(roomCode).emit('microphone-state-change', { fromSocketId, enabled });
+    socket.to(roomCode).emit('microphone_state_change', { fromSocketId, enabled });
   });
+
+  // Handle community voting status change
+  socket.on('toggle_community_voting', ({ roomCode, isCommunityVotingMode }) => {
+    if (!gameRooms[roomCode] || socket.id !== gameRooms[roomCode].gamemaster) {
+      socket.emit('error', 'Not authorized to toggle community voting');
+      return;
+    }
+    const room = gameRooms[roomCode];
+    if (room.started && room.isCommunityVotingMode !== isCommunityVotingMode) {
+      socket.emit('error', 'Cannot change community voting mode after game has started.');
+      return;
+    }
+
+    room.isCommunityVotingMode = isCommunityVotingMode;
+
+    if (isCommunityVotingMode) {
+      const gmAsPlayer = room.players.find(p => p.persistentPlayerId === room.gamemasterPersistentId);
+      if (!gmAsPlayer) {
+        // Ensure answers array is initialized for GM when added as a player
+        const gmPlayerAnswers: PlayerAnswer[] = []; 
+        for (let i = 0; i < room.questions.length; i++) {
+            // Check if GM already has an answer for this round in roundAnswers (e.g. from a previous session or if logic changes)
+            const existingAnswer = room.roundAnswers?.[room.gamemasterPersistentId];
+            if (existingAnswer && i === room.currentQuestionIndex) { // Simple check for current round, more robust needed for all past rounds
+                gmPlayerAnswers[i] = existingAnswer;
+            } else {
+                gmPlayerAnswers[i] = undefined as any; // Placeholder for past/future rounds
+            }
+        }
+
+        room.players.push({
+          id: room.gamemasterSocketId || `gm-${room.roomCode}`,
+          persistentPlayerId: room.gamemasterPersistentId,
+          name: 'GameMaster (Playing)',
+          lives: 3, 
+          answers: gmPlayerAnswers, // Use initialized/populated answers array
+          isActive: true,
+          isSpectator: false,
+          joinedAsSpectator: false,
+          disconnectTimer: null,
+          avatarSvg: null
+        });
+        console.log(`[Server] GM ${room.gamemasterPersistentId} added to players list for community voting mode in room ${roomCode}`);
+      } else {
+        // If GM already exists as a player (e.g. rejoining), ensure their isActive/isSpectator is correct for playing
+        gmAsPlayer.isActive = true;
+        gmAsPlayer.isSpectator = false;
+      }
+    } else {
+      const gmPlayerIndex = room.players.findIndex(p => p.persistentPlayerId === room.gamemasterPersistentId && p.name === 'GameMaster (Playing)');
+      if (gmPlayerIndex !== -1) {
+        room.players.splice(gmPlayerIndex, 1);
+        console.log(`[Server] GM ${room.gamemasterPersistentId} removed from players list as community voting mode is OFF in room ${roomCode}`);
+      }
+    }
+
+    const currentIO = getIO();
+    currentIO.to(roomCode).emit('community_voting_status_changed', { isCommunityVotingMode: room.isCommunityVotingMode });
+    broadcastGameState(roomCode); // Also broadcast full game state
+  });
+
+  // Handle Game Master's board update in community voting mode
+  socket.on('update_game_master_board', ({ roomCode, boardData }) => {
+    const room = gameRooms[roomCode];
+    if (!room || socket.id !== room.gamemaster || !room.isCommunityVotingMode) {
+      // Optional: emit error if not authorized or not in community voting mode
+      return;
+    }
+    room.gameMasterBoardData = boardData;
+    // Potentially broadcast this to players if they need to see GM's board live during this mode,
+    // or store it to be revealed during voting.
+    // For now, just storing it. A new event might be needed if live update is desired.
+    console.log(`[Server] GM board updated in community voting mode for room ${roomCode}`);
+  });
+
+  // Handle GM board clear
+  socket.on('clear_game_master_board', ({ roomCode }) => {
+    const room = gameRooms[roomCode];
+    if (room && socket.id === room.gamemaster) {
+      room.gameMasterBoardData = null;
+      broadcastGameState(roomCode);
+    }
+  });
+
+  // Handle player vote submission in community voting mode
+  socket.on('submit_vote', ({ roomCode, answerId, vote }) => {
+    const room = gameRooms[roomCode];
+    const voterPersistentId = socket.data.persistentPlayerId;
+
+    if (!room || !room.isCommunityVotingMode || !voterPersistentId) {
+      socket.emit('error', 'Voting not allowed or invalid request.');
+      return;
+    }
+
+    if (!room.votes) {
+      room.votes = {};
+    }
+    if (!room.votes[answerId]) {
+      room.votes[answerId] = {};
+    }
+
+    // Check if player already voted for this answer
+    if (room.votes[answerId][voterPersistentId]) {
+      socket.emit('error', 'You have already voted for this answer.');
+      return;
+    }
+
+    room.votes[answerId][voterPersistentId] = vote;
+
+    // Calculate current vote counts for this answerId
+    const currentAnswerVotes = room.votes[answerId];
+    const voteCounts = {
+      correct: 0,
+      incorrect: 0
+    };
+    Object.values(currentAnswerVotes).forEach(v => {
+      if (v === 'correct') voteCounts.correct++;
+      else if (v === 'incorrect') voteCounts.incorrect++;
+    });
+
+    const currentIO = getIO();
+    currentIO.to(roomCode).emit('answer_voted', {
+      answerId, // persistentPlayerId of the answer author
+      voterId: voterPersistentId, // persistentPlayerId of the voter
+      vote,
+      voteCounts
+    });
+
+    console.log(`[Server] Vote received for answer ${answerId} by ${voterPersistentId}: ${vote}. Counts: C:${voteCounts.correct}, I:${voteCounts.incorrect}`);
+    
+    // Check if all voting is complete for the round
+
+    // Get PIDs of players whose answers were submitted for this round
+    const submittedAnswerPIds = Object.keys(room.roundAnswers || {});
+
+    // Get PIDs of players who are eligible to VOTE in this round
+    const eligibleVoterPIds = room.players
+        .filter(p => p.isActive && !p.isSpectator) 
+        .map(p => p.persistentPlayerId);
+    
+    // If GM is playing, ensure their persistentPlayerId is in eligibleVoterPIds if not already (e.g. if GM is not in room.players but should be treated as voter)
+    // This part might be redundant if GM is always correctly in room.players during community mode
+    if (room.isCommunityVotingMode && room.gamemasterPersistentId && !eligibleVoterPIds.includes(room.gamemasterPersistentId)) {
+        const gmPlayer = room.players.find(p => p.persistentPlayerId === room.gamemasterPersistentId);
+        if (gmPlayer && gmPlayer.isActive && !gmPlayer.isSpectator) {
+            // This case should ideally not happen if GM is properly added to players list when community mode starts
+        } else if (!gmPlayer) {
+             // If GM is not in players list but isCommunityVotingMode is on, consider them an eligible voter.
+            // This is a safeguard, primary logic should ensure GM is in players list.
+            // eligibleVoterPIds.push(room.gamemasterPersistentId); // Potentially re-add if GM is a voter but not in players[]
+        }
+    }
+
+    const numberOfEligibleVoters = eligibleVoterPIds.length;
+    
+    let allAnswersFullyVoted = false;
+    if (submittedAnswerPIds.length > 0 && numberOfEligibleVoters > 0) {
+        allAnswersFullyVoted = submittedAnswerPIds.every(ansId => {
+            const votesForThisAnswer = room.votes?.[ansId] || {};
+            const numberOfVotesCasted = Object.keys(votesForThisAnswer).length;
+            return numberOfVotesCasted >= numberOfEligibleVoters; // Changed to >= to be safe
+        });
+    } else {
+        console.log(`[Server Vote Check] Not checking full vote completion: submittedAnswerPIds count is ${submittedAnswerPIds.length}, numberOfEligibleVoters is ${numberOfEligibleVoters}`);
+    }
+
+    console.log(`[Server Vote Check] Room: ${roomCode}, Submitted Answer PIDs: ${JSON.stringify(submittedAnswerPIds)}, Eligible Voter PIDs: ${JSON.stringify(eligibleVoterPIds)}, All Answers Fully Voted: ${allAnswersFullyVoted}`);
+
+    if (allAnswersFullyVoted) {
+      console.log(`[Server] All eligible voters (${numberOfEligibleVoters}) have voted on all ${submittedAnswerPIds.length} answers for room ${roomCode}. Processing evaluations.`);
+      
+      // 1. Iterate through each answerId in submittedAnswerIds.
+      for (const answerId of submittedAnswerPIds) {
+        const votesForThisAnswer = room.votes?.[answerId] || {};
+        const currentVoteCounts = { correct: 0, incorrect: 0 };
+        Object.values(votesForThisAnswer).forEach(v => {
+          if (v === 'correct') currentVoteCounts.correct++;
+          else if (v === 'incorrect') currentVoteCounts.incorrect++;
+        });
+
+        // 2. Determine final evaluation: majority wins. Tie or more incorrect = incorrect.
+        const isCorrectByVote = currentVoteCounts.correct > currentVoteCounts.incorrect;
+        // 3. Update room.evaluatedAnswers[answerId] with true/false.
+        room.evaluatedAnswers[answerId] = isCorrectByVote;
+        console.log(`[Server] Answer ${answerId} evaluated by community vote: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
+
+        // Update player lives if their answer was incorrect.
+        // In community mode, this applies to the GM as well if it's their answer.
+        const playerWhoseAnswerIsBeingEvaluated = room.players.find(p => p.persistentPlayerId === answerId);
+        
+        if (playerWhoseAnswerIsBeingEvaluated) { // This player could be a regular player or the GM (if GM is in room.players)
+          if (!isCorrectByVote) {
+            playerWhoseAnswerIsBeingEvaluated.lives = Math.max(0, (playerWhoseAnswerIsBeingEvaluated.lives || 0) - 1);
+            console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) lives updated to: ${playerWhoseAnswerIsBeingEvaluated.lives}`);
+            if (playerWhoseAnswerIsBeingEvaluated.lives <= 0) {
+              playerWhoseAnswerIsBeingEvaluated.isActive = false;
+              playerWhoseAnswerIsBeingEvaluated.isSpectator = true;
+              const playerSocket = getIO().sockets.sockets.get(playerWhoseAnswerIsBeingEvaluated.id);
+              if (playerSocket) playerSocket.emit('become_spectator');
+              console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated.`);
+            }
+          }
+        }
+      }
+      
+      // 5. After all evaluations are done for this round by community vote
+      console.log(`[Server] Community vote evaluations complete for room ${roomCode}.`);
+      room.submissionPhaseOver = true; // Ensure this is set before next question or concluding
+      broadcastGameState(roomCode); // Broadcast updated lives and evaluations
+
+      // 6. Check for game over conditions
+      const activePlayersPostVoting = room.players.filter(p => p.isActive && !p.isSpectator);
+      let gameShouldEnd = false;
+      let winnerInfo: WinnerInfo | null = null;
+
+      // Game over logic for community voting mode
+      if (room.isCommunityVotingMode) {
+        const activeNonGMPlayers = activePlayersPostVoting.filter(p => p.persistentPlayerId !== room.gamemasterPersistentId);
+        const gmIsActivePlayer = activePlayersPostVoting.some(p => p.persistentPlayerId === room.gamemasterPersistentId);
+
+        if (activeNonGMPlayers.length === 0 && gmIsActivePlayer) {
+          gameShouldEnd = true;
+          winnerInfo = { id: room.gamemaster!, persistentPlayerId: room.gamemasterPersistentId, name: 'GameMaster' };
+        } else if (activeNonGMPlayers.length === 1 && (!gmIsActivePlayer || activePlayersPostVoting.length === 1) ) {
+          gameShouldEnd = true;
+          winnerInfo = { id: activeNonGMPlayers[0].id, persistentPlayerId: activeNonGMPlayers[0].persistentPlayerId, name: activeNonGMPlayers[0].name };
+        } else if (activePlayersPostVoting.length === 0) { // All players (including potentially playing GM) are out
+           gameShouldEnd = true; 
+        }
+      } else { // This case should ideally not be hit if this logic is only for community voting
+          // Standard game over logic (should ideally not be reached if this is only for community voting)
+          if (activePlayersPostVoting.length <= 1) {
+            gameShouldEnd = true;
+            if (activePlayersPostVoting.length === 1) {
+              winnerInfo = { id: activePlayersPostVoting[0].id, persistentPlayerId: activePlayersPostVoting[0].persistentPlayerId, name: activePlayersPostVoting[0].name };
+            }
+          }
+      }
+
+      // 7. If game over, conclude.
+      if (gameShouldEnd && !room.isConcluded) {
+        console.log(`[Server] Game ending after community voting. Winner: ${winnerInfo ? winnerInfo.name : 'None'}`);
+        concludeGameAndSendRecap(roomCode, winnerInfo);
+      } 
+      // 8. Else if more questions, proceed to next question.
+      else if (room.currentQuestionIndex < room.questions.length - 1 && !room.isConcluded) {
+        console.log('[Server] Proceeding to next question after community voting.');
+        
+        // Explicitly stop preview mode for clients before sending new question
+        getIO().to(roomCode).emit('stop_preview_mode');
+
+        room.votes = {}; // Reset votes for the next round
+        room.gameMasterBoardData = null; // Clear GM's board for next round
+        
+        // Core next_question logic (refactor if this becomes duplicated elsewhere)
+        room.currentQuestionIndex++;
+        room.currentQuestion = room.questions[room.currentQuestionIndex];
+        room.questionStartTime = Date.now();
+        room.submissionPhaseOver = false;
+        room.roundAnswers = {}; // Clear answers for the new round
+        room.evaluatedAnswers = {}; // Clear evaluations for the new round
+        room.players.forEach(p => { 
+          if(p.answers && p.answers.length > room.currentQuestionIndex) { 
+            p.answers[room.currentQuestionIndex] = undefined as any; 
+          }
+        });
+        clearRoomTimer(roomCode);
+        if (room.timeLimit && room.timeLimit < 99999) startQuestionTimer(roomCode);
+        broadcastGameState(roomCode); 
+        getIO().to(roomCode).emit('new_question', { question: room.currentQuestion, timeLimit: room.timeLimit || 0 });
+      } 
+      // 9. Else (last question and game not over yet), conclude.
+      else if (!room.isConcluded) {
+        console.log('[Server] Last question. Ending game after community voting.');
+        concludeGameAndSendRecap(roomCode, winnerInfo); 
+      }
+
+    } else {
+      console.log(`[Server] Voting not yet complete for room ${roomCode}. Voters: ${numberOfEligibleVoters}, Answers: ${submittedAnswerPIds.length}`);
+    }
+  });
+
+  // Handle request to show answer in community voting mode
+  socket.on('show_answer', ({ roomCode, questionId }) => {
+    const room = gameRooms[roomCode];
+    if (!room || !room.isCommunityVotingMode) {
+      socket.emit('error', 'Cannot show answer in this mode or room not found.');
+      return;
+    }
+
+    const question = room.questions.find(q => q.id === questionId);
+    if (!question || !question.answer) {
+      socket.emit('error', 'Question or answer not found.');
+      return;
+    }
+
+    const currentIO = getIO();
+    currentIO.to(roomCode).emit('correct_answer_revealed', { 
+      questionId: question.id,
+      correctAnswer: question.answer
+    });
+    console.log(`[Server] Revealed answer for question ${questionId} in room ${roomCode}`);
+  });
+
 });
 
 // Add handler for request_players event

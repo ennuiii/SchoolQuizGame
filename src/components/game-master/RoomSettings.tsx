@@ -6,9 +6,12 @@ import { t } from '../../i18n';
 interface RoomSettingsProps {
   timeLimit: number | null;
   onTimeLimitChange: (timeLimit: number | null) => void;
+  isCommunityVotingMode: boolean;
+  onToggleCommunityVotingMode: () => void;
+  gameStarted: boolean;
 }
 
-const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange }) => {
+const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange, isCommunityVotingMode, onToggleCommunityVotingMode, gameStarted }) => {
   const { roomCode } = useRoom();
   const { language } = useLanguage();
 
@@ -46,6 +49,28 @@ const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChang
             {t('roomSettings.timeLimitHelp', language)}
           </div>
         </div>
+
+        {/* Community Voting Mode Toggle */}
+        <div className="mb-3">
+          <div className="form-check form-switch">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="communityVotingToggleRoomSettings"
+              checked={isCommunityVotingMode}
+              onChange={onToggleCommunityVotingMode}
+              disabled={gameStarted}
+            />
+            <label className="form-check-label" htmlFor="communityVotingToggleRoomSettings">
+              {t('gameControls.communityVotingMode', language)}
+            </label>
+          </div>
+          <div className="form-text">
+            {t('roomSettings.communityVotingHelp', language)}
+          </div>
+        </div>
+
       </div>
     </div>
   );

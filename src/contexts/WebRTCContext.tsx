@@ -54,7 +54,7 @@ interface WebRTCContextState {
   remotePeerStates: Map<string, {webcamEnabled: boolean, micEnabled: boolean}>; // Add new state to track remote peers' media state
   availableCameras: MediaDeviceInfo[]; // List of available camera devices
   selectedCameraId: string | null; // Currently selected camera device ID
-  refreshDeviceList: () => void; // Changed return type from Promise<void> to void
+  refreshDeviceList: () => Promise<void>; // Changed return type to Promise<void>
   selectCamera: (deviceId: string) => Promise<void>; // Function to switch to a different camera
   availableMicrophones: MediaDeviceInfo[]; // List of available microphone devices
   selectedMicrophoneId: string | null; // Currently selected microphone device ID
@@ -301,7 +301,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     }
   }, [roomCode]);
 
-  const refreshDeviceList = useCallback(async () => {
+  const refreshDeviceList = useCallback(async (): Promise<void> => {
     try {
       // Add a static flag to track if the devices have been logged already in this session
       if (!(refreshDeviceList as any).hasLoggedDevices) {
@@ -351,12 +351,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       console.error('[WebRTC] Error refreshing device list:', error);
     }
   }, [localStream, availableCameras.length, availableMicrophones.length, selectedCameraId, selectedMicrophoneId]);
-
-  // Create a debounced version of refreshDeviceList with a 2-second delay
-  const debouncedRefreshDeviceList = useCallback(
-    debounce(refreshDeviceList, 2000),
-    [refreshDeviceList]
-  );
 
   const selectCamera = useCallback(async (deviceId: string) => {
     if (!deviceId) return;
@@ -1059,7 +1053,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     remotePeerStates,
     availableCameras,
     selectedCameraId,
-    refreshDeviceList, // Export the non-debounced version
+    refreshDeviceList,
     selectCamera,
     availableMicrophones,
     selectedMicrophoneId,

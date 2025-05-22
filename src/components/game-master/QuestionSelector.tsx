@@ -231,7 +231,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
                         <p className="mb-1 fw-bold">{question.text}</p>
                         <small>
                           {t('questionSelector.grade', language)}: {question.grade} | {question.subject} | {question.language || 'de'}
-                          {question.answer && <span> | {t('questionSelector.answer', language)}: {question.answer}</span>}
                         </small>
                       </div>
                       <button 
@@ -286,7 +285,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
                         </div>
                         <small>
                           {t('questionSelector.grade', language)}: {question.grade} | {question.subject} | {question.language || 'de'}
-                          {question.answer && <span> | {t('questionSelector.answer', language)}: {question.answer}</span>}
                         </small>
                       </div>
                       <button 

@@ -1,5 +1,5 @@
 // Copy of PreviewOverlay for alternate design testing
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useGame } from '../../contexts/GameContext';
 import type { Player } from '../../types/game';
 import { useCanvas } from '../../contexts/CanvasContext';
@@ -8,6 +8,7 @@ import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
 import { fabric } from 'fabric';
 import { CHALKBOARD_BACKGROUND_COLOR } from '../../contexts/CanvasContext';
+import socketService from '../../services/socketService'; // Import socketService
 
 interface AnswerSubmission {
   persistentPlayerId: string;
@@ -26,6 +27,9 @@ interface PreviewOverlayProps {
   onClose: () => void;
   isGameMaster: boolean;
   onEvaluate?: (playerId: string, isCorrect: boolean) => void;
+  isCommunityVotingMode?: boolean;
+  onVote?: (answerPersistentPlayerId: string, vote: 'correct' | 'incorrect') => void;
+  onShowAnswer?: () => void;
 }
 
 const boardColors = [
@@ -53,17 +57,142 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
   onFocus,
   onClose,
   isGameMaster,
-  onEvaluate
+  onEvaluate,
+  isCommunityVotingMode = false,
+  onVote,
+  onShowAnswer
 }) => {
   const context = useGame();
   const { setDrawingEnabled } = useCanvas();
   const { language } = useLanguage();
-  // Add state to store SVG strings for each player's board
   const [boardSvgs, setBoardSvgs] = useState<Record<string, string>>({});
+  const [revealedAnswer, setRevealedAnswer] = useState<string | null>(null);
+  
+  const [localCommunityVotes, setLocalCommunityVotes] = useState<Record<string, { correct: number, incorrect: number }>>({});
+  const [localMyVotes, setLocalMyVotes] = useState<Record<string, 'correct' | 'incorrect'>>({});
+  const myPersistentId = socketService.getPersistentPlayerId();
+
+  const fabricCanvasRef = useRef<fabric.Canvas | null>(null);
+
+  const generateSvg = useCallback(async (jsonData: string, answerPersistentPlayerId: string) => {
+    if (!fabricCanvasRef.current) {
+      const tempCanvasEl = document.createElement('canvas');
+      fabricCanvasRef.current = new fabric.Canvas(tempCanvasEl);
+    }
+    const canvas = fabricCanvasRef.current;
+    const bgColor = CHALKBOARD_BACKGROUND_COLOR;
+    canvas.backgroundColor = bgColor;
+    canvas.renderAll();
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        canvas.loadFromJSON(jsonData, () => {
+          canvas.renderAll();
+          // Store the original JSON data instead of converting to SVG
+          setBoardSvgs(prev => ({ ...prev, [answerPersistentPlayerId]: jsonData }));
+          resolve();
+        });
+      });
+    } catch (error) {
+      console.error('Error loading board data to generate SVG:', error);
+    }
+  }, [setBoardSvgs]);
+
+  useEffect(() => {
+    const answersToProcess = Object.entries(context.allAnswersThisRound || {});
+    if (answersToProcess.length > 0) {
+      answersToProcess.forEach(([persistentPlayerId, answerData]) => {
+        if (answerData && answerData.drawingData && !boardSvgs[persistentPlayerId]) { 
+           generateSvg(answerData.drawingData, persistentPlayerId);
+        }
+      });
+    }
+  }, [context.allAnswersThisRound, generateSvg, boardSvgs]);
+
+  // Effect to derive localMyVotes from context.currentVotes
+  useEffect(() => {
+    if (context.currentVotes && myPersistentId) {
+      const newMyVotes: Record<string, 'correct' | 'incorrect'> = {};
+      for (const answerId in context.currentVotes) {
+        if (context.currentVotes[answerId]?.[myPersistentId]) {
+          newMyVotes[answerId] = context.currentVotes[answerId][myPersistentId];
+        }
+      }
+      setLocalMyVotes(newMyVotes);
+    } else {
+      setLocalMyVotes({});
+    }
+  }, [context.currentVotes, myPersistentId]);
+
+  // Derive localCommunityVotes (tallied counts) from context.currentVotes
+  useEffect(() => {
+    if (context.currentVotes) {
+      const newCommunityVoteCounts: Record<string, { correct: number, incorrect: number }> = {};
+      for (const answerId in context.currentVotes) {
+        const votesForAnswer = context.currentVotes[answerId];
+        const counts = { correct: 0, incorrect: 0 };
+        if (votesForAnswer) {
+            for (const voterId in votesForAnswer) {
+                if (votesForAnswer[voterId] === 'correct') {
+                counts.correct++;
+                } else if (votesForAnswer[voterId] === 'incorrect') {
+                counts.incorrect++;
+                }
+            }
+        }
+        newCommunityVoteCounts[answerId] = counts;
+      }
+      setLocalCommunityVotes(newCommunityVoteCounts);
+    } else {
+      setLocalCommunityVotes({});
+    }
+  }, [context.currentVotes]);
+
+  useEffect(() => {
+    // Reset revealed answer if preview becomes inactive or question is cleared (e.g., game restart)
+    if (!context.previewMode.isActive || !context.currentQuestion) {
+      setRevealedAnswer(null);
+    }
+
+    const handleCorrectAnswerRevealed = (data: { questionId: string, correctAnswer: string }) => {
+      if (context.currentQuestion?.id === data.questionId) {
+        setRevealedAnswer(data.correctAnswer);
+      }
+    };
+
+    const handleAnswerVoted = (data: { answerId: string, voterId: string, vote: 'correct' | 'incorrect', voteCounts: {correct: number, incorrect: number} }) => {
+      console.log('[PreviewOverlayV2] Received answer_voted:', data, 'My PID:', socketService.getPersistentPlayerId());
+      setLocalCommunityVotes(prevVotes => ({
+        ...prevVotes,
+        [data.answerId]: data.voteCounts
+      }));
+      if (data.voterId === socketService.getPersistentPlayerId()) {
+        setLocalMyVotes(prevMyVotes => ({
+          ...prevMyVotes,
+          [data.answerId]: data.vote
+        }));
+      }
+    };
+
+    socketService.on('correct_answer_revealed', handleCorrectAnswerRevealed);
+    socketService.on('answer_voted', handleAnswerVoted);
+
+    return () => {
+      socketService.off('correct_answer_revealed', handleCorrectAnswerRevealed);
+      socketService.off('answer_voted', handleAnswerVoted);
+    };
+  }, [context.currentQuestion]);
+
+  // Add new effect to reset voting states when question changes
+  useEffect(() => {
+    // Clear local voting states when question changes
+    setLocalCommunityVotes({});
+    setLocalMyVotes({});
+    setRevealedAnswer(null);
+  }, [context.currentQuestion?.id]); // Dependency on question ID ensures this runs only when question changes
 
   if (!context.previewMode.isActive) return null;
 
-  // Iterate over active players, not just those with boards
   const displayablePlayers = context.players.filter(p => p.isActive && !p.isSpectator);
 
   useEffect(() => {
@@ -71,110 +200,10 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
     return () => setDrawingEnabled(true);
   }, [setDrawingEnabled]);
 
-  // Effect to generate SVG for each player's board data
+  // Reset revealedAnswer when the currentQuestion changes (e.g. next question or game restart)
   useEffect(() => {
-    // Create a function to generate SVG from Fabric JSON data
-    const generateSvg = async (boardData: string | undefined | null, playerId: string) => {
-      if (!boardData) {
-        // No board data, set empty SVG
-        setBoardSvgs(prev => ({
-          ...prev,
-          [playerId]: ''
-        }));
-        return;
-      }
-
-      try {
-        let tempCanvas: fabric.Canvas | null = null;
-        const fabricJSON = JSON.parse(boardData);
-          
-        // Check if the board data is empty
-        if (!fabricJSON.objects || fabricJSON.objects.length === 0) {
-          console.log('[PreviewOverlayV2] Board data contains no objects, rendering empty SVG');
-          setBoardSvgs(prev => ({
-            ...prev,
-            [playerId]: `<svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill="${CHALKBOARD_BACKGROUND_COLOR}" /></svg>`
-          }));
-          return;
-        }
-          
-        // Determine dimensions from JSON or use defaults
-        const jsonWidth = fabricJSON.canvas?.width || fabricJSON.width;
-        const jsonHeight = fabricJSON.canvas?.height || fabricJSON.height;
-
-        const viewBoxWidth = jsonWidth || 800;
-        const viewBoxHeight = jsonHeight || 400;
-
-        const tempCanvasEl = document.createElement('canvas');
-        tempCanvas = new fabric.Canvas(tempCanvasEl, {
-          width: viewBoxWidth,
-          height: viewBoxHeight,
-          backgroundColor: CHALKBOARD_BACKGROUND_COLOR,
-        });
-
-        await new Promise<void>((resolve, reject) => {
-          if (!tempCanvas) {
-            reject(new Error("Temporary canvas not initialized"));
-            return;
-          }
-          tempCanvas.loadFromJSON(fabricJSON, () => {
-            if (!tempCanvas) {
-              reject(new Error("Temporary canvas disposed during callback"));
-              return;
-            }
-            
-            tempCanvas.renderAll();
-            tempCanvas.forEachObject(obj => {
-              obj.selectable = false;
-              obj.evented = false;
-              
-              // Removed eraser stroke detection and processing
-            });
-
-            const svg = tempCanvas.toSVG({
-              viewBox: { x: 0, y: 0, width: viewBoxWidth, height: viewBoxHeight }
-            });
-            
-            // Add chalkboard class to SVG
-            const enhancedSvg = svg.replace('<svg ', '<svg class="chalkboard-drawing-svg" ');
-            
-            // Store the SVG string in state
-            setBoardSvgs(prev => ({
-              ...prev,
-              [playerId]: enhancedSvg
-            }));
-            
-            resolve();
-          });
-        }).catch(error => {
-          console.error('[PreviewOverlayV2] Error generating SVG:', error);
-          setBoardSvgs(prev => ({
-            ...prev,
-            [playerId]: `<svg viewBox="0 0 800 400"><text x="50%" y="50%" text-anchor="middle" fill="#ff0000">Error: ${error.message}</text></svg>`
-          }));
-        });
-
-        // Clean up
-        if (tempCanvas) {
-          tempCanvas.dispose();
-        }
-      } catch (error: any) {
-        console.error('[PreviewOverlayV2] Error parsing board data:', error);
-        setBoardSvgs(prev => ({
-          ...prev,
-          [playerId]: `<svg viewBox="0 0 800 400"><text x="50%" y="50%" text-anchor="middle" fill="#ff0000">Error: ${error.message}</text></svg>`
-        }));
-      }
-    };
-
-    // Process each player's board data
-    displayablePlayers.forEach(player => {
-      const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
-      if (boardSubmission) {
-        generateSvg(boardSubmission.boardData, player.persistentPlayerId);
-      }
-    });
-  }, [context.playerBoards, displayablePlayers]);
+    setRevealedAnswer(null);
+  }, [context.currentQuestion]);
 
   const currentQuestion = context.currentQuestion;
 
@@ -192,7 +221,23 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           </div>
           <div className="classroom-chalkboard-question">
             {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : t('noQuestion', language)}
+            {/* Display revealed answer here */}
+            {isCommunityVotingMode && revealedAnswer && (
+              <div className="mt-2 pt-2 border-top border-light fst-italic">
+                <strong>{t('previewOverlay.correctAnswerWas', language)}:</strong> {revealedAnswer}
+              </div>
+            )}
           </div>
+          {/* Show Answer button for community voting */}
+          {isCommunityVotingMode && onShowAnswer && (
+            <button 
+              className="btn btn-sm btn-outline-light mt-2" 
+              onClick={onShowAnswer}
+              title={t('previewOverlay.showAnswerTitle', language)}
+            >
+              <i className="bi bi-eye-fill me-1"></i> {t('previewOverlay.showAnswer', language)}
+            </button>
+          )}
         </div>
         {/* Removed sponge */}
       </div>
@@ -243,6 +288,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     width: '100%',
                     aspectRatio: '2/1',
                     minHeight: '180px',
+                    maxHeight: '400px',
                     backgroundColor: CHALKBOARD_BACKGROUND_COLOR,
                     border: '4px solid #8B4513',
                     borderRadius: '8px',
@@ -253,21 +299,28 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     overflow: 'hidden'
                   }}
                 >
-                  {/* Direct SVG rendering instead of FabricJsonToSvg */}
-                  <div 
-                    className="svg-display-wrapper" 
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}
-                    dangerouslySetInnerHTML={{ 
-                      __html: boardSvgs[player.persistentPlayerId] || 
-                        `<svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill="${CHALKBOARD_BACKGROUND_COLOR}" /></svg>` 
-                    }}
-                  />
+                  {/* Replace direct SVG rendering with FabricJsonToSvg component */}
+                  {boardSvgs[player.persistentPlayerId] ? (
+                    <FabricJsonToSvg 
+                      jsonData={boardSvgs[player.persistentPlayerId]}
+                      className="scaled-svg-preview" 
+                      targetWidth={800}
+                      targetHeight={400}
+                    />
+                  ) : (
+                    <div 
+                      className="svg-display-wrapper" 
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill={CHALKBOARD_BACKGROUND_COLOR} /></svg>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Answer with notepad effect - Show if an answer submission exists, even if text is empty */}
@@ -281,26 +334,56 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     </span>
                   </div>
                 )}
-                {/* Correct/Incorrect buttons for GameMaster - Show if a submission exists and is pending evaluation */}
-                {isGameMaster && answer !== undefined && evaluation === undefined && onEvaluate && (
+                {/* Correct/Incorrect buttons for GameMaster (standard mode) OR for all players (community voting mode) */}
+                {((isGameMaster && !isCommunityVotingMode && answer !== undefined && evaluation === undefined && onEvaluate) || 
+                  (isCommunityVotingMode && answer !== undefined && onVote && !localMyVotes[player.persistentPlayerId] && evaluation === undefined)) && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
                     <button 
                         className="btn btn-success btn-sm" 
-                        onClick={() => onEvaluate(player.persistentPlayerId, true)} 
-                        title={t('markAsCorrect', language)}
+                        onClick={() => {
+                          console.log(`[PreviewOverlayV2] Voting 'correct' on ${player.persistentPlayerId}. My current vote for this:`, localMyVotes[player.persistentPlayerId]);
+                          if (isCommunityVotingMode && onVote) { 
+                            onVote(player.persistentPlayerId, 'correct');
+                          } else if (onEvaluate) { 
+                            onEvaluate(player.persistentPlayerId, true);
+                          }
+                        }} 
+                        title={isCommunityVotingMode ? t('previewOverlay.voteCorrect', language) : t('markAsCorrect', language)}
+                        disabled={isCommunityVotingMode && !!localMyVotes[player.persistentPlayerId]}
                     >
-                        <i className="bi bi-check-circle-fill me-1"></i>{t('correct', language)}
+                        <i className="bi bi-check-circle-fill me-1"></i>{isCommunityVotingMode ? t('correct', language) : t('correct', language)}
                     </button>
                     <button 
                         className="btn btn-danger btn-sm" 
-                        onClick={() => onEvaluate(player.persistentPlayerId, false)} 
-                        title={t('markAsIncorrect', language)}
+                        onClick={() => {
+                          console.log(`[PreviewOverlayV2] Voting 'incorrect' on ${player.persistentPlayerId}. My current vote for this:`, localMyVotes[player.persistentPlayerId]);
+                          if (isCommunityVotingMode && onVote) { 
+                            onVote(player.persistentPlayerId, 'incorrect');
+                          } else if (onEvaluate) { 
+                            onEvaluate(player.persistentPlayerId, false);
+                          }
+                        }} 
+                        title={isCommunityVotingMode ? t('previewOverlay.voteIncorrect', language) : t('markAsIncorrect', language)}
+                        disabled={isCommunityVotingMode && !!localMyVotes[player.persistentPlayerId]}
                     >
-                        <i className="bi bi-x-circle-fill me-1"></i>{t('incorrect', language)}
+                        <i className="bi bi-x-circle-fill me-1"></i>{isCommunityVotingMode ? t('incorrect', language) : t('incorrect', language)}
                     </button>
                   </div>
                 )}
-                {/* Show badge if evaluated */}
+                {/* Display vote counts in community voting mode */}
+                {isCommunityVotingMode && localCommunityVotes && localCommunityVotes[player.persistentPlayerId] && (
+                  <div className="mt-2 text-center small">
+                    <span className="badge bg-success me-1">Correct: {localCommunityVotes[player.persistentPlayerId]?.correct || 0}</span>
+                    <span className="badge bg-danger">Incorrect: {localCommunityVotes[player.persistentPlayerId]?.incorrect || 0}</span>
+                  </div>
+                )}
+                {/* Show player's own vote in community voting mode if they voted */}
+                {isCommunityVotingMode && localMyVotes && localMyVotes[player.persistentPlayerId] && evaluation === undefined && (
+                    <div className="mt-1 text-center small fst-italic">
+                        You voted: <span className={`fw-bold ${localMyVotes[player.persistentPlayerId] === 'correct' ? 'text-success' : 'text-danger'}`}>{localMyVotes[player.persistentPlayerId]}</span>
+                    </div>
+                )}
+                {/* Show badge if evaluated (standard mode or after community voting tallied) */}
                 {evaluation !== undefined && (
                   <span 
                     className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}

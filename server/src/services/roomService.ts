@@ -64,7 +64,10 @@ export function createGameRoom(
     isConcluded: false,
     isStreamerMode: false,
     createdAt: new Date().toISOString(),
-    lastActivity: new Date().toISOString()
+    lastActivity: new Date().toISOString(),
+    isCommunityVotingMode: false,
+    gameMasterBoardData: null,
+    votes: {}
   };
   
   // Log room creation as a critical event

@@ -4,9 +4,10 @@ import QuestionDisplayCard from '../shared/QuestionDisplayCard';
 
 interface QuestionDisplayProps {
   question: Question | null;
+  isCommunityVotingMode?: boolean;
 }
 
-const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question }) => {
+const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question, isCommunityVotingMode = false }) => {
   if (!question) {
     return (
       <div className="card mb-3">
@@ -21,7 +22,7 @@ const QuestionDisplay: React.FC<QuestionDisplayProps> = ({ question }) => {
   }
 
   return (
-    <QuestionDisplayCard question={question} showAnswer={true} title="Current Question" />
+    <QuestionDisplayCard question={question} showAnswer={!isCommunityVotingMode} title="Current Question" />
   );
 };
 
