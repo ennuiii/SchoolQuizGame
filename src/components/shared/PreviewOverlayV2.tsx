@@ -88,8 +88,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
       await new Promise<void>((resolve, reject) => {
         canvas.loadFromJSON(jsonData, () => {
           canvas.renderAll();
-          const svgString = canvas.toSVG();
-          setBoardSvgs(prev => ({ ...prev, [answerPersistentPlayerId]: svgString }));
+          // Store the original JSON data instead of converting to SVG
+          setBoardSvgs(prev => ({ ...prev, [answerPersistentPlayerId]: jsonData }));
           resolve();
         });
       });
@@ -182,6 +182,14 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
       socketService.off('answer_voted', handleAnswerVoted);
     };
   }, [context.currentQuestion]);
+
+  // Add new effect to reset voting states when question changes
+  useEffect(() => {
+    // Clear local voting states when question changes
+    setLocalCommunityVotes({});
+    setLocalMyVotes({});
+    setRevealedAnswer(null);
+  }, [context.currentQuestion?.id]); // Dependency on question ID ensures this runs only when question changes
 
   if (!context.previewMode.isActive) return null;
 
@@ -290,21 +298,26 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     overflow: 'hidden'
                   }}
                 >
-                  {/* Direct SVG rendering instead of FabricJsonToSvg */}
-                  <div 
-                    className="svg-display-wrapper" 
-                    style={{
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      justifyContent: 'center',
-                      alignItems: 'center'
-                    }}
-                    dangerouslySetInnerHTML={{ 
-                      __html: boardSvgs[player.persistentPlayerId] || 
-                        `<svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill="${CHALKBOARD_BACKGROUND_COLOR}" /></svg>` 
-                    }}
-                  />
+                  {/* Replace direct SVG rendering with FabricJsonToSvg component */}
+                  {boardSvgs[player.persistentPlayerId] ? (
+                    <FabricJsonToSvg 
+                      jsonData={boardSvgs[player.persistentPlayerId]}
+                      className="scaled-svg-preview" 
+                    />
+                  ) : (
+                    <div 
+                      className="svg-display-wrapper" 
+                      style={{
+                        width: '100%',
+                        height: '100%',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center'
+                      }}
+                    >
+                      <svg viewBox="0 0 800 400"><rect width="100%" height="100%" fill={CHALKBOARD_BACKGROUND_COLOR} /></svg>
+                    </div>
+                  )}
                 </div>
                 
                 {/* Answer with notepad effect - Show if an answer submission exists, even if text is empty */}

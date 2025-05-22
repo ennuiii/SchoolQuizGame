@@ -2,6 +2,15 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import socketService from '../services/socketService'; // Assuming socketService is correctly set up
 import { useRoom } from './RoomContext'; // To get current room and player info
 
+// Add debounce utility function
+function debounce<F extends (...args: any[]) => any>(func: F, wait: number): (...args: Parameters<F>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return function(...args: Parameters<F>) {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
 // Configuration
 const STUN_SERVER = 'stun:stun.l.google.com:19302';
 const ICE_SERVERS = [
@@ -45,7 +54,7 @@ interface WebRTCContextState {
   remotePeerStates: Map<string, {webcamEnabled: boolean, micEnabled: boolean}>; // Add new state to track remote peers' media state
   availableCameras: MediaDeviceInfo[]; // List of available camera devices
   selectedCameraId: string | null; // Currently selected camera device ID
-  refreshDeviceList: () => Promise<void>; // Function to refresh the device list
+  refreshDeviceList: () => Promise<void>; // Changed return type to Promise<void>
   selectCamera: (deviceId: string) => Promise<void>; // Function to switch to a different camera
   availableMicrophones: MediaDeviceInfo[]; // List of available microphone devices
   selectedMicrophoneId: string | null; // Currently selected microphone device ID
@@ -292,18 +301,28 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     }
   }, [roomCode]);
 
-  const refreshDeviceList = useCallback(async () => {
+  const refreshDeviceList = useCallback(async (): Promise<void> => {
     try {
+      // Add a static flag to track if the devices have been logged already in this session
+      if (!(refreshDeviceList as any).hasLoggedDevices) {
+        console.log('[WebRTC] Refreshing device list...');
+      }
+      
       const devices = await navigator.mediaDevices.enumerateDevices();
       
       const cameras = devices.filter(device => device.kind === 'videoinput');
       const microphones = devices.filter(device => device.kind === 'audioinput');
       
-      // Reduce log frequency - only log once per session or when count changes
-      if (cameras.length !== availableCameras.length || 
-          microphones.length !== availableMicrophones.length) {
-        console.log('[WebRTC] Found camera devices (may not have labels yet):', cameras);
-        console.log('[WebRTC] Found microphone devices (may not have labels yet):', microphones);
+      // Reduce log frequency - only log once per session or when count significantly changes
+      const cameraCountChanged = cameras.length !== availableCameras.length;
+      const micCountChanged = microphones.length !== availableMicrophones.length;
+      
+      if (cameraCountChanged || micCountChanged) {
+        if (!(refreshDeviceList as any).hasLoggedDevices || cameraCountChanged || micCountChanged) {
+          console.log('[WebRTC] Found camera devices:', cameras.length);
+          console.log('[WebRTC] Found microphone devices:', microphones.length);
+          (refreshDeviceList as any).hasLoggedDevices = true;
+        }
       }
       
       setAvailableCameras(cameras);
@@ -1015,43 +1034,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       currentSocket.off('webrtc-refresh-states');
     };
   }, [roomCode, localStream, createPeerConnection, closePeerConnection, peerConnections, currentUserIsGM, broadcastWebcamState, broadcastMicrophoneState]);
-
-  // Initialize device list when component mounts
-  useEffect(() => {
-    // Initial device list refresh
-    refreshDeviceList();
-    
-    // Try to get basic device info without starting stream
-    // This helps populate device list with better info
-    if (availableCameras.length === 0 || availableMicrophones.length === 0 || 
-        !availableCameras.some(cam => cam.label) || !availableMicrophones.some(mic => mic.label)) {
-      console.log('[WebRTC] Attempting to get media permissions to populate device list');
-      navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-        .then(tempStream => {
-          // Immediately stop the temporary stream
-          tempStream.getTracks().forEach(track => track.stop());
-          // Refresh the device list now that we have permissions
-          refreshDeviceList();
-        })
-        .catch(err => {
-          console.warn('[WebRTC] Could not get media permission for initial device list:', err);
-          // Still refresh device list - we might get deviceIds without labels
-          refreshDeviceList();
-        });
-    }
-    
-    // Also listen for devicechange events to update the list
-    const handleDeviceChange = () => {
-      console.log('[WebRTC] Device change detected, refreshing device list');
-      refreshDeviceList();
-    };
-    
-    navigator.mediaDevices.addEventListener('devicechange', handleDeviceChange);
-    
-    return () => {
-      navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
-    };
-  }, [refreshDeviceList, availableCameras, availableMicrophones]);
 
   const value = {
     localStream,

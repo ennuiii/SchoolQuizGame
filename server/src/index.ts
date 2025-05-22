@@ -870,6 +870,16 @@ io.on('connection', (socket: ExtendedSocket) => {
     room.roundAnswers = {};
     room.evaluatedAnswers = {};
     room.submissionPhaseOver = false;
+    // Clear voting data if in community voting mode
+    if (room.isCommunityVotingMode) {
+      room.votes = {};
+    }
+    // Clear game master's drawing board in all modes
+    if (room.gameMasterBoardData) {
+      console.log(`[Server Restart] Clearing game master's drawing board for room ${roomCode}`);
+      room.gameMasterBoardData = null;
+    }
+    
     room.players.forEach(player => {
       if (player.joinedAsSpectator) {
         player.lives = 0;
@@ -883,6 +893,8 @@ io.on('connection', (socket: ExtendedSocket) => {
         player.isSpectator = false;
       }
     });
+    
+    // Clear all player boards
     if (room.playerBoards) {
       Object.keys(room.playerBoards).forEach(playerId => {
         if(room.playerBoards[playerId]){
@@ -890,6 +902,7 @@ io.on('connection', (socket: ExtendedSocket) => {
         }
       });
     }
+    
     const currentIO = getIO();
     currentIO.to(roomCode).emit('game_restarted', { roomCode }); 
     broadcastGameState(roomCode);
@@ -1271,6 +1284,19 @@ io.on('connection', (socket: ExtendedSocket) => {
       room.submissionPhaseOver = false;
       room.roundAnswers = {};
       room.evaluatedAnswers = {};
+      
+      // Clear voting data if in community voting mode
+      if (room.isCommunityVotingMode && room.votes) {
+        console.log(`[NextQuestion] Clearing community voting data for room ${roomCode}`);
+        room.votes = {};
+      }
+      
+      // Always clear game master's drawing board for new questions
+      if (room.gameMasterBoardData) {
+        console.log(`[NextQuestion] Clearing game master's drawing board for room ${roomCode}`);
+        room.gameMasterBoardData = null;
+      }
+      
       room.players.forEach(player => {
         if(player.answers) player.answers[room.currentQuestionIndex] = undefined as any; // Reset for new question
       });
@@ -1971,3 +1997,45 @@ app.get('/api/request_players', (req: Request, res: Response) => {
     }))
   });
 }); 
+
+// Handle game restart
+app.post('/api/restart-game', authenticateRequest, (req, res) => {
+  const { roomCode } = req.body;
+  console.log(`[Server API] Restart game for room: ${roomCode}`);
+  const room = gameRooms[roomCode];
+  if (!room) {
+    console.log(`[Server API] Room not found for restart: ${roomCode}`);
+    res.status(404).json({ error: 'Room not found' });
+    return;
+  }
+  if (room.gamemasterPersistentId !== req.playerId) {
+    console.log(`[Server API] Unauthorized restart attempt: ${req.playerId}`);
+    res.status(403).json({ error: 'Not authorized to restart game' });
+    return;
+  }
+  
+  // Reset game state
+  room.started = false;
+  room.currentQuestion = null;
+  room.currentQuestionIndex = -1;
+  room.isConcluded = false;
+  room.submissionPhaseOver = false;
+  room.roundAnswers = {};
+  room.evaluatedAnswers = {};
+  room.votes = {}; // Clear any community voting data
+  room.gameMasterBoardData = null; // Clear game master's drawing in all modes
+  
+  // Reset player states
+  room.players.forEach(player => {
+    // ... existing code ...
+  });
+  if (room.playerBoards) {
+    Object.keys(room.playerBoards).forEach(playerId => {
+      if(room.playerBoards[playerId]){
+        room.playerBoards[playerId].boardData = ''; 
+      }
+    });
+  }
+  const currentIO = getIO();
+  // ... existing code ...
+});

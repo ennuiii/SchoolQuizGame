@@ -272,6 +272,18 @@ export function finalizeRoundAndAutoSubmit(roomCode: string): void {
   console.log(`[FinalizeRound] Finalizing round for room ${roomCode}. Current question index: ${room.currentQuestionIndex}`);
   room.submissionPhaseOver = true;
 
+  // Clear voting data for the current round
+  if (room.isCommunityVotingMode) {
+    console.log(`[FinalizeRound] Clearing community voting data for room ${roomCode}`);
+    room.votes = {};
+    
+    // Also clear GM's drawing board in community voting mode
+    if (room.gameMasterBoardData) {
+      console.log(`[FinalizeRound] Clearing game master's drawing board in community voting mode`);
+      room.gameMasterBoardData = null;
+    }
+  }
+
   if (room.players && room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null) {
     room.players.forEach(playerInRoom => {
       if (
@@ -338,6 +350,12 @@ export function concludeGameAndSendRecap(roomCode: string, winnerInfo: { id: str
 
   room.isConcluded = true;
   clearRoomTimer(roomCode); // Stop any active timers
+  
+  // Clear any remaining voting data when game concludes
+  if (room.votes) {
+    console.log(`[ConcludeGame] Clearing community voting data for room ${roomCode} on game conclusion`);
+    room.votes = {};
+  }
 
   console.log(`[ConcludeGame] Game concluded in room ${roomCode}. Emitting game_over_pending_recap.`);
   if (io) {
@@ -377,6 +395,12 @@ export function startQuestionTimer(roomCode: string): void {
 
   // Clear any existing timer for this room
   clearRoomTimer(roomCode);
+
+  // Clear any existing votes when starting a new question
+  if (room.isCommunityVotingMode && room.votes) {
+    console.log(`[TIMER] Clearing community voting data for room ${roomCode} at start of new question`);
+    room.votes = {};
+  }
 
   let timeRemaining = room.timeLimit;
   const startTime = Date.now();
