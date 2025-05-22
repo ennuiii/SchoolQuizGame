@@ -21,6 +21,16 @@ const ICE_SERVERS = [
   { urls: 'stun:stun4.l.google.com:19302' }
 ];
 
+// WebRTC Configuration Constants
+const ICE_RECOVERY_CONFIG = {
+  INITIAL_RETRY_DELAY: 1000,    // 1 second
+  MAX_RETRY_DELAY: 10000,       // 10 seconds
+  MAX_RETRY_ATTEMPTS: 5,        // Maximum number of retry attempts
+  CONNECTION_TIMEOUT: 15000,    // 15 seconds timeout for initial connection
+  DISCONNECTED_TIMEOUT: 10000,  // 10 seconds timeout for disconnected state
+  FAILED_TIMEOUT: 5000         // 5 seconds timeout for failed state
+};
+
 interface PeerConnectionDetail {
   connection: RTCPeerConnection;
   dataChannel?: RTCDataChannel; // Optional: if you plan to use data channels
@@ -35,6 +45,22 @@ interface PeerInfo {
 
 // Create a module-scoped map to track peer names
 export const peerNameRegistry = new Map<string, string>();
+
+// Add new interfaces for error handling and state tracking
+interface WebRTCError {
+  code: string;
+  message: string;
+  timestamp: number;
+  peerId?: string;
+}
+
+interface ConnectionState {
+  iceState: RTCIceConnectionState;
+  signalingState: RTCSignalingState;
+  connectionState: RTCPeerConnectionState;
+  lastStateChange: number;
+  errors: WebRTCError[];
+}
 
 interface WebRTCContextState {
   localStream: MediaStream | null;
@@ -59,6 +85,10 @@ interface WebRTCContextState {
   availableMicrophones: MediaDeviceInfo[]; // List of available microphone devices
   selectedMicrophoneId: string | null; // Currently selected microphone device ID
   selectMicrophone: (deviceId: string) => Promise<void>; // Function to switch to a different microphone
+  connectionStates: Map<string, ConnectionState>;
+  errors: WebRTCError[];
+  clearErrors: () => void;
+  getConnectionStats: (peerId: string) => Promise<RTCStatsReport | null>;
 }
 
 const WebRTCContext = createContext<WebRTCContextState | undefined>(undefined);
@@ -75,10 +105,12 @@ interface WebRTCProviderProps {
   children: ReactNode;
 }
 
-// Fix for pendingCandidates property
-// Add interface extension to augment the RTCPeerConnection type
+// Add retry tracking to ExtendedRTCPeerConnection
 interface ExtendedRTCPeerConnection extends RTCPeerConnection {
   pendingCandidates?: RTCIceCandidateInit[];
+  retryCount?: number;
+  lastRetryTime?: number;
+  retryTimeout?: NodeJS.Timeout;
 }
 
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
@@ -93,6 +125,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
   const [availableMicrophones, setAvailableMicrophones] = useState<MediaDeviceInfo[]>([]);
   const [selectedMicrophoneId, setSelectedMicrophoneId] = useState<string | null>(null);
+  const [connectionStates, setConnectionStates] = useState<Map<string, ConnectionState>>(new Map());
+  const [errors, setErrors] = useState<WebRTCError[]>([]);
 
   const { roomCode, persistentPlayerId, players, isGameMaster: currentUserIsGM } = useRoom();
 
@@ -125,27 +159,79 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     });
   }, []);
 
+  // Add error handling utility
+  const handleError = useCallback((error: WebRTCError) => {
+    console.error(`[WebRTC] Error: ${error.message}`, error);
+    setErrors(prev => [...prev, error]);
+    
+    // Keep only last 100 errors
+    if (errors.length > 100) {
+      setErrors(prev => prev.slice(-100));
+    }
+  }, [errors]);
+
+  // Add connection state tracking
+  const updateConnectionState = useCallback((peerId: string, state: Partial<ConnectionState>) => {
+    setConnectionStates(prev => {
+      const currentState = prev.get(peerId) || {
+        iceState: 'new',
+        signalingState: 'stable',
+        connectionState: 'new',
+        lastStateChange: Date.now(),
+        errors: []
+      };
+      
+      const newState = {
+        ...currentState,
+        ...state,
+        lastStateChange: Date.now()
+      };
+      
+      return new Map(prev).set(peerId, newState);
+    });
+  }, []);
+
+  // Add connection stats gathering
+  const getConnectionStats = useCallback(async (peerId: string): Promise<RTCStatsReport | null> => {
+    const pc = peerConnections.get(peerId);
+    if (!pc) return null;
+    
+    try {
+      return await pc.getStats();
+    } catch (error) {
+      handleError({
+        code: 'STATS_ERROR',
+        message: `Failed to get connection stats for peer ${peerId}: ${error}`,
+        timestamp: Date.now(),
+        peerId
+      });
+      return null;
+    }
+  }, [peerConnections, handleError]);
+
   const createPeerConnection = useCallback((peerSocketId: string, selfSocketId: string): RTCPeerConnection => {
     console.log(`[WebRTC] createPeerConnection called for peer: ${peerSocketId}`);
     
     // Ensure any existing connection is properly closed before creating a new one
     const existingPc = peerConnections.get(peerSocketId);
     if (existingPc) {
-        console.log(`[WebRTC] Existing PC found for ${peerSocketId}, state: ${existingPc.signalingState}. Closing it first.`);
-        closePeerConnection(peerSocketId);
+      console.log(`[WebRTC] Existing PC found for ${peerSocketId}, state: ${existingPc.signalingState}. Closing it first.`);
+      closePeerConnection(peerSocketId);
     }
 
     console.log(`[WebRTC] Creating new RTCPeerConnection for ${peerSocketId}`);
     const newPc = new RTCPeerConnection({ 
-        iceServers: ICE_SERVERS,
-        iceTransportPolicy: 'all',
-        bundlePolicy: 'max-bundle',
-        rtcpMuxPolicy: 'require',
-        iceCandidatePoolSize: 10
-    });
+      iceServers: ICE_SERVERS,
+      iceTransportPolicy: 'all',
+      bundlePolicy: 'max-bundle',
+      rtcpMuxPolicy: 'require',
+      iceCandidatePoolSize: 10
+    }) as ExtendedRTCPeerConnection;
 
-    // Store pending candidates until remote description is set
-    (newPc as ExtendedRTCPeerConnection).pendingCandidates = [];
+    // Initialize retry tracking
+    newPc.retryCount = 0;
+    newPc.lastRetryTime = Date.now();
+    newPc.pendingCandidates = [];
 
     newPc.onicecandidate = (event) => {
         if (event.candidate && selfSocketId) {
@@ -160,54 +246,92 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
 
     newPc.oniceconnectionstatechange = () => {
-        console.log(`[WebRTC] ICE connection state change for ${peerSocketId}: ${newPc.iceConnectionState}`);
+        const state = newPc.iceConnectionState;
+        console.log(`[WebRTC] ICE connection state change for ${peerSocketId}: ${state}`);
         
-        switch (newPc.iceConnectionState) {
+        updateConnectionState(peerSocketId, { iceState: state });
+        
+        switch (state) {
             case 'connected':
             case 'completed':
                 console.log(`[WebRTC] ICE connection established with ${peerSocketId}.`);
+                // Reset retry count on successful connection
+                newPc.retryCount = 0;
                 setRemoteStreams(prev => new Map(prev));
                 break;
                 
             case 'failed':
                 console.warn(`[WebRTC] ICE connection to ${peerSocketId} failed. Attempting recovery...`);
                 if (newPc.signalingState !== 'closed') {
-                    try {
-                        newPc.restartIce();
-                        // Add a timeout to check if recovery was successful
-                        setTimeout(() => {
-                            if (newPc.iceConnectionState === 'failed') {
-                                console.error(`[WebRTC] ICE recovery failed for ${peerSocketId}`);
+                    const attemptRecovery = () => {
+                        const now = Date.now();
+                        const timeSinceLastRetry = now - (newPc.lastRetryTime || 0);
+                        const retryDelay = Math.min(
+                            ICE_RECOVERY_CONFIG.INITIAL_RETRY_DELAY * Math.pow(2, newPc.retryCount || 0),
+                            ICE_RECOVERY_CONFIG.MAX_RETRY_DELAY
+                        );
+
+                        if ((newPc.retryCount || 0) < ICE_RECOVERY_CONFIG.MAX_RETRY_ATTEMPTS && 
+                            timeSinceLastRetry >= retryDelay) {
+                            try {
+                                console.log(`[WebRTC] Attempting ICE recovery for ${peerSocketId} (attempt ${(newPc.retryCount || 0) + 1})`);
+                                newPc.restartIce();
+                                newPc.retryCount = (newPc.retryCount || 0) + 1;
+                                newPc.lastRetryTime = now;
+
+                                // Set timeout to check if recovery was successful
+                                if (newPc.retryTimeout) {
+                                    clearTimeout(newPc.retryTimeout);
+                                }
+                                newPc.retryTimeout = setTimeout(() => {
+                                    if (newPc.iceConnectionState === 'failed') {
+                                        console.error(`[WebRTC] ICE recovery failed for ${peerSocketId} after ${newPc.retryCount} attempts`);
+                                        closePeerConnection(peerSocketId);
+                                    }
+                                }, ICE_RECOVERY_CONFIG.FAILED_TIMEOUT);
+                            } catch (e) {
+                                console.error(`[WebRTC] Failed to restart ICE:`, e);
                                 closePeerConnection(peerSocketId);
                             }
-                        }, 5000);
-                    } catch (e) {
-                        console.error(`[WebRTC] Failed to restart ICE:`, e);
-                        closePeerConnection(peerSocketId);
-                    }
+                        } else if ((newPc.retryCount || 0) >= ICE_RECOVERY_CONFIG.MAX_RETRY_ATTEMPTS) {
+                            console.error(`[WebRTC] Max retry attempts reached for ${peerSocketId}`);
+                            closePeerConnection(peerSocketId);
+                        }
+                    };
+
+                    attemptRecovery();
                 }
                 break;
                 
             case 'disconnected':
                 console.warn(`[WebRTC] ICE connection to ${peerSocketId} disconnected. Waiting for recovery...`);
                 // Give some time for recovery before closing
-                setTimeout(() => {
+                if (newPc.retryTimeout) {
+                    clearTimeout(newPc.retryTimeout);
+                }
+                newPc.retryTimeout = setTimeout(() => {
                     if (newPc.iceConnectionState === 'disconnected') {
                         console.error(`[WebRTC] ICE recovery timeout for ${peerSocketId}`);
                         closePeerConnection(peerSocketId);
                     }
-                }, 10000);
+                }, ICE_RECOVERY_CONFIG.DISCONNECTED_TIMEOUT);
                 break;
                 
             case 'closed':
                 console.log(`[WebRTC] ICE connection to ${peerSocketId} closed.`);
+                if (newPc.retryTimeout) {
+                    clearTimeout(newPc.retryTimeout);
+                }
                 closePeerConnection(peerSocketId);
                 break;
         }
     };
     
     newPc.onsignalingstatechange = () => {
-        console.log(`[WebRTC] Signaling state change for ${peerSocketId}: ${newPc.signalingState}`);
+        const state = newPc.signalingState;
+        console.log(`[WebRTC] Signaling state change for ${peerSocketId}: ${state}`);
+        
+        updateConnectionState(peerSocketId, { signalingState: state });
         
         // When we get a remote description, send any pending candidates
         if (newPc.remoteDescription && newPc.remoteDescription.type) {
@@ -223,9 +347,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
     
     newPc.onconnectionstatechange = () => {
-        console.log(`[WebRTC] Connection state change for ${peerSocketId}: ${newPc.connectionState}`);
+        const state = newPc.connectionState;
+        console.log(`[WebRTC] Connection state change for ${peerSocketId}: ${state}`);
         
-        switch (newPc.connectionState) {
+        updateConnectionState(peerSocketId, { connectionState: state });
+        
+        switch (state) {
             case 'connected':
                 console.log(`[WebRTC] Connection established with ${peerSocketId}`);
                 break;
@@ -249,42 +376,53 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         }
     };
 
-    // Improved track handling
+    // Enhanced error handling for track events
     newPc.ontrack = (event) => {
       console.log(`[WebRTC] Received remote track event from ${peerSocketId}:`, event);
-      if (event.streams && event.streams[0]) {
-        const remoteStream = event.streams[0];
-        console.log(`[WebRTC] Remote stream for ${peerSocketId}:`, remoteStream);
-        
-        // Log all tracks
-        remoteStream.getTracks().forEach(track => {
-          console.log(`[WebRTC] Remote track (${peerSocketId}): id=${track.id}, kind=${track.kind}, enabled=${track.enabled}`);
-          
-          // Setup listeners for track ended events
-          track.onended = () => {
-            console.log(`[WebRTC] Track ${track.id} ended from peer ${peerSocketId}`);
-          };
-          
-          track.onmute = () => {
-            console.log(`[WebRTC] Track ${track.id} muted from peer ${peerSocketId}`);
-          };
-          
-          track.onunmute = () => {
-            console.log(`[WebRTC] Track ${track.id} unmuted from peer ${peerSocketId}`);
-          };
+      
+      if (!event.streams || !event.streams[0]) {
+        handleError({
+          code: 'TRACK_ERROR',
+          message: `Received track event without streams from ${peerSocketId}`,
+          timestamp: Date.now(),
+          peerId: peerSocketId
         });
-        
-        // Store the stream immediately
-        setRemoteStreams(prev => new Map(prev).set(peerSocketId, remoteStream));
-      } else {
-        console.warn(`[WebRTC] Remote track event from ${peerSocketId} did not contain streams or stream[0].`);
+        return;
       }
+
+      const remoteStream = event.streams[0];
+      console.log(`[WebRTC] Remote stream for ${peerSocketId}:`, remoteStream);
+      
+      // Log all tracks
+      remoteStream.getTracks().forEach(track => {
+        console.log(`[WebRTC] Remote track (${peerSocketId}): id=${track.id}, kind=${track.kind}, enabled=${track.enabled}`);
+        
+        // Setup listeners for track ended events
+        track.onended = () => {
+          console.log(`[WebRTC] Track ${track.id} ended from peer ${peerSocketId}`);
+          handleError({
+            code: 'TRACK_ENDED',
+            message: `Track ${track.id} ended unexpectedly`,
+            timestamp: Date.now(),
+            peerId: peerSocketId
+          });
+        };
+        
+        track.onmute = () => {
+          console.log(`[WebRTC] Track ${track.id} muted from peer ${peerSocketId}`);
+        };
+        
+        track.onunmute = () => {
+          console.log(`[WebRTC] Track ${track.id} unmuted from peer ${peerSocketId}`);
+        };
+      });
+      
+      setRemoteStreams(prev => new Map(prev).set(peerSocketId, remoteStream));
     };
 
     // Add a timeout to ensure connection is established or closed
     setTimeout(() => {
-      // Check if the connection is still in the peerConnections state
-      const currentPc = peerConnections.get(peerSocketId);
+      const currentPc = peerConnections.get(peerSocketId) as ExtendedRTCPeerConnection;
       if (currentPc === newPc && 
           newPc.iceConnectionState !== 'connected' && 
           newPc.iceConnectionState !== 'completed') {
@@ -300,7 +438,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           }
         }
       }
-    }, 15000); // 15 seconds timeout
+    }, ICE_RECOVERY_CONFIG.CONNECTION_TIMEOUT);
 
     if (localStream) {
       localStream.getTracks().forEach(track => {
@@ -320,7 +458,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
 
     setPeerConnections(prev => new Map(prev).set(peerSocketId, newPc));
     return newPc;
-  }, [localStream, peerConnections, closePeerConnection, players]);
+  }, [localStream, peerConnections, closePeerConnection, players, updateConnectionState, handleError]);
 
   const closeAllPeerConnections = useCallback(() => {
     console.log('[WebRTC] Closing all peer connections.');
@@ -1088,6 +1226,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
   }, [roomCode, localStream, createPeerConnection, closePeerConnection, peerConnections, currentUserIsGM, broadcastWebcamState, broadcastMicrophoneState]);
 
+  // Add clearErrors function
+  const clearErrors = useCallback(() => {
+    setErrors([]);
+  }, []);
+
   const value = {
     localStream,
     remoteStreams,
@@ -1111,6 +1254,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     availableMicrophones,
     selectedMicrophoneId,
     selectMicrophone,
+    connectionStates,
+    errors,
+    clearErrors,
+    getConnectionStats,
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;
