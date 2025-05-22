@@ -32,6 +32,7 @@ export class SocketService {
   private connectionPromise: Promise<Socket | null> | null = null;
   private eventListeners: Map<string, Set<Function>> = new Map();
   private connectionStateListeners: ((state: string, detailInfo?: any) => void)[] = [];
+  private persistentIdUpdateListeners: ((newId: string | null) => void)[] = [];
   private url: string;
   private isReconnecting: boolean = false;
 
@@ -73,15 +74,18 @@ export class SocketService {
 
   // Method to set persistentPlayerId in memory and localStorage
   private setPersistentPlayerId(id: string): void {
-    if (!id) return;
+    if (!id || id === this.persistentPlayerId) return;
     
+    const oldId = this.persistentPlayerId;
     this.persistentPlayerId = id;
     try {
       localStorage.setItem('persistentPlayerId_schoolquiz', id);
       console.log('[SocketService] Stored persistent player ID in localStorage:', id);
+      this.persistentIdUpdateListeners.forEach(listener => listener(id));
     } catch (error) {
       console.error('[SocketService] Error storing persistent player ID:', error);
     }
+    console.log('[SocketService] PersistentPlayerId changed from', oldId, 'to', id);
   }
 
   // Getter for persistentPlayerId
@@ -93,8 +97,13 @@ export class SocketService {
   public clearPersistentPlayerId(): void {
     try {
       localStorage.removeItem('persistentPlayerId_schoolquiz');
+      const oldId = this.persistentPlayerId;
       this.persistentPlayerId = null;
       console.log('[SocketService] Cleared persistent player ID');
+      this.persistentIdUpdateListeners.forEach(listener => listener(null));
+      if (oldId) {
+        console.log('[SocketService] PersistentPlayerId cleared from', oldId);
+      }
     } catch (error) {
       console.error('[SocketService] Error clearing persistent player ID:', error);
     }
@@ -421,6 +430,10 @@ export class SocketService {
     
     if (persistentPlayerId) {
       avatarSvg = localStorage.getItem(`avatar_${persistentPlayerId}`);
+      console.log('[SocketService] Found avatar in localStorage:', {
+        persistentPlayerId,
+        hasAvatar: !!avatarSvg
+      });
     }
     
     await this.robustEmit('join_room', { roomCode, playerName, isSpectator, avatarSvg });
@@ -608,6 +621,10 @@ export class SocketService {
     let avatarSvg: string | null = null;
     if (this.persistentPlayerId) {
       avatarSvg = localStorage.getItem(`avatar_${this.persistentPlayerId}`);
+      console.log('[SocketService] Found avatar in localStorage during rejoin:', {
+        persistentPlayerId: this.persistentPlayerId,
+        hasAvatar: !!avatarSvg
+      });
     }
     
     console.log('[SocketService] Rejoining room with avatar:', {
@@ -645,20 +662,15 @@ export class SocketService {
           break; // Exit retry loop if successful
         } catch (error) {
           retries++;
-          console.error(`[SocketService] Rejoin attempt ${retries} failed:`, error);
-          
-          if (retries >= maxRetries) {
-            throw new Error(`Failed to rejoin after ${maxRetries} attempts`);
+          if (retries === maxRetries) {
+            throw error;
           }
-          
-          // Exponential backoff: wait longer between each retry (1s, 2s, 4s...)
-          const backoffMs = Math.pow(2, retries) * 1000;
-          console.log(`[SocketService] Waiting ${backoffMs}ms before retry ${retries + 1}...`);
-          await new Promise(resolve => setTimeout(resolve, backoffMs));
+          // Wait before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000 * retries));
         }
       }
     } catch (error) {
-      console.error('[SocketService] Failed to rejoin room after all retries:', error);
+      console.error('[SocketService] Failed to rejoin room after retries:', error);
       throw error;
     }
   }
@@ -734,6 +746,14 @@ export class SocketService {
   async sendWebRTCICECandidate(candidate: RTCIceCandidate, toSocketId: string, fromSocketId: string): Promise<void> {
     // console.log(`[SocketService] Sending WebRTC ICE candidate from ${fromSocketId} to ${toSocketId}`); // Can be verbose
     await this.robustEmit('webrtc-ice-candidate', { candidate, to: toSocketId, from: fromSocketId });
+  }
+
+  // Method to subscribe to persistent ID updates
+  public onPersistentIdUpdate(callback: (newId: string | null) => void): () => void {
+    this.persistentIdUpdateListeners.push(callback);
+    return () => {
+      this.persistentIdUpdateListeners = this.persistentIdUpdateListeners.filter(cb => cb !== callback);
+    };
   }
 }
 

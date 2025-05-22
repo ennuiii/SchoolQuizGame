@@ -86,6 +86,30 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return storedValue ? storedValue === 'true' : false;
   });
 
+  // Subscribe to persistent ID updates directly from socketService
+  useEffect(() => {
+    const handlePersistentIdUpdate = (newId: string | null) => {
+      console.log('[RoomContext] Received persistent_id_updated from socketService:', newId);
+      setPersistentPlayerId(newId);
+      // Optionally, update sessionStorage if still needed, but localStorage via socketService is primary
+      if (newId) {
+        sessionStorage.setItem('persistentPlayerId', newId); 
+      } else {
+        sessionStorage.removeItem('persistentPlayerId');
+      }
+    };
+    const unsubscribe = socketService.onPersistentIdUpdate(handlePersistentIdUpdate);
+    // Set initial value one more time in case it was set by socketService constructor after RoomContext init
+    const currentIdFromService = socketService.getPersistentPlayerId();
+    if (persistentPlayerId !== currentIdFromService) {
+        setPersistentPlayerId(currentIdFromService);
+    }
+
+    return () => {
+      unsubscribe();
+    };
+  }, [persistentPlayerId]); // persistentPlayerId in dependency array to re-sync if initial state was different from service
+
   // Subscribe to connection state changes
   useEffect(() => {
     const handleConnectionChange = (state: string, detailInfo?: any) => {
@@ -396,11 +420,18 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const onRoomJoined = (data: { roomCode: string, playerId?: string, initialPlayers?: Player[], isStreamerMode?: boolean }) => {
         console.log('[RoomContext] main useEffect: room_joined event. Data:', data, 'Current PlayerName:', playerName, 'IsSpectator:', isSpectator);
         
-        // Set room code and player ID
         setRoomCode(data.roomCode);
+        // persistentPlayerId is now primarily updated by onPersistentIdUpdate from socketService
+        // However, room_joined might still provide the *confirmed* ID for this room session.
+        // We can log it or ensure it matches what socketService provided.
         if (data.playerId) {
-          setPersistentPlayerId(data.playerId);
-          sessionStorage.setItem('persistentPlayerId', data.playerId);
+          console.log('[RoomContext] room_joined event provided playerId (persistentId):', data.playerId);
+          if (persistentPlayerId !== data.playerId) {
+            console.warn('[RoomContext] room_joined playerId mismatch with current persistentPlayerId. Service ID:', persistentPlayerId, 'Event ID:', data.playerId);
+            // Potentially trust the room_joined event's ID for this session if there's a discrepancy, though socketService should be the source of truth.
+            // setPersistentPlayerId(data.playerId);
+            // sessionStorage.setItem('persistentPlayerId', data.playerId);
+          }
         }
         
         // Set streamer mode if provided
@@ -471,9 +502,17 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const onAvatarUpdated = (data: { persistentPlayerId: string, avatarSvg: string }) => {
         console.log('[RoomContext] main useEffect: avatar_updated. PlayerId:', data.persistentPlayerId);
+        
+        // Update players state
         setPlayers(prev => {
           return prev.map(player => {
             if (player.persistentPlayerId === data.persistentPlayerId) {
+              // Also update localStorage for this player
+              try {
+                localStorage.setItem(`avatar_${data.persistentPlayerId}`, data.avatarSvg);
+              } catch (error) {
+                console.error('[RoomContext] Error updating avatar in localStorage:', error);
+              }
               return { ...player, avatarSvg: data.avatarSvg };
             }
             return player;

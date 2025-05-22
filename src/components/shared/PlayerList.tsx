@@ -13,6 +13,7 @@ interface Player {
   answers: string[];
   isActive: boolean;
   isSpectator?: boolean;
+  avatarSvg?: string;
 }
 
 interface PlayerListProps {

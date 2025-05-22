@@ -1552,12 +1552,37 @@ io.on('connection', (socket: ExtendedSocket) => {
   });
 
   socket.on('update_avatar', ({ roomCode, persistentPlayerId, avatarSvg }) => {
-    if (!gameRooms[roomCode]) return;
+    console.log(`[Server] update_avatar received:`, {
+      roomCode,
+      persistentPlayerId,
+      hasAvatar: !!avatarSvg,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!gameRooms[roomCode]) {
+      console.error(`[Server] Update avatar failed - Room not found: ${roomCode}`);
+      socket.emit('avatar_update_error', { message: 'Room not found' });
+      return;
+    }
+
     const room = gameRooms[roomCode];
     const playerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
-    if (playerIndex === -1) return;
+
+    if (playerIndex === -1) {
+      console.error(`[Server] Update avatar failed - Player not found in room: ${persistentPlayerId}`);
+      socket.emit('avatar_update_error', { message: 'Player not found in room' });
+      return;
+    }
+
+    // Update the player's avatar
     room.players[playerIndex].avatarSvg = avatarSvg;
+    
+    // Broadcast the change to all players in the room
+    console.log(`[Server] Broadcasting updated avatar for player ${persistentPlayerId} in room ${roomCode}`);
     getIO().to(roomCode).emit('avatar_updated', { persistentPlayerId, avatarSvg });
+    
+    // Save room state to persist the avatar
+    saveRoomState();
   });
 
   // WebRTC Signaling Handlers

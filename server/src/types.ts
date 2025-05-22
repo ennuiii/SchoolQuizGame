@@ -192,6 +192,7 @@ export interface ServerToClientEvents {
   persistent_id_assigned: (data: { persistentPlayerId: string }) => void;
   session_not_fully_recovered_join_manually: () => void;
   avatar_updated: (data: { persistentPlayerId: string, avatarSvg: string }) => void;
+  avatar_update_error: (data: { message: string }) => void;
   game_over_pending_recap: (data: { roomCode: string, winner: { id: string, persistentPlayerId: string, name: string } | null }) => void;
   game_recap: (recap: GameRecap) => void;
   recap_round_changed: (data: { selectedRoundIndex: number }) => void;

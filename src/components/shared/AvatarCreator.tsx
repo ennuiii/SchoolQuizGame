@@ -34,8 +34,10 @@ const BACKGROUND_COLORS = [
 ];
 
 interface AvatarCreatorProps {
-  onSave?: (avatarSvg: string) => void;
+  onSave?: (avatarSvg: string, persistentPlayerId: string) => void;
   initialAvatarSvg?: string;
+  onCancel?: () => void;
+  persistentPlayerId?: string;
 }
 
 interface AvatarConfig {
@@ -56,8 +58,7 @@ const DEFAULT_CONFIG: AvatarConfig = {
   scale: 100,
 };
 
-const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg }) => {
-  const { persistentPlayerId } = useRoom();
+const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg, onCancel, persistentPlayerId }) => {
   const { language } = useLanguage();
   const [config, setConfig] = useState<AvatarConfig>({ ...DEFAULT_CONFIG });
   const [avatarSvg, setAvatarSvg] = useState<string>('');
@@ -190,17 +191,23 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg 
     if (persistentPlayerId && avatarSvg) {
       localStorage.setItem(`avatar_${persistentPlayerId}`, avatarSvg);
       
-      // Also send avatar to server to sync with other players if in a room
-      const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
-      if (roomCode && socketService.getConnectionState() === 'connected') {
-        console.log('[AvatarCreator] Broadcasting avatar update to room', roomCode);
-        socketService.updateAvatar(roomCode, persistentPlayerId, avatarSvg);
-      }
+      // REMOVED: Direct call to socketService.updateAvatar
+      // const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
+      // if (roomCode && socketService.getConnectionState() === 'connected') {
+      //   console.log('[AvatarCreator] Broadcasting avatar update to room', roomCode);
+      //   socketService.updateAvatar(roomCode, persistentPlayerId, avatarSvg);
+      // }
     }
     
-    // Call the onSave callback if provided
-    if (onSave) {
-      onSave(avatarSvg);
+    // Call the onSave callback if provided, now with persistentPlayerId
+    if (onSave && persistentPlayerId) {
+      onSave(avatarSvg, persistentPlayerId);
+    } else if (onSave) {
+      // Fallback or error if persistentPlayerId is somehow missing but onSave is expected
+      // This case should ideally not happen if GameMaster always provides persistentPlayerId
+      console.warn('[AvatarCreator] onSave called but persistentPlayerId is missing. Avatar might not save correctly on server.');
+      // Optionally, you could call onSave with an empty string or a special marker for pid if the signature absolutely requires two args
+      // onSave(avatarSvg, ''); // Or handle as an error state
     }
   };
   
@@ -237,12 +244,22 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg 
             </button>
             
             <button 
-              className="btn btn-primary" 
+              className="btn btn-primary me-2" 
               onClick={handleSave}
               disabled={isLoading || !avatarSvg}
             >
               {t('avatarCreator.save', language) || 'Save Avatar'}
             </button>
+
+            {onCancel && (
+              <button 
+                className="btn btn-secondary" 
+                onClick={onCancel}
+                disabled={isLoading}
+              >
+                {t('avatarCreator.cancel', language) || 'Cancel'}
+              </button>
+            )}
           </div>
         </div>
         

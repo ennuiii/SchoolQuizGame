@@ -1397,14 +1397,31 @@ io.on('connection', (socket) => {
         socket.emit('error', { message: 'Not authorized to rejoin this room' });
     });
     socket.on('update_avatar', ({ roomCode, persistentPlayerId, avatarSvg }) => {
-        if (!roomService_1.gameRooms[roomCode])
+        console.log(`[Server] update_avatar received:`, {
+            roomCode,
+            persistentPlayerId,
+            hasAvatar: !!avatarSvg,
+            timestamp: new Date().toISOString()
+        });
+        if (!roomService_1.gameRooms[roomCode]) {
+            console.error(`[Server] Update avatar failed - Room not found: ${roomCode}`);
+            socket.emit('avatar_update_error', { message: 'Room not found' });
             return;
+        }
         const room = roomService_1.gameRooms[roomCode];
         const playerIndex = room.players.findIndex(p => p.persistentPlayerId === persistentPlayerId);
-        if (playerIndex === -1)
+        if (playerIndex === -1) {
+            console.error(`[Server] Update avatar failed - Player not found in room: ${persistentPlayerId}`);
+            socket.emit('avatar_update_error', { message: 'Player not found in room' });
             return;
+        }
+        // Update the player's avatar
         room.players[playerIndex].avatarSvg = avatarSvg;
+        // Broadcast the change to all players in the room
+        console.log(`[Server] Broadcasting updated avatar for player ${persistentPlayerId} in room ${roomCode}`);
         (0, socketService_1.getIO)().to(roomCode).emit('avatar_updated', { persistentPlayerId, avatarSvg });
+        // Save room state to persist the avatar
+        (0, roomService_1.saveRoomState)();
     });
     // WebRTC Signaling Handlers
     socket.on('webrtc-ready', ({ roomCode }) => {

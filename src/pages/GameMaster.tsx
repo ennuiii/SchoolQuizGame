@@ -27,6 +27,7 @@ import { useWebRTC } from '../contexts/WebRTCContext';
 import WebcamDisplay from '../components/shared/WebcamDisplay';
 import DrawingBoard from '../components/player/DrawingBoard';
 import AnswerInput from '../components/player/AnswerInput';
+import AvatarCreator from '../components/shared/AvatarCreator';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -57,6 +58,7 @@ const GameMaster: React.FC = () => {
   const [gmTextAnswer, setGmTextAnswer] = useState('');
   const [gmSubmittedCommunityAnswerForRound, setGmSubmittedCommunityAnswerForRound] = useState(false);
   const [gmOverlayLocallyClosed, setGmOverlayLocallyClosed] = useState(false);
+  const [showAvatarCreator, setShowAvatarCreator] = useState(false);
   
   const {
     roomCode,
@@ -702,6 +704,85 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCode, isCommunityVotingMode, connectionStatus]);
 
+  const handleAvatarUpdate = useCallback(async (avatarSvg: string, pidToUse: string) => {
+    console.log('[GameMaster] handleAvatarUpdate called:', {
+      hasRoomCode: !!roomCode,
+      pidToUse: pidToUse,
+      avatarLength: avatarSvg?.length,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!roomCode || !pidToUse) {
+      console.error('[GameMaster] Cannot update avatar - missing required data:', {
+        roomCode,
+        pidToUse,
+        timestamp: new Date().toISOString()
+      });
+      toast.error(t('avatar.updateErrorMissingData', language)); // Ensure this translation key exists or use a generic one
+      return;
+    }
+    
+    try {
+      console.log('[GameMaster] Updating avatar in localStorage for ID:', {
+        persistentId: pidToUse,
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem(`avatar_${pidToUse}`, avatarSvg);
+      
+      let retries = 0;
+      const maxRetries = 3;
+      let lastError: any = null;
+
+      while (retries < maxRetries) {
+        try {
+          console.log(`[GameMaster] Attempting avatar update to server (attempt ${retries + 1}):`, {
+            roomCode,
+            persistentPlayerIdToUpdate: pidToUse,
+            avatarLength: avatarSvg?.length,
+            timestamp: new Date().toISOString()
+          });
+          
+          await socketService.updateAvatar(roomCode, pidToUse, avatarSvg);
+          
+          console.log('[GameMaster] Avatar update successful:', {
+            roomCode,
+            updatedPersistentPlayerId: pidToUse,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Removed direct mutation of 'players' array.
+          // Rely on server broadcasting 'avatar_updated' event, which Avatar.tsx handles.
+          
+          toast.success(t('avatar.updated', language));
+          setShowAvatarCreator(false);
+          return; 
+        } catch (error) {
+          lastError = error;
+          retries++;
+          if (retries < maxRetries) {
+            console.warn('[GameMaster] Avatar update attempt failed, retrying...', {
+              attempt: retries,
+              error,
+              timestamp: new Date().toISOString()
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+          }
+        }
+      }
+
+      throw lastError;
+    } catch (error) {
+      console.error('[GameMaster] Error updating avatar:', {
+        error,
+        roomCode,
+        persistentPlayerIdAttempted: pidToUse,
+        avatarLength: avatarSvg?.length,
+        timestamp: new Date().toISOString()
+      });
+      toast.error(t('avatar.updateError', language));
+    }
+  }, [roomCode, language, t, setShowAvatarCreator]);
+
   // Show loading overlay if trying to connect or reconnect
   if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
     return (
@@ -814,14 +895,23 @@ const GameMaster: React.FC = () => {
       >
         <SettingsControl />
         
-        <button 
-          className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'} position-fixed top-0 start-0 m-2`}
-          onClick={handleToggleWebcamSidebar}
-          style={{zIndex: 2000}} 
-          title={isWebcamSidebarVisible ? 'Hide Webcams' : 'Show Webcams'}
-        >
-          <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
-        </button>
+        <div className="d-flex gap-2 position-fixed top-0 start-0 m-2" style={{zIndex: 2000}}>
+          <button 
+            className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'}`}
+            onClick={handleToggleWebcamSidebar}
+            title={isWebcamSidebarVisible ? 'Hide Webcams' : 'Show Webcams'}
+          >
+            <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
+          </button>
+
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setShowAvatarCreator(true)}
+            title={t('avatar.change', language)}
+          >
+            <i className="bi bi-person-circle"></i>
+          </button>
+        </div>
 
         <div className="container-fluid py-4">
           <LoadingOverlay isVisible={isRoomLoading} />
@@ -978,8 +1068,16 @@ const GameMaster: React.FC = () => {
 
                   {isCommunityVotingMode ? (
                     <div className="card mb-3">
-                      <div className="card-header bg-light">
+                      <div className="card-header bg-light d-flex justify-content-between align-items-center">
                         <h5 className="mb-0">{t('gameControls.yourBoard', language)}</h5>
+                        <button
+                          className="btn btn-outline-primary btn-sm"
+                          onClick={() => setShowAvatarCreator(true)}
+                          title={t('avatar.change', language)}
+                        >
+                          <i className="bi bi-person-circle me-1"></i>
+                          {t('avatar.change', language)}
+                        </button>
                       </div>
                       <div className="card-body">
                         <DrawingBoard
@@ -997,13 +1095,12 @@ const GameMaster: React.FC = () => {
                               answer={gmTextAnswer} 
                               onAnswerChange={handleGmAnswerChange} 
                               onSubmitAnswer={handleGmSubmitAnswer}
-                              // Control disable state directly for GM
                               controlledDisable={gmSubmittedCommunityAnswerForRound || !gameStarted || !currentQuestion || connectionStatus !== 'connected'}
                             />
                           </div>
                         ) : (
                           <div className="alert alert-info mt-3">
-                            {t('playerPage.answerSubmitted', language)} {/* Or a GM-specific message */}
+                            {t('playerPage.answerSubmitted', language)}
                           </div>
                         )}
                       </div>
@@ -1183,6 +1280,34 @@ const GameMaster: React.FC = () => {
               borderBottom: '2px solid rgba(255,255,255,0.7)',
               transition: 'all 0.2s ease'
             }}></div>
+          </div>
+        </div>
+      )}
+
+      {/* Add AvatarCreator modal */}
+      {showAvatarCreator && (
+        <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('avatar.create', language)}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowAvatarCreator(false)}></button>
+              </div>
+              <div className="modal-body">
+                <AvatarCreator
+                  onSave={(avatarSvgFromCreator) => {
+                    if (persistentPlayerId) {
+                        handleAvatarUpdate(avatarSvgFromCreator, persistentPlayerId);
+                    } else {
+                        console.error("[GameMaster] Cannot call handleAvatarUpdate from AvatarCreator: persistentPlayerId is missing.");
+                        toast.error(t('avatar.updateErrorMissingData', language));
+                    }
+                  }}
+                  onCancel={() => setShowAvatarCreator(false)}
+                  persistentPlayerId={persistentPlayerId || ''}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}

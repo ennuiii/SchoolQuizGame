@@ -21,6 +21,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import { useWebRTC } from '../contexts/WebRTCContext';
 import WebcamDisplay from '../components/shared/WebcamDisplay';
+import AvatarCreator from '../components/shared/AvatarCreator';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -39,6 +40,7 @@ const Player: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [receivedGameState, setReceivedGameState] = useState(false);
   const [playerOverlayLocallyClosed, setPlayerOverlayLocallyClosed] = useState(false);
+  const [showAvatarCreatorPlayer, setShowAvatarCreatorPlayer] = useState(false);
   
   // Get context values
   const {
@@ -77,7 +79,12 @@ const Player: React.FC = () => {
     isLoading: isRoomLoading,
     errorMsg,
     connectionStatus,
-    persistentPlayerId
+    persistentPlayerId,
+    isGameMaster,
+    currentSocket,
+    isKickedModalOpen,
+    kickReason,
+    isStreamerMode
   } = useRoom();
 
   const { getCurrentCanvasSVG, clear, canvas } = useCanvas();
@@ -618,6 +625,82 @@ const Player: React.FC = () => {
     }
   }, [isWebcamSidebarVisible, localStream, initializeWebRTC]);
 
+  // Avatar Update Handler for Player
+  const handleAvatarUpdatePlayer = useCallback(async (avatarSvg: string, pidToUse: string) => {
+    console.log('[PlayerPage] handleAvatarUpdatePlayer called:', {
+      hasRoomCode: !!roomCode,
+      pidToUse: pidToUse,
+      avatarLength: avatarSvg?.length,
+      timestamp: new Date().toISOString()
+    });
+
+    if (!roomCode || !pidToUse) {
+      console.error('[PlayerPage] Cannot update avatar - missing required data:', {
+        roomCode,
+        pidToUse,
+        timestamp: new Date().toISOString()
+      });
+      toast.error(t('avatar.updateErrorMissingData', language));
+      return;
+    }
+    
+    try {
+      console.log('[PlayerPage] Updating avatar in localStorage for ID:', {
+        persistentId: pidToUse,
+        timestamp: new Date().toISOString()
+      });
+      localStorage.setItem(`avatar_${pidToUse}`, avatarSvg);
+      
+      let retries = 0;
+      const maxRetries = 3;
+      let lastError: any = null;
+
+      while (retries < maxRetries) {
+        try {
+          console.log(`[PlayerPage] Attempting avatar update to server (attempt ${retries + 1}):`, {
+            roomCode,
+            persistentPlayerIdToUpdate: pidToUse,
+            avatarLength: avatarSvg?.length,
+            timestamp: new Date().toISOString()
+          });
+          
+          await socketService.updateAvatar(roomCode, pidToUse, avatarSvg);
+          
+          console.log('[PlayerPage] Avatar update successful:', {
+            roomCode,
+            updatedPersistentPlayerId: pidToUse,
+            timestamp: new Date().toISOString()
+          });
+          
+          toast.success(t('avatar.updated', language));
+          setShowAvatarCreatorPlayer(false); // Close modal
+          return; 
+        } catch (error) {
+          lastError = error;
+          retries++;
+          if (retries < maxRetries) {
+            console.warn('[PlayerPage] Avatar update attempt failed, retrying...', {
+              attempt: retries,
+              error,
+              timestamp: new Date().toISOString()
+            });
+            await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retries)));
+          }
+        }
+      }
+      throw lastError;
+    } catch (error) {
+      console.error('[PlayerPage] Error updating avatar:', {
+        error,
+        roomCode,
+        persistentPlayerIdAttempted: pidToUse,
+        avatarLength: avatarSvg?.length,
+        timestamp: new Date().toISOString()
+      });
+      toast.error(t('avatar.updateError', language));
+    }
+  }, [roomCode, language, t]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -857,14 +940,23 @@ const Player: React.FC = () => {
         }}
       >
         <SettingsControl />
-        <button 
-          className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'} position-fixed top-0 start-0 m-2`}
-          onClick={handleToggleWebcamSidebar}
-          style={{zIndex: 2000}}
-          title={isWebcamSidebarVisible ? 'Hide Webcams' : 'Show Webcams'}
-        >
-          <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
-        </button>
+        <div className="d-flex gap-2 position-fixed top-0 start-0 m-2" style={{zIndex: 2000}}>
+          <button 
+            className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'}`}
+            onClick={handleToggleWebcamSidebar}
+            title={isWebcamSidebarVisible ? t('webcam.hide', language) : t('webcam.show', language)}
+          >
+            <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
+          </button>
+          <button
+            className="btn btn-sm btn-outline-primary"
+            onClick={() => setShowAvatarCreatorPlayer(true)}
+            title={t('avatar.change', language)}
+            disabled={!persistentPlayerId}
+          >
+            <i className="bi bi-person-circle"></i>
+          </button>
+        </div>
 
         <div className="container py-4">
           <LoadingOverlay isVisible={isLoading && (players.length === 0 || !receivedGameState)} />
@@ -1011,6 +1103,32 @@ const Player: React.FC = () => {
               borderBottom: '2px solid rgba(255,255,255,0.7)',
               transition: 'all 0.2s ease'
             }}></div>
+          </div>
+        </div>
+      )}
+      {showAvatarCreatorPlayer && persistentPlayerId && (
+        <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+          <div className="modal-dialog modal-dialog-centered modal-lg">
+            <div className="modal-content">
+              <div className="modal-header">
+                <h5 className="modal-title">{t('avatar.create', language)}</h5>
+                <button type="button" className="btn-close" onClick={() => setShowAvatarCreatorPlayer(false)}></button>
+              </div>
+              <div className="modal-body">
+                <AvatarCreator
+                  onSave={(avatarSvgFromCreator) => {
+                    if (persistentPlayerId) {
+                      handleAvatarUpdatePlayer(avatarSvgFromCreator, persistentPlayerId);
+                    } else {
+                      console.error("[PlayerPage] Cannot call handleAvatarUpdatePlayer: persistentPlayerId is missing.");
+                      toast.error(t('avatar.updateErrorMissingData', language));
+                    }
+                  }}
+                  onCancel={() => setShowAvatarCreatorPlayer(false)}
+                  persistentPlayerId={persistentPlayerId}
+                />
+              </div>
+            </div>
           </div>
         </div>
       )}
