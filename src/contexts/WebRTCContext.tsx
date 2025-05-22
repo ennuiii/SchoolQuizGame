@@ -2,6 +2,15 @@ import React, { createContext, useContext, useState, useEffect, useCallback, Rea
 import socketService from '../services/socketService'; // Assuming socketService is correctly set up
 import { useRoom } from './RoomContext'; // To get current room and player info
 
+// Add debounce utility function
+function debounce<F extends (...args: any[]) => any>(func: F, wait: number): (...args: Parameters<F>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return function(...args: Parameters<F>) {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
+
 // Configuration
 const STUN_SERVER = 'stun:stun.l.google.com:19302';
 const ICE_SERVERS = [
@@ -43,6 +52,13 @@ interface WebRTCContextState {
   broadcastWebcamState: (enabled: boolean) => void; // Add new function to broadcast webcam state
   broadcastMicrophoneState: (enabled: boolean) => void; // Add new function to broadcast microphone state
   remotePeerStates: Map<string, {webcamEnabled: boolean, micEnabled: boolean}>; // Add new state to track remote peers' media state
+  availableCameras: MediaDeviceInfo[]; // List of available camera devices
+  selectedCameraId: string | null; // Currently selected camera device ID
+  refreshDeviceList: () => void; // Changed return type from Promise<void> to void
+  selectCamera: (deviceId: string) => Promise<void>; // Function to switch to a different camera
+  availableMicrophones: MediaDeviceInfo[]; // List of available microphone devices
+  selectedMicrophoneId: string | null; // Currently selected microphone device ID
+  selectMicrophone: (deviceId: string) => Promise<void>; // Function to switch to a different microphone
 }
 
 const WebRTCContext = createContext<WebRTCContextState | undefined>(undefined);
@@ -73,6 +89,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const [isMicrophoneActive, setIsMicrophoneActive] = useState<boolean>(false);
   const [peerNames, setPeerNames] = useState<Map<string, string>>(new Map());
   const [remotePeerStates, setRemotePeerStates] = useState<Map<string, {webcamEnabled: boolean, micEnabled: boolean}>>(new Map());
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCameraId, setSelectedCameraId] = useState<string | null>(null);
+  const [availableMicrophones, setAvailableMicrophones] = useState<MediaDeviceInfo[]>([]);
+  const [selectedMicrophoneId, setSelectedMicrophoneId] = useState<string | null>(null);
 
   const { roomCode, persistentPlayerId, players, isGameMaster: currentUserIsGM } = useRoom();
 
@@ -260,7 +280,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const broadcastWebcamState = useCallback((enabled: boolean) => {
     const currentSocket = socketService.getSocket();
     if (currentSocket && roomCode) {
-      console.log(`[WebRTC] Broadcasting webcam state: ${enabled ? 'enabled' : 'disabled'}`);
       // Send to server, which will forward to all peers in the room
       currentSocket.emit('webcam-state-change', {
         roomCode,
@@ -273,7 +292,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const broadcastMicrophoneState = useCallback((enabled: boolean) => {
     const currentSocket = socketService.getSocket();
     if (currentSocket && roomCode) {
-      console.log(`[WebRTC] Broadcasting microphone state: ${enabled ? 'enabled' : 'disabled'}`);
       // Send to server, which will forward to all peers in the room
       currentSocket.emit('microphone-state-change', {
         roomCode,
@@ -283,24 +301,322 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     }
   }, [roomCode]);
 
+  const refreshDeviceList = useCallback(async () => {
+    try {
+      // Add a static flag to track if the devices have been logged already in this session
+      if (!(refreshDeviceList as any).hasLoggedDevices) {
+        console.log('[WebRTC] Refreshing device list...');
+      }
+      
+      const devices = await navigator.mediaDevices.enumerateDevices();
+      
+      const cameras = devices.filter(device => device.kind === 'videoinput');
+      const microphones = devices.filter(device => device.kind === 'audioinput');
+      
+      // Reduce log frequency - only log once per session or when count significantly changes
+      const cameraCountChanged = cameras.length !== availableCameras.length;
+      const micCountChanged = microphones.length !== availableMicrophones.length;
+      
+      if (cameraCountChanged || micCountChanged) {
+        if (!(refreshDeviceList as any).hasLoggedDevices || cameraCountChanged || micCountChanged) {
+          console.log('[WebRTC] Found camera devices:', cameras.length);
+          console.log('[WebRTC] Found microphone devices:', microphones.length);
+          (refreshDeviceList as any).hasLoggedDevices = true;
+        }
+      }
+      
+      setAvailableCameras(cameras);
+      setAvailableMicrophones(microphones);
+      
+      // If we have a local stream but don't have a selected camera/mic,
+      // try to identify which devices we're using from the current stream
+      if (localStream) {
+        const videoTrack = localStream.getVideoTracks()[0];
+        if (videoTrack && !selectedCameraId && cameras.length > 0) {
+          const settings = videoTrack.getSettings();
+          if (settings.deviceId) {
+            setSelectedCameraId(settings.deviceId);
+          }
+        }
+        
+        const audioTrack = localStream.getAudioTracks()[0];
+        if (audioTrack && !selectedMicrophoneId && microphones.length > 0) {
+          const settings = audioTrack.getSettings();
+          if (settings.deviceId) {
+            setSelectedMicrophoneId(settings.deviceId);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('[WebRTC] Error refreshing device list:', error);
+    }
+  }, [localStream, availableCameras.length, availableMicrophones.length, selectedCameraId, selectedMicrophoneId]);
+
+  // Create a debounced version of refreshDeviceList with a 2-second delay
+  const debouncedRefreshDeviceList = useCallback(
+    debounce(refreshDeviceList, 2000),
+    [refreshDeviceList]
+  );
+
+  const selectCamera = useCallback(async (deviceId: string) => {
+    if (!deviceId) return;
+    
+    console.log(`[WebRTC] Selecting camera with deviceId: ${deviceId}`);
+    setSelectedCameraId(deviceId);
+    
+    // If we already have a stream, we need to restart it with the new device
+    if (localStream) {
+      try {
+        // Stop all existing tracks first
+        localStream.getTracks().forEach(track => {
+          console.log(`[WebRTC] Stopping track: ${track.kind} (${track.id})`);
+          track.stop();
+        });
+        
+        console.log('[WebRTC] Requesting new stream with selected camera');
+        // Request a new stream with the selected device
+        const newStream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            deviceId: { exact: deviceId },
+            width: { ideal: 480, max: 640 },
+            height: { ideal: 360, max: 480 },
+            frameRate: { ideal: 24, max: 30 }
+          },
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 16000,
+            sampleSize: 16,
+            channelCount: 1
+          }
+        });
+        
+        console.log('[WebRTC] New stream acquired with selected camera:', newStream);
+        
+        // Replace local stream
+        setLocalStream(newStream);
+        setIsWebcamActive(true);
+        
+        // Update all peer connections with the new stream
+        peerConnections.forEach((pc, peerSocketId) => {
+          try {
+            // Find video senders
+            const videoSenders = pc.getSenders().filter(sender => 
+              sender.track && sender.track.kind === 'video'
+            );
+            
+            const videoTrack = newStream.getVideoTracks()[0];
+            if (videoTrack && videoSenders.length > 0) {
+              console.log(`[WebRTC] Replacing video track for peer ${peerSocketId}`);
+              videoSenders[0].replaceTrack(videoTrack);
+            } else if (videoTrack) {
+              console.log(`[WebRTC] Adding new video track for peer ${peerSocketId}`);
+              pc.addTrack(videoTrack, newStream);
+            }
+            
+            // Keep audio tracks from the old stream or add from new stream
+            const audioTracks = newStream.getAudioTracks();
+            if (audioTracks.length > 0) {
+              const audioSenders = pc.getSenders().filter(sender => 
+                sender.track && sender.track.kind === 'audio'
+              );
+              
+              if (audioSenders.length === 0) {
+                // Add audio track if none exists
+                audioTracks.forEach(track => {
+                  pc.addTrack(track, newStream);
+                });
+              } else if (audioSenders.length > 0 && audioTracks.length > 0) {
+                // Replace existing audio track
+                console.log(`[WebRTC] Replacing audio track for peer ${peerSocketId}`);
+                audioSenders[0].replaceTrack(audioTracks[0]);
+              }
+            }
+          } catch (error) {
+            console.error(`[WebRTC] Error updating tracks for peer ${peerSocketId}:`, error);
+          }
+        });
+        
+        // Broadcast webcam state
+        broadcastWebcamState(true);
+      } catch (error) {
+        console.error('[WebRTC] Error switching camera:', error);
+        setIsWebcamActive(false);
+        broadcastWebcamState(false);
+      }
+    } else {
+      // If no stream exists yet, just update the selected camera ID
+      // The next call to startLocalStream will use this ID
+      console.log('[WebRTC] Camera selected, but no stream exists yet. It will be used when starting the stream.');
+    }
+  }, [localStream, peerConnections, broadcastWebcamState]);
+
+  const selectMicrophone = useCallback(async (deviceId: string) => {
+    if (!deviceId) return;
+    
+    console.log(`[WebRTC] Selecting microphone with deviceId: ${deviceId}`);
+    setSelectedMicrophoneId(deviceId);
+    
+    // If we already have a stream, we need to restart it with the new device
+    if (localStream) {
+      try {
+        // Find and stop only audio tracks
+        const audioTracks = localStream.getAudioTracks();
+        audioTracks.forEach(track => {
+          console.log(`[WebRTC] Stopping audio track: ${track.id}`);
+          track.stop();
+        });
+        
+        console.log('[WebRTC] Requesting new audio stream with selected microphone');
+        // Request a new audio stream with the selected device
+        const newAudioStream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            deviceId: { exact: deviceId },
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+            sampleRate: 16000,
+            sampleSize: 16,
+            channelCount: 1
+          }
+        });
+        
+        console.log('[WebRTC] New audio stream acquired with selected microphone:', newAudioStream);
+        
+        // Get the audio track from the new stream
+        const newAudioTrack = newAudioStream.getAudioTracks()[0];
+        
+        // Create a new stream with existing video tracks and new audio track
+        const newStream = new MediaStream();
+        
+        // Add existing video tracks if any
+        localStream.getVideoTracks().forEach(track => {
+          newStream.addTrack(track);
+        });
+        
+        // Add the new audio track
+        if (newAudioTrack) {
+          newStream.addTrack(newAudioTrack);
+        }
+        
+        // Replace local stream
+        setLocalStream(newStream);
+        setIsMicrophoneActive(true);
+        
+        // Update all peer connections with the new stream
+        peerConnections.forEach((pc, peerSocketId) => {
+          try {
+            // Find audio senders
+            const audioSenders = pc.getSenders().filter(sender => 
+              sender.track && sender.track.kind === 'audio'
+            );
+            
+            if (newAudioTrack && audioSenders.length > 0) {
+              console.log(`[WebRTC] Replacing audio track for peer ${peerSocketId}`);
+              audioSenders[0].replaceTrack(newAudioTrack);
+            } else if (newAudioTrack) {
+              console.log(`[WebRTC] Adding new audio track for peer ${peerSocketId}`);
+              pc.addTrack(newAudioTrack, newStream);
+            }
+          } catch (error) {
+            console.error(`[WebRTC] Error updating audio track for peer ${peerSocketId}:`, error);
+          }
+        });
+        
+        // Broadcast microphone state
+        broadcastMicrophoneState(true);
+      } catch (error) {
+        console.error('[WebRTC] Error switching microphone:', error);
+        setIsMicrophoneActive(false);
+        broadcastMicrophoneState(false);
+      }
+    } else {
+      // If no stream exists yet, just update the selected microphone ID
+      // The next call to startLocalStream will use this ID
+      console.log('[WebRTC] Microphone selected, but no stream exists yet. It will be used when starting the stream.');
+    }
+  }, [localStream, peerConnections, broadcastMicrophoneState]);
+
   const startLocalStream = useCallback(async (): Promise<void> => {
     try {
       console.log('[WebRTC] Starting local media stream...');
       
-      // Request both video and audio with specific constraints for better performance
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-          facingMode: 'user'
-        },
-        audio: {
-          echoCancellation: true,
-          noiseSuppression: true
-        }
-      });
+      // If we don't have a list of devices yet, refresh it
+      if (availableCameras.length === 0 || availableMicrophones.length === 0) {
+        await refreshDeviceList();
+      }
+      
+      // Configure video constraints based on selected camera
+      const videoConstraints: MediaTrackConstraints = {
+        width: { ideal: 480, max: 640 },
+        height: { ideal: 360, max: 480 },
+        frameRate: { ideal: 24, max: 30 },
+        facingMode: 'user',
+        aspectRatio: { ideal: 1.333333 }
+      };
+      
+      // Add deviceId constraint if we have a selected camera
+      if (selectedCameraId) {
+        videoConstraints.deviceId = { exact: selectedCameraId };
+        console.log(`[WebRTC] Using selected camera device ID: ${selectedCameraId}`);
+      } else {
+        console.log('[WebRTC] No camera selected, using default');
+      }
+      
+      // Configure audio constraints based on selected microphone
+      const audioConstraints: MediaTrackConstraints = {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+        sampleRate: 16000,
+        sampleSize: 16,
+        channelCount: 1
+      };
+      
+      // Add deviceId constraint if we have a selected microphone
+      if (selectedMicrophoneId) {
+        audioConstraints.deviceId = { exact: selectedMicrophoneId };
+        console.log(`[WebRTC] Using selected microphone device ID: ${selectedMicrophoneId}`);
+      } else {
+        console.log('[WebRTC] No microphone selected, using default');
+      }
+      
+      // Request both video and audio with optimized constraints
+      let stream: MediaStream;
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: videoConstraints,
+          audio: audioConstraints
+        });
+      } catch (initialError) {
+        console.error('[WebRTC] Error with initial getUserMedia:', initialError);
+        
+        // Try without deviceId constraints as fallback
+        console.log('[WebRTC] Trying fallback without deviceId constraints');
+        const fallbackVideoConstraints = { ...videoConstraints };
+        delete fallbackVideoConstraints.deviceId;
+        
+        const fallbackAudioConstraints = { ...audioConstraints };
+        delete fallbackAudioConstraints.deviceId;
+        
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: fallbackVideoConstraints,
+          audio: fallbackAudioConstraints
+        });
+        
+        // Since we got devices but not with our preferred deviceIds,
+        // let's refresh the device list and try to identify which devices we got
+        await refreshDeviceList();
+      }
       
       console.log('[WebRTC] Local stream acquired:', stream);
+      
+      // Once we have the stream, force a refresh of the device list to get labels
+      if (availableCameras.some(device => !device.label) || availableMicrophones.some(device => !device.label)) {
+        console.log('[WebRTC] Refreshing device list to get device labels now that we have permissions');
+        await refreshDeviceList();
+      }
       
       // Log all tracks that were acquired
       stream.getTracks().forEach(track => {
@@ -325,6 +641,32 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           }, 2000);
         });
       });
+      
+      // Try to identify which devices we're using and update selectedIds
+      if (!selectedCameraId && availableCameras.length > 0) {
+        // Get the video track settings
+        const videoTrack = stream.getVideoTracks()[0];
+        if (videoTrack) {
+          const settings = videoTrack.getSettings();
+          if (settings.deviceId) {
+            console.log(`[WebRTC] Auto-selecting camera deviceId: ${settings.deviceId}`);
+            setSelectedCameraId(settings.deviceId);
+          }
+        }
+      }
+      
+      // Try to identify which microphone we're using
+      if (!selectedMicrophoneId && availableMicrophones.length > 0) {
+        // Get the audio track settings
+        const audioTrack = stream.getAudioTracks()[0];
+        if (audioTrack) {
+          const settings = audioTrack.getSettings();
+          if (settings.deviceId) {
+            console.log(`[WebRTC] Auto-selecting microphone deviceId: ${settings.deviceId}`);
+            setSelectedMicrophoneId(settings.deviceId);
+          }
+        }
+      }
       
       // Set the local stream in state
       setLocalStream(stream);
@@ -403,7 +745,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         console.error('[WebRTC] Audio-only fallback also failed:', audioError);
       }
     }
-  }, [peerConnections, broadcastWebcamState, broadcastMicrophoneState]);
+  }, [peerConnections, broadcastWebcamState, broadcastMicrophoneState, availableCameras, availableMicrophones, selectedCameraId, selectedMicrophoneId, refreshDeviceList]);
 
   const stopLocalStream = useCallback(() => {
     if (localStream) {
@@ -417,30 +759,34 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   }, [localStream, closeAllPeerConnections]);
 
   const toggleWebcam = useCallback(() => {
-    if (localStream) {
-      const videoTracks = localStream.getVideoTracks();
-      videoTracks.forEach(track => {
-        track.enabled = !track.enabled;
-        setIsWebcamActive(track.enabled);
-        // Broadcast webcam state to all peers
-        broadcastWebcamState(track.enabled);
-        console.log(`[WebRTC] Webcam ${track.enabled ? 'enabled' : 'disabled'}`);
-      });
-    }
-  }, [localStream]);
+    if (!localStream) return;
+    
+    const videoTracks = localStream.getVideoTracks();
+    const currentState = videoTracks.length > 0 && videoTracks[0].enabled;
+    const newState = !currentState;
+    
+    videoTracks.forEach(track => {
+      track.enabled = newState;
+    });
+    
+    setIsWebcamActive(newState);
+    broadcastWebcamState(newState);
+  }, [localStream, broadcastWebcamState]);
 
   const toggleMicrophone = useCallback(() => {
-    if (localStream) {
-      const audioTracks = localStream.getAudioTracks();
-      audioTracks.forEach(track => {
-        track.enabled = !track.enabled;
-        setIsMicrophoneActive(track.enabled);
-        // Broadcast microphone state to all peers
-        broadcastMicrophoneState(track.enabled);
-        console.log(`[WebRTC] Microphone ${track.enabled ? 'enabled' : 'disabled'}`);
-      });
-    }
-  }, [localStream]);
+    if (!localStream) return;
+    
+    const audioTracks = localStream.getAudioTracks();
+    const currentState = audioTracks.length > 0 && audioTracks[0].enabled;
+    const newState = !currentState;
+    
+    audioTracks.forEach(track => {
+      track.enabled = newState;
+    });
+    
+    setIsMicrophoneActive(newState);
+    broadcastMicrophoneState(newState);
+  }, [localStream, broadcastMicrophoneState]);
 
   const initializeWebRTC = useCallback(() => {
     if (roomCode && localStream) {
@@ -465,32 +811,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
 
     // Modified handleNewPeer to always create connections in both directions
     const handleNewPeer = async ({ newPeer }: { newPeer: PeerInfo }) => {
-      console.log(`[WebRTC] handleNewPeer: New peer joined: ${newPeer.socketId} (${newPeer.playerName}), ${newPeer.isGameMaster ? 'GM' : 'Player'}`);
-      if (newPeer.socketId === selfSocketId) return;
-      
-      // Store the player name for this socket ID - this helps the WebcamDisplay component
-      if (newPeer.playerName) {
-        // Store in our module-scoped registry
-        peerNameRegistry.set(newPeer.socketId, newPeer.playerName);
-        
-        // Also update the state for the context consumers
-        setPeerNames(prev => new Map(prev).set(newPeer.socketId, newPeer.playerName));
-        
-        console.log(`[WebRTC] Stored peer name mapping: ${newPeer.socketId} -> ${newPeer.playerName}`);
+      // Only log for GM or if total peers are small to reduce spam
+      if (newPeer.isGameMaster || peerConnections.size < 3) {
+        console.log(`[WebRTC] New peer joined: ${newPeer.socketId} (${newPeer.playerName}), ${newPeer.isGameMaster ? 'GM' : 'Player'}`);
       }
-
-      // Always create an offer, regardless of who joined
-      // This ensures both GM-to-Player and Player-to-Player connections are established
-      console.log(`[WebRTC] Creating connection with NEW PEER ${newPeer.socketId} (${newPeer.playerName})`);
       
-      // Check for existing connection first
-      const existingPc = peerConnections.get(newPeer.socketId);
-      if (existingPc && existingPc.signalingState !== 'closed' && 
-          (existingPc.iceConnectionState === 'connected' || 
-           existingPc.iceConnectionState === 'completed')) {
-        console.log(`[WebRTC] Already have a good connection to ${newPeer.socketId}. Skipping offer.`);
-        return;
-      }
+      // Update peer names
+      peerNameRegistry.set(newPeer.socketId, newPeer.playerName);
+      setPeerNames(prev => new Map(prev).set(newPeer.socketId, newPeer.playerName));
       
       // Create peer connection and send offer
       try {
@@ -507,7 +835,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
 
     const handleExistingPeers = ({ peers }: { peers: PeerInfo[] }) => {
-      console.log(`[WebRTC] handleExistingPeers: Processing ${peers.length} existing peers.`);
+      // Only log if there are not too many peers to reduce spam
+      if (peers.length < 5) {
+        console.log(`[WebRTC] Processing ${peers.length} existing peers.`);
+      }
       
       // Update all peer names from the list
       const newPeerNames = new Map<string, string>();
@@ -519,7 +850,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           // Also add to our state map
           newPeerNames.set(peer.socketId, peer.playerName);
           
-          console.log(`[WebRTC] Existing peer: ${peer.socketId} -> ${peer.playerName}`);
+          // Only log for GM or if total peers are small
+          if (peer.isGameMaster || peers.length < 3) {
+            console.log(`[WebRTC] Existing peer: ${peer.socketId} -> ${peer.playerName}`);
+          }
         }
       });
       
@@ -541,12 +875,18 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         if (existingPc && existingPc.signalingState !== 'closed' && 
             (existingPc.iceConnectionState === 'connected' || 
              existingPc.iceConnectionState === 'completed')) {
-          console.log(`[WebRTC] Already have a good connection to ${peer.socketId}. Skipping offer.`);
+          // Only log for GM connections to reduce spam
+          if (peer.isGameMaster) {
+            console.log(`[WebRTC] Already have a good connection to ${peer.socketId}. Skipping offer.`);
+          }
           return;
         }
         
-        // Always create a connection with each peer, regardless of role
-        console.log(`[WebRTC] Creating connection with EXISTING PEER ${peer.socketId} (${peer.playerName})`);
+        // Only log for GM connections or if total peers are small
+        if (peer.isGameMaster || peers.length < 3) {
+          console.log(`[WebRTC] Creating connection with EXISTING PEER ${peer.socketId} (${peer.playerName})`);
+        }
+        
         try {
           const pc = createPeerConnection(peer.socketId, selfSocketId);
           const offer = await pc.createOffer({
@@ -646,7 +986,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     const handleWebcamStateChange = ({ fromSocketId, enabled }: { fromSocketId: string, enabled: boolean }) => {
       if (fromSocketId === selfSocketId) return; // Ignore own broadcasts
 
-      console.log(`[WebRTC] Received webcam state from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
+      // We don't need to log these state changes anymore as they can be very frequent
       setRemotePeerStates(prev => {
         const newMap = new Map(prev);
         const currentState = newMap.get(fromSocketId) || { webcamEnabled: true, micEnabled: true };
@@ -658,7 +998,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     const handleMicrophoneStateChange = ({ fromSocketId, enabled }: { fromSocketId: string, enabled: boolean }) => {
       if (fromSocketId === selfSocketId) return; // Ignore own broadcasts
 
-      console.log(`[WebRTC] Received microphone state from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
+      // We don't need to log these state changes anymore as they can be very frequent
       setRemotePeerStates(prev => {
         const newMap = new Map(prev);
         const currentState = newMap.get(fromSocketId) || { webcamEnabled: true, micEnabled: true };
@@ -678,7 +1018,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     
     // Handle refresh states event - broadcast our current states when asked
     currentSocket.on('webrtc-refresh-states', () => {
-      console.log('[WebRTC] Received refresh states request, broadcasting current states');
+      // No need to log this as it can happen frequently
       if (localStream) {
         const videoEnabled = localStream.getVideoTracks().some(track => track.enabled);
         const audioEnabled = localStream.getAudioTracks().some(track => track.enabled);
@@ -717,6 +1057,13 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     broadcastWebcamState,
     broadcastMicrophoneState,
     remotePeerStates,
+    availableCameras,
+    selectedCameraId,
+    refreshDeviceList, // Export the non-debounced version
+    selectCamera,
+    availableMicrophones,
+    selectedMicrophoneId,
+    selectMicrophone,
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;

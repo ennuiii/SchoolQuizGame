@@ -109,3 +109,4 @@
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-21T21:15:34.096Z","details":{"roomCode":"UNB8N4","gamemasterPersistentId":"GM-692d204c-e606-4221-852d-8be66380a3e9"}}
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-21T21:19:58.338Z","details":{"roomCode":"XWQ1B0","gamemasterPersistentId":"GM-692d204c-e606-4221-852d-8be66380a3e9"}}
 {"eventType":"ROOM_CREATED","timestamp":"2025-05-21T21:25:25.590Z","details":{"roomCode":"FMFWA9","gamemasterPersistentId":"GM-692d204c-e606-4221-852d-8be66380a3e9"}}
+{"eventType":"ROOM_CREATED","timestamp":"2025-05-22T17:26:53.195Z","details":{"roomCode":"WMCU1S","gamemasterPersistentId":"GM-5cbcaa0a-4c1d-4950-bead-a42ca7b7057f"}}
