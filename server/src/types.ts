@@ -210,8 +210,8 @@ export interface ServerToClientEvents {
   community_voting_status_changed: (data: { isCommunityVotingMode: boolean }) => void;
   answer_voted: (data: { answerId: string, playerId: string, vote: 'correct' | 'incorrect', voteCounts: Record<string, {correct: number, incorrect: number}> }) => void;
   correct_answer_revealed: (data: { questionId: string, correctAnswer: string }) => void;
-  webcam_state_change: (data: { fromSocketId: string, enabled: boolean }) => void;
-  microphone_state_change: (data: { fromSocketId: string, enabled: boolean }) => void;
+  'webcam-state-change': (data: { fromSocketId: string, enabled: boolean }) => void;
+  'microphone-state-change': (data: { fromSocketId: string, enabled: boolean }) => void;
   all_votes_submitted: (data: { message: string }) => void;
   gm_community_answer_accepted: (data: { questionId: string }) => void;
 }
@@ -249,8 +249,9 @@ export interface ClientToServerEvents {
   show_answer: (data: { roomCode: string, questionId: string }) => void;
   update_game_master_board: (data: { roomCode: string, boardData: string }) => void;
   clear_game_master_board: (data: { roomCode: string }) => void;
-  webcam_state_change: (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
-  microphone_state_change: (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
+  'webcam-state-change': (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
+  'microphone-state-change': (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
+  force_end_voting: (data: { roomCode: string }) => void;
 }
 
 export interface InterServerEvents {

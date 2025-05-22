@@ -30,6 +30,7 @@ interface PreviewOverlayProps {
   isCommunityVotingMode?: boolean;
   onVote?: (answerPersistentPlayerId: string, vote: 'correct' | 'incorrect') => void;
   onShowAnswer?: () => void;
+  onForceEndVoting?: () => void;
 }
 
 const boardColors = [
@@ -60,7 +61,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
   onEvaluate,
   isCommunityVotingMode = false,
   onVote,
-  onShowAnswer
+  onShowAnswer,
+  onForceEndVoting
 }) => {
   const context = useGame();
   const { setDrawingEnabled } = useCanvas();
@@ -206,6 +208,15 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
   }, [context.currentQuestion]);
 
   const currentQuestion = context.currentQuestion;
+  
+  // Handle toggling answer visibility
+  const toggleAnswerVisibility = () => {
+    if (revealedAnswer && onShowAnswer) {
+      setRevealedAnswer(null);
+    } else if (onShowAnswer) {
+      onShowAnswer();
+    }
+  };
 
   return (
     <div className="preview-overlay-v2 classroom-preview-overlay">
@@ -228,14 +239,27 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
               </div>
             )}
           </div>
-          {/* Show Answer button for community voting */}
+          {/* Show/Hide Answer button for community voting */}
           {isCommunityVotingMode && onShowAnswer && (
             <button 
-              className="btn btn-sm btn-outline-light mt-2" 
-              onClick={onShowAnswer}
-              title={t('previewOverlay.showAnswerTitle', language)}
+              className={`btn btn-sm ${revealedAnswer ? 'btn-outline-warning' : 'btn-outline-light'} mt-2`} 
+              onClick={toggleAnswerVisibility}
+              title={revealedAnswer ? t('previewOverlay.hideAnswerTitle', language) || 'Hide the correct answer' : t('previewOverlay.showAnswerTitle', language)}
             >
-              <i className="bi bi-eye-fill me-1"></i> {t('previewOverlay.showAnswer', language)}
+              <i className={`bi ${revealedAnswer ? 'bi-eye-slash-fill' : 'bi-eye-fill'} me-1`}></i> 
+              {revealedAnswer ? t('previewOverlay.hideAnswer', language) || 'Hide Answer' : t('previewOverlay.showAnswer', language)}
+            </button>
+          )}
+          
+          {/* Force End Voting button for GameMaster in community voting mode */}
+          {isGameMaster && isCommunityVotingMode && onForceEndVoting && (
+            <button 
+              className="btn btn-sm btn-danger ms-2 mt-2" 
+              onClick={onForceEndVoting}
+              title={t('previewOverlay.forceEndVotingTitle', language) || 'End voting and evaluate answers based on current votes'}
+            >
+              <i className="bi bi-flag-fill me-1"></i> 
+              {t('previewOverlay.forceEndVoting', language) || 'Force End Voting'}
             </button>
           )}
         </div>
@@ -262,6 +286,10 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           const evaluation = context.evaluatedAnswers[player.persistentPlayerId]; // Evaluations are keyed by persistentPlayerId
           const borderColor = boardColors[idx % boardColors.length];
           const tapeColor = getRandomTapeColor(idx);
+          
+          // Check if this is the current user's answer (to prevent voting for own answer)
+          const isOwnAnswer = player.persistentPlayerId === myPersistentId;
+          
           return (
             <div
               key={player.persistentPlayerId} // Use player.persistentPlayerId as key
@@ -334,9 +362,10 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     </span>
                   </div>
                 )}
+                
                 {/* Correct/Incorrect buttons for GameMaster (standard mode) OR for all players (community voting mode) */}
                 {((isGameMaster && !isCommunityVotingMode && answer !== undefined && evaluation === undefined && onEvaluate) || 
-                  (isCommunityVotingMode && answer !== undefined && onVote && !localMyVotes[player.persistentPlayerId] && evaluation === undefined)) && (
+                  (isCommunityVotingMode && answer !== undefined && onVote && !localMyVotes[player.persistentPlayerId] && evaluation === undefined && !isOwnAnswer)) && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
                     <button 
                         className="btn btn-success btn-sm" 
@@ -370,6 +399,14 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     </button>
                   </div>
                 )}
+                
+                {/* Message when player can't vote for their own answer */}
+                {isCommunityVotingMode && isOwnAnswer && answer !== undefined && evaluation === undefined && (
+                  <div className="mt-2 text-center small fst-italic">
+                    <span className="text-muted">{t('previewOverlay.cannotVoteOwn', language) || "You cannot vote for your own answer"}</span>
+                  </div>
+                )}
+                
                 {/* Display vote counts in community voting mode */}
                 {isCommunityVotingMode && localCommunityVotes && localCommunityVotes[player.persistentPlayerId] && (
                   <div className="mt-2 text-center small">

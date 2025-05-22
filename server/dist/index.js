@@ -1466,17 +1466,17 @@ io.on('connection', (socket) => {
         (0, socketService_1.getIO)().to(to).emit('webrtc-ice-candidate', { candidate, from });
     });
     // New events for webcam and microphone state broadcasting
-    socket.on('webcam_state_change', ({ roomCode, enabled, fromSocketId }) => {
+    socket.on('webcam-state-change', ({ roomCode, enabled, fromSocketId }) => {
         if (!roomCode || !roomService_1.gameRooms[roomCode])
             return;
         console.log(`[WebRTC] Broadcasting webcam state change from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
-        socket.to(roomCode).emit('webcam_state_change', { fromSocketId, enabled });
+        socket.to(roomCode).emit('webcam-state-change', { fromSocketId, enabled });
     });
-    socket.on('microphone_state_change', ({ roomCode, enabled, fromSocketId }) => {
+    socket.on('microphone-state-change', ({ roomCode, enabled, fromSocketId }) => {
         if (!roomCode || !roomService_1.gameRooms[roomCode])
             return;
         console.log(`[WebRTC] Broadcasting microphone state change from ${fromSocketId}: ${enabled ? 'enabled' : 'disabled'}`);
-        socket.to(roomCode).emit('microphone_state_change', { fromSocketId, enabled });
+        socket.to(roomCode).emit('microphone-state-change', { fromSocketId, enabled });
     });
     // Handle community voting status change
     socket.on('toggle_community_voting', ({ roomCode, isCommunityVotingMode }) => {
@@ -1604,8 +1604,7 @@ io.on('connection', (socket) => {
         const eligibleVoterPIds = room.players
             .filter(p => p.isActive && !p.isSpectator)
             .map(p => p.persistentPlayerId);
-        // If GM is playing, ensure their persistentPlayerId is in eligibleVoterPIds if not already (e.g. if GM is not in room.players but should be treated as voter)
-        // This part might be redundant if GM is always correctly in room.players during community mode
+        // If GM is playing, ensure their persistentPlayerId is in eligibleVoterPIds if not already
         if (room.isCommunityVotingMode && room.gamemasterPersistentId && !eligibleVoterPIds.includes(room.gamemasterPersistentId)) {
             const gmPlayer = room.players.find(p => p.persistentPlayerId === room.gamemasterPersistentId);
             if (gmPlayer && gmPlayer.isActive && !gmPlayer.isSpectator) {
@@ -1618,20 +1617,23 @@ io.on('connection', (socket) => {
             }
         }
         const numberOfEligibleVoters = eligibleVoterPIds.length;
-        let allAnswersFullyVoted = false;
-        if (submittedAnswerPIds.length > 0 && numberOfEligibleVoters > 0) {
-            allAnswersFullyVoted = submittedAnswerPIds.every(ansId => {
-                const votesForThisAnswer = room.votes?.[ansId] || {};
-                const numberOfVotesCasted = Object.keys(votesForThisAnswer).length;
-                return numberOfVotesCasted >= numberOfEligibleVoters; // Changed to >= to be safe
-            });
+        // Calculate maximum possible votes for each answer (excluding self-votes)
+        let allPossibleVotesCast = true;
+        // Check if all possible votes have been cast
+        for (const ansId of submittedAnswerPIds) {
+            const votesForThisAnswer = room.votes?.[ansId] || {};
+            const numberOfVotesCasted = Object.keys(votesForThisAnswer).length;
+            // Calculate how many people CAN vote for this answer (everyone except the answer author)
+            const maxPossibleVotesForThisAnswer = eligibleVoterPIds.filter(pid => pid !== ansId).length;
+            // If fewer votes than possible, voting is not complete
+            if (numberOfVotesCasted < maxPossibleVotesForThisAnswer) {
+                allPossibleVotesCast = false;
+                break;
+            }
         }
-        else {
-            console.log(`[Server Vote Check] Not checking full vote completion: submittedAnswerPIds count is ${submittedAnswerPIds.length}, numberOfEligibleVoters is ${numberOfEligibleVoters}`);
-        }
-        console.log(`[Server Vote Check] Room: ${roomCode}, Submitted Answer PIDs: ${JSON.stringify(submittedAnswerPIds)}, Eligible Voter PIDs: ${JSON.stringify(eligibleVoterPIds)}, All Answers Fully Voted: ${allAnswersFullyVoted}`);
-        if (allAnswersFullyVoted) {
-            console.log(`[Server] All eligible voters (${numberOfEligibleVoters}) have voted on all ${submittedAnswerPIds.length} answers for room ${roomCode}. Processing evaluations.`);
+        console.log(`[Server Vote Check] Room: ${roomCode}, All possible votes cast: ${allPossibleVotesCast}, Submitted Answer PIDs: ${JSON.stringify(submittedAnswerPIds)}, Eligible Voter PIDs: ${JSON.stringify(eligibleVoterPIds)}`);
+        if (allPossibleVotesCast && submittedAnswerPIds.length > 0) {
+            console.log(`[Server] All possible votes have been cast for room ${roomCode}. Processing evaluations.`);
             // 1. Iterate through each answerId in submittedAnswerIds.
             for (const answerId of submittedAnswerPIds) {
                 const votesForThisAnswer = room.votes?.[answerId] || {};
@@ -1642,6 +1644,13 @@ io.on('connection', (socket) => {
                     else if (v === 'incorrect')
                         currentVoteCounts.incorrect++;
                 });
+                // Special case: If there are no votes (which can happen with few players who can't vote for themselves),
+                // default to marking the answer as correct to avoid unfairly penalizing players
+                if (currentVoteCounts.correct === 0 && currentVoteCounts.incorrect === 0) {
+                    console.log(`[Server] No votes for answer ${answerId}. Defaulting to CORRECT.`);
+                    room.evaluatedAnswers[answerId] = true;
+                    continue;
+                }
                 // 2. Determine final evaluation: majority wins. Tie or more incorrect = incorrect.
                 const isCorrectByVote = currentVoteCounts.correct > currentVoteCounts.incorrect;
                 // 3. Update room.evaluatedAnswers[answerId] with true/false.
@@ -1756,6 +1765,123 @@ io.on('connection', (socket) => {
             correctAnswer: question.answer
         });
         console.log(`[Server] Revealed answer for question ${questionId} in room ${roomCode}`);
+    });
+    // Handle force end voting request from GameMaster in community voting mode
+    socket.on('force_end_voting', ({ roomCode }) => {
+        const room = roomService_1.gameRooms[roomCode];
+        if (!room || !room.isCommunityVotingMode || socket.id !== room.gamemaster) {
+            socket.emit('error', 'Not authorized to force end voting or room not found.');
+            return;
+        }
+        console.log(`[Server] GameMaster forcing end of voting in room ${roomCode}`);
+        try {
+            // Process all votes and determine final evaluations
+            const submittedAnswerPIds = Object.keys(room.roundAnswers || {});
+            // For each answer, tally votes and determine evaluation
+            for (const answerId of submittedAnswerPIds) {
+                const votesForThisAnswer = room.votes?.[answerId] || {};
+                const currentVoteCounts = { correct: 0, incorrect: 0 };
+                Object.values(votesForThisAnswer).forEach(v => {
+                    if (v === 'correct')
+                        currentVoteCounts.correct++;
+                    else if (v === 'incorrect')
+                        currentVoteCounts.incorrect++;
+                });
+                // Special case: If there are no votes (which can happen with few players who can't vote for themselves),
+                // default to marking the answer as correct to avoid unfairly penalizing players
+                if (currentVoteCounts.correct === 0 && currentVoteCounts.incorrect === 0) {
+                    console.log(`[Server] No votes for answer ${answerId}. Defaulting to CORRECT.`);
+                    room.evaluatedAnswers[answerId] = true;
+                    continue;
+                }
+                // Determine if answer is correct based on majority vote
+                // If votes are tied or more incorrect votes, mark as incorrect
+                const isCorrectByVote = currentVoteCounts.correct > currentVoteCounts.incorrect;
+                room.evaluatedAnswers[answerId] = isCorrectByVote;
+                console.log(`[Server] Force evaluating answer ${answerId}: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
+                // Update player lives if their answer was incorrect
+                const playerWhoseAnswerIsBeingEvaluated = room.players.find(p => p.persistentPlayerId === answerId);
+                if (playerWhoseAnswerIsBeingEvaluated) {
+                    if (!isCorrectByVote) {
+                        playerWhoseAnswerIsBeingEvaluated.lives = Math.max(0, (playerWhoseAnswerIsBeingEvaluated.lives || 0) - 1);
+                        console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) lives updated to: ${playerWhoseAnswerIsBeingEvaluated.lives}`);
+                        if (playerWhoseAnswerIsBeingEvaluated.lives <= 0) {
+                            playerWhoseAnswerIsBeingEvaluated.isActive = false;
+                            playerWhoseAnswerIsBeingEvaluated.isSpectator = true;
+                            const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerWhoseAnswerIsBeingEvaluated.id);
+                            if (playerSocket)
+                                playerSocket.emit('become_spectator');
+                            console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated.`);
+                        }
+                    }
+                }
+            }
+            // Mark submission phase as over
+            room.submissionPhaseOver = true;
+            // Broadcast updated game state with evaluations
+            (0, socketService_1.broadcastGameState)(roomCode);
+            // Check for game over conditions
+            const activePlayersPostVoting = room.players.filter(p => p.isActive && !p.isSpectator);
+            let gameShouldEnd = false;
+            let winnerInfo = null;
+            // Game over logic for community voting mode
+            if (room.isCommunityVotingMode) {
+                const activeNonGMPlayers = activePlayersPostVoting.filter(p => p.persistentPlayerId !== room.gamemasterPersistentId);
+                const gmIsActivePlayer = activePlayersPostVoting.some(p => p.persistentPlayerId === room.gamemasterPersistentId);
+                if (activeNonGMPlayers.length === 0 && gmIsActivePlayer) {
+                    gameShouldEnd = true;
+                    winnerInfo = { id: room.gamemaster, persistentPlayerId: room.gamemasterPersistentId, name: 'GameMaster' };
+                }
+                else if (activeNonGMPlayers.length === 1 && (!gmIsActivePlayer || activePlayersPostVoting.length === 1)) {
+                    gameShouldEnd = true;
+                    winnerInfo = { id: activeNonGMPlayers[0].id, persistentPlayerId: activeNonGMPlayers[0].persistentPlayerId, name: activeNonGMPlayers[0].name };
+                }
+                else if (activePlayersPostVoting.length === 0) {
+                    gameShouldEnd = true;
+                }
+            }
+            // If game should end, conclude; otherwise proceed to next question
+            if (gameShouldEnd && !room.isConcluded) {
+                console.log(`[Server] Game ending after forced voting end. Winner: ${winnerInfo ? winnerInfo.name : 'None'}`);
+                (0, socketService_2.concludeGameAndSendRecap)(roomCode, winnerInfo);
+            }
+            else if (room.currentQuestionIndex < room.questions.length - 1 && !room.isConcluded) {
+                console.log('[Server] Proceeding to next question after forced voting end.');
+                // Stop preview mode
+                (0, socketService_1.getIO)().to(roomCode).emit('stop_preview_mode');
+                // Reset for next question
+                room.votes = {};
+                room.gameMasterBoardData = null;
+                // Move to next question
+                room.currentQuestionIndex++;
+                room.currentQuestion = room.questions[room.currentQuestionIndex];
+                room.questionStartTime = Date.now();
+                room.submissionPhaseOver = false;
+                room.roundAnswers = {};
+                room.evaluatedAnswers = {};
+                // Reset player answers for new question
+                room.players.forEach(p => {
+                    if (p.answers && p.answers.length > room.currentQuestionIndex) {
+                        p.answers[room.currentQuestionIndex] = undefined;
+                    }
+                });
+                // Handle timer if needed
+                (0, socketService_2.clearRoomTimer)(roomCode);
+                if (room.timeLimit && room.timeLimit < 99999)
+                    (0, socketService_2.startQuestionTimer)(roomCode);
+                // Broadcast updates
+                (0, socketService_1.broadcastGameState)(roomCode);
+                (0, socketService_1.getIO)().to(roomCode).emit('new_question', { question: room.currentQuestion, timeLimit: room.timeLimit || 0 });
+            }
+            else if (!room.isConcluded) {
+                console.log('[Server] Last question. Ending game after forced voting end.');
+                (0, socketService_2.concludeGameAndSendRecap)(roomCode, winnerInfo);
+            }
+        }
+        catch (error) {
+            console.error('[Server] Error processing force end voting:', error);
+            socket.emit('error', 'Failed to process voting results.');
+        }
     });
 });
 // Add handler for request_players event

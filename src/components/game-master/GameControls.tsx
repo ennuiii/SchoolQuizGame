@@ -24,9 +24,8 @@ const GameControls: React.FC<GameControlsProps> = ({
   onConfirmEndRound,
   onCancelEndRound
 }) => {
-  const { gameStarted, currentQuestionIndex, questions, allAnswersThisRound } = useGame();
+  const { gameStarted, currentQuestionIndex, questions } = useGame();
   const { language } = useLanguage();
-  const hasPendingAnswers = Object.keys(allAnswersThisRound).length > 0;
 
   return (
     <div className="card mb-3">
@@ -47,7 +46,7 @@ const GameControls: React.FC<GameControlsProps> = ({
             <button
               className="btn btn-primary flex-grow-1"
               onClick={onNextQuestion}
-              disabled={currentQuestionIndex >= questions.length - 1 || hasPendingAnswers}
+              disabled={currentQuestionIndex >= questions.length - 1}
             >
               {t('gameControls.nextQuestion', language)}
             </button>

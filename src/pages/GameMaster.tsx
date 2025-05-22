@@ -32,6 +32,7 @@ const GameMaster: React.FC = () => {
   const navigate = useNavigate();
   const { language } = useLanguage();
   const [showEndRoundConfirm, setShowEndRoundConfirm] = useState(false);
+  const [showNextQuestionConfirm, setShowNextQuestionConfirm] = useState(false);
   const [selectedPlayerId, setSelectedPlayerId] = useState<string | undefined>(undefined);
   const [boardTransforms, setBoardTransforms] = useState<{[playerId: string]: {scale: number, x: number, y: number}}>({});
   const [isConnecting, setIsConnecting] = useState(false);
@@ -452,12 +453,21 @@ const GameMaster: React.FC = () => {
     if (connectionStatus !== 'connected') {
       return toast.error('Cannot proceed: You are disconnected from the server. Please wait for reconnection.');
     }
+    setShowNextQuestionConfirm(true);
+  };
+
+  const confirmNextQuestion = async () => {
     try {
       await nextQuestion(roomCode);
+      setShowNextQuestionConfirm(false);
     } catch (error) {
       console.error('[GameMaster] Failed to move to next question:', error);
       toast.error('Failed to proceed to next question.');
     }
+  };
+
+  const cancelNextQuestion = () => {
+    setShowNextQuestionConfirm(false);
   };
 
   const handleStartPreview = () => {
@@ -545,10 +555,6 @@ const GameMaster: React.FC = () => {
     endRoundEarly(roomCode);
     setShowEndRoundConfirm(false);
   }, [roomCode, endRoundEarly]);
-
-  const cancelEndRoundEarly = useCallback(() => {
-    setShowEndRoundConfirm(false);
-  }, []);
 
   const handleFocusSubmissionInternal = useCallback((playerId: string) => {
     if (!roomCode) return;
@@ -679,6 +685,22 @@ const GameMaster: React.FC = () => {
       initializeWebRTC();
     }
   }, [isWebcamSidebarVisible, localStream, initializeWebRTC]);
+
+  const handleForceEndVoting = useCallback(() => {
+    if (!roomCode || !isCommunityVotingMode || connectionStatus !== 'connected') {
+      toast.error('Cannot force end voting: Connection issue or not in community voting mode.');
+      return;
+    }
+
+    try {
+      // Emit event to server to force end voting and evaluate based on current votes
+      socketService.emit('force_end_voting', { roomCode });
+      toast.info('Forcing end of voting phase. Evaluating answers based on current votes...');
+    } catch (error) {
+      console.error('[GameMaster] Error forcing end of voting:', error);
+      toast.error('Failed to force end voting.');
+    }
+  }, [roomCode, isCommunityVotingMode, connectionStatus]);
 
   // Show loading overlay if trying to connect or reconnect
   if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
@@ -829,6 +851,30 @@ const GameMaster: React.FC = () => {
             </div>
           )}
           
+          {showNextQuestionConfirm && (
+            <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content">
+                  <div className="modal-header">
+                    <h5 className="modal-title">{t('gameControls.nextQuestionConfirm', language) || 'Proceed to Next Question?'}</h5>
+                    <button type="button" className="btn-close" onClick={cancelNextQuestion}></button>
+                  </div>
+                  <div className="modal-body">
+                    <p>{t('gameControls.nextQuestionWarning', language) || 'Are you sure you want to proceed to the next question? This will end the current round.'}</p>
+                  </div>
+                  <div className="modal-footer">
+                    <button type="button" className="btn btn-secondary" onClick={cancelNextQuestion}>
+                      {t('gameControls.cancel', language)}
+                    </button>
+                    <button type="button" className="btn btn-primary" onClick={confirmNextQuestion}>
+                      {t('gameControls.confirmNextQuestion', language) || 'Yes, Next Question'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           {connectionStatus === 'disconnected' && (
             <div className="alert alert-warning">
               <strong>{t('connection.disconnected', language)}</strong> {t('connection.attempting', language)}
@@ -865,7 +911,7 @@ const GameMaster: React.FC = () => {
                 onPlayerSelect={handlePlayerSelect}
                 selectedPlayerId={selectedPlayerId}
                 isGameMasterView={true}
-                onKickPlayer={(!isCommunityVotingMode || !gameStarted) ? handleKickPlayer : undefined}
+                onKickPlayer={handleKickPlayer}
                 persistentPlayerId={persistentPlayerId || undefined}
               />
               
@@ -903,7 +949,7 @@ const GameMaster: React.FC = () => {
                       isRestarting={isRestarting}
                       showEndRoundConfirm={showEndRoundConfirm}
                       onConfirmEndRound={confirmEndRoundEarly}
-                      onCancelEndRound={cancelEndRoundEarly}
+                      onCancelEndRound={() => setShowEndRoundConfirm(false)}
                     />
                   </>
                 )}
@@ -1065,6 +1111,7 @@ const GameMaster: React.FC = () => {
                 if (roomCode && currentQuestion)
                   socketService.emit('show_answer', { roomCode, questionId: currentQuestion.id });
               }}
+              onForceEndVoting={handleForceEndVoting}
             />
           )}
 
