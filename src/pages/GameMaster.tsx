@@ -123,9 +123,26 @@ const GameMaster: React.FC = () => {
       setGmTextAnswer('');
       setGmSubmittedCommunityAnswerForRound(false);
       setGmOverlayLocallyClosed(false);
+      // Clear the GM's board data on the server
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('clear_game_master_board', { roomCode });
+      }
       // The DrawingBoard will be reset by its key prop changing
     }
-  }, [gameCurrentQuestionIndex, gameStarted]); // Depends on gameCurrentQuestionIndex and gameStarted
+  }, [gameCurrentQuestionIndex, gameStarted, roomCode, connectionStatus]);
+
+  // Also reset when game restarts
+  useEffect(() => {
+    if (!gameStarted) {
+      setGmTextAnswer('');
+      setGmSubmittedCommunityAnswerForRound(false);
+      setGmOverlayLocallyClosed(false);
+      // Clear the GM's board data on the server when game restarts
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('clear_game_master_board', { roomCode });
+      }
+    }
+  }, [gameStarted, roomCode, connectionStatus]);
 
   // This effect for syncing with server state for GM submission might be redundant if we set locally and trust the submission went through,
   // OR it acts as a confirmation. Let's keep it for now.

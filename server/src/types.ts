@@ -248,6 +248,7 @@ export interface ClientToServerEvents {
   submit_vote: (data: { roomCode: string, answerId: string, vote: 'correct' | 'incorrect' }) => void;
   show_answer: (data: { roomCode: string, questionId: string }) => void;
   update_game_master_board: (data: { roomCode: string, boardData: string }) => void;
+  clear_game_master_board: (data: { roomCode: string }) => void;
   webcam_state_change: (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
   microphone_state_change: (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
 }

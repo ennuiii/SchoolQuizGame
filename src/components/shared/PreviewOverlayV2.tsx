@@ -288,6 +288,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     width: '100%',
                     aspectRatio: '2/1',
                     minHeight: '180px',
+                    maxHeight: '400px',
                     backgroundColor: CHALKBOARD_BACKGROUND_COLOR,
                     border: '4px solid #8B4513',
                     borderRadius: '8px',
@@ -303,6 +304,8 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     <FabricJsonToSvg 
                       jsonData={boardSvgs[player.persistentPlayerId]}
                       className="scaled-svg-preview" 
+                      targetWidth={800}
+                      targetHeight={400}
                     />
                   ) : (
                     <div 

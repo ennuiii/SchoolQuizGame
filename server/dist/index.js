@@ -1549,6 +1549,14 @@ io.on('connection', (socket) => {
         // For now, just storing it. A new event might be needed if live update is desired.
         console.log(`[Server] GM board updated in community voting mode for room ${roomCode}`);
     });
+    // Handle GM board clear
+    socket.on('clear_game_master_board', ({ roomCode }) => {
+        const room = roomService_1.gameRooms[roomCode];
+        if (room && socket.id === room.gamemaster) {
+            room.gameMasterBoardData = null;
+            (0, socketService_1.broadcastGameState)(roomCode);
+        }
+    });
     // Handle player vote submission in community voting mode
     socket.on('submit_vote', ({ roomCode, answerId, vote }) => {
         const room = roomService_1.gameRooms[roomCode];
