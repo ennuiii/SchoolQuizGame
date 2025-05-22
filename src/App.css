@@ -216,6 +216,12 @@ body {
   padding: 0;
 }
 
+/* Force no cursor on all canvas elements */
+.drawing-board-container canvas,
+.canvas-container canvas {
+  cursor: none !important;
+}
+
 /* This is the direct child of drawing-board-container, where Fabric will initialize */
 .drawing-board-container .canvas-container {
   position: relative;
@@ -225,6 +231,7 @@ body {
   box-sizing: border-box !important;
   margin: 0 !important;
   padding: 0 !important;
+  cursor: none !important;
 }
 
 /* Drawing board controls styling */
@@ -346,12 +353,23 @@ body {
   position: absolute !important;
 }
 
-.drawing-board-container canvas {
+.drawing-board-container canvas,
+.canvas-container canvas {
+  display: block;
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100% !important;
   height: 100% !important;
-  left: 0 !important;
-  top: 0 !important;
-  display: block;
+}
+
+/* Overlay brush cursor canvas (add a border for debugging) */
+.drawing-board-container canvas[style*="pointer-events: none"],
+.canvas-container canvas[style*="pointer-events: none"] {
+  z-index: 2000 !important;
+  pointer-events: none;
+  /* Remove debug border */
+  /* border: 2px dashed #ff0 !important; */ 
 }
 
 /* Preview Mode Controls */
@@ -1694,5 +1712,13 @@ body {
 .classroom-whiteboard-svg svg,
 .preview-whiteboard-svg svg {
   shape-rendering: geometricPrecision;
+}
+
+/* Always show the brush/eraser preview above the canvas */
+.brush-cursor-preview {
+  position: absolute;
+  pointer-events: none;
+  z-index: 2000 !important;
+  will-change: transform, width, height;
 }
 

@@ -261,8 +261,9 @@ const JoinGame: React.FC = () => {
                     className="form-control"
                     placeholder={t('joinGame.playerNamePlaceholder', language)}
                     value={playerName}
+                    maxLength={12}
                     onChange={(e) => {
-                      const newName = e.target.value;
+                      const newName = e.target.value.slice(0, 12);
                       setPlayerName(newName);
                       // Update player details in socketService when name is entered
                       if (newName) {

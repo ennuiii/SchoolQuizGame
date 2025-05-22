@@ -91,6 +91,9 @@ const Player: React.FC = () => {
   const isResizingRef = useRef(false);
   const offsetRef = useRef({ x: 0, y: 0 });
 
+  // Add a ref to track if we've already logged the player match
+  const playerMatchLoggedRef = useRef(false);
+
   // Determine if player has already submitted answer from server state
   // This solves the issue where player can submit again after page refresh
   const hasSubmittedToServer = useMemo(() => {
@@ -367,9 +370,7 @@ const Player: React.FC = () => {
   // If we have a stored roomCode but connection is lost, request game state update upon reconnection
   useEffect(() => {
     if (connectionStatus === 'connected' && roomCode) {
-      // Attempt to rejoin the room
-      console.log('[Player] Connected with room code, attempting to rejoin:', roomCode);
-      
+      // Attempt to rejoin the room - but don't log every time
       if (!isRoomLoading) {
         socketService.rejoinRoom(roomCode, false); // false = not GM
       }
@@ -381,7 +382,7 @@ const Player: React.FC = () => {
       // Set a timeout to retry getting players if the list is empty
       const retryTimeout = setTimeout(() => {
         if (players.length === 0) {
-          console.log('[Player] Player list is still empty after connection. Retrying request players...');
+          // Don't log this every time
           socketService.requestPlayers(roomCode);
         }
       }, 2000);
@@ -389,6 +390,7 @@ const Player: React.FC = () => {
       // Set a timeout to force proceed if still loading after some time
       const forceLoadTimeout = setTimeout(() => {
         if (connectionStatus === 'connected' && roomCode && players.length > 0) {
+          // Only log this once when it actually happens
           console.log('[Player] Force proceeding after timeout - connection is established and player list exists');
           // This will trigger a re-render which should show the game screen
           setIsLoading(false); 
@@ -498,19 +500,19 @@ const Player: React.FC = () => {
     };
   }, []);
 
-  // Monitor for player data to exit loading screen
+  // Monitor for player data to exit loading screen - reduce logging
   useEffect(() => {
     // If we have connection, players data, and room code, we should exit loading state directly
     if (connectionStatus === 'connected' && players.length > 0 && roomCode) {
-      console.log('[Player] We have player data and connection, exiting loading state directly');
+      // Don't log this repeatedly
       setIsLoading(false);
     }
   }, [connectionStatus, players, roomCode]);
 
-  // Override isRoomLoading in some cases - we might need to exit loading screen even if RoomContext thinks we're still loading
+  // Override isRoomLoading in some cases - reduce logging
   useEffect(() => {
     if (isRoomLoading && receivedGameState && connectionStatus === 'connected' && players.length > 0) {
-      console.log('[Player] Overriding isRoomLoading because we have game state and player data');
+      // Don't log this repeatedly
       setIsLoading(false);
     }
   }, [isRoomLoading, receivedGameState, connectionStatus, players.length]);
@@ -650,24 +652,23 @@ const Player: React.FC = () => {
     );
   }
   
-  // Enhanced player detection with multiple checks and detailed logging
+  // Enhanced player detection with multiple checks but minimal logging
   const currentPlayerInRoom = players.some(p => {
     const socketMatch = p.id === socketService.getSocketId();
     const persistentIdMatch = p.persistentPlayerId === persistentPlayerId;
     const nameMatch = p.name === playerName; // Add name match as a fallback
     const isMatch = socketMatch || persistentIdMatch || (nameMatch && connectionStatus === 'connected');
     
-    if (isMatch) {
+    // We don't need to log this every time, as it happens repeatedly in polling
+    // Only log the first match we find and nothing after that
+    if (isMatch && !playerMatchLoggedRef.current) {
+      playerMatchLoggedRef.current = true;
       console.log('[Player] Player found in room with matches:', {
         playerName,
         playerInRoom: p.name,
         socketMatch,
         persistentIdMatch,
-        nameMatch,
-        socketId: socketService.getSocketId(),
-        playerSocketId: p.id,
-        persistentId: persistentPlayerId,
-        playerPersistentId: p.persistentPlayerId
+        nameMatch
       });
     }
     
