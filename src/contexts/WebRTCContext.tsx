@@ -127,73 +127,126 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
 
   const createPeerConnection = useCallback((peerSocketId: string, selfSocketId: string): RTCPeerConnection => {
     console.log(`[WebRTC] createPeerConnection called for peer: ${peerSocketId}`);
+    
     // Ensure any existing connection is properly closed before creating a new one
     const existingPc = peerConnections.get(peerSocketId);
     if (existingPc) {
-      console.log(`[WebRTC] Existing PC found for ${peerSocketId}, state: ${existingPc.signalingState}. Closing it first.`);
-      // Use the closePeerConnection to ensure proper cleanup of listeners and map entries
-      closePeerConnection(peerSocketId); 
+        console.log(`[WebRTC] Existing PC found for ${peerSocketId}, state: ${existingPc.signalingState}. Closing it first.`);
+        closePeerConnection(peerSocketId);
     }
 
     console.log(`[WebRTC] Creating new RTCPeerConnection for ${peerSocketId}`);
-    // Use multiple STUN servers for better connectivity
     const newPc = new RTCPeerConnection({ 
-      iceServers: ICE_SERVERS,
-      iceTransportPolicy: 'all',
-      bundlePolicy: 'max-bundle',
-      rtcpMuxPolicy: 'require',
-      // Enable trickle ICE for faster connectivity
-      iceCandidatePoolSize: 10
+        iceServers: ICE_SERVERS,
+        iceTransportPolicy: 'all',
+        bundlePolicy: 'max-bundle',
+        rtcpMuxPolicy: 'require',
+        iceCandidatePoolSize: 10
     });
 
+    // Store pending candidates until remote description is set
+    (newPc as ExtendedRTCPeerConnection).pendingCandidates = [];
+
     newPc.onicecandidate = (event) => {
-      if (event.candidate && selfSocketId) {
-        socketService.sendWebRTCICECandidate(event.candidate, peerSocketId, selfSocketId);
-      }
+        if (event.candidate && selfSocketId) {
+            if (newPc.remoteDescription && newPc.remoteDescription.type) {
+                // If we have a remote description, send the candidate immediately
+                socketService.sendWebRTCICECandidate(event.candidate, peerSocketId, selfSocketId);
+            } else {
+                // Otherwise, store it for later
+                (newPc as ExtendedRTCPeerConnection).pendingCandidates?.push(event.candidate);
+            }
+        }
     };
 
     newPc.oniceconnectionstatechange = () => {
-      console.log(`[WebRTC] ICE connection state change for ${peerSocketId}: ${newPc.iceConnectionState}`);
-      if (newPc.iceConnectionState === 'connected' || newPc.iceConnectionState === 'completed') {
-        console.log(`[WebRTC] ICE connection established with ${peerSocketId}.`);
-        // Force a refresh of the UI when connected to ensure stream is displayed
-        setRemoteStreams(prev => {
-          const stream = prev.get(peerSocketId);
-          if (stream) {
-            // Clone the map to trigger a re-render
-            return new Map(prev);
-          }
-          return prev;
-        });
-      } else if (newPc.iceConnectionState === 'failed' || newPc.iceConnectionState === 'disconnected' || newPc.iceConnectionState === 'closed') {
-        console.warn(`[WebRTC] ICE connection to ${peerSocketId} is ${newPc.iceConnectionState}. Attempting to clean up or restart.`);
+        console.log(`[WebRTC] ICE connection state change for ${peerSocketId}: ${newPc.iceConnectionState}`);
         
-        // Try to restart ICE if it's just failed (not closed)
-        if (newPc.iceConnectionState === 'failed' && newPc.signalingState !== 'closed') {
-          try {
-            console.log(`[WebRTC] Attempting to restart ICE connection with ${peerSocketId}`);
-            newPc.restartIce();
-          } catch (e) {
-            console.error(`[WebRTC] Failed to restart ICE:`, e);
-            closePeerConnection(peerSocketId);
-          }
-        } else {
-          closePeerConnection(peerSocketId); 
+        switch (newPc.iceConnectionState) {
+            case 'connected':
+            case 'completed':
+                console.log(`[WebRTC] ICE connection established with ${peerSocketId}.`);
+                setRemoteStreams(prev => new Map(prev));
+                break;
+                
+            case 'failed':
+                console.warn(`[WebRTC] ICE connection to ${peerSocketId} failed. Attempting recovery...`);
+                if (newPc.signalingState !== 'closed') {
+                    try {
+                        newPc.restartIce();
+                        // Add a timeout to check if recovery was successful
+                        setTimeout(() => {
+                            if (newPc.iceConnectionState === 'failed') {
+                                console.error(`[WebRTC] ICE recovery failed for ${peerSocketId}`);
+                                closePeerConnection(peerSocketId);
+                            }
+                        }, 5000);
+                    } catch (e) {
+                        console.error(`[WebRTC] Failed to restart ICE:`, e);
+                        closePeerConnection(peerSocketId);
+                    }
+                }
+                break;
+                
+            case 'disconnected':
+                console.warn(`[WebRTC] ICE connection to ${peerSocketId} disconnected. Waiting for recovery...`);
+                // Give some time for recovery before closing
+                setTimeout(() => {
+                    if (newPc.iceConnectionState === 'disconnected') {
+                        console.error(`[WebRTC] ICE recovery timeout for ${peerSocketId}`);
+                        closePeerConnection(peerSocketId);
+                    }
+                }, 10000);
+                break;
+                
+            case 'closed':
+                console.log(`[WebRTC] ICE connection to ${peerSocketId} closed.`);
+                closePeerConnection(peerSocketId);
+                break;
         }
-      }
     };
     
     newPc.onsignalingstatechange = () => {
-      console.log(`[WebRTC] Signaling state change for ${peerSocketId}: ${newPc.signalingState}`);
+        console.log(`[WebRTC] Signaling state change for ${peerSocketId}: ${newPc.signalingState}`);
+        
+        // When we get a remote description, send any pending candidates
+        if (newPc.remoteDescription && newPc.remoteDescription.type) {
+            const pendingCandidates = (newPc as ExtendedRTCPeerConnection).pendingCandidates || [];
+            pendingCandidates.forEach(candidate => {
+                if (candidate) {
+                    const iceCandidate = new RTCIceCandidate(candidate);
+                    socketService.sendWebRTCICECandidate(iceCandidate, peerSocketId, selfSocketId);
+                }
+            });
+            (newPc as ExtendedRTCPeerConnection).pendingCandidates = [];
+        }
     };
     
     newPc.onconnectionstatechange = () => {
-      console.log(`[WebRTC] Connection state change for ${peerSocketId}: ${newPc.connectionState}`);
-      if (newPc.connectionState === 'connected') {
-        console.log(`[WebRTC] Connection established with ${peerSocketId}`);
-      } else if (newPc.connectionState === 'failed' || newPc.connectionState === 'closed') {
-        console.warn(`[WebRTC] Connection to ${peerSocketId} ${newPc.connectionState}`);
-      }
+        console.log(`[WebRTC] Connection state change for ${peerSocketId}: ${newPc.connectionState}`);
+        
+        switch (newPc.connectionState) {
+            case 'connected':
+                console.log(`[WebRTC] Connection established with ${peerSocketId}`);
+                break;
+                
+            case 'failed':
+                console.warn(`[WebRTC] Connection to ${peerSocketId} failed. Attempting recovery...`);
+                if (newPc.signalingState !== 'closed') {
+                    try {
+                        newPc.restartIce();
+                    } catch (e) {
+                        console.error(`[WebRTC] Failed to restart connection:`, e);
+                        closePeerConnection(peerSocketId);
+                    }
+                }
+                break;
+                
+            case 'closed':
+                console.log(`[WebRTC] Connection to ${peerSocketId} closed.`);
+                closePeerConnection(peerSocketId);
+                break;
+        }
     };
 
     // Improved track handling
