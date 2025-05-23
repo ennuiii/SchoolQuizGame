@@ -34,9 +34,9 @@ interface Question {
   language: string;
 }
 
-interface DuplicateSet {
-  normalized: string;
-  questions: Question[];
+interface QuestionPair {
+  question1: Question;
+  question2: Question;
   score: number;
 }
 
@@ -60,32 +60,41 @@ function getMatchScore(a: string, b: string): number {
 
 const DuplicateDetection: React.FC = () => {
   const [loading, setLoading] = useState(false);
-  const [duplicates, setDuplicates] = useState<DuplicateSet[]>([]);
+  const [questionPairs, setQuestionPairs] = useState<QuestionPair[]>([]);
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
 
   const scanForDuplicates = async () => {
     setLoading(true);
-    setDuplicates([]);
+    setQuestionPairs([]);
     setSelectedIds([]);
     try {
       const { data, error } = await supabase.from('questions').select('*');
       if (error) throw error;
-      const byNorm: Record<string, Question[]> = {};
-      (data as Question[]).forEach(q => {
-        const norm = normalize(q.text);
-        if (!byNorm[norm]) byNorm[norm] = [];
-        byNorm[norm].push(q);
-      });
-      const dups: DuplicateSet[] = Object.entries(byNorm)
-        .filter(([_, arr]) => arr.length > 1)
-        .map(([norm, arr]) => ({
-          normalized: norm,
-          questions: arr,
-          score: arr.length > 1 ? getMatchScore(normalize(arr[0].text), normalize(arr[1].text)) : 100,
-        }));
-      setDuplicates(dups);
+      
+      const questions = data as Question[];
+      const pairs: QuestionPair[] = [];
+      
+      // Compare each question with every other question
+      for (let i = 0; i < questions.length; i++) {
+        for (let j = i + 1; j < questions.length; j++) {
+          const score = getMatchScore(
+            normalize(questions[i].text),
+            normalize(questions[j].text)
+          );
+          pairs.push({
+            question1: questions[i],
+            question2: questions[j],
+            score
+          });
+        }
+      }
+      
+      // Sort pairs by score in descending order
+      pairs.sort((a, b) => b.score - a.score);
+      
+      setQuestionPairs(pairs);
     } catch (e) {
       alert('Error scanning for duplicates');
     } finally {
@@ -101,10 +110,9 @@ const DuplicateDetection: React.FC = () => {
     setRemoving(true);
     try {
       await supabase.from('questions').delete().in('id', selectedIds);
-      setDuplicates(dups => dups.map(set => ({
-        ...set,
-        questions: set.questions.filter(q => !selectedIds.includes(q.id)),
-      })).filter(set => set.questions.length > 1));
+      setQuestionPairs(pairs => pairs.filter(pair => 
+        !selectedIds.includes(pair.question1.id) && !selectedIds.includes(pair.question2.id)
+      ));
       setSelectedIds([]);
       setConfirmOpen(false);
     } catch (e) {
@@ -119,7 +127,7 @@ const DuplicateDetection: React.FC = () => {
       <Paper className="card" sx={{ p: 3 }}>
         <span className="dashboard-caption">Duplicate Detection</span>
         <Typography variant="body1" paragraph>
-          Scan for duplicate questions in the database. Select duplicates to remove, then click Remove Duplicates.
+          Scan for similar questions in the database. Select duplicates to remove, then click Remove Duplicates.
         </Typography>
         <Button
           variant="contained"
@@ -128,47 +136,54 @@ const DuplicateDetection: React.FC = () => {
           disabled={loading}
           className="confirm-btn"
         >
-          {loading ? <CircularProgress size={24} /> : 'Scan for Duplicates'}
+          {loading ? <CircularProgress size={24} /> : 'Scan for Similar Questions'}
         </Button>
-        {duplicates.length > 0 && (
+        {questionPairs.length > 0 && (
           <TableContainer sx={{ mt: 4 }}>
             <Table className="admin-table">
               <TableHead>
                 <TableRow>
-                  <TableCell>Match Score</TableCell>
-                  <TableCell>Question Text</TableCell>
-                  <TableCell>Answer</TableCell>
-                  <TableCell>Grade</TableCell>
-                  <TableCell>Subject</TableCell>
-                  <TableCell>Language</TableCell>
+                  <TableCell>Similarity Score</TableCell>
+                  <TableCell>Question 1</TableCell>
+                  <TableCell>Answer 1</TableCell>
+                  <TableCell>Grade 1</TableCell>
+                  <TableCell>Subject 1</TableCell>
+                  <TableCell>Question 2</TableCell>
+                  <TableCell>Answer 2</TableCell>
+                  <TableCell>Grade 2</TableCell>
+                  <TableCell>Subject 2</TableCell>
                   <TableCell>Select</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {duplicates.map((set, i) => (
-                  set.questions.map((q, j) => (
-                    <TableRow key={q.id} className="duplicate-row">
-                      <TableCell className="duplicate-score">{set.score}%</TableCell>
-                      <TableCell>{q.text}</TableCell>
-                      <TableCell>{q.answer}</TableCell>
-                      <TableCell>{q.grade}</TableCell>
-                      <TableCell>{q.subject}</TableCell>
-                      <TableCell>{q.language}</TableCell>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedIds.includes(q.id)}
-                          onChange={() => handleSelect(q.id)}
-                          color="primary"
-                        />
-                      </TableCell>
-                    </TableRow>
-                  ))
+                {questionPairs.map((pair, index) => (
+                  <TableRow key={`${pair.question1.id}-${pair.question2.id}`} className="duplicate-row">
+                    <TableCell className="duplicate-score">{pair.score}%</TableCell>
+                    <TableCell>{pair.question1.text}</TableCell>
+                    <TableCell>{pair.question1.answer}</TableCell>
+                    <TableCell>{pair.question1.grade}</TableCell>
+                    <TableCell>{pair.question1.subject}</TableCell>
+                    <TableCell>{pair.question2.text}</TableCell>
+                    <TableCell>{pair.question2.answer}</TableCell>
+                    <TableCell>{pair.question2.grade}</TableCell>
+                    <TableCell>{pair.question2.subject}</TableCell>
+                    <TableCell>
+                      <Checkbox
+                        checked={selectedIds.includes(pair.question1.id) || selectedIds.includes(pair.question2.id)}
+                        onChange={() => {
+                          handleSelect(pair.question1.id);
+                          handleSelect(pair.question2.id);
+                        }}
+                        color="primary"
+                      />
+                    </TableCell>
+                  </TableRow>
                 ))}
               </TableBody>
             </Table>
           </TableContainer>
         )}
-        {duplicates.length > 0 && (
+        {questionPairs.length > 0 && (
           <Button
             variant="contained"
             color="secondary"
@@ -177,14 +192,14 @@ const DuplicateDetection: React.FC = () => {
             sx={{ mt: 3 }}
             className="confirm-btn"
           >
-            Remove Duplicates
+            Remove Selected Questions
           </Button>
         )}
       </Paper>
       <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} className="admin-modal">
         <DialogTitle>Confirm Removal</DialogTitle>
         <DialogContent>
-          <Typography>Are you sure you want to remove the selected duplicates?</Typography>
+          <Typography>Are you sure you want to remove the selected questions?</Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)} className="cancel-btn">Cancel</Button>

@@ -12,7 +12,17 @@ export interface Player {
   persistentPlayerId: string;
   name: string;
   lives: number;
-  answers: string[];
+  answers: {
+    playerId: string;
+    persistentPlayerId: string;
+    playerName: string;
+    answer: string;
+    hasDrawing: boolean;
+    drawingData?: string | null;
+    timestamp: number;
+    isCorrect: boolean | null;
+    answerAttemptId?: string | null;
+  }[];
   isActive: boolean;
   isSpectator: boolean;
 }

@@ -22,6 +22,7 @@ import { t } from '../i18n';
 import { useWebRTC } from '../contexts/WebRTCContext';
 import WebcamDisplay from '../components/shared/WebcamDisplay';
 import AvatarCreator from '../components/shared/AvatarCreator';
+import QuestionHistoryModal from '../components/shared/QuestionHistoryModal';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -42,6 +43,7 @@ const Player: React.FC = () => {
   const [playerOverlayLocallyClosed, setPlayerOverlayLocallyClosed] = useState(false);
   const [showAvatarCreatorPlayer, setShowAvatarCreatorPlayer] = useState(false);
   const [hideLobbyCode, setHideLobbyCode] = useState(() => sessionStorage.getItem('hideLobbyCode') === 'true');
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   
   // Get context values
   const {
@@ -65,7 +67,8 @@ const Player: React.FC = () => {
     currentVotes,
     players,
     playerBoards,
-    isCommunityVotingMode
+    isCommunityVotingMode,
+    questions
   } = useGame();
 
   const {
@@ -746,6 +749,25 @@ const Player: React.FC = () => {
     }
   }, [roomCode, language, t]);
 
+  // Get the current player's answer history
+  const playerAnswerHistory = useMemo(() => {
+    if (!persistentPlayerId || !players) return [];
+    
+    const currentPlayer = players.find(p => p.persistentPlayerId === persistentPlayerId);
+    if (!currentPlayer || !currentPlayer.answers) return [];
+
+    return currentPlayer.answers
+      .filter(answer => answer !== undefined)
+      .map((answer, index) => ({
+        question: questions[index]?.text || 'Unknown Question',
+        yourAnswer: answer.answer,
+        correctAnswer: questions[index]?.answer,
+        subject: questions[index]?.subject || 'Unknown',
+        grade: questions[index]?.grade || 'Unknown',
+        isCorrect: answer.isCorrect
+      }));
+  }, [persistentPlayerId, players, questions]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -1001,6 +1023,13 @@ const Player: React.FC = () => {
           >
             <i className="bi bi-person-circle"></i>
           </button>
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => setShowHistoryModal(true)}
+            title={t('questionHistory.view', language) || 'View Question History'}
+          >
+            <i className="bi bi-clock-history"></i>
+          </button>
         </div>
 
         <div className="container py-4">
@@ -1182,6 +1211,11 @@ const Player: React.FC = () => {
           </div>
         </div>
       )}
+      <QuestionHistoryModal
+        show={showHistoryModal}
+        onHide={() => setShowHistoryModal(false)}
+        history={playerAnswerHistory}
+      />
     </div>
   );
 };
