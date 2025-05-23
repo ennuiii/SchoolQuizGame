@@ -37,7 +37,8 @@ import {
   getGameState, 
   broadcastGameState, 
   generateGameRecap,
-  getIO
+  getIO,
+  QUESTION_COUNTDOWN_DURATION_MS
 } from './services/socketService';
 
 // These will be defined locally in this file
@@ -1085,7 +1086,10 @@ io.on('connection', (socket: ExtendedSocket) => {
         isCorrect: null, // Evaluation pending
         answerAttemptId: answerAttemptId || null
       };
-      
+      // Add submissionOrder and submissionTime
+      const currentSubmissions = Object.keys(room.roundAnswers).length;
+      answerData.submissionOrder = currentSubmissions + 1;
+      answerData.submissionTime = room.questionStartTime ? Date.now() - room.questionStartTime : undefined;
       // Store answer in room.roundAnswers, keyed by persistentPlayerId (for both players and GM in community mode)
       if (!room.roundAnswers) room.roundAnswers = {};
       room.roundAnswers[effectivePersistentPlayerId!] = answerData;
@@ -1201,53 +1205,45 @@ io.on('connection', (socket: ExtendedSocket) => {
 
       if (!submittedAnswerData) {
         console.warn(`[Server Socket EVal] No answer submission found for persistentPlayerId: ${persistentPlayerIdFromClient}`);
-        socket.emit('error', { message: 'No answer found for player to evaluate.' }); // Changed to error event
+        socket.emit('error', { message: 'No answer found for player to evaluate.' });
         return;
       }
 
+      // Get the previous evaluation status
+      const previousEvaluation = room.evaluatedAnswers[persistentPlayerIdFromClient];
+      
+      // Update the answer evaluation
       submittedAnswerData.isCorrect = isCorrect;
       if(!room.evaluatedAnswers) room.evaluatedAnswers = {};
       room.evaluatedAnswers[persistentPlayerIdFromClient] = isCorrect;
 
+      // Handle life changes based on evaluation change
       if (playerObjInRoom) {
-        const playerSpecificAnswerRecord = playerObjInRoom.answers[room.currentQuestionIndex];
-        if (playerSpecificAnswerRecord) {
-            playerSpecificAnswerRecord.isCorrect = isCorrect;
-        } else {
-            if (playerObjInRoom.answers && room.currentQuestionIndex !== undefined) {
-                 playerObjInRoom.answers[room.currentQuestionIndex] = { 
-                    ...submittedAnswerData,
-                    isCorrect: isCorrect 
-                };
-            }
+        if (isCorrect && previousEvaluation === false) {
+          // Restore a life when correcting from incorrect to correct
+          playerObjInRoom.lives = Math.min(3, (playerObjInRoom.lives || 0) + 1);
+          console.log(`[Server] Restored life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
+        } else if (!isCorrect && previousEvaluation === true) {
+          // Remove a life when changing from correct to incorrect
+          playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);
+          console.log(`[Server] Removed life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
         }
 
-        if (!isCorrect) {
-          playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);
-          if (playerObjInRoom.lives <= 0) {
-            playerObjInRoom.isActive = false;
-            playerObjInRoom.isSpectator = true;
-            const playerSocket = getIO().sockets.sockets.get(playerObjInRoom.id);
-            if (playerSocket) {
-                playerSocket.emit('become_spectator');
-            }
+        // Check if player should become spectator
+        if (playerObjInRoom.lives <= 0) {
+          playerObjInRoom.isActive = false;
+          playerObjInRoom.isSpectator = true;
+          const playerSocket = getIO().sockets.sockets.get(playerObjInRoom.id);
+          if (playerSocket) {
+            playerSocket.emit('become_spectator');
+            console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated.`);
           }
         }
       }
 
-      const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
-      if (room.started && activePlayers.length <= 1 && room.players.length > 0) {
-        if (!room.isConcluded) {
-            const winner: WinnerInfo | null = activePlayers.length === 1 ? { 
-                id: activePlayers[0].id, 
-                persistentPlayerId: activePlayers[0].persistentPlayerId,
-                name: activePlayers[0].name 
-            } : null;
-            concludeGameAndSendRecap(roomCode, winner);
-        }
-      }
-
+      // Broadcast the updated game state
       broadcastGameState(roomCode);
+
       const responseTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
       gameAnalytics.recordAnswer(roomCode, persistentPlayerIdFromClient, submittedAnswerData.answer, isCorrect, responseTime);
 
@@ -1275,12 +1271,15 @@ io.on('connection', (socket: ExtendedSocket) => {
         if(player.answers) player.answers[room.currentQuestionIndex] = undefined as any; // Reset for new question
       });
       clearRoomTimer(roomCode);
-      if (room.timeLimit && room.timeLimit < 99999) {
-        startQuestionTimer(roomCode);
-      }
+      // DELAY TIMER START
       broadcastGameState(roomCode); // Broadcasts full state including new question
       const currentIO = getIO();
       currentIO.to(roomCode).emit('new_question', { question: room.currentQuestion, timeLimit: room.timeLimit || 0 });
+      if (room.timeLimit && room.timeLimit < 99999) {
+        setTimeout(() => {
+          startQuestionTimer(roomCode);
+        }, QUESTION_COUNTDOWN_DURATION_MS);
+      }
     }
   });
 

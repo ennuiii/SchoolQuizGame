@@ -840,6 +840,9 @@ const GameMaster: React.FC = () => {
           playerName: player.name,
           answer: answerObj?.answer ?? '-',
           isCorrect: answerObj?.isCorrect ?? null,
+          submissionOrder: answerObj?.submissionOrder,
+          submissionTime: answerObj?.submissionTime,
+          submissionTimestamp: answerObj?.timestamp
         };
       });
       return {
@@ -1399,6 +1402,7 @@ const GameMaster: React.FC = () => {
         show={showHistoryModal}
         onHide={() => setShowHistoryModal(false)}
         history={gmQuestionHistory}
+        language={language}
       />
     </div>
   );

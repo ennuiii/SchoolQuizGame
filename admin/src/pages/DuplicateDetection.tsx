@@ -19,6 +19,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { createClient } from '@supabase/supabase-js';
+import { t } from '../../../src/i18n';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || '',
@@ -128,9 +129,9 @@ const DuplicateDetection: React.FC = () => {
     <Box sx={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, bgcolor: '#f5f5f5', zIndex: 1200, overflow: 'auto' }}>
       <Container maxWidth={false} sx={{ width: '100vw', height: '100vh', p: 0, m: 0 }}>
         <Paper className="card" sx={{ p: 3, width: '100vw', minHeight: '100vh', boxSizing: 'border-box' }}>
-          <span className="dashboard-caption">Duplicate Detection</span>
+          <span className="dashboard-caption">{t('admin.duplicateDetection.title', 'en')}</span>
           <Typography variant="body1" paragraph>
-            Scan for similar questions in the database. Select duplicates to remove, then click Remove Duplicates.
+            {t('admin.duplicateDetection.description', 'en')}
           </Typography>
           <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
             <Button
@@ -150,7 +151,7 @@ const DuplicateDetection: React.FC = () => {
                 disabled={selectedIds.length === 0 || removing}
                 className="confirm-btn"
               >
-                Remove Selected Questions
+                {t('admin.duplicateDetection.removeSelected', 'en')}
               </Button>
             )}
           </Box>
@@ -159,16 +160,16 @@ const DuplicateDetection: React.FC = () => {
               <Table stickyHeader className="admin-table" sx={{ minWidth: 1800 }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell sx={{ minWidth: 120 }}>Similarity Score</TableCell>
-                    <TableCell sx={{ minWidth: 300, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Question 1</TableCell>
-                    <TableCell sx={{ minWidth: 200, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Answer 1</TableCell>
-                    <TableCell sx={{ minWidth: 80 }}>Grade 1</TableCell>
-                    <TableCell sx={{ minWidth: 120 }}>Subject 1</TableCell>
-                    <TableCell sx={{ minWidth: 300, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Question 2</TableCell>
-                    <TableCell sx={{ minWidth: 200, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Answer 2</TableCell>
-                    <TableCell sx={{ minWidth: 80 }}>Grade 2</TableCell>
-                    <TableCell sx={{ minWidth: 120 }}>Subject 2</TableCell>
-                    <TableCell sx={{ minWidth: 80 }}>Select</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>{t('admin.duplicateDetection.similarityScore', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 300, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{t('admin.duplicateDetection.question1', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 200, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{t('admin.duplicateDetection.answer1', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>{t('admin.duplicateDetection.grade1', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>{t('admin.duplicateDetection.subject1', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 300, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{t('admin.duplicateDetection.question2', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 200, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{t('admin.duplicateDetection.answer2', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>{t('admin.duplicateDetection.grade2', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>{t('admin.duplicateDetection.subject2', 'en')}</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>{t('admin.duplicateDetection.select', 'en')}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -201,12 +202,12 @@ const DuplicateDetection: React.FC = () => {
           )}
         </Paper>
         <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} className="admin-modal">
-          <DialogTitle>Confirm Removal</DialogTitle>
+          <DialogTitle>{t('admin.duplicateDetection.confirmTitle', 'en')}</DialogTitle>
           <DialogContent>
-            <Typography>Are you sure you want to remove the selected questions?</Typography>
+            <Typography>{t('admin.duplicateDetection.confirmMessage', 'en')}</Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setConfirmOpen(false)} className="cancel-btn">Cancel</Button>
+            <Button onClick={() => setConfirmOpen(false)} className="cancel-btn">{t('admin.duplicateDetection.cancel', 'en')}</Button>
             <Button onClick={handleRemove} color="secondary" variant="contained" className="confirm-btn" disabled={removing}>
               {removing ? <CircularProgress size={20} /> : 'Yes, Remove'}
             </Button>

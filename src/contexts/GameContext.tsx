@@ -29,6 +29,8 @@ interface Player {
     timestamp: number;
     isCorrect: boolean | null;
     answerAttemptId?: string | null;
+    submissionOrder?: number;  // Order in which the answer was submitted
+    submissionTime?: number;   // Time taken to submit in milliseconds
   }[];
   isActive: boolean;
   isSpectator: boolean;
@@ -49,6 +51,9 @@ interface AnswerSubmission {
   timestamp?: number;
   hasDrawing?: boolean;
   drawingData?: string | null;
+  submissionOrder?: number;  // Order in which the answer was submitted
+  submissionTime?: number;   // Time taken to submit in milliseconds
+  submissionTimestamp?: number; // When the answer was submitted
 }
 
 interface PreviewModeState {
@@ -691,8 +696,18 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
 
         console.log('[GameContext] gameStateUpdateHandler: BEFORE setAllAnswersThisRound. Current context:', JSON.stringify(allAnswersThisRound), 'Incoming state.roundAnswers:', JSON.stringify(state.roundAnswers));
-        setAllAnswersThisRound(state.roundAnswers || {});
-        console.log('[GameContext] gameStateUpdateHandler: AFTER setAllAnswersThisRound. New context:', JSON.stringify(state.roundAnswers || {}));
+        // Transform the roundAnswers to include submission order and time taken
+        const transformedRoundAnswers = Object.entries(state.roundAnswers || {}).reduce((acc, [key, value]: [string, any]) => {
+          acc[key] = {
+            ...value,
+            submissionOrder: value.submissionOrder,
+            submissionTime: value.submissionTime,
+            submissionTimestamp: value.timestamp
+          };
+          return acc;
+        }, {} as Record<string, AnswerSubmission>);
+        setAllAnswersThisRound(transformedRoundAnswers);
+        console.log('[GameContext] gameStateUpdateHandler: AFTER setAllAnswersThisRound. New context:', JSON.stringify(transformedRoundAnswers));
 
         console.log('[GameContext] gameStateUpdateHandler: BEFORE setEvaluatedAnswers. Current context:', JSON.stringify(evaluatedAnswers), 'Incoming state.evaluatedAnswers:', JSON.stringify(state.evaluatedAnswers));
         setEvaluatedAnswers(state.evaluatedAnswers || {});

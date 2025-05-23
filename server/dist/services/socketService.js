@@ -1,6 +1,6 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.AUTO_SUBMIT_GRACE_PERIOD_MS = exports.timers = void 0;
+exports.QUESTION_COUNTDOWN_DURATION_MS = exports.AUTO_SUBMIT_GRACE_PERIOD_MS = exports.timers = void 0;
 exports.setSocketIOInstance = setSocketIOInstance;
 exports.getIO = getIO;
 exports.getGameState = getGameState;
@@ -15,6 +15,8 @@ const roomService_1 = require("./roomService");
 exports.timers = new Map();
 // Grace period for auto-submit after round ends
 exports.AUTO_SUBMIT_GRACE_PERIOD_MS = 1000; // 1 second
+// Add a constant for the countdown duration (3 seconds)
+exports.QUESTION_COUNTDOWN_DURATION_MS = 3000;
 // Reference to Socket.IO server instance (set in index.ts)
 let io = null;
 /**

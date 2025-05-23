@@ -21,6 +21,7 @@ import {
 } from '@mui/material';
 import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import { createClient } from '@supabase/supabase-js';
+import { t } from '../../../src/i18n';
 
 const supabase = createClient(
   process.env.REACT_APP_SUPABASE_URL || '',
@@ -123,9 +124,9 @@ const Questions: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <span className="dashboard-caption">Manage Questions</span>
+        <span className="dashboard-caption">{t('admin.questions.title', 'en')}</span>
         <Button variant="contained" color="primary" onClick={() => handleOpen()} className="btn">
-          Add New Question
+          {t('admin.questions.addNew', 'en')}
         </Button>
       </Box>
 
@@ -133,13 +134,13 @@ const Questions: React.FC = () => {
         <Table className="admin-table">
           <TableHead>
             <TableRow>
-              <TableCell>ID</TableCell>
-              <TableCell>Text</TableCell>
-              <TableCell>Answer</TableCell>
-              <TableCell>Grade</TableCell>
-              <TableCell>Subject</TableCell>
-              <TableCell>Language</TableCell>
-              <TableCell>Actions</TableCell>
+              <TableCell>{t('admin.questions.id', 'en')}</TableCell>
+              <TableCell>{t('admin.questions.text', 'en')}</TableCell>
+              <TableCell>{t('admin.questions.answer', 'en')}</TableCell>
+              <TableCell>{t('admin.questions.grade', 'en')}</TableCell>
+              <TableCell>{t('admin.questions.subject', 'en')}</TableCell>
+              <TableCell>{t('admin.questions.language', 'en')}</TableCell>
+              <TableCell>{t('admin.questions.actions', 'en')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -207,7 +208,7 @@ const Questions: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose} className="cancel-btn">Cancel</Button>
+          <Button onClick={handleClose} className="cancel-btn">{t('admin.questions.cancel', 'en')}</Button>
           <Button onClick={handleSubmit} variant="contained" color="primary" className="confirm-btn">
             {editingQuestion ? 'Update' : 'Add'}
           </Button>

@@ -22,6 +22,8 @@ export interface PlayerAnswer {
   timestamp: number;
   isCorrect: boolean | null;
   answerAttemptId?: string | null;
+  submissionOrder?: number;
+  submissionTime?: number;
 }
 
 export interface Player {

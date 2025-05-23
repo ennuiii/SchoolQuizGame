@@ -283,7 +283,7 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                       {[...Array(playerLives)].map((_, i) => (
                         <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
                       ))}
-                      {playerDetails && playerDetails.finalLives === 0 && !playerDetails.isWinner && <span style={{color: '#888', fontSize: '0.9rem' }}>(Eliminated)</span>}
+                      {playerDetails && playerDetails.finalLives === 0 && !playerDetails.isWinner && <span style={{color: '#888', fontSize: '0.9rem' }}>{t('recapModal.eliminated', language)}</span>}
                     </div>
                     
                     {submission.hasDrawing && submission.drawingData && (
@@ -302,7 +302,7 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                     {submission.answer !== undefined && (
                       <div className="notepad-answer mt-2 mb-2">
                         <span className="notepad-label">
-                          <i className="bi bi-card-text me-1"></i>Answer:
+                          <i className="bi bi-card-text me-1"></i>{t('recapModal.answer', language)}:
                         </span>
                         <span className="notepad-text ms-2">
                           {submission.hasDrawing && !submission.answer && submission.drawingData ? "(Drawing Only)" : (submission.answer || "-")}
@@ -310,7 +310,7 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                       </div>
                     )}
                      {!submission.answer && !submission.hasDrawing && (
-                         <div className="mt-1 fst-italic text-muted mb-2"><small>No answer or drawing submitted.</small></div>
+                         <div className="mt-1 fst-italic text-muted mb-2"><small>{t('recapModal.noAnswer', language)}</small></div>
                       )}
 
                     {submission.isCorrect !== null && (
@@ -323,8 +323,8 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
                           }}
                         >
                           {submission.isCorrect ? 
-                            <><i className="bi bi-patch-check-fill me-1"></i>Correct</> : 
-                            <><i className="bi bi-patch-exclamation-fill me-1"></i>Incorrect</>
+                            <><i className="bi bi-patch-check-fill me-1"></i>{t('recapModal.correct', language)}</> : 
+                            <><i className="bi bi-patch-exclamation-fill me-1"></i>{t('recapModal.incorrect', language)}</>
                           }
                         </span>
                       </div>

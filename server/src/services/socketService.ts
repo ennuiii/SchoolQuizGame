@@ -9,6 +9,9 @@ export const timers = new Map<string, NodeJS.Timeout>();
 // Grace period for auto-submit after round ends
 export const AUTO_SUBMIT_GRACE_PERIOD_MS = 1000; // 1 second
 
+// Add a constant for the countdown duration (3 seconds)
+export const QUESTION_COUNTDOWN_DURATION_MS = 3000;
+
 // Reference to Socket.IO server instance (set in index.ts)
 let io: Server | null = null;
 

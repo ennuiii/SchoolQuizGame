@@ -23,6 +23,7 @@ import { useWebRTC } from '../contexts/WebRTCContext';
 import WebcamDisplay from '../components/shared/WebcamDisplay';
 import AvatarCreator from '../components/shared/AvatarCreator';
 import QuestionHistoryModal from '../components/shared/QuestionHistoryModal';
+import RoundStartOverlay from '../components/shared/RoundStartOverlay';
 
 // Import Question and PlayerBoard types from GameContext
 import type { PlayerBoard } from '../contexts/GameContext';
@@ -44,6 +45,7 @@ const Player: React.FC = () => {
   const [showAvatarCreatorPlayer, setShowAvatarCreatorPlayer] = useState(false);
   const [hideLobbyCode, setHideLobbyCode] = useState(() => sessionStorage.getItem('hideLobbyCode') === 'true');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showRoundStartOverlay, setShowRoundStartOverlay] = useState(false);
   
   // Get context values
   const {
@@ -219,6 +221,13 @@ const Player: React.FC = () => {
         setPlayerOverlayLocallyClosed(false);
     }
   }, [currentQuestionIndex, gameStarted]);
+
+  // Show overlay when a new question starts
+  useEffect(() => {
+    if (gameStarted && currentQuestion) {
+      setShowRoundStartOverlay(true);
+    }
+  }, [gameStarted, currentQuestionIndex, currentQuestion?.id]);
 
   // Handle answer submission
   const handleAnswerSubmit = useCallback(async (textAnswer: string) => {
@@ -757,14 +766,17 @@ const Player: React.FC = () => {
     if (!currentPlayer || !currentPlayer.answers) return [];
 
     return currentPlayer.answers
-      .filter(answer => answer !== undefined)
+      .filter(answer => answer !== null && answer !== undefined)
       .map((answer, index) => ({
         question: questions[index]?.text || 'Unknown Question',
-        yourAnswer: answer.answer,
-        correctAnswer: questions[index]?.answer,
+        yourAnswer: answer?.answer || '',
+        correctAnswer: questions[index]?.answer || '',
         subject: questions[index]?.subject || 'Unknown',
         grade: questions[index]?.grade || 'Unknown',
-        isCorrect: answer.isCorrect
+        isCorrect: answer?.isCorrect ?? false,
+        submissionOrder: answer?.submissionOrder,
+        submissionTime: answer?.submissionTime,
+        submissionTimestamp: answer?.timestamp
       }));
   }, [persistentPlayerId, players, questions]);
 
@@ -997,226 +1009,237 @@ const Player: React.FC = () => {
   };
 
   return (
-    <div className="vh-100 player-page-layout position-relative">
-      <div 
-        className="main-content-area p-0" 
-        style={{ 
-          height: '100vh', 
-          overflowY: 'auto',
-          width: '100%'
-        }}
-      >
-        <SettingsControl />
-        <div className="d-flex gap-2 position-fixed top-0 start-0 m-2" style={{zIndex: 2000}}>
-          <button 
-            className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'}`}
-            onClick={handleToggleWebcamSidebar}
-            title={isWebcamSidebarVisible ? t('webcam.hide', language) : t('webcam.show', language)}
-          >
-            <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
-          </button>
-          <button
-            className="btn btn-sm btn-outline-primary"
-            onClick={() => setShowAvatarCreatorPlayer(true)}
-            title={t('avatar.change', language)}
-            disabled={!persistentPlayerId}
-          >
-            <i className="bi bi-person-circle"></i>
-          </button>
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => setShowHistoryModal(true)}
-            title={t('questionHistory.view', language) || 'View Question History'}
-          >
-            <i className="bi bi-clock-history"></i>
-          </button>
-        </div>
-
-        <div className="container py-4">
-          <LoadingOverlay isVisible={isLoading && (players.length === 0 || !receivedGameState)} />
-          <ConnectionStatus showDetails={true} />
-          {errorMsg && (
-            <div className="alert alert-danger">{errorMsg}</div>
-          )}
-          {connectionStatus === 'disconnected' && (
-            <div className="alert alert-warning">
-              <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
-            </div>
-          )}
-          <div className="form-check mb-3">
-            <input
-              type="checkbox"
-              className="form-check-input"
-              id="hideLobbyCodeCheckbox"
-              checked={hideLobbyCode}
-              onChange={e => {
-                setHideLobbyCode(e.target.checked);
-                sessionStorage.setItem('hideLobbyCode', e.target.checked ? 'true' : 'false');
-              }}
-            />
-            <label className="form-check-label" htmlFor="hideLobbyCodeCheckbox">
-              {t('joinGame.hideLobbyCode', language) || 'Hide Lobby Code'}
-            </label>
-          </div>
-          <div className="row g-3">
-            <div className="col-12 col-md-8">
-              {!gameStarted ? (
-                <div className="card p-4 text-center">
-                  <h2 className="h4 mb-3">{t('playerPage.waitingForGM', language)}</h2>
-                  <p>{t('playerPage.getReady', language)}</p>
-                  <div className="spinner-border text-primary mx-auto mt-3" role="status">
-                    <span className="visually-hidden">{t('loading', language)}</span>
-                  </div>
-                </div>
-              ) : (
-                <>
-                  <div className="d-flex justify-content-between align-items-center mb-3">
-                    <div style={{ flexGrow: 1, marginRight: '1rem' }}>
-                      <QuestionCard
-                        question={currentQuestion}
-                        timeRemaining={timeRemaining}
-                        onSubmit={handleAnswerSubmit}
-                        submitted={submittedAnswerLocal || hasSubmittedToServer}
-                      />
-                    </div>
-                    {timeLimit !== null && timeLimit < 99999 && (
-                      <Timer isActive={isTimerRunning} showSeconds={true} />
-                    )}
-                  </div>
-                  
-                  <DrawingBoard
-                    key={canvasKey}
-                    onUpdate={handleBoardUpdate}
-                    disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
-                  />
-                  
-                  <div className="input-group mb-3">
-                    <input
-                      type="text"
-                      className="form-control form-control-lg"
-                      placeholder={t('answerInput.placeholder', language)}
-                      value={answer}
-                      onChange={handleAnswerChange}
-                      disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
-                    />
-                    <button
-                      className="btn btn-primary"
-                      type="button"
-                      onClick={() => handleAnswerSubmit(answer)}
-                      disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
-                    >
-                      {t('playerPage.submitAnswer', language)}
-                    </button>
-                  </div>
-                  
-                  {(submittedAnswerLocal || hasSubmittedToServer) && !currentQuestion?.answer && (
-                    <div className="alert alert-info mt-3">
-                      {t('playerPage.answerSubmitted', language)}
-                    </div>
-                  )}
-                  {connectionStatus !== 'connected' && (
-                    <div className="alert alert-warning mt-3">
-                      {t('playerPage.disconnected', language)}
-                    </div>
-                  )}
-                </>
-              )}
-            </div>
-            <div className="col-12 col-md-4">
-              <RoomCode hideLobbyCode={hideLobbyCode} />
-              <PlayerList title={t('playerPage.otherPlayers', language)} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {isWebcamSidebarVisible && (
-        <div 
-          ref={dragRef}
-          className="webcam-sidebar text-light p-0 draggable-webcam-container" 
-          style={{ 
-            position: 'absolute',
-            top: `${webcamPosition.y}px`,
-            left: `${webcamPosition.x}px`,
-            width: `${webcamSize.width}px`,
-            height: `${webcamSize.height}px`,
-            overflowY: 'auto',
-            display: 'flex',
-            flexDirection: 'column',
-            backgroundColor: 'rgba(0, 0, 0, 0.1)',
-            backdropFilter: 'none',
-            zIndex: 1500,
-            boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
-            borderRadius: '8px',
-            resize: 'both',
-            overflow: 'hidden'
-          }}
-          onMouseDown={handleMouseDown}
-        >
-          <div className="webcam-handle" title="Drag to move"></div>
-          <div className="p-2" style={{ flex: 1, overflow: 'hidden' }}>
-            <WebcamDisplay />
-          </div>
-          <div 
-            className="resize-handle"
-            onMouseDown={handleResizeStart}
-            style={{
-              position: 'absolute',
-              right: 0,
-              bottom: 0,
-              width: '20px',
-              height: '20px',
-              cursor: 'nwse-resize',
-              background: 'transparent',
-              zIndex: 1600,
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <div style={{
-              position: 'absolute',
-              right: '5px',
-              bottom: '5px',
-              width: '10px',
-              height: '10px',
-              borderRight: '2px solid rgba(255,255,255,0.7)',
-              borderBottom: '2px solid rgba(255,255,255,0.7)',
-              transition: 'all 0.2s ease'
-            }}></div>
-          </div>
-        </div>
-      )}
-      {showAvatarCreatorPlayer && persistentPlayerId && (
-        <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
-          <div className="modal-dialog modal-dialog-centered modal-lg">
-            <div className="modal-content">
-              <div className="modal-header">
-                <h5 className="modal-title">{t('avatar.create', language)}</h5>
-                <button type="button" className="btn-close" onClick={() => setShowAvatarCreatorPlayer(false)}></button>
-              </div>
-              <div className="modal-body">
-                <AvatarCreator
-                  onSave={(avatarSvgFromCreator) => {
-                    if (persistentPlayerId) {
-                      handleAvatarUpdatePlayer(avatarSvgFromCreator, persistentPlayerId);
-                    } else {
-                      console.error("[PlayerPage] Cannot call handleAvatarUpdatePlayer: persistentPlayerId is missing.");
-                      toast.error(t('avatar.updateErrorMissingData', language));
-                    }
-                  }}
-                  onCancel={() => setShowAvatarCreatorPlayer(false)}
-                  persistentPlayerId={persistentPlayerId}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-      <QuestionHistoryModal
-        show={showHistoryModal}
-        onHide={() => setShowHistoryModal(false)}
-        history={playerAnswerHistory}
+    <>
+      <RoundStartOverlay
+        question={currentQuestion?.text || ''}
+        subject={currentQuestion?.subject || ''}
+        grade={currentQuestion?.grade || ''}
+        active={showRoundStartOverlay}
+        onFinish={() => setShowRoundStartOverlay(false)}
+        language={language}
       />
-    </div>
+      <div className="vh-100 player-page-layout position-relative">
+        <div 
+          className="main-content-area p-0" 
+          style={{ 
+            height: '100vh', 
+            overflowY: 'auto',
+            width: '100%'
+          }}
+        >
+          <SettingsControl />
+          <div className="d-flex gap-2 position-fixed top-0 start-0 m-2" style={{zIndex: 2000}}>
+            <button 
+              className={`btn btn-sm ${isWebcamSidebarVisible ? 'btn-info' : 'btn-outline-info'}`}
+              onClick={handleToggleWebcamSidebar}
+              title={isWebcamSidebarVisible ? t('webcam.hide', language) : t('webcam.show', language)}
+            >
+              <i className={`bi ${isWebcamSidebarVisible ? 'bi-camera-video-off' : 'bi-camera-video'}`}></i>
+            </button>
+            <button
+              className="btn btn-sm btn-outline-primary"
+              onClick={() => setShowAvatarCreatorPlayer(true)}
+              title={t('avatar.change', language)}
+              disabled={!persistentPlayerId}
+            >
+              <i className="bi bi-person-circle"></i>
+            </button>
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => setShowHistoryModal(true)}
+              title={t('questionHistory.view', language) || 'View Question History'}
+            >
+              <i className="bi bi-clock-history"></i>
+            </button>
+          </div>
+
+          <div className="container py-4">
+            <LoadingOverlay isVisible={isLoading && (players.length === 0 || !receivedGameState)} />
+            <ConnectionStatus showDetails={true} />
+            {errorMsg && (
+              <div className="alert alert-danger">{errorMsg}</div>
+            )}
+            {connectionStatus === 'disconnected' && (
+              <div className="alert alert-warning">
+                <strong>{t('playerPage.disconnectedFromServer', language)}</strong> {t('playerPage.attemptingReconnect', language)}
+              </div>
+            )}
+            <div className="form-check mb-3">
+              <input
+                type="checkbox"
+                className="form-check-input"
+                id="hideLobbyCodeCheckbox"
+                checked={hideLobbyCode}
+                onChange={e => {
+                  setHideLobbyCode(e.target.checked);
+                  sessionStorage.setItem('hideLobbyCode', e.target.checked ? 'true' : 'false');
+                }}
+              />
+              <label className="form-check-label" htmlFor="hideLobbyCodeCheckbox">
+                {t('joinGame.hideLobbyCode', language) || 'Hide Lobby Code'}
+              </label>
+            </div>
+            <div className="row g-3">
+              <div className="col-12 col-md-8">
+                {!gameStarted ? (
+                  <div className="card p-4 text-center">
+                    <h2 className="h4 mb-3">{t('playerPage.waitingForGM', language)}</h2>
+                    <p>{t('playerPage.getReady', language)}</p>
+                    <div className="spinner-border text-primary mx-auto mt-3" role="status">
+                      <span className="visually-hidden">{t('loading', language)}</span>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <div className="d-flex justify-content-between align-items-center mb-3">
+                      <div style={{ flexGrow: 1, marginRight: '1rem' }}>
+                        <QuestionCard
+                          question={currentQuestion}
+                          timeRemaining={timeRemaining}
+                          onSubmit={handleAnswerSubmit}
+                          submitted={submittedAnswerLocal || hasSubmittedToServer}
+                        />
+                      </div>
+                      {timeLimit !== null && timeLimit < 99999 && (
+                        <Timer isActive={isTimerRunning} showSeconds={true} />
+                      )}
+                    </div>
+                    
+                    <DrawingBoard
+                      key={canvasKey}
+                      onUpdate={handleBoardUpdate}
+                      disabled={submittedAnswerLocal || hasSubmittedToServer || amISpectator || connectionStatus !== 'connected'}
+                    />
+                    
+                    <div className="input-group mb-3">
+                      <input
+                        type="text"
+                        className="form-control form-control-lg"
+                        placeholder={t('answerInput.placeholder', language)}
+                        value={answer}
+                        onChange={handleAnswerChange}
+                        disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+                      />
+                      <button
+                        className="btn btn-primary"
+                        type="button"
+                        onClick={() => handleAnswerSubmit(answer)}
+                        disabled={submittedAnswerLocal || hasSubmittedToServer || !gameStarted || !currentQuestion || amISpectator || connectionStatus !== 'connected'}
+                      >
+                        {t('playerPage.submitAnswer', language)}
+                      </button>
+                    </div>
+                    
+                    {(submittedAnswerLocal || hasSubmittedToServer) && !currentQuestion?.answer && (
+                      <div className="alert alert-info mt-3">
+                        {t('playerPage.answerSubmitted', language)}
+                      </div>
+                    )}
+                    {connectionStatus !== 'connected' && (
+                      <div className="alert alert-warning mt-3">
+                        {t('playerPage.disconnected', language)}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+              <div className="col-12 col-md-4">
+                <RoomCode hideLobbyCode={hideLobbyCode} />
+                <PlayerList title={t('playerPage.otherPlayers', language)} />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {isWebcamSidebarVisible && (
+          <div 
+            ref={dragRef}
+            className="webcam-sidebar text-light p-0 draggable-webcam-container" 
+            style={{ 
+              position: 'absolute',
+              top: `${webcamPosition.y}px`,
+              left: `${webcamPosition.x}px`,
+              width: `${webcamSize.width}px`,
+              height: `${webcamSize.height}px`,
+              overflowY: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              backgroundColor: 'rgba(0, 0, 0, 0.1)',
+              backdropFilter: 'none',
+              zIndex: 1500,
+              boxShadow: '0 4px 15px rgba(0, 0, 0, 0.2)',
+              borderRadius: '8px',
+              resize: 'both',
+              overflow: 'hidden'
+            }}
+            onMouseDown={handleMouseDown}
+          >
+            <div className="webcam-handle" title="Drag to move"></div>
+            <div className="p-2" style={{ flex: 1, overflow: 'hidden' }}>
+              <WebcamDisplay />
+            </div>
+            <div 
+              className="resize-handle"
+              onMouseDown={handleResizeStart}
+              style={{
+                position: 'absolute',
+                right: 0,
+                bottom: 0,
+                width: '20px',
+                height: '20px',
+                cursor: 'nwse-resize',
+                background: 'transparent',
+                zIndex: 1600,
+                transition: 'all 0.2s ease'
+              }}
+            >
+              <div style={{
+                position: 'absolute',
+                right: '5px',
+                bottom: '5px',
+                width: '10px',
+                height: '10px',
+                borderRight: '2px solid rgba(255,255,255,0.7)',
+                borderBottom: '2px solid rgba(255,255,255,0.7)',
+                transition: 'all 0.2s ease'
+              }}></div>
+            </div>
+          </div>
+        )}
+        {showAvatarCreatorPlayer && persistentPlayerId && (
+          <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
+            <div className="modal-dialog modal-dialog-centered modal-lg">
+              <div className="modal-content">
+                <div className="modal-header">
+                  <h5 className="modal-title">{t('avatar.create', language)}</h5>
+                  <button type="button" className="btn-close" onClick={() => setShowAvatarCreatorPlayer(false)}></button>
+                </div>
+                <div className="modal-body">
+                  <AvatarCreator
+                    onSave={(avatarSvgFromCreator) => {
+                      if (persistentPlayerId) {
+                        handleAvatarUpdatePlayer(avatarSvgFromCreator, persistentPlayerId);
+                      } else {
+                        console.error("[PlayerPage] Cannot call handleAvatarUpdatePlayer: persistentPlayerId is missing.");
+                        toast.error(t('avatar.updateErrorMissingData', language));
+                      }
+                    }}
+                    onCancel={() => setShowAvatarCreatorPlayer(false)}
+                    persistentPlayerId={persistentPlayerId}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+        <QuestionHistoryModal
+          show={showHistoryModal}
+          onHide={() => setShowHistoryModal(false)}
+          history={playerAnswerHistory}
+          language={language}
+        />
+      </div>
+    </>
   );
 };
 

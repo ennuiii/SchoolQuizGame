@@ -934,6 +934,10 @@ io.on('connection', (socket) => {
                 isCorrect: null, // Evaluation pending
                 answerAttemptId: answerAttemptId || null
             };
+            // Add submissionOrder and submissionTime
+            const currentSubmissions = Object.keys(room.roundAnswers).length;
+            answerData.submissionOrder = currentSubmissions + 1;
+            answerData.submissionTime = room.questionStartTime ? Date.now() - room.questionStartTime : undefined;
             // Store answer in room.roundAnswers, keyed by persistentPlayerId (for both players and GM in community mode)
             if (!room.roundAnswers)
                 room.roundAnswers = {};
@@ -1037,49 +1041,40 @@ io.on('connection', (socket) => {
             const submittedAnswerData = room.roundAnswers[persistentPlayerIdFromClient];
             if (!submittedAnswerData) {
                 console.warn(`[Server Socket EVal] No answer submission found for persistentPlayerId: ${persistentPlayerIdFromClient}`);
-                socket.emit('error', { message: 'No answer found for player to evaluate.' }); // Changed to error event
+                socket.emit('error', { message: 'No answer found for player to evaluate.' });
                 return;
             }
+            // Get the previous evaluation status
+            const previousEvaluation = room.evaluatedAnswers[persistentPlayerIdFromClient];
+            // Update the answer evaluation
             submittedAnswerData.isCorrect = isCorrect;
             if (!room.evaluatedAnswers)
                 room.evaluatedAnswers = {};
             room.evaluatedAnswers[persistentPlayerIdFromClient] = isCorrect;
+            // Handle life changes based on evaluation change
             if (playerObjInRoom) {
-                const playerSpecificAnswerRecord = playerObjInRoom.answers[room.currentQuestionIndex];
-                if (playerSpecificAnswerRecord) {
-                    playerSpecificAnswerRecord.isCorrect = isCorrect;
+                if (isCorrect && previousEvaluation === false) {
+                    // Restore a life when correcting from incorrect to correct
+                    playerObjInRoom.lives = Math.min(3, (playerObjInRoom.lives || 0) + 1);
+                    console.log(`[Server] Restored life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
                 }
-                else {
-                    if (playerObjInRoom.answers && room.currentQuestionIndex !== undefined) {
-                        playerObjInRoom.answers[room.currentQuestionIndex] = {
-                            ...submittedAnswerData,
-                            isCorrect: isCorrect
-                        };
-                    }
-                }
-                if (!isCorrect) {
+                else if (!isCorrect && previousEvaluation === true) {
+                    // Remove a life when changing from correct to incorrect
                     playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);
-                    if (playerObjInRoom.lives <= 0) {
-                        playerObjInRoom.isActive = false;
-                        playerObjInRoom.isSpectator = true;
-                        const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerObjInRoom.id);
-                        if (playerSocket) {
-                            playerSocket.emit('become_spectator');
-                        }
+                    console.log(`[Server] Removed life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
+                }
+                // Check if player should become spectator
+                if (playerObjInRoom.lives <= 0) {
+                    playerObjInRoom.isActive = false;
+                    playerObjInRoom.isSpectator = true;
+                    const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerObjInRoom.id);
+                    if (playerSocket) {
+                        playerSocket.emit('become_spectator');
+                        console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated.`);
                     }
                 }
             }
-            const activePlayers = room.players.filter(p => p.isActive && !p.isSpectator);
-            if (room.started && activePlayers.length <= 1 && room.players.length > 0) {
-                if (!room.isConcluded) {
-                    const winner = activePlayers.length === 1 ? {
-                        id: activePlayers[0].id,
-                        persistentPlayerId: activePlayers[0].persistentPlayerId,
-                        name: activePlayers[0].name
-                    } : null;
-                    (0, socketService_2.concludeGameAndSendRecap)(roomCode, winner);
-                }
-            }
+            // Broadcast the updated game state
             (0, socketService_1.broadcastGameState)(roomCode);
             const responseTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
             gameAnalytics_1.gameAnalytics.recordAnswer(roomCode, persistentPlayerIdFromClient, submittedAnswerData.answer, isCorrect, responseTime);
@@ -1108,12 +1103,15 @@ io.on('connection', (socket) => {
                     player.answers[room.currentQuestionIndex] = undefined; // Reset for new question
             });
             (0, socketService_2.clearRoomTimer)(roomCode);
-            if (room.timeLimit && room.timeLimit < 99999) {
-                (0, socketService_2.startQuestionTimer)(roomCode);
-            }
+            // DELAY TIMER START
             (0, socketService_1.broadcastGameState)(roomCode); // Broadcasts full state including new question
             const currentIO = (0, socketService_1.getIO)();
             currentIO.to(roomCode).emit('new_question', { question: room.currentQuestion, timeLimit: room.timeLimit || 0 });
+            if (room.timeLimit && room.timeLimit < 99999) {
+                setTimeout(() => {
+                    (0, socketService_2.startQuestionTimer)(roomCode);
+                }, socketService_1.QUESTION_COUNTDOWN_DURATION_MS);
+            }
         }
     });
     // Handle end round early request from gamemaster

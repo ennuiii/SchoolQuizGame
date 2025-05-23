@@ -22,6 +22,8 @@ export interface Player {
     timestamp: number;
     isCorrect: boolean | null;
     answerAttemptId?: string | null;
+    submissionOrder?: number;
+    submissionTime?: number;
   }[];
   isActive: boolean;
   isSpectator: boolean;
@@ -42,6 +44,8 @@ export interface AnswerSubmission {
   timestamp?: number;
   hasDrawing?: boolean;
   drawingData?: string | null;
+  submissionOrder?: number;
+  submissionTime?: number;
 }
 
 export interface PreviewModeState {

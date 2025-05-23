@@ -9,6 +9,7 @@ import {
   Box,
 } from '@mui/material';
 import { useAuth } from '../contexts/AuthContext';
+import { t } from '../../../src/i18n';
 
 const Login: React.FC = () => {
   const [username, setUsername] = useState('');
@@ -39,7 +40,7 @@ const Login: React.FC = () => {
           alignItems: 'center',
         }}
       >
-        <div className="admin-header">Admin Login</div>
+        <div className="admin-header">{t('admin.login.title', 'en')}</div>
         <Paper
           elevation={3}
           sx={{
@@ -88,7 +89,7 @@ const Login: React.FC = () => {
               sx={{ mt: 3, mb: 2 }}
               className="confirm-btn"
             >
-              Sign In
+              {t('admin.login.signIn', 'en')}
             </Button>
           </Box>
         </Paper>

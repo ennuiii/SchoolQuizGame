@@ -1,11 +1,15 @@
 import React from 'react';
 import { Modal, Table, Button } from 'react-bootstrap';
 import { FaThumbsUp, FaThumbsDown } from 'react-icons/fa6';
+import { t } from '../../i18n';
 
 interface PlayerAnswer {
   playerName: string;
   answer: string;
   isCorrect: boolean | null;
+  submissionOrder?: number;  // Order in which the answer was submitted
+  submissionTime?: number;   // Time taken to submit in milliseconds
+  submissionTimestamp?: number; // When the answer was submitted
 }
 
 interface QuestionHistoryItem {
@@ -19,73 +23,95 @@ interface GameMasterQuestionHistoryModalProps {
   show: boolean;
   onHide: () => void;
   history: QuestionHistoryItem[];
+  language: string;
 }
 
 /**
  * Modal for Game Master to view all questions asked, with all players' answers and correctness.
  */
-const GameMasterQuestionHistoryModal: React.FC<GameMasterQuestionHistoryModalProps> = ({ show, onHide, history }) => {
+const GameMasterQuestionHistoryModal: React.FC<GameMasterQuestionHistoryModalProps> = ({ show, onHide, history, language }) => {
+  // Helper function to format time taken
+  const formatTimeTaken = (milliseconds: number) => {
+    const minutes = Math.floor(milliseconds / 60000);
+    const seconds = Math.floor((milliseconds % 60000) / 1000);
+    return `${minutes}m ${seconds}s`;
+  };
+
   return (
-    <Modal show={show} onHide={onHide} size="xl" centered className="gm-question-history-modal">
-      <Modal.Header closeButton>
-        <Modal.Title>Question History</Modal.Title>
+    <Modal show={show} onHide={onHide} size="xl" centered className="player-management-modal">
+      <Modal.Header closeButton className="modal-header">
+        <Modal.Title className="modal-title">{t('gameMasterQuestionHistory.title', language)}</Modal.Title>
       </Modal.Header>
-      <Modal.Body style={{ maxHeight: '70vh', overflowY: 'auto' }}>
-        <Table striped bordered hover responsive>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Question</th>
-              <th>Subject</th>
-              <th>Grade</th>
-              <th>Player</th>
-              <th>Answer</th>
-              <th>Result</th>
-            </tr>
-          </thead>
-          <tbody>
-            {history.length === 0 ? (
+      <Modal.Body className="modal-body">
+        <div className="card p-3" style={{ background: 'inherit', border: 'none', boxShadow: 'none' }}>
+          <Table striped bordered hover responsive className="admin-table" style={{ borderRadius: '14px', overflow: 'hidden', background: 'inherit' }}>
+            <thead style={{ background: '#ffe066', color: '#2d4739' }}>
               <tr>
-                <td colSpan={7} className="text-center text-muted">No questions asked yet.</td>
+                <th>#</th>
+                <th>{t('gameMasterQuestionHistory.question', language)}</th>
+                <th>{t('gameMasterQuestionHistory.subject', language)}</th>
+                <th>{t('gameMasterQuestionHistory.grade', language)}</th>
+                <th>{t('gameMasterQuestionHistory.player', language)}</th>
+                <th>{t('gameMasterQuestionHistory.answer', language)}</th>
+                <th>{t('gameMasterQuestionHistory.result', language)}</th>
+                <th>{t('gameMasterQuestionHistory.submissionOrder', language)}</th>
+                <th>{t('gameMasterQuestionHistory.timeTaken', language)}</th>
               </tr>
-            ) : (
-              history.map((item, qIdx) => (
-                item.answers.length === 0 ? (
-                  <tr key={qIdx}>
-                    <td>{qIdx + 1}</td>
-                    <td>{item.question}</td>
-                    <td>{item.subject}</td>
-                    <td>{item.grade}</td>
-                    <td colSpan={3} className="text-center text-muted">No answers</td>
-                  </tr>
-                ) : (
-                  item.answers.map((ans, aIdx) => (
-                    <tr key={qIdx + '-' + aIdx}>
-                      {aIdx === 0 && (
-                        <>
-                          <td rowSpan={item.answers.length}>{qIdx + 1}</td>
-                          <td rowSpan={item.answers.length}>{item.question}</td>
-                          <td rowSpan={item.answers.length}>{item.subject}</td>
-                          <td rowSpan={item.answers.length}>{item.grade}</td>
-                        </>
-                      )}
-                      <td>{ans.playerName}</td>
-                      <td>{ans.answer}</td>
-                      <td className="text-center">
-                        {ans.isCorrect === true && FaThumbsUp({ style: { color: 'green' }, title: 'Correct' })}
-                        {ans.isCorrect === false && FaThumbsDown({ style: { color: 'red' }, title: 'Incorrect' })}
-                        {ans.isCorrect === null && <span className="badge bg-secondary">Pending</span>}
-                      </td>
+            </thead>
+            <tbody>
+              {history.length === 0 ? (
+                <tr>
+                  <td colSpan={9} className="text-center text-muted">{t('gameMasterQuestionHistory.noQuestions', language)}</td>
+                </tr>
+              ) : (
+                history.map((item, qIdx) => (
+                  item.answers.length === 0 ? (
+                    <tr key={qIdx} style={{ fontFamily: 'Patrick Hand, Schoolbell, cursive' }}>
+                      <td colSpan={9} className="text-center text-muted">{t('gameMasterQuestionHistory.noAnswers', language)}</td>
                     </tr>
-                  ))
-                )
-              ))
-            )}
-          </tbody>
-        </Table>
+                  ) : (
+                    item.answers.map((ans, aIdx) => (
+                      <tr key={qIdx + '-' + aIdx} style={{ fontFamily: 'Patrick Hand, Schoolbell, cursive' }}>
+                        {aIdx === 0 && (
+                          <>
+                            <td rowSpan={item.answers.length}>{qIdx + 1}</td>
+                            <td rowSpan={item.answers.length}>{item.question}</td>
+                            <td rowSpan={item.answers.length}>{item.subject}</td>
+                            <td rowSpan={item.answers.length}>{item.grade}</td>
+                          </>
+                        )}
+                        <td>{ans.playerName}</td>
+                        <td>{ans.answer}</td>
+                        <td className="text-center">
+                          {ans.isCorrect === true && <span className="badge bg-success align-middle" style={{ fontSize: '1.1em', verticalAlign: 'middle' }}>{FaThumbsUp({ style: { color: 'green', marginRight: 4, verticalAlign: 'middle' }, size: 18, title: 'Correct' })}</span>}
+                          {ans.isCorrect === false && <span className="badge bg-danger align-middle" style={{ fontSize: '1.1em', verticalAlign: 'middle' }}>{FaThumbsDown({ style: { color: 'red', marginRight: 4, verticalAlign: 'middle' }, size: 18, title: 'Incorrect' })}</span>}
+                          {ans.isCorrect === null && <span className="badge bg-secondary">{t('gameMasterQuestionHistory.pending', language)}</span>}
+                        </td>
+                        <td>
+                          {ans.submissionOrder && (
+                            <span className="badge bg-info" title={t('gameMasterQuestionHistory.submissionOrderTooltip', language)}>
+                              #{ans.submissionOrder}
+                            </span>
+                          )}
+                        </td>
+                        <td>
+                          {ans.submissionTime && (
+                            <span className="text-muted" title={t('gameMasterQuestionHistory.timeTakenTooltip', language)}>
+                              {formatTimeTaken(ans.submissionTime)}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))
+                  )
+                ))
+              )}
+            </tbody>
+          </Table>
+        </div>
       </Modal.Body>
-      <Modal.Footer>
-        <Button variant="secondary" onClick={onHide}>Close</Button>
+      <Modal.Footer className="modal-footer">
+        <Button variant="secondary" onClick={onHide} className="btn btn-secondary">{t('gameMasterQuestionHistory.close', language)}</Button>
       </Modal.Footer>
     </Modal>
   );
