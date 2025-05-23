@@ -83,11 +83,13 @@ const DuplicateDetection: React.FC = () => {
             normalize(questions[i].text),
             normalize(questions[j].text)
           );
-          pairs.push({
-            question1: questions[i],
-            question2: questions[j],
-            score
-          });
+          if (score > 50) { // Only include pairs with score > 50
+            pairs.push({
+              question1: questions[i],
+              question2: questions[j],
+              score
+            });
+          }
         }
       }
       
@@ -123,92 +125,95 @@ const DuplicateDetection: React.FC = () => {
   };
 
   return (
-    <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
-      <Paper className="card" sx={{ p: 3 }}>
-        <span className="dashboard-caption">Duplicate Detection</span>
-        <Typography variant="body1" paragraph>
-          Scan for similar questions in the database. Select duplicates to remove, then click Remove Duplicates.
-        </Typography>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={scanForDuplicates}
-          disabled={loading}
-          className="confirm-btn"
-        >
-          {loading ? <CircularProgress size={24} /> : 'Scan for Similar Questions'}
-        </Button>
-        {questionPairs.length > 0 && (
-          <TableContainer sx={{ mt: 4 }}>
-            <Table className="admin-table">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Similarity Score</TableCell>
-                  <TableCell>Question 1</TableCell>
-                  <TableCell>Answer 1</TableCell>
-                  <TableCell>Grade 1</TableCell>
-                  <TableCell>Subject 1</TableCell>
-                  <TableCell>Question 2</TableCell>
-                  <TableCell>Answer 2</TableCell>
-                  <TableCell>Grade 2</TableCell>
-                  <TableCell>Subject 2</TableCell>
-                  <TableCell>Select</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {questionPairs.map((pair, index) => (
-                  <TableRow key={`${pair.question1.id}-${pair.question2.id}`} className="duplicate-row">
-                    <TableCell className="duplicate-score">{pair.score}%</TableCell>
-                    <TableCell>{pair.question1.text}</TableCell>
-                    <TableCell>{pair.question1.answer}</TableCell>
-                    <TableCell>{pair.question1.grade}</TableCell>
-                    <TableCell>{pair.question1.subject}</TableCell>
-                    <TableCell>{pair.question2.text}</TableCell>
-                    <TableCell>{pair.question2.answer}</TableCell>
-                    <TableCell>{pair.question2.grade}</TableCell>
-                    <TableCell>{pair.question2.subject}</TableCell>
-                    <TableCell>
-                      <Checkbox
-                        checked={selectedIds.includes(pair.question1.id) || selectedIds.includes(pair.question2.id)}
-                        onChange={() => {
-                          handleSelect(pair.question1.id);
-                          handleSelect(pair.question2.id);
-                        }}
-                        color="primary"
-                      />
-                    </TableCell>
+    <Box sx={{ width: '100vw', height: '100vh', position: 'fixed', top: 0, left: 0, bgcolor: '#f5f5f5', zIndex: 1200, overflow: 'auto' }}>
+      <Container maxWidth={false} sx={{ width: '100vw', height: '100vh', p: 0, m: 0 }}>
+        <Paper className="card" sx={{ p: 3, width: '100vw', minHeight: '100vh', boxSizing: 'border-box' }}>
+          <span className="dashboard-caption">Duplicate Detection</span>
+          <Typography variant="body1" paragraph>
+            Scan for similar questions in the database. Select duplicates to remove, then click Remove Duplicates.
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={scanForDuplicates}
+              disabled={loading}
+              className="confirm-btn"
+            >
+              {loading ? <CircularProgress size={24} /> : 'Scan for Similar Questions'}
+            </Button>
+            {questionPairs.length > 0 && (
+              <Button
+                variant="contained"
+                color="secondary"
+                onClick={() => setConfirmOpen(true)}
+                disabled={selectedIds.length === 0 || removing}
+                className="confirm-btn"
+              >
+                Remove Selected Questions
+              </Button>
+            )}
+          </Box>
+          {questionPairs.length > 0 && (
+            <TableContainer sx={{ mt: 2, maxHeight: '75vh', overflowX: 'auto', width: '100vw' }}>
+              <Table stickyHeader className="admin-table" sx={{ minWidth: 1800 }}>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ minWidth: 120 }}>Similarity Score</TableCell>
+                    <TableCell sx={{ minWidth: 300, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Question 1</TableCell>
+                    <TableCell sx={{ minWidth: 200, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Answer 1</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Grade 1</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>Subject 1</TableCell>
+                    <TableCell sx={{ minWidth: 300, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Question 2</TableCell>
+                    <TableCell sx={{ minWidth: 200, wordBreak: 'break-word', whiteSpace: 'pre-line' }}>Answer 2</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Grade 2</TableCell>
+                    <TableCell sx={{ minWidth: 120 }}>Subject 2</TableCell>
+                    <TableCell sx={{ minWidth: 80 }}>Select</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
-        {questionPairs.length > 0 && (
-          <Button
-            variant="contained"
-            color="secondary"
-            onClick={() => setConfirmOpen(true)}
-            disabled={selectedIds.length === 0 || removing}
-            sx={{ mt: 3 }}
-            className="confirm-btn"
-          >
-            Remove Selected Questions
-          </Button>
-        )}
-      </Paper>
-      <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} className="admin-modal">
-        <DialogTitle>Confirm Removal</DialogTitle>
-        <DialogContent>
-          <Typography>Are you sure you want to remove the selected questions?</Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setConfirmOpen(false)} className="cancel-btn">Cancel</Button>
-          <Button onClick={handleRemove} color="secondary" variant="contained" className="confirm-btn" disabled={removing}>
-            {removing ? <CircularProgress size={20} /> : 'Yes, Remove'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Container>
+                </TableHead>
+                <TableBody>
+                  {questionPairs.map((pair, index) => (
+                    <TableRow key={`${pair.question1.id}-${pair.question2.id}`} className="duplicate-row">
+                      <TableCell className="duplicate-score">{pair.score}%</TableCell>
+                      <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{pair.question1.text}</TableCell>
+                      <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{pair.question1.answer}</TableCell>
+                      <TableCell>{pair.question1.grade}</TableCell>
+                      <TableCell>{pair.question1.subject}</TableCell>
+                      <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{pair.question2.text}</TableCell>
+                      <TableCell sx={{ wordBreak: 'break-word', whiteSpace: 'pre-line' }}>{pair.question2.answer}</TableCell>
+                      <TableCell>{pair.question2.grade}</TableCell>
+                      <TableCell>{pair.question2.subject}</TableCell>
+                      <TableCell>
+                        <Checkbox
+                          checked={selectedIds.includes(pair.question1.id) || selectedIds.includes(pair.question2.id)}
+                          onChange={() => {
+                            handleSelect(pair.question1.id);
+                            handleSelect(pair.question2.id);
+                          }}
+                          color="primary"
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
+        <Dialog open={confirmOpen} onClose={() => setConfirmOpen(false)} className="admin-modal">
+          <DialogTitle>Confirm Removal</DialogTitle>
+          <DialogContent>
+            <Typography>Are you sure you want to remove the selected questions?</Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setConfirmOpen(false)} className="cancel-btn">Cancel</Button>
+            <Button onClick={handleRemove} color="secondary" variant="contained" className="confirm-btn" disabled={removing}>
+              {removing ? <CircularProgress size={20} /> : 'Yes, Remove'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+      </Container>
+    </Box>
   );
 };
 

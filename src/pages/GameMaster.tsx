@@ -28,6 +28,7 @@ import WebcamDisplay from '../components/shared/WebcamDisplay';
 import DrawingBoard from '../components/player/DrawingBoard';
 import AnswerInput from '../components/player/AnswerInput';
 import AvatarCreator from '../components/shared/AvatarCreator';
+import GameMasterQuestionHistoryModal from '../components/shared/GameMasterQuestionHistoryModal';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -83,6 +84,7 @@ const GameMaster: React.FC = () => {
   const [gmSubmittedCommunityAnswerForRound, setGmSubmittedCommunityAnswerForRound] = useState(false);
   const [gmOverlayLocallyClosed, setGmOverlayLocallyClosed] = useState(false);
   const [showAvatarCreator, setShowAvatarCreator] = useState(false);
+  const [showHistoryModal, setShowHistoryModal] = useState(false);
   
   const {
     roomCode,
@@ -827,6 +829,28 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCode, language, t, setShowAvatarCreator]);
 
+  // Prepare question history for modal
+  const gmQuestionHistory = useMemo(() => {
+    // Each question in order, with all player answers for that question
+    return questions.map((q, qIdx) => {
+      // For each player, find their answer for this question index
+      const answers = gamePlayers.map(player => {
+        const answerObj = player.answers?.[qIdx];
+        return {
+          playerName: player.name,
+          answer: answerObj?.answer ?? '-',
+          isCorrect: answerObj?.isCorrect ?? null,
+        };
+      });
+      return {
+        question: q.text,
+        subject: q.subject,
+        grade: q.grade,
+        answers,
+      };
+    });
+  }, [questions, gamePlayers]);
+
   // Show loading overlay if trying to connect or reconnect
   if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
     return (
@@ -961,6 +985,14 @@ const GameMaster: React.FC = () => {
             title={t('avatar.change', language)}
           >
             <i className="bi bi-person-circle"></i>
+          </button>
+
+          <button
+            className="btn btn-sm btn-outline-secondary"
+            onClick={() => setShowHistoryModal(true)}
+            title="View Question History"
+          >
+            <i className="bi bi-clock-history"></i>
           </button>
         </div>
 
@@ -1362,6 +1394,12 @@ const GameMaster: React.FC = () => {
           </div>
         </div>
       )}
+
+      <GameMasterQuestionHistoryModal
+        show={showHistoryModal}
+        onHide={() => setShowHistoryModal(false)}
+        history={gmQuestionHistory}
+      />
     </div>
   );
 };

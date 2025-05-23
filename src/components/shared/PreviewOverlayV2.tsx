@@ -218,13 +218,152 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
     }
   };
 
+  // --- Focus Mode Logic ---
+  const focusedIdx = context.previewMode.focusedPlayerId
+    ? displayablePlayers.findIndex(p => p.persistentPlayerId === context.previewMode.focusedPlayerId)
+    : -1;
+  const isFocusMode = focusedIdx !== -1;
+
+  // GM controls focus
+  const handleFocusPlayer = (idx: number) => {
+    if (!isGameMaster) return;
+    const player = displayablePlayers[idx];
+    if (player) onFocus(player.persistentPlayerId);
+  };
+  const handleUnfocus = () => {
+    if (!isGameMaster) return;
+    onFocus('');
+  };
+  const handleNext = () => {
+    if (!isGameMaster) return;
+    if (displayablePlayers.length === 0) return;
+    const nextIdx = (focusedIdx + 1) % displayablePlayers.length;
+    handleFocusPlayer(nextIdx);
+  };
+  const handlePrev = () => {
+    if (!isGameMaster) return;
+    if (displayablePlayers.length === 0) return;
+    const prevIdx = (focusedIdx - 1 + displayablePlayers.length) % displayablePlayers.length;
+    handleFocusPlayer(prevIdx);
+  };
+  // --- End Focus Mode Logic ---
+
+  // --- Focused View ---
+  if (isFocusMode && focusedIdx !== -1) {
+    const player = displayablePlayers[focusedIdx];
+    const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
+    const actualBoardData = boardSubmission?.boardData;
+    const answer = context.allAnswersThisRound[player.persistentPlayerId];
+    const evaluation = context.evaluatedAnswers[player.persistentPlayerId];
+    const borderColor = boardColors[focusedIdx % boardColors.length];
+    const tapeColor = getRandomTapeColor(focusedIdx);
+    return (
+      <div className="preview-overlay-v2 classroom-preview-overlay">
+        <button className="btn btn-danger classroom-preview-close-btn" onClick={onClose}>
+          <i className="bi bi-x-lg"></i>
+        </button>
+        <div className="classroom-chalkboard" style={{ position: 'static', margin: '0 auto', left: 'unset', top: 'unset', width: '100%', maxWidth: 900, marginBottom: 48 }}>
+          <div className="classroom-chalkboard-content">
+            <div className="classroom-chalkboard-grade">
+              {context.currentQuestion ? <><i className="bi bi-easel me-2"></i>{`${context.currentQuestion.grade}. ${t('class', language)} – ${context.currentQuestion.subject}`}</> : ''}
+            </div>
+            <div className="classroom-chalkboard-question">
+              {context.currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{context.currentQuestion.text}</> : t('noQuestion', language)}
+              {isCommunityVotingMode && revealedAnswer && (
+                <div className="mt-2 pt-2 border-top border-light fst-italic">
+                  <strong>{t('previewOverlay.correctAnswerWas', language)}:</strong> {revealedAnswer}
+                </div>
+              )}
+            </div>
+            {isCommunityVotingMode && onShowAnswer && (
+              <button 
+                className={`btn btn-sm ${revealedAnswer ? 'btn-outline-warning' : 'btn-outline-light'} mt-2`} 
+                onClick={toggleAnswerVisibility}
+                title={revealedAnswer ? t('previewOverlay.hideAnswerTitle', language) || 'Hide the correct answer' : t('previewOverlay.showAnswerTitle', language)}
+              >
+                <i className={`bi ${revealedAnswer ? 'bi-eye-slash-fill' : 'bi-eye-fill'} me-1`}></i> 
+                {revealedAnswer ? t('previewOverlay.hideAnswer', language) || 'Hide Answer' : t('previewOverlay.showAnswer', language)}
+              </button>
+            )}
+            {isGameMaster && isCommunityVotingMode && onForceEndVoting && (
+              <button 
+                className="btn btn-sm btn-danger ms-2 mt-2" 
+                onClick={onForceEndVoting}
+                title={t('previewOverlay.forceEndVotingTitle', language) || 'End voting and evaluate answers based on current votes'}
+              >
+                <i className="bi bi-flag-fill me-1"></i> 
+                {t('previewOverlay.forceEndVoting', language) || 'Force End Voting'}
+              </button>
+            )}
+          </div>
+        </div>
+        <div className="d-flex flex-column align-items-center justify-content-center" style={{ minHeight: 500 }}>
+          <div className="classroom-whiteboard-card" style={{ borderColor, minWidth: 600, maxWidth: 1200, minHeight: 400 }}>
+            <div className="classroom-whiteboard-content">
+              <div style={{ marginBottom: 8, textAlign: 'left', width: '100%', paddingLeft: '5px' }}>
+                {[...Array(player?.lives || 0)].map((_, i) => (
+                  <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
+                ))}
+              </div>
+              <div className="classroom-whiteboard-svg" style={{ width: '100%', aspectRatio: '2/1', minHeight: '350px', maxHeight: '700px', backgroundColor: CHALKBOARD_BACKGROUND_COLOR, border: '4px solid #8B4513', borderRadius: '8px', boxShadow: 'inset 0 0 15px rgba(0,0,0,0.25)', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'hidden' }}>
+                {boardSvgs[player.persistentPlayerId] ? (
+                  <FabricJsonToSvg 
+                    jsonData={boardSvgs[player.persistentPlayerId]}
+                    className="scaled-svg-preview" 
+                    targetWidth={1200}
+                    targetHeight={600}
+                  />
+                ) : (
+                  <div className="svg-display-wrapper" style={{ width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                    <svg viewBox="0 0 1200 600"><rect width="100%" height="100%" fill={CHALKBOARD_BACKGROUND_COLOR} /></svg>
+                  </div>
+                )}
+              </div>
+              {answer !== undefined && (
+                <div className="notepad-answer mt-2 mb-2">
+                  <span className="notepad-label">
+                    <i className="bi bi-card-text me-1"></i>{t('answer', language)}:
+                  </span>
+                  <span className="notepad-text ms-2">
+                    {answer.hasDrawing && !answer.answer ? t('drawingOnly', language) : (answer.answer || "-")}
+                  </span>
+                </div>
+              )}
+              {/* Correct/Incorrect buttons, voting, etc. can be shown here if needed */}
+              {evaluation !== undefined && (
+                <span 
+                  className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}
+                  style={{ animation: 'fadeInScale 0.3s ease-out' }}
+                >
+                  {evaluation ? <><i className="bi bi-patch-check-fill me-1"></i>{t('correct', language)}</> : <><i className="bi bi-patch-exclamation-fill me-1"></i>{t('incorrect', language)}</>}
+                </span>
+              )}
+            </div>
+            <div className="classroom-whiteboard-label">
+              <span className="classroom-whiteboard-name"><i className="bi bi-person-fill me-2"></i>{player?.name || ''}</span>
+              <span className="classroom-whiteboard-tape classroom-whiteboard-tape-left" style={{ background: tapeColor }} />
+              <span className="classroom-whiteboard-tape classroom-whiteboard-tape-right" style={{ background: tapeColor }} />
+            </div>
+          </div>
+          {isGameMaster && (
+            <div className="d-flex gap-2 mt-4">
+              <button className="btn btn-outline-primary" onClick={handlePrev}><i className="bi bi-arrow-left"></i> Prev</button>
+              <button className="btn btn-outline-secondary" onClick={handleUnfocus}><i className="bi bi-grid"></i> Grid View</button>
+              <button className="btn btn-outline-primary" onClick={handleNext}>Next <i className="bi bi-arrow-right"></i></button>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
+  // --- End Focused View ---
+
+  // --- Grid View ---
   return (
     <div className="preview-overlay-v2 classroom-preview-overlay">
-      {/* Close button overlays music button */}
       <button className="btn btn-danger classroom-preview-close-btn" onClick={onClose}>
         <i className="bi bi-x-lg"></i>
       </button>
-      {/* Chalkboard question at the top, not absolutely positioned */}
       <div className="classroom-chalkboard" style={{ position: 'static', margin: '0 auto', left: 'unset', top: 'unset', width: '100%', maxWidth: 900, marginBottom: 48 }}>
         <div className="classroom-chalkboard-content">
           <div className="classroom-chalkboard-grade">
@@ -232,14 +371,12 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           </div>
           <div className="classroom-chalkboard-question">
             {currentQuestion ? <><i className="bi bi-chat-square-quote me-2"></i>{currentQuestion.text}</> : t('noQuestion', language)}
-            {/* Display revealed answer here */}
             {isCommunityVotingMode && revealedAnswer && (
               <div className="mt-2 pt-2 border-top border-light fst-italic">
                 <strong>{t('previewOverlay.correctAnswerWas', language)}:</strong> {revealedAnswer}
               </div>
             )}
           </div>
-          {/* Show/Hide Answer button for community voting */}
           {isCommunityVotingMode && onShowAnswer && (
             <button 
               className={`btn btn-sm ${revealedAnswer ? 'btn-outline-warning' : 'btn-outline-light'} mt-2`} 
@@ -250,8 +387,6 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
               {revealedAnswer ? t('previewOverlay.hideAnswer', language) || 'Hide Answer' : t('previewOverlay.showAnswer', language)}
             </button>
           )}
-          
-          {/* Force End Voting button for GameMaster in community voting mode */}
           {isGameMaster && isCommunityVotingMode && onForceEndVoting && (
             <button 
               className="btn btn-sm btn-danger ms-2 mt-2" 
@@ -263,9 +398,7 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
             </button>
           )}
         </div>
-        {/* Removed sponge */}
       </div>
-      {/* Player boards grid below chalkboard */}
       <div
         className="classroom-whiteboard-grid"
         style={{
@@ -278,12 +411,11 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           maxWidth: 1400,
         }}
       >
-        {displayablePlayers.map((player, idx) => { // Iterate over displayablePlayers
-          // Use player.id (which is the socket.id) to match PlayerBoard.playerId
+        {displayablePlayers.map((player, idx) => {
           const boardSubmission = context.playerBoards.find(b => b.playerId === player.id);
           const actualBoardData = boardSubmission?.boardData;
-          const answer = context.allAnswersThisRound[player.persistentPlayerId]; // Answers are keyed by persistentPlayerId
-          const evaluation = context.evaluatedAnswers[player.persistentPlayerId]; // Evaluations are keyed by persistentPlayerId
+          const answer = context.allAnswersThisRound[player.persistentPlayerId];
+          const evaluation = context.evaluatedAnswers[player.persistentPlayerId];
           const borderColor = boardColors[idx % boardColors.length];
           const tapeColor = getRandomTapeColor(idx);
           
@@ -292,24 +424,17 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
           
           return (
             <div
-              key={player.persistentPlayerId} // Use player.persistentPlayerId as key
+              key={player.persistentPlayerId}
               className="classroom-whiteboard-card"
-              style={{ borderColor, minWidth: displayablePlayers.length <= 3 ? 340 : 300, maxWidth: displayablePlayers.length <= 3 ? 420 : 400, minHeight: 260 }}
+              style={{ borderColor: boardColors[idx % boardColors.length], minWidth: displayablePlayers.length <= 3 ? 340 : 300, maxWidth: displayablePlayers.length <= 3 ? 420 : 400, minHeight: 260 }}
             >
               <div className="classroom-whiteboard-content">
-                {/* Player lives - ensure this is visually separated and above drawing */}
-                <div style={{
-                  marginBottom: 8, 
-                  textAlign: 'left', // Align hearts to the left within their own row
-                  width: '100%', // Ensure it takes width for alignment
-                  paddingLeft: '5px' // Small padding from left edge of card content
-                }}>
+                <div style={{ marginBottom: 8, textAlign: 'left', width: '100%', paddingLeft: '5px' }}>
                   {[...Array(player?.lives || 0)].map((_, i) => (
                     <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
                   ))}
                 </div>
                 
-                {/* Drawing Area with Chalkboard Background */}
                 <div
                   className="classroom-whiteboard-svg" 
                   style={{
@@ -327,7 +452,6 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                     overflow: 'hidden'
                   }}
                 >
-                  {/* Replace direct SVG rendering with FabricJsonToSvg component */}
                   {boardSvgs[player.persistentPlayerId] ? (
                     <FabricJsonToSvg 
                       jsonData={boardSvgs[player.persistentPlayerId]}
@@ -351,7 +475,6 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                   )}
                 </div>
                 
-                {/* Answer with notepad effect - Show if an answer submission exists, even if text is empty */}
                 {answer !== undefined && (
                   <div className="notepad-answer mt-2 mb-2">
                     <span className="notepad-label">
@@ -363,7 +486,6 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                   </div>
                 )}
                 
-                {/* Correct/Incorrect buttons for GameMaster (standard mode) OR for all players (community voting mode) */}
                 {((isGameMaster && !isCommunityVotingMode && answer !== undefined && evaluation === undefined && onEvaluate) || 
                   (isCommunityVotingMode && answer !== undefined && onVote && !localMyVotes[player.persistentPlayerId] && evaluation === undefined && !isOwnAnswer)) && (
                   <div className="d-flex gap-2 justify-content-center mt-2">
@@ -400,27 +522,23 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                   </div>
                 )}
                 
-                {/* Message when player can't vote for their own answer */}
                 {isCommunityVotingMode && isOwnAnswer && answer !== undefined && evaluation === undefined && (
                   <div className="mt-2 text-center small fst-italic">
                     <span className="text-muted">{t('previewOverlay.cannotVoteOwn', language) || "You cannot vote for your own answer"}</span>
                   </div>
                 )}
                 
-                {/* Display vote counts in community voting mode */}
                 {isCommunityVotingMode && localCommunityVotes && localCommunityVotes[player.persistentPlayerId] && (
                   <div className="mt-2 text-center small">
                     <span className="badge bg-success me-1">Correct: {localCommunityVotes[player.persistentPlayerId]?.correct || 0}</span>
                     <span className="badge bg-danger">Incorrect: {localCommunityVotes[player.persistentPlayerId]?.incorrect || 0}</span>
                   </div>
                 )}
-                {/* Show player's own vote in community voting mode if they voted */}
                 {isCommunityVotingMode && localMyVotes && localMyVotes[player.persistentPlayerId] && evaluation === undefined && (
                     <div className="mt-1 text-center small fst-italic">
                         You voted: <span className={`fw-bold ${localMyVotes[player.persistentPlayerId] === 'correct' ? 'text-success' : 'text-danger'}`}>{localMyVotes[player.persistentPlayerId]}</span>
                     </div>
                 )}
-                {/* Show badge if evaluated (standard mode or after community voting tallied) */}
                 {evaluation !== undefined && (
                   <span 
                     className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}
@@ -440,6 +558,16 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
                 <span className="classroom-whiteboard-tape classroom-whiteboard-tape-left" style={{ background: tapeColor }} />
                 <span className="classroom-whiteboard-tape classroom-whiteboard-tape-right" style={{ background: tapeColor }} />
               </div>
+              {isGameMaster && (
+                <button
+                  className="btn btn-sm btn-outline-primary mt-2"
+                  style={{ position: 'absolute', top: 10, right: 10, zIndex: 10 }}
+                  onClick={() => handleFocusPlayer(idx)}
+                  title="Focus this answer"
+                >
+                  <i className="bi bi-search"></i> Focus
+                </button>
+              )}
             </div>
           );
         })}
