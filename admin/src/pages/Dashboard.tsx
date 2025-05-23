@@ -74,6 +74,27 @@ const Dashboard: React.FC = () => {
           </Paper>
         </Grid>
 
+        <Grid xs={12} md={4} component="div">
+          <Paper
+            className="card"
+            sx={{
+              p: 2,
+              display: 'flex',
+              flexDirection: 'column',
+              height: 240,
+              cursor: 'pointer',
+            }}
+            onClick={() => navigate('/duplicates')}
+          >
+            <Typography component="h2" variant="h6" color="primary" gutterBottom>
+              Duplicate Detection
+            </Typography>
+            <Typography>
+              Scan for and remove duplicate questions in the database.
+            </Typography>
+          </Paper>
+        </Grid>
+
         {/* <Grid xs={12} md={4} component="div">
           <Paper
             sx={{
