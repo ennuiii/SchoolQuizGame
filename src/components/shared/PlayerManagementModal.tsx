@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo } from 'react';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
 import Avatar from './Avatar';
@@ -19,7 +19,7 @@ interface PlayerManagementModalProps {
   isCommunityVotingMode: boolean;
 }
 
-const PlayerManagementModal: React.FC<PlayerManagementModalProps> = ({
+const PlayerManagementModal: React.FC<PlayerManagementModalProps> = memo(({
   show,
   onHide,
   player,
@@ -29,17 +29,17 @@ const PlayerManagementModal: React.FC<PlayerManagementModalProps> = ({
   const { language } = useLanguage();
   const [showRemoveLastLifeConfirm, setShowRemoveLastLifeConfirm] = useState(false);
 
-  console.log('[PlayerManagementModal] Props:', { show, playerLives: player?.lives, player });
+  // Only log when modal is actually shown to reduce console spam
+  if (show && player) {
+    console.log('[PlayerManagementModal] Modal opened for player:', player.name, 'lives:', player.lives);
+  }
 
   if (!show || !player) return null;
 
   const handleRemoveLife = () => {
-    console.log('[PlayerManagementModal] handleRemoveLife called. Player lives:', player.lives);
     if (player.lives <= 1) {
-      console.log('[PlayerManagementModal] Condition player.lives <= 1 is TRUE. Setting showRemoveLastLifeConfirm to true.');
       setShowRemoveLastLifeConfirm(true);
     } else {
-      console.log('[PlayerManagementModal] Condition player.lives <= 1 is FALSE. Adjusting lives directly.');
       onAdjustLives(player.id, -1);
     }
   };
@@ -52,8 +52,6 @@ const PlayerManagementModal: React.FC<PlayerManagementModalProps> = ({
     onAdjustLives(player.id, -1);
     setShowRemoveLastLifeConfirm(false);
   };
-
-  console.log('[PlayerManagementModal] State before render - showRemoveLastLifeConfirm:', showRemoveLastLifeConfirm);
 
   return (
     <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)'}}>
@@ -82,7 +80,7 @@ const PlayerManagementModal: React.FC<PlayerManagementModalProps> = ({
               </div>
             </div>
 
-            {!player.isSpectator && (
+            {!isCommunityVotingMode && (
               <div className="lives-management">
                 <h6 className="mb-3 lives-title">{t('playerManagement.lives', language)}</h6>
                 <div className="d-flex align-items-center mb-3">
@@ -152,6 +150,6 @@ const PlayerManagementModal: React.FC<PlayerManagementModalProps> = ({
       )}
     </div>
   );
-};
+});
 
 export default PlayerManagementModal; 

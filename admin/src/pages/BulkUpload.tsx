@@ -108,10 +108,8 @@ const BulkUpload: React.FC = () => {
 
   return (
     <Container maxWidth="md" sx={{ mt: 4, mb: 4 }}>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
-          Bulk Upload Questions
-        </Typography>
+      <Paper sx={{ p: 3 }} className="card">
+        <span className="dashboard-caption">Bulk Upload Questions</span>
 
         <Typography variant="body1" paragraph>
           Upload a JSON file containing multiple questions. The file should follow this format:
@@ -149,7 +147,7 @@ const BulkUpload: React.FC = () => {
             onChange={handleFileChange}
           />
           <label htmlFor="raised-button-file">
-            <Button variant="contained" component="span">
+            <Button variant="contained" component="span" className="btn">
               Select JSON File
             </Button>
           </label>
@@ -166,6 +164,7 @@ const BulkUpload: React.FC = () => {
           onClick={handleUpload}
           disabled={!file || loading}
           sx={{ mr: 2 }}
+          className="confirm-btn"
         >
           {loading ? <CircularProgress size={24} /> : 'Upload'}
         </Button>

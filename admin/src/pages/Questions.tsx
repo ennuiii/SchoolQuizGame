@@ -123,16 +123,14 @@ const Questions: React.FC = () => {
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography component="h1" variant="h4">
-          Manage Questions
-        </Typography>
-        <Button variant="contained" color="primary" onClick={() => handleOpen()}>
+        <span className="dashboard-caption">Manage Questions</span>
+        <Button variant="contained" color="primary" onClick={() => handleOpen()} className="btn">
           Add New Question
         </Button>
       </Box>
 
-      <TableContainer component={Paper}>
-        <Table>
+      <TableContainer component={Paper} className="card">
+        <Table className="admin-table">
           <TableHead>
             <TableRow>
               <TableCell>ID</TableCell>
@@ -146,7 +144,7 @@ const Questions: React.FC = () => {
           </TableHead>
           <TableBody>
             {questions.map((question) => (
-              <TableRow key={question.id}>
+              <TableRow key={question.id} /* className="duplicate-row" for future duplicate highlighting */>
                 <TableCell>{question.id}</TableCell>
                 <TableCell>{question.text}</TableCell>
                 <TableCell>{question.answer}</TableCell>
@@ -154,10 +152,10 @@ const Questions: React.FC = () => {
                 <TableCell>{question.subject}</TableCell>
                 <TableCell>{question.language}</TableCell>
                 <TableCell>
-                  <IconButton onClick={() => handleOpen(question)}>
+                  <IconButton onClick={() => handleOpen(question)} color="primary">
                     <EditIcon />
                   </IconButton>
-                  <IconButton onClick={() => handleDelete(question.id)}>
+                  <IconButton onClick={() => handleDelete(question.id)} color="secondary">
                     <DeleteIcon />
                   </IconButton>
                 </TableCell>
@@ -167,7 +165,7 @@ const Questions: React.FC = () => {
         </Table>
       </TableContainer>
 
-      <Dialog open={open} onClose={handleClose}>
+      <Dialog open={open} onClose={handleClose} className="admin-modal">
         <DialogTitle>
           {editingQuestion ? 'Edit Question' : 'Add New Question'}
         </DialogTitle>
@@ -209,8 +207,8 @@ const Questions: React.FC = () => {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          <Button onClick={handleSubmit} variant="contained" color="primary">
+          <Button onClick={handleClose} className="cancel-btn">Cancel</Button>
+          <Button onClick={handleSubmit} variant="contained" color="primary" className="confirm-btn">
             {editingQuestion ? 'Update' : 'Add'}
           </Button>
         </DialogActions>

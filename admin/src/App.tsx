@@ -6,18 +6,39 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Questions from './pages/Questions';
 import BulkUpload from './pages/BulkUpload';
+import DuplicateDetection from './pages/DuplicateDetection';
 // import ServerStats from './pages/ServerStats';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import './App.css'; // Import the new theme
 
 const theme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#1976d2',
+      main: '#ffe066', // Chalk yellow
+      contrastText: '#2d4739',
     },
     secondary: {
-      main: '#dc004e',
+      main: '#4ecdc4', // Teal
+      contrastText: '#fffbe7',
     },
+    background: {
+      default: '#2d4739',
+      paper: '#fffbe7',
+    },
+    text: {
+      primary: '#2d4739',
+      secondary: '#4ecdc4',
+    },
+  },
+  typography: {
+    fontFamily: [
+      'Schoolbell',
+      'Patrick Hand',
+      'Comic Sans MS',
+      'Chalkboard SE',
+      'sans-serif',
+    ].join(','),
   },
 });
 
@@ -54,6 +75,14 @@ const App: React.FC = () => {
             element={
               <PrivateRoute>
                 <BulkUpload />
+              </PrivateRoute>
+            }
+          />
+          <Route
+            path="/duplicates"
+            element={
+              <PrivateRoute>
+                <DuplicateDetection />
               </PrivateRoute>
             }
           />

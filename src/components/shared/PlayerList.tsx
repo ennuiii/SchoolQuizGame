@@ -31,6 +31,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
   const actualPersistentPlayerId = propPersistentPlayerId || contextPersistentPlayerId;
   const [selectedPlayer, setSelectedPlayer] = useState<Player | null>(null);
   const [showManagementModal, setShowManagementModal] = useState(false);
+  const [playerToKick, setPlayerToKick] = useState<Player | null>(null);
 
   // Effect to update selectedPlayer state if the player data changes in the context
   useEffect(() => {
@@ -90,6 +91,22 @@ const PlayerList: React.FC<PlayerListProps> = ({
     // Log any bootstrap icon visibility issues - the kick button uses bootstrap icon
     console.log('[PlayerList] Document body has bootstrap-icons class:', document.body.classList.contains('bootstrap-icons'));
   }, []);
+
+  const handleKickClick = (e: React.MouseEvent, player: Player) => {
+    e.stopPropagation();
+    setPlayerToKick(player);
+  };
+
+  const handleConfirmKick = () => {
+    if (playerToKick && onKickPlayer) {
+      onKickPlayer(playerToKick.id);
+    }
+    setPlayerToKick(null);
+  };
+
+  const handleCancelKick = () => {
+    setPlayerToKick(null);
+  };
 
   return (
     <>
@@ -154,10 +171,7 @@ const PlayerList: React.FC<PlayerListProps> = ({
                       {shouldShowKickButton && (
                         <button 
                           className="btn btn-danger btn-sm ms-2 fw-bold" 
-                          onClick={(e) => { 
-                            e.stopPropagation();
-                            onKickPlayer(player.id); 
-                          }}
+                          onClick={(e) => handleKickClick(e, player)}
                           title={t('kickPlayer', language).replace('{name}', player.name)}
                           aria-label={t('kickPlayer', language).replace('{name}', player.name)}
                           style={{minWidth: '60px'}}
@@ -173,6 +187,46 @@ const PlayerList: React.FC<PlayerListProps> = ({
           </div>
         </div>
       </div>
+
+      {/* Kick Confirmation Modal */}
+      {playerToKick && (
+        <div className="modal fade show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }}>
+          <div className="modal-dialog modal-dialog-centered">
+            <div className="modal-content player-management-modal">
+              <div className="modal-header">
+                <h5 className="modal-title warning-title">
+                  <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                  {t('confirmKick', language)}
+                </h5>
+              </div>
+              <div className="modal-body text-center">
+                <div className="warning-message">
+                  <p className="mb-4">
+                    {t('kickConfirmation', language).replace('{name}', playerToKick.name)}
+                  </p>
+                  <div className="warning-heart">
+                    <i className="bi bi-heart-fill"></i>
+                  </div>
+                </div>
+              </div>
+              <div className="modal-footer justify-content-center">
+                <button 
+                  className="btn btn-outline-danger me-2" 
+                  onClick={handleConfirmKick}
+                >
+                  {t('yes', language)}
+                </button>
+                <button 
+                  className="btn btn-secondary" 
+                  onClick={handleCancelKick}
+                >
+                  {t('no', language)}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       <PlayerManagementModal
         show={showManagementModal}

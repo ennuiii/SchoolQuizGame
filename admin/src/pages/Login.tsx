@@ -39,6 +39,7 @@ const Login: React.FC = () => {
           alignItems: 'center',
         }}
       >
+        <div className="admin-header">Admin Login</div>
         <Paper
           elevation={3}
           sx={{
@@ -48,10 +49,8 @@ const Login: React.FC = () => {
             alignItems: 'center',
             width: '100%',
           }}
+          className="card"
         >
-          <Typography component="h1" variant="h5">
-            Admin Login
-          </Typography>
           <Box component="form" onSubmit={handleSubmit} sx={{ mt: 1 }}>
             <TextField
               margin="normal"
@@ -87,6 +86,7 @@ const Login: React.FC = () => {
               fullWidth
               variant="contained"
               sx={{ mt: 3, mb: 2 }}
+              className="confirm-btn"
             >
               Sign In
             </Button>

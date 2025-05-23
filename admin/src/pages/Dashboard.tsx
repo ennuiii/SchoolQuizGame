@@ -21,13 +21,12 @@ const Dashboard: React.FC = () => {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
+      <div className="admin-header">Admin Dashboard</div>
       <Grid container spacing={3}>
         <Grid item xs={12}>
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography component="h1" variant="h4">
-              Admin Dashboard
-            </Typography>
-            <Button variant="outlined" color="primary" onClick={handleLogout}>
+            <span className="dashboard-caption">Welcome, Admin!</span>
+            <Button variant="outlined" color="primary" onClick={handleLogout} className="btn">
               Logout
             </Button>
           </Box>
@@ -35,6 +34,7 @@ const Dashboard: React.FC = () => {
 
         <Grid item xs={12} md={4}>
           <Paper
+            className="card"
             sx={{
               p: 2,
               display: 'flex',
@@ -55,6 +55,7 @@ const Dashboard: React.FC = () => {
 
         <Grid xs={12} md={4} component="div">
           <Paper
+            className="card"
             sx={{
               p: 2,
               display: 'flex',

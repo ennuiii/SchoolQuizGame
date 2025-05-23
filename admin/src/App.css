@@ -1,0 +1,112 @@
+/* Elementary School Theme for Admin Panel */
+body {
+  background: #2d4739 url('https://www.transparenttextures.com/patterns/green-dust-and-scratches.png');
+  font-family: 'Schoolbell', 'Patrick Hand', 'Comic Sans MS', 'Chalkboard SE', sans-serif;
+  color: #fffbe7;
+}
+
+.admin-header {
+  font-family: 'Patrick Hand', 'Schoolbell', cursive;
+  font-size: 2.2rem;
+  color: #ffe066;
+  text-shadow: 2px 2px 0 #2d4739, 4px 4px 0 #00000033;
+  margin-bottom: 30px;
+}
+
+.card, .MuiPaper-root {
+  border-radius: 18px !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.18) !important;
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png') !important;
+  border: 3px dashed #ffe066 !important;
+  color: #2d4739 !important;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive !important;
+}
+
+.MuiButton-root, .btn {
+  border-radius: 12px !important;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive !important;
+  font-size: 1.1rem !important;
+  font-weight: bold !important;
+  background: #ffe066 !important;
+  color: #2d4739 !important;
+  border: 2px solid #ffd166 !important;
+  box-shadow: 0 2px 6px #00000022 !important;
+  transition: background 0.2s, color 0.2s, transform 0.15s !important;
+}
+
+.MuiButton-root:hover, .btn:hover, .MuiButton-root:focus, .btn:focus {
+  background: #ffd166 !important;
+  color: #2d4739 !important;
+  transform: scale(1.05) rotate(-2deg) !important;
+}
+
+.admin-table th, .admin-table td, .MuiTableCell-root {
+  font-family: 'Patrick Hand', 'Schoolbell', cursive !important;
+  font-size: 1.1rem !important;
+  color: #2d4739 !important;
+}
+
+.admin-modal .MuiPaper-root, .admin-modal .MuiDialog-paper {
+  background: #fffbe7 url('https://www.transparenttextures.com/patterns/old-mathematics.png') !important;
+  border: 3px dashed #ffe066 !important;
+  border-radius: 18px !important;
+  color: #2d4739 !important;
+  font-family: 'Patrick Hand', 'Schoolbell', cursive !important;
+}
+
+.admin-modal .MuiDialogTitle-root {
+  background: linear-gradient(90deg, #ffe066 80%, #ffd166 100%) !important;
+  color: #2d4739 !important;
+  font-size: 1.3rem !important;
+  border-bottom: 2px solid #ffd166 !important;
+}
+
+.admin-modal .MuiDialogActions-root {
+  border-top: 2px solid #ffd166 !important;
+}
+
+/* Dashboard caption */
+.dashboard-caption {
+  font-family: 'Schoolbell', 'Patrick Hand', cursive;
+  font-size: 1.7rem;
+  font-weight: bold;
+  letter-spacing: 4px;
+  background: #ffe066;
+  color: #2d4739;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 3px dashed #ffd166;
+  box-shadow: 0 2px 8px #00000022;
+  display: inline-block;
+  margin-bottom: 20px;
+}
+
+/* Table highlight for duplicates */
+.duplicate-row {
+  background: #ffefc1 !important;
+  border-left: 4px solid #ff6b6b !important;
+}
+
+.duplicate-score {
+  font-weight: bold;
+  color: #ff6b6b;
+  font-size: 1.1rem;
+}
+
+/* Confirmation modal buttons */
+.confirm-btn {
+  background: #4ecdc4 !important;
+  color: #fffbe7 !important;
+  border-color: #38b2ac !important;
+}
+.confirm-btn:hover {
+  background: #38b2ac !important;
+}
+.cancel-btn {
+  background: #ffe066 !important;
+  color: #2d4739 !important;
+  border-color: #ffd166 !important;
+}
+.cancel-btn:hover {
+  background: #ffd166 !important;
+} 

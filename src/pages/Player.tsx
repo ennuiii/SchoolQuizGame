@@ -635,11 +635,38 @@ const Player: React.FC = () => {
 
   const handleToggleWebcamSidebar = async () => {
     if (!isWebcamSidebarVisible) {
-      await startWebcamWithRetry();
-      setIsWebcamSidebarVisible(true);
+      try {
+        console.log('[Player] Starting webcam...');
+        await startWebcamWithRetry();
+        setIsWebcamSidebarVisible(true);
+        console.log('[Player] Webcam started successfully');
+      } catch (error) {
+        console.error('[Player] Failed to start webcam:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        
+        // Provide specific error messages based on the error type
+        if (errorMessage.includes('Room code is required')) {
+          toast.error(t('webcam.errorNoRoom', language) || 'Room code is required to start webcam');
+        } else if (errorMessage.includes('Permission denied') || errorMessage.includes('NotAllowedError')) {
+          toast.error(t('webcam.errorPermission', language) || 'Camera/microphone permission denied. Please allow access in your browser settings and refresh the page.');
+        } else if (errorMessage.includes('NotFoundError') || errorMessage.includes('DevicesNotFoundError')) {
+          toast.error(t('webcam.errorNoDevices', language) || 'No camera or microphone found. Please check your devices and try again.');
+        } else if (errorMessage.includes('Starting videoinput failed') || errorMessage.includes('Camera and microphone access failed')) {
+          toast.warn('Camera access failed, but you may still join with audio only. Check if another application is using your camera.');
+        } else if (errorMessage.includes('OverconstrainedError') || errorMessage.includes('NotReadableError')) {
+          toast.warn('Camera settings incompatible. Trying with basic settings - you may have reduced video quality.');
+        } else {
+          toast.error(t('webcam.errorGeneric', language) || `Failed to start webcam: ${errorMessage}`);
+        }
+        
+        // Don't show the sidebar if webcam failed to start
+        setIsWebcamSidebarVisible(false);
+      }
     } else {
+      console.log('[Player] Stopping webcam...');
       stopLocalStream(); // This will also close peer connections via WebRTCContext
       setIsWebcamSidebarVisible(false);
+      console.log('[Player] Webcam stopped');
     }
   };
 
