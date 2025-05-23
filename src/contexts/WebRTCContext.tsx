@@ -1,6 +1,6 @@
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
-import socketService from '../services/socketService'; // Assuming socketService is correctly set up
-import { useRoom } from './RoomContext'; // To get current room and player info
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
+import socketService from '../services/socketService';
+import { useRoom } from './RoomContext';
 
 // Add debounce utility function
 function debounce<F extends (...args: any[]) => any>(func: F, wait: number): (...args: Parameters<F>) => void {
@@ -23,17 +23,26 @@ const ICE_SERVERS = [
 
 // WebRTC Configuration Constants
 const ICE_RECOVERY_CONFIG = {
-  INITIAL_RETRY_DELAY: 1000,    // 1 second
-  MAX_RETRY_DELAY: 10000,       // 10 seconds
-  MAX_RETRY_ATTEMPTS: 5,        // Maximum number of retry attempts
-  CONNECTION_TIMEOUT: 15000,    // 15 seconds timeout for initial connection
-  DISCONNECTED_TIMEOUT: 10000,  // 10 seconds timeout for disconnected state
-  FAILED_TIMEOUT: 5000         // 5 seconds timeout for failed state
+  INITIAL_RETRY_DELAY: 1000,
+  MAX_RETRY_DELAY: 10000,
+  MAX_RETRY_ATTEMPTS: 5,
+  CONNECTION_TIMEOUT: 15000,
+  DISCONNECTED_TIMEOUT: 10000,
+  FAILED_TIMEOUT: 5000
 };
+
+// Add initialization state tracking
+interface InitializationState {
+  isStartingStream: boolean;
+  isInitializingWebRTC: boolean;
+  streamStartAttempts: number;
+  webrtcInitAttempts: number;
+  lastError: string | null;
+}
 
 interface PeerConnectionDetail {
   connection: RTCPeerConnection;
-  dataChannel?: RTCDataChannel; // Optional: if you plan to use data channels
+  dataChannel?: RTCDataChannel;
 }
 
 interface PeerInfo {
@@ -43,10 +52,8 @@ interface PeerInfo {
   isGameMaster: boolean;
 }
 
-// Create a module-scoped map to track peer names
 export const peerNameRegistry = new Map<string, string>();
 
-// Add new interfaces for error handling and state tracking
 interface WebRTCError {
   code: string;
   message: string;
@@ -62,33 +69,43 @@ interface ConnectionState {
   errors: WebRTCError[];
 }
 
+interface ExtendedRTCPeerConnection extends RTCPeerConnection {
+  pendingCandidates?: RTCIceCandidateInit[];
+  retryCount?: number;
+  lastRetryTime?: number;
+  retryTimeout?: NodeJS.Timeout;
+}
+
 interface WebRTCContextState {
   localStream: MediaStream | null;
-  remoteStreams: Map<string, MediaStream>; // Keyed by peer's socketId
-  peerConnections: Map<string, RTCPeerConnection>; // Simplified, just connection
+  remoteStreams: Map<string, MediaStream>;
+  peerConnections: Map<string, RTCPeerConnection>;
   isWebcamActive: boolean;
   isMicrophoneActive: boolean;
   toggleWebcam: () => void;
   toggleMicrophone: () => void;
   startLocalStream: () => Promise<void>;
   stopLocalStream: () => void;
-  initializeWebRTC: () => void;
+  initializeWebRTC: () => Promise<void>; // Changed to return Promise
   closeAllPeerConnections: () => void;
-  peerNames: Map<string, string>; // Added to expose peer names
-  broadcastWebcamState: (enabled: boolean) => void; // Add new function to broadcast webcam state
-  broadcastMicrophoneState: (enabled: boolean) => void; // Add new function to broadcast microphone state
-  remotePeerStates: Map<string, {webcamEnabled: boolean, micEnabled: boolean}>; // Add new state to track remote peers' media state
-  availableCameras: MediaDeviceInfo[]; // List of available camera devices
-  selectedCameraId: string | null; // Currently selected camera device ID
-  refreshDeviceList: () => Promise<void>; // Changed return type to Promise<void>
-  selectCamera: (deviceId: string) => Promise<void>; // Function to switch to a different camera
-  availableMicrophones: MediaDeviceInfo[]; // List of available microphone devices
-  selectedMicrophoneId: string | null; // Currently selected microphone device ID
-  selectMicrophone: (deviceId: string) => Promise<void>; // Function to switch to a different microphone
+  peerNames: Map<string, string>;
+  broadcastWebcamState: (enabled: boolean) => void;
+  broadcastMicrophoneState: (enabled: boolean) => void;
+  remotePeerStates: Map<string, {webcamEnabled: boolean, micEnabled: boolean}>;
+  availableCameras: MediaDeviceInfo[];
+  selectedCameraId: string | null;
+  refreshDeviceList: () => Promise<void>;
+  selectCamera: (deviceId: string) => Promise<void>;
+  availableMicrophones: MediaDeviceInfo[];
+  selectedMicrophoneId: string | null;
+  selectMicrophone: (deviceId: string) => Promise<void>;
   connectionStates: Map<string, ConnectionState>;
   errors: WebRTCError[];
   clearErrors: () => void;
   getConnectionStats: (peerId: string) => Promise<RTCStatsReport | null>;
+  initializationState: InitializationState; // Add this
+  startWebRTCSession: () => Promise<void>; 
+  startWebcamWithRetry: () => Promise<void>;
 }
 
 const WebRTCContext = createContext<WebRTCContextState | undefined>(undefined);
@@ -105,14 +122,6 @@ interface WebRTCProviderProps {
   children: ReactNode;
 }
 
-// Add retry tracking to ExtendedRTCPeerConnection
-interface ExtendedRTCPeerConnection extends RTCPeerConnection {
-  pendingCandidates?: RTCIceCandidateInit[];
-  retryCount?: number;
-  lastRetryTime?: number;
-  retryTimeout?: NodeJS.Timeout;
-}
-
 export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
@@ -127,8 +136,22 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const [selectedMicrophoneId, setSelectedMicrophoneId] = useState<string | null>(null);
   const [connectionStates, setConnectionStates] = useState<Map<string, ConnectionState>>(new Map());
   const [errors, setErrors] = useState<WebRTCError[]>([]);
+  
+  // Add initialization state
+  const [initializationState, setInitializationState] = useState<InitializationState>({
+    isStartingStream: false,
+    isInitializingWebRTC: false,
+    streamStartAttempts: 0,
+    webrtcInitAttempts: 0,
+    lastError: null
+  });
+
+  // Add ref to track if WebRTC is initialized
+  const isWebRTCInitialized = useRef(false);
 
   const { roomCode, persistentPlayerId, players, isGameMaster: currentUserIsGM } = useRoom();
+
+  // ... (keep all the existing utility functions like closePeerConnection, handleError, etc.)
 
   const closePeerConnection = useCallback((peerSocketId: string) => {
     setPeerConnections(prev => {
@@ -138,7 +161,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         pc.ontrack = null;
         pc.oniceconnectionstatechange = null;
         pc.onsignalingstatechange = null;
-        // Check if already closed to avoid errors, though pc.close() is idempotent
         if (pc.signalingState !== 'closed') {
             pc.close();
         }
@@ -159,18 +181,15 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     });
   }, []);
 
-  // Add error handling utility
   const handleError = useCallback((error: WebRTCError) => {
     console.error(`[WebRTC] Error: ${error.message}`, error);
     setErrors(prev => [...prev, error]);
     
-    // Keep only last 100 errors
     if (errors.length > 100) {
       setErrors(prev => prev.slice(-100));
     }
   }, [errors]);
 
-  // Add connection state tracking
   const updateConnectionState = useCallback((peerId: string, state: Partial<ConnectionState>) => {
     setConnectionStates(prev => {
       const currentState = prev.get(peerId) || {
@@ -191,7 +210,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     });
   }, []);
 
-  // Add connection stats gathering
   const getConnectionStats = useCallback(async (peerId: string): Promise<RTCStatsReport | null> => {
     const pc = peerConnections.get(peerId);
     if (!pc) return null;
@@ -209,10 +227,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     }
   }, [peerConnections, handleError]);
 
+  // Modify the createPeerConnection function to handle glare better
   const createPeerConnection = useCallback((peerSocketId: string, selfSocketId: string): RTCPeerConnection => {
     console.log(`[WebRTC] createPeerConnection called for peer: ${peerSocketId}`);
     
-    // Ensure any existing connection is properly closed before creating a new one
     const existingPc = peerConnections.get(peerSocketId);
     if (existingPc) {
       console.log(`[WebRTC] Existing PC found for ${peerSocketId}, state: ${existingPc.signalingState}. Closing it first.`);
@@ -228,112 +246,94 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       iceCandidatePoolSize: 10
     }) as ExtendedRTCPeerConnection;
 
-    // Initialize retry tracking
     newPc.retryCount = 0;
     newPc.lastRetryTime = Date.now();
     newPc.pendingCandidates = [];
 
+    // Add connection state monitoring
+    let connectionTimeout: NodeJS.Timeout;
+    let isConnectionEstablished = false;
+
+    // Add ICE candidate handling
     newPc.onicecandidate = (event) => {
-        if (event.candidate && selfSocketId) {
-            if (newPc.remoteDescription && newPc.remoteDescription.type) {
-                // If we have a remote description, send the candidate immediately
-                socketService.sendWebRTCICECandidate(event.candidate, peerSocketId, selfSocketId);
-            } else {
-                // Otherwise, store it for later
-                (newPc as ExtendedRTCPeerConnection).pendingCandidates?.push(event.candidate);
-            }
+      if (event.candidate && selfSocketId) {
+        console.log(`[WebRTC] New ICE candidate for ${peerSocketId}:`, event.candidate);
+        if (newPc.remoteDescription && newPc.remoteDescription.type) {
+          socketService.sendWebRTCICECandidate(event.candidate, peerSocketId, selfSocketId);
+        } else {
+          console.log(`[WebRTC] Storing ICE candidate for ${peerSocketId} until remote description is set`);
+          (newPc as ExtendedRTCPeerConnection).pendingCandidates?.push(event.candidate);
         }
+      }
     };
 
-    newPc.oniceconnectionstatechange = () => {
-        const state = newPc.iceConnectionState;
-        console.log(`[WebRTC] ICE connection state change for ${peerSocketId}: ${state}`);
+    newPc.ontrack = (event) => {
+      console.log(`[WebRTC] Received remote track event from ${peerSocketId}:`, event);
+      
+      if (!event.streams || !event.streams[0]) {
+        handleError({
+          code: 'TRACK_ERROR',
+          message: `Received track event without streams from ${peerSocketId}`,
+          timestamp: Date.now(),
+          peerId: peerSocketId
+        });
+        return;
+      }
+
+      const remoteStream = event.streams[0];
+      console.log(`[WebRTC] Remote stream for ${peerSocketId}:`, remoteStream);
+      
+      // Log detailed track information
+      remoteStream.getTracks().forEach(track => {
+        console.log(`[WebRTC] Remote track (${peerSocketId}): id=${track.id}, kind=${track.kind}, enabled=${track.enabled}, readyState=${track.readyState}`);
         
-        updateConnectionState(peerSocketId, { iceState: state });
+        track.onended = () => {
+          console.log(`[WebRTC] Track ${track.id} ended from peer ${peerSocketId}`);
+          handleError({
+            code: 'TRACK_ENDED',
+            message: `Track ${track.id} ended unexpectedly`,
+            timestamp: Date.now(),
+            peerId: peerSocketId
+          });
+        };
         
-        switch (state) {
-            case 'connected':
-            case 'completed':
-                console.log(`[WebRTC] ICE connection established with ${peerSocketId}.`);
-                // Reset retry count on successful connection
-                newPc.retryCount = 0;
-                setRemoteStreams(prev => new Map(prev));
-                break;
-                
-            case 'failed':
-                console.warn(`[WebRTC] ICE connection to ${peerSocketId} failed. Attempting recovery...`);
-                if (newPc.signalingState !== 'closed') {
-                    const attemptRecovery = () => {
-                        const now = Date.now();
-                        const timeSinceLastRetry = now - (newPc.lastRetryTime || 0);
-                        const retryDelay = Math.min(
-                            ICE_RECOVERY_CONFIG.INITIAL_RETRY_DELAY * Math.pow(2, newPc.retryCount || 0),
-                            ICE_RECOVERY_CONFIG.MAX_RETRY_DELAY
-                        );
-
-                        if ((newPc.retryCount || 0) < ICE_RECOVERY_CONFIG.MAX_RETRY_ATTEMPTS && 
-                            timeSinceLastRetry >= retryDelay) {
-                            try {
-                                console.log(`[WebRTC] Attempting ICE recovery for ${peerSocketId} (attempt ${(newPc.retryCount || 0) + 1})`);
-                                newPc.restartIce();
-                                newPc.retryCount = (newPc.retryCount || 0) + 1;
-                                newPc.lastRetryTime = now;
-
-                                // Set timeout to check if recovery was successful
-                                if (newPc.retryTimeout) {
-                                    clearTimeout(newPc.retryTimeout);
-                                }
-                                newPc.retryTimeout = setTimeout(() => {
-                                    if (newPc.iceConnectionState === 'failed') {
-                                        console.error(`[WebRTC] ICE recovery failed for ${peerSocketId} after ${newPc.retryCount} attempts`);
-                                        closePeerConnection(peerSocketId);
-                                    }
-                                }, ICE_RECOVERY_CONFIG.FAILED_TIMEOUT);
-                            } catch (e) {
-                                console.error(`[WebRTC] Failed to restart ICE:`, e);
-                                closePeerConnection(peerSocketId);
-                            }
-                        } else if ((newPc.retryCount || 0) >= ICE_RECOVERY_CONFIG.MAX_RETRY_ATTEMPTS) {
-                            console.error(`[WebRTC] Max retry attempts reached for ${peerSocketId}`);
-                            closePeerConnection(peerSocketId);
-                        }
-                    };
-
-                    attemptRecovery();
-                }
-                break;
-                
-            case 'disconnected':
-                console.warn(`[WebRTC] ICE connection to ${peerSocketId} disconnected. Waiting for recovery...`);
-                // Give some time for recovery before closing
-                if (newPc.retryTimeout) {
-                    clearTimeout(newPc.retryTimeout);
-                }
-                newPc.retryTimeout = setTimeout(() => {
-                    if (newPc.iceConnectionState === 'disconnected') {
-                        console.error(`[WebRTC] ICE recovery timeout for ${peerSocketId}`);
-                        closePeerConnection(peerSocketId);
-                    }
-                }, ICE_RECOVERY_CONFIG.DISCONNECTED_TIMEOUT);
-                break;
-                
-            case 'closed':
-                console.log(`[WebRTC] ICE connection to ${peerSocketId} closed.`);
-                if (newPc.retryTimeout) {
-                    clearTimeout(newPc.retryTimeout);
-                }
-                closePeerConnection(peerSocketId);
-                break;
+        track.onmute = () => {
+          console.log(`[WebRTC] Track ${track.id} muted from peer ${peerSocketId}`);
+        };
+        
+        track.onunmute = () => {
+          console.log(`[WebRTC] Track ${track.id} unmuted from peer ${peerSocketId}`);
+        };
+      });
+      
+      // Ensure we're not adding duplicate streams
+      setRemoteStreams(prev => {
+        const newMap = new Map(prev);
+        if (!newMap.has(peerSocketId)) {
+          console.log(`[WebRTC] Adding new remote stream for ${peerSocketId}`);
+          newMap.set(peerSocketId, remoteStream);
+        } else {
+          console.log(`[WebRTC] Updating existing remote stream for ${peerSocketId}`);
+          newMap.set(peerSocketId, remoteStream);
         }
+        return newMap;
+      });
     };
-    
+
+    // Set connection timeout
+    connectionTimeout = setTimeout(() => {
+      if (!isConnectionEstablished) {
+        console.error(`[WebRTC] Connection to ${peerSocketId} timed out`);
+        closePeerConnection(peerSocketId);
+      }
+    }, ICE_RECOVERY_CONFIG.CONNECTION_TIMEOUT);
+
     newPc.onsignalingstatechange = () => {
         const state = newPc.signalingState;
         console.log(`[WebRTC] Signaling state change for ${peerSocketId}: ${state}`);
         
         updateConnectionState(peerSocketId, { signalingState: state });
         
-        // When we get a remote description, send any pending candidates
         if (newPc.remoteDescription && newPc.remoteDescription.type) {
             const pendingCandidates = (newPc as ExtendedRTCPeerConnection).pendingCandidates || [];
             pendingCandidates.forEach(candidate => {
@@ -376,51 +376,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         }
     };
 
-    // Enhanced error handling for track events
-    newPc.ontrack = (event) => {
-      console.log(`[WebRTC] Received remote track event from ${peerSocketId}:`, event);
-      
-      if (!event.streams || !event.streams[0]) {
-        handleError({
-          code: 'TRACK_ERROR',
-          message: `Received track event without streams from ${peerSocketId}`,
-          timestamp: Date.now(),
-          peerId: peerSocketId
-        });
-        return;
-      }
-
-      const remoteStream = event.streams[0];
-      console.log(`[WebRTC] Remote stream for ${peerSocketId}:`, remoteStream);
-      
-      // Log all tracks
-      remoteStream.getTracks().forEach(track => {
-        console.log(`[WebRTC] Remote track (${peerSocketId}): id=${track.id}, kind=${track.kind}, enabled=${track.enabled}`);
-        
-        // Setup listeners for track ended events
-        track.onended = () => {
-          console.log(`[WebRTC] Track ${track.id} ended from peer ${peerSocketId}`);
-          handleError({
-            code: 'TRACK_ENDED',
-            message: `Track ${track.id} ended unexpectedly`,
-            timestamp: Date.now(),
-            peerId: peerSocketId
-          });
-        };
-        
-        track.onmute = () => {
-          console.log(`[WebRTC] Track ${track.id} muted from peer ${peerSocketId}`);
-        };
-        
-        track.onunmute = () => {
-          console.log(`[WebRTC] Track ${track.id} unmuted from peer ${peerSocketId}`);
-        };
-      });
-      
-      setRemoteStreams(prev => new Map(prev).set(peerSocketId, remoteStream));
-    };
-
-    // Add a timeout to ensure connection is established or closed
     setTimeout(() => {
       const currentPc = peerConnections.get(peerSocketId) as ExtendedRTCPeerConnection;
       if (currentPc === newPc && 
@@ -428,7 +383,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           newPc.iceConnectionState !== 'completed') {
         console.warn(`[WebRTC] Connection to ${peerSocketId} timed out. Current state: ${newPc.iceConnectionState}`);
         if (newPc.signalingState !== 'closed') {
-          // Try to restart ICE if connection didn't establish
           try {
             newPc.restartIce();
             console.log(`[WebRTC] ICE restart initiated for ${peerSocketId}`);
@@ -440,9 +394,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       }
     }, ICE_RECOVERY_CONFIG.CONNECTION_TIMEOUT);
 
+    // Add local tracks if available
     if (localStream) {
+      console.log(`[WebRTC] Adding local tracks to peer connection for ${peerSocketId}`);
       localStream.getTracks().forEach(track => {
-        // Check if a sender with this track kind already exists to avoid duplicates if re-adding to existing PC
         if (!newPc.getSenders().find(sender => sender.track === track)) {
           console.log(`[WebRTC] Adding local track to PC for ${peerSocketId}: kind=${track.kind}, id=${track.id}, enabled=${track.enabled}`);
           try {
@@ -450,6 +405,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           } catch (e) {
             console.error(`[WebRTC] Error adding track ${track.id} to ${peerSocketId}:`, e);
           }
+        } else {
+          console.log(`[WebRTC] Track ${track.id} already added to ${peerSocketId}`);
         }
       });
     } else {
@@ -471,7 +428,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const broadcastWebcamState = useCallback((enabled: boolean) => {
     const currentSocket = socketService.getSocket();
     if (currentSocket && roomCode) {
-      // Send to server, which will forward to all peers in the room
       currentSocket.emit('webcam-state-change', {
         roomCode,
         enabled,
@@ -483,7 +439,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
   const broadcastMicrophoneState = useCallback((enabled: boolean) => {
     const currentSocket = socketService.getSocket();
     if (currentSocket && roomCode) {
-      // Send to server, which will forward to all peers in the room
       currentSocket.emit('microphone-state-change', {
         roomCode,
         enabled,
@@ -494,7 +449,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
 
   const refreshDeviceList = useCallback(async (): Promise<void> => {
     try {
-      // Add a static flag to track if the devices have been logged already in this session
       if (!(refreshDeviceList as any).hasLoggedDevices) {
         console.log('[WebRTC] Refreshing device list...');
       }
@@ -504,7 +458,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       const cameras = devices.filter(device => device.kind === 'videoinput');
       const microphones = devices.filter(device => device.kind === 'audioinput');
       
-      // Reduce log frequency - only log once per session or when count significantly changes
       const cameraCountChanged = cameras.length !== availableCameras.length;
       const micCountChanged = microphones.length !== availableMicrophones.length;
       
@@ -519,8 +472,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       setAvailableCameras(cameras);
       setAvailableMicrophones(microphones);
       
-      // If we have a local stream but don't have a selected camera/mic,
-      // try to identify which devices we're using from the current stream
       if (localStream) {
         const videoTrack = localStream.getVideoTracks()[0];
         if (videoTrack && !selectedCameraId && cameras.length > 0) {
@@ -543,23 +494,21 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     }
   }, [localStream, availableCameras.length, availableMicrophones.length, selectedCameraId, selectedMicrophoneId]);
 
+  // Keep selectCamera and selectMicrophone as is...
   const selectCamera = useCallback(async (deviceId: string) => {
     if (!deviceId) return;
     
     console.log(`[WebRTC] Selecting camera with deviceId: ${deviceId}`);
     setSelectedCameraId(deviceId);
     
-    // If we already have a stream, we need to restart it with the new device
     if (localStream) {
       try {
-        // Stop all existing tracks first
         localStream.getTracks().forEach(track => {
           console.log(`[WebRTC] Stopping track: ${track.kind} (${track.id})`);
           track.stop();
         });
         
         console.log('[WebRTC] Requesting new stream with selected camera');
-        // Request a new stream with the selected device
         const newStream = await navigator.mediaDevices.getUserMedia({
           video: {
             deviceId: { exact: deviceId },
@@ -579,14 +528,11 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         
         console.log('[WebRTC] New stream acquired with selected camera:', newStream);
         
-        // Replace local stream
         setLocalStream(newStream);
         setIsWebcamActive(true);
         
-        // Update all peer connections with the new stream
         peerConnections.forEach((pc, peerSocketId) => {
           try {
-            // Find video senders
             const videoSenders = pc.getSenders().filter(sender => 
               sender.track && sender.track.kind === 'video'
             );
@@ -600,7 +546,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
               pc.addTrack(videoTrack, newStream);
             }
             
-            // Keep audio tracks from the old stream or add from new stream
             const audioTracks = newStream.getAudioTracks();
             if (audioTracks.length > 0) {
               const audioSenders = pc.getSenders().filter(sender => 
@@ -608,12 +553,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
               );
               
               if (audioSenders.length === 0) {
-                // Add audio track if none exists
                 audioTracks.forEach(track => {
                   pc.addTrack(track, newStream);
                 });
               } else if (audioSenders.length > 0 && audioTracks.length > 0) {
-                // Replace existing audio track
                 console.log(`[WebRTC] Replacing audio track for peer ${peerSocketId}`);
                 audioSenders[0].replaceTrack(audioTracks[0]);
               }
@@ -623,7 +566,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           }
         });
         
-        // Broadcast webcam state
         broadcastWebcamState(true);
       } catch (error) {
         console.error('[WebRTC] Error switching camera:', error);
@@ -631,8 +573,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         broadcastWebcamState(false);
       }
     } else {
-      // If no stream exists yet, just update the selected camera ID
-      // The next call to startLocalStream will use this ID
       console.log('[WebRTC] Camera selected, but no stream exists yet. It will be used when starting the stream.');
     }
   }, [localStream, peerConnections, broadcastWebcamState]);
@@ -643,10 +583,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     console.log(`[WebRTC] Selecting microphone with deviceId: ${deviceId}`);
     setSelectedMicrophoneId(deviceId);
     
-    // If we already have a stream, we need to restart it with the new device
     if (localStream) {
       try {
-        // Find and stop only audio tracks
         const audioTracks = localStream.getAudioTracks();
         audioTracks.forEach(track => {
           console.log(`[WebRTC] Stopping audio track: ${track.id}`);
@@ -654,7 +592,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         });
         
         console.log('[WebRTC] Requesting new audio stream with selected microphone');
-        // Request a new audio stream with the selected device
         const newAudioStream = await navigator.mediaDevices.getUserMedia({
           audio: {
             deviceId: { exact: deviceId },
@@ -669,30 +606,23 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         
         console.log('[WebRTC] New audio stream acquired with selected microphone:', newAudioStream);
         
-        // Get the audio track from the new stream
         const newAudioTrack = newAudioStream.getAudioTracks()[0];
         
-        // Create a new stream with existing video tracks and new audio track
         const newStream = new MediaStream();
         
-        // Add existing video tracks if any
         localStream.getVideoTracks().forEach(track => {
           newStream.addTrack(track);
         });
         
-        // Add the new audio track
         if (newAudioTrack) {
           newStream.addTrack(newAudioTrack);
         }
         
-        // Replace local stream
         setLocalStream(newStream);
         setIsMicrophoneActive(true);
         
-        // Update all peer connections with the new stream
         peerConnections.forEach((pc, peerSocketId) => {
           try {
-            // Find audio senders
             const audioSenders = pc.getSenders().filter(sender => 
               sender.track && sender.track.kind === 'audio'
             );
@@ -709,7 +639,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
           }
         });
         
-        // Broadcast microphone state
         broadcastMicrophoneState(true);
       } catch (error) {
         console.error('[WebRTC] Error switching microphone:', error);
@@ -717,220 +646,73 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         broadcastMicrophoneState(false);
       }
     } else {
-      // If no stream exists yet, just update the selected microphone ID
-      // The next call to startLocalStream will use this ID
       console.log('[WebRTC] Microphone selected, but no stream exists yet. It will be used when starting the stream.');
     }
   }, [localStream, peerConnections, broadcastMicrophoneState]);
 
-  const startLocalStream = useCallback(async (): Promise<void> => {
+  // Modified startLocalStream to ensure video tracks are properly enabled
+  const startLocalStream = useCallback(async () => {
+    if (initializationState.isStartingStream) {
+      console.log('[WebRTC] Stream start already in progress');
+      return;
+    }
+
     try {
+      setInitializationState(prev => ({ ...prev, isStartingStream: true, lastError: null }));
       console.log('[WebRTC] Starting local media stream...');
       
-      // If we don't have a list of devices yet, refresh it
-      if (availableCameras.length === 0 || availableMicrophones.length === 0) {
-        await refreshDeviceList();
-      }
+      // Refresh device list first
+      await refreshDeviceList();
       
-      // Configure video constraints based on selected camera
-      const videoConstraints: MediaTrackConstraints = {
-        width: { ideal: 480, max: 640 },
-        height: { ideal: 360, max: 480 },
-        frameRate: { ideal: 24, max: 30 },
-        facingMode: 'user',
-        aspectRatio: { ideal: 1.333333 }
+      const constraints: MediaStreamConstraints = {
+        video: selectedCameraId ? { deviceId: { exact: selectedCameraId } } : true,
+        audio: selectedMicrophoneId ? { deviceId: { exact: selectedMicrophoneId } } : true
       };
       
-      // Add deviceId constraint if we have a selected camera
-      if (selectedCameraId) {
-        videoConstraints.deviceId = { exact: selectedCameraId };
-        console.log(`[WebRTC] Using selected camera device ID: ${selectedCameraId}`);
-      } else {
-        console.log('[WebRTC] No camera selected, using default');
-      }
-      
-      // Configure audio constraints based on selected microphone
-      const audioConstraints: MediaTrackConstraints = {
-        echoCancellation: true,
-        noiseSuppression: true,
-        autoGainControl: true,
-        sampleRate: 16000,
-        sampleSize: 16,
-        channelCount: 1
-      };
-      
-      // Add deviceId constraint if we have a selected microphone
-      if (selectedMicrophoneId) {
-        audioConstraints.deviceId = { exact: selectedMicrophoneId };
-        console.log(`[WebRTC] Using selected microphone device ID: ${selectedMicrophoneId}`);
-      } else {
-        console.log('[WebRTC] No microphone selected, using default');
-      }
-      
-      // Request both video and audio with optimized constraints
-      let stream: MediaStream;
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: videoConstraints,
-          audio: audioConstraints
-        });
-      } catch (initialError) {
-        console.error('[WebRTC] Error with initial getUserMedia:', initialError);
-        
-        // Try without deviceId constraints as fallback
-        console.log('[WebRTC] Trying fallback without deviceId constraints');
-        const fallbackVideoConstraints = { ...videoConstraints };
-        delete fallbackVideoConstraints.deviceId;
-        
-        const fallbackAudioConstraints = { ...audioConstraints };
-        delete fallbackAudioConstraints.deviceId;
-        
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: fallbackVideoConstraints,
-          audio: fallbackAudioConstraints
-        });
-        
-        // Since we got devices but not with our preferred deviceIds,
-        // let's refresh the device list and try to identify which devices we got
-        await refreshDeviceList();
-      }
-      
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       console.log('[WebRTC] Local stream acquired:', stream);
       
-      // Once we have the stream, force a refresh of the device list to get labels
-      if (availableCameras.some(device => !device.label) || availableMicrophones.some(device => !device.label)) {
-        console.log('[WebRTC] Refreshing device list to get device labels now that we have permissions');
-        await refreshDeviceList();
+      // Verify stream is valid before setting state
+      if (!stream || stream.getTracks().length === 0) {
+        throw new Error('Invalid stream received');
       }
       
-      // Log all tracks that were acquired
+      // Enable all tracks
       stream.getTracks().forEach(track => {
-        console.log(`[WebRTC] Local track acquired: id=${track.id}, kind=${track.kind}, enabled=${track.enabled}`);
-        
-        // Add event listeners to track when devices are disconnected
-        track.addEventListener('ended', () => {
-          console.log(`[WebRTC] Track ${track.id} ended unexpectedly. Device may have been disconnected.`);
-          
-          // Notify the user that a track ended
-          if (track.kind === 'video') {
-            setIsWebcamActive(false);
-          } else if (track.kind === 'audio') {
-            setIsMicrophoneActive(false);
-          }
-          
-          // Attempt to restart the stream after a short delay
-          setTimeout(() => {
-            if (!localStream) return; // Don't restart if user has closed the stream
-            console.log('[WebRTC] Attempting to restart local stream after track ended...');
-            startLocalStream().catch(e => console.error('[WebRTC] Failed to restart stream:', e));
-          }, 2000);
-        });
+        track.enabled = true;
+        console.log(`[WebRTC] ${track.kind} track enabled: id=${track.id}, enabled=${track.enabled}, readyState=${track.readyState}`);
       });
       
-      // Try to identify which devices we're using and update selectedIds
-      if (!selectedCameraId && availableCameras.length > 0) {
-        // Get the video track settings
-        const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) {
-          const settings = videoTrack.getSettings();
-          if (settings.deviceId) {
-            console.log(`[WebRTC] Auto-selecting camera deviceId: ${settings.deviceId}`);
-            setSelectedCameraId(settings.deviceId);
-          }
-        }
-      }
-      
-      // Try to identify which microphone we're using
-      if (!selectedMicrophoneId && availableMicrophones.length > 0) {
-        // Get the audio track settings
-        const audioTrack = stream.getAudioTracks()[0];
-        if (audioTrack) {
-          const settings = audioTrack.getSettings();
-          if (settings.deviceId) {
-            console.log(`[WebRTC] Auto-selecting microphone deviceId: ${settings.deviceId}`);
-            setSelectedMicrophoneId(settings.deviceId);
-          }
-        }
-      }
-      
-      // Set the local stream in state
+      // Set stream state synchronously
       setLocalStream(stream);
       
-      // Set initial track states based on the tracks we have
+      // Wait for state update
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
+      // Verify state was updated
+      if (!localStream) {
+        throw new Error('Stream state not updated');
+      }
+      
+      // Set activity states
       const hasVideoTrack = stream.getVideoTracks().length > 0;
       const hasAudioTrack = stream.getAudioTracks().length > 0;
       
       setIsWebcamActive(hasVideoTrack);
       setIsMicrophoneActive(hasAudioTrack);
       
-      // If we have existing peer connections, add this stream to all of them
-      if (peerConnections.size > 0) {
-        console.log(`[WebRTC] Adding new local stream to ${peerConnections.size} existing peer connections...`);
-        
-        peerConnections.forEach((pc, peerSocketId) => {
-          try {
-            // Only add tracks that don't exist in the connection
-            stream.getTracks().forEach(track => {
-              const senders = pc.getSenders();
-              const existingSender = senders.find(sender => 
-                sender.track && sender.track.kind === track.kind
-              );
-              
-              if (existingSender) {
-                // Replace the track in the existing sender
-                console.log(`[WebRTC] Replacing ${track.kind} track in connection to ${peerSocketId}`);
-                existingSender.replaceTrack(track).catch(e => 
-                  console.error(`[WebRTC] Error replacing track for ${peerSocketId}:`, e)
-                );
-              } else {
-                // Add new track to the connection
-                console.log(`[WebRTC] Adding ${track.kind} track to connection with ${peerSocketId}`);
-                pc.addTrack(track, stream);
-              }
-            });
-          } catch (error) {
-            console.error(`[WebRTC] Error updating tracks for peer ${peerSocketId}:`, error);
-          }
-        });
-      }
-      
-      // Broadcast our initial webcam/mic state to all peers
-      if (hasVideoTrack) broadcastWebcamState(true);
-      if (hasAudioTrack) broadcastMicrophoneState(true);
+      console.log('[WebRTC] Local stream started successfully');
     } catch (error) {
       console.error('[WebRTC] Error starting local stream:', error);
-      
-      // Set states to reflect the error
-      setIsWebcamActive(false);
-      setIsMicrophoneActive(false);
-      
-      // Try fallback to just audio if video fails
-      try {
-        console.log('[WebRTC] Attempting fallback to audio-only');
-        const audioStream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true
-          },
-          video: false
-        });
-        
-        console.log('[WebRTC] Audio-only stream acquired:', audioStream);
-        audioStream.getTracks().forEach(track => {
-          console.log(`[WebRTC] Audio track: id=${track.id}, kind=${track.kind}, enabled=${track.enabled}`);
-        });
-        
-        setLocalStream(audioStream);
-        setIsMicrophoneActive(true);
-        
-        // Broadcast audio-only state
-        broadcastMicrophoneState(true);
-        broadcastWebcamState(false);
-      } catch (audioError) {
-        console.error('[WebRTC] Audio-only fallback also failed:', audioError);
-      }
+      setInitializationState(prev => ({ 
+        ...prev, 
+        lastError: error instanceof Error ? error.message : 'Failed to start stream'
+      }));
+      throw error;
+    } finally {
+      setInitializationState(prev => ({ ...prev, isStartingStream: false }));
     }
-  }, [peerConnections, broadcastWebcamState, broadcastMicrophoneState, availableCameras, availableMicrophones, selectedCameraId, selectedMicrophoneId, refreshDeviceList]);
+  }, [selectedCameraId, selectedMicrophoneId, refreshDeviceList]);
 
   const stopLocalStream = useCallback(() => {
     if (localStream) {
@@ -939,6 +721,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       setLocalStream(null);
       setIsWebcamActive(false);
       setIsMicrophoneActive(false);
+      isWebRTCInitialized.current = false;
       console.log('[WebRTC] Local stream stopped, all peer connections closed.');
     }
   }, [localStream, closeAllPeerConnections]);
@@ -973,19 +756,181 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     broadcastMicrophoneState(newState);
   }, [localStream, broadcastMicrophoneState]);
 
-  const initializeWebRTC = useCallback(() => {
-    if (roomCode && localStream) {
+  // Improved initializeWebRTC with retry logic
+  const initializeWebRTC = useCallback(async (): Promise<void> => {
+    // Prevent multiple simultaneous initialization attempts
+    if (initializationState.isInitializingWebRTC || isWebRTCInitialized.current) {
+      console.log('[WebRTC] Already initializing or initialized, skipping duplicate call');
+      return;
+    }
+
+    if (!roomCode || !localStream) {
+      console.log('[WebRTC] Cannot initialize WebRTC: missing roomCode or localStream', {
+        hasRoomCode: !!roomCode,
+        hasLocalStream: !!localStream
+      });
+      
+      setInitializationState(prev => ({
+        ...prev,
+        lastError: 'Missing roomCode or localStream'
+      }));
+      
+      throw new Error('Missing prerequisites for WebRTC initialization');
+    }
+
+    setInitializationState(prev => ({
+      ...prev,
+      isInitializingWebRTC: true,
+      webrtcInitAttempts: prev.webrtcInitAttempts + 1,
+      lastError: null
+    }));
+
+    try {
       console.log('[WebRTC] Initializing WebRTC, sending webrtc-ready:', {
         roomCode,
-        isGameMaster: currentUserIsGM
+        isGameMaster: currentUserIsGM,
+        attempt: initializationState.webrtcInitAttempts + 1
       });
-      socketService.sendWebRTCReady(roomCode);
-    } else {
-      console.log('[WebRTC] Cannot initialize WebRTC: missing roomCode or localStream');
+      
+      // Ensure socket is connected before sending
+      const socket = socketService.getSocket();
+      if (!socket || !socket.connected) {
+        console.log('[WebRTC] Socket not connected, waiting for connection...');
+        await new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            reject(new Error('Socket connection timeout'));
+          }, 5000);
+          
+          if (socket) {
+            socket.once('connect', () => {
+              clearTimeout(timeout);
+              resolve(undefined);
+            });
+          } else {
+            reject(new Error('No socket available'));
+          }
+        });
+      }
+      
+      await socketService.sendWebRTCReady(roomCode);
+      
+      isWebRTCInitialized.current = true;
+      
+      setInitializationState(prev => ({
+        ...prev,
+        isInitializingWebRTC: false,
+        lastError: null
+      }));
+      
+      console.log('[WebRTC] WebRTC initialized successfully');
+    } catch (error) {
+      console.error('[WebRTC] Error initializing WebRTC:', error);
+      
+      setInitializationState(prev => ({
+        ...prev,
+        isInitializingWebRTC: false,
+        lastError: error instanceof Error ? error.message : 'Unknown error'
+      }));
+      
+      // Retry logic
+      if (initializationState.webrtcInitAttempts < 3) {
+        console.log(`[WebRTC] Retrying initialization in 2 seconds... (attempt ${initializationState.webrtcInitAttempts + 1}/3)`);
+        setTimeout(() => {
+          initializeWebRTC().catch(e => console.error('[WebRTC] Retry failed:', e));
+        }, 2000);
+      }
+      
+      throw error;
     }
-  }, [roomCode, localStream, currentUserIsGM]);
+  }, [roomCode, localStream, currentUserIsGM, initializationState]);
 
-  // Signaling logic
+  // New combined method for starting WebRTC session
+  const startWebRTCSession = useCallback(async (): Promise<void> => {
+    console.log('[WebRTC] Starting complete WebRTC session...');
+    
+    try {
+      // Step 1: Start local stream
+      if (!localStream) {
+        console.log('[WebRTC] Step 1: Starting local stream...');
+        await startLocalStream();
+        
+        // Wait a bit for stream to stabilize
+        await new Promise(resolve => setTimeout(resolve, 500));
+      } else {
+        console.log('[WebRTC] Step 1: Local stream already exists');
+      }
+      
+      // Step 2: Initialize WebRTC
+      if (!isWebRTCInitialized.current) {
+        console.log('[WebRTC] Step 2: Initializing WebRTC...');
+        await initializeWebRTC();
+      } else {
+        console.log('[WebRTC] Step 2: WebRTC already initialized');
+      }
+      
+      console.log('[WebRTC] WebRTC session started successfully');
+    } catch (error) {
+      console.error('[WebRTC] Failed to start WebRTC session:', error);
+      throw error;
+    }
+  }, [localStream, startLocalStream, initializeWebRTC]);
+
+  const startWebcamWithRetry = useCallback(async () => {
+    let retryCount = 0;
+    const maxRetries = 3;
+    
+    const attemptStart = async (): Promise<boolean> => {
+      try {
+        // Check if we have the required room code
+        if (!roomCode) {
+          console.error('[WebRTC] Cannot start webcam: missing room code');
+          throw new Error('Missing room code');
+        }
+
+        // Start stream first
+        await startLocalStream();
+        
+        // Get the current stream from state
+        const currentStream = localStream;
+        
+        // Verify stream was created successfully
+        if (!currentStream) {
+          console.error('[WebRTC] Stream creation failed - no localStream available');
+          throw new Error('Stream creation failed');
+        }
+        
+        // Verify stream is still valid
+        if (currentStream.getTracks().length === 0) {
+          console.error('[WebRTC] Stream became invalid after creation');
+          throw new Error('Stream became invalid');
+        }
+        
+        // Then initialize WebRTC
+        await initializeWebRTC();
+        
+        return true; // Success
+      } catch (error) {
+        console.error(`[WebRTC] Attempt ${retryCount + 1} failed:`, error);
+        
+        if (retryCount < maxRetries) {
+          retryCount++;
+          console.log(`[WebRTC] Retrying in 2 seconds... (attempt ${retryCount}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          return attemptStart();
+        }
+        
+        throw error; // Max retries reached
+      }
+    };
+
+    try {
+      await attemptStart();
+    } catch (error) {
+      console.error('[WebRTC] All retry attempts failed:', error);
+      throw error;
+    }
+  }, [startLocalStream, initializeWebRTC, roomCode, localStream]);
+
   useEffect(() => {
     const currentSocket = socketService.getSocket();
     const selfSocketId = currentSocket?.id;
@@ -994,18 +939,14 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       return; 
     }
 
-    // Modified handleNewPeer to always create connections in both directions
     const handleNewPeer = async ({ newPeer }: { newPeer: PeerInfo }) => {
-      // Only log for GM or if total peers are small to reduce spam
       if (newPeer.isGameMaster || peerConnections.size < 3) {
         console.log(`[WebRTC] New peer joined: ${newPeer.socketId} (${newPeer.playerName}), ${newPeer.isGameMaster ? 'GM' : 'Player'}`);
       }
       
-      // Update peer names
       peerNameRegistry.set(newPeer.socketId, newPeer.playerName);
       setPeerNames(prev => new Map(prev).set(newPeer.socketId, newPeer.playerName));
       
-      // Create peer connection and send offer
       try {
         const pc = createPeerConnection(newPeer.socketId, selfSocketId);
         const offer = await pc.createOffer({
@@ -1020,29 +961,22 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
 
     const handleExistingPeers = ({ peers }: { peers: PeerInfo[] }) => {
-      // Only log if there are not too many peers to reduce spam
       if (peers.length < 5) {
         console.log(`[WebRTC] Processing ${peers.length} existing peers.`);
       }
       
-      // Update all peer names from the list
       const newPeerNames = new Map<string, string>();
       peers.forEach(peer => {
         if (peer.socketId && peer.playerName) {
-          // Update the module-scoped registry
           peerNameRegistry.set(peer.socketId, peer.playerName);
-          
-          // Also add to our state map
           newPeerNames.set(peer.socketId, peer.playerName);
           
-          // Only log for GM or if total peers are small
           if (peer.isGameMaster || peers.length < 3) {
             console.log(`[WebRTC] Existing peer: ${peer.socketId} -> ${peer.playerName}`);
           }
         }
       });
       
-      // Update state with all peer names at once
       setPeerNames(prev => {
         const updated = new Map(prev);
         newPeerNames.forEach((name, id) => {
@@ -1051,23 +985,19 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
         return updated;
       });
       
-      // Process each existing peer
       peers.forEach(async peer => {
         if (peer.socketId === selfSocketId) return;
         
-        // Check if we already have a good connection to this peer
         const existingPc = peerConnections.get(peer.socketId);
         if (existingPc && existingPc.signalingState !== 'closed' && 
             (existingPc.iceConnectionState === 'connected' || 
              existingPc.iceConnectionState === 'completed')) {
-          // Only log for GM connections to reduce spam
           if (peer.isGameMaster) {
             console.log(`[WebRTC] Already have a good connection to ${peer.socketId}. Skipping offer.`);
           }
           return;
         }
         
-        // Only log for GM connections or if total peers are small
         if (peer.isGameMaster || peers.length < 3) {
           console.log(`[WebRTC] Creating connection with EXISTING PEER ${peer.socketId} (${peer.playerName})`);
         }
@@ -1093,13 +1023,12 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       let pc = peerConnections.get(from);
       if (pc && (pc.signalingState !== 'stable' && pc.signalingState !== 'closed')) {
         console.warn(`[WebRTC] Received offer from ${from}, but PC is in state ${pc.signalingState}. Potential glare. Recreating PC.`);
-        pc = createPeerConnection(from, selfSocketId); // Recreate to ensure clean state for incoming offer
+        pc = createPeerConnection(from, selfSocketId);
       } else if (!pc || pc.signalingState === 'closed') {
         console.log(`[WebRTC] No existing open PC for offer from ${from}, creating one.`);
         pc = createPeerConnection(from, selfSocketId); 
       }
       
-      // At this point, pc should be a valid, open RTCPeerConnection instance
       try {
         console.log(`[WebRTC] Setting remote offer from ${from}. Current signalingState: ${pc.signalingState}`);
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
@@ -1141,9 +1070,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
               .catch(e => console.error('[WebRTC] Error adding ICE candidate:', e));
         } else {
             console.warn(`[WebRTC] Received ICE candidate from ${from}, but remote description not set or PC closed. State: ${pc.signalingState}`);
-            // Store candidates to add them later when we have a remote description
             if (pc.signalingState !== 'closed') {
-              // Create an array to store pending candidates
               if (!pc.pendingCandidates) {
                 pc.pendingCandidates = [];
               }
@@ -1157,21 +1084,17 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
       console.log(`[WebRTC] Peer ${peerSocketId} left`);
       closePeerConnection(peerSocketId);
       
-      // Remove from peer names
       setPeerNames(prev => {
         const updated = new Map(prev);
         updated.delete(peerSocketId);
         return updated;
       });
-      // Also remove from module-scoped registry
       peerNameRegistry.delete(peerSocketId);
     };
     
-    // Add handlers for webcam and microphone state changes
     const handleWebcamStateChange = ({ fromSocketId, enabled }: { fromSocketId: string, enabled: boolean }) => {
-      if (fromSocketId === selfSocketId) return; // Ignore own broadcasts
+      if (fromSocketId === selfSocketId) return;
 
-      // We don't need to log these state changes anymore as they can be very frequent
       setRemotePeerStates(prev => {
         const newMap = new Map(prev);
         const currentState = newMap.get(fromSocketId) || { webcamEnabled: true, micEnabled: true };
@@ -1181,9 +1104,8 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
 
     const handleMicrophoneStateChange = ({ fromSocketId, enabled }: { fromSocketId: string, enabled: boolean }) => {
-      if (fromSocketId === selfSocketId) return; // Ignore own broadcasts
+      if (fromSocketId === selfSocketId) return;
 
-      // We don't need to log these state changes anymore as they can be very frequent
       setRemotePeerStates(prev => {
         const newMap = new Map(prev);
         const currentState = newMap.get(fromSocketId) || { webcamEnabled: true, micEnabled: true };
@@ -1201,9 +1123,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     currentSocket.on('webcam-state-change', handleWebcamStateChange);
     currentSocket.on('microphone-state-change', handleMicrophoneStateChange);
     
-    // Handle refresh states event - broadcast our current states when asked
     currentSocket.on('webrtc-refresh-states', () => {
-      // No need to log this as it can happen frequently
       if (localStream) {
         const videoEnabled = localStream.getVideoTracks().some(track => track.enabled);
         const audioEnabled = localStream.getAudioTracks().some(track => track.enabled);
@@ -1226,7 +1146,6 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     };
   }, [roomCode, localStream, createPeerConnection, closePeerConnection, peerConnections, currentUserIsGM, broadcastWebcamState, broadcastMicrophoneState]);
 
-  // Add clearErrors function
   const clearErrors = useCallback(() => {
     setErrors([]);
   }, []);
@@ -1241,7 +1160,7 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     toggleMicrophone,
     startLocalStream,
     stopLocalStream,
-    initializeWebRTC, 
+    initializeWebRTC,
     closeAllPeerConnections,
     peerNames,
     broadcastWebcamState,
@@ -1258,7 +1177,10 @@ export const WebRTCProvider: React.FC<WebRTCProviderProps> = ({ children }) => {
     errors,
     clearErrors,
     getConnectionStats,
+    initializationState,
+    startWebRTCSession,
+    startWebcamWithRetry,
   };
 
   return <WebRTCContext.Provider value={value}>{children}</WebRTCContext.Provider>;
-}; 
+};
