@@ -92,7 +92,32 @@ const Player: React.FC = () => {
 
   const { language } = useLanguage();
 
-  const { localStream, startLocalStream, initializeWebRTC, stopLocalStream, remoteStreams } = useWebRTC();
+  const {
+    localStream,
+    remoteStreams,
+    isWebcamActive,
+    isMicrophoneActive,
+    toggleWebcam,
+    toggleMicrophone,
+    startLocalStream,
+    stopLocalStream,
+    initializeWebRTC,
+    startWebcamWithRetry,
+    peerNames,
+    remotePeerStates,
+    availableCameras,
+    selectedCameraId,
+    refreshDeviceList,
+    selectCamera,
+    availableMicrophones,
+    selectedMicrophoneId,
+    selectMicrophone,
+    connectionStates,
+    errors,
+    clearErrors,
+    getConnectionStats
+  } = useWebRTC();
+
   const [isWebcamSidebarVisible, setIsWebcamSidebarVisible] = useState<boolean>(false);
   const [webcamPosition, setWebcamPosition] = useState({ x: 20, y: 50 });
   const [webcamSize, setWebcamSize] = useState({ width: 450, height: 400 });
@@ -610,21 +635,13 @@ const Player: React.FC = () => {
 
   const handleToggleWebcamSidebar = async () => {
     if (!isWebcamSidebarVisible) {
-      await startLocalStream(); 
+      await startWebcamWithRetry();
       setIsWebcamSidebarVisible(true);
     } else {
       stopLocalStream(); // This will also close peer connections via WebRTCContext
       setIsWebcamSidebarVisible(false);
     }
   };
-
-  // Initialize WebRTC once local stream is available and feature is enabled
-  useEffect(() => {
-    if (isWebcamSidebarVisible && localStream) {
-      console.log('[PlayerPage] Webcam sidebar visible and local stream active, initializing WebRTC.');
-      initializeWebRTC();
-    }
-  }, [isWebcamSidebarVisible, localStream, initializeWebRTC]);
 
   // Avatar Update Handler for Player
   const handleAvatarUpdatePlayer = useCallback(async (avatarSvg: string, pidToUse: string) => {

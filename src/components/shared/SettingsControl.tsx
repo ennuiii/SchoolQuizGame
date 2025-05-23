@@ -29,7 +29,8 @@ const SettingsControl: React.FC = () => {
     selectedMicrophoneId,
     selectMicrophone,
     isMicrophoneActive,
-    toggleMicrophone
+    toggleMicrophone,
+    startWebcamWithRetry
   } = useWebRTC();
   const [isOpen, setIsOpen] = useState(false);
 
@@ -88,7 +89,7 @@ const SettingsControl: React.FC = () => {
     if (localStream) {
       stopLocalStream();
     } else {
-      startLocalStream();
+      startWebcamWithRetry();
     }
   };
 

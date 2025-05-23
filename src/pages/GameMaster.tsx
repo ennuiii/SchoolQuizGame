@@ -43,7 +43,31 @@ const GameMaster: React.FC = () => {
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [hasRestoredVisibilityOnConnect, setHasRestoredVisibilityOnConnect] = useState(false);
   const [isStreamerMode, setIsStreamerMode] = useState(false);
-  const { localStream, startLocalStream, initializeWebRTC, stopLocalStream, remoteStreams } = useWebRTC();
+  const {
+    localStream,
+    remoteStreams,
+    isWebcamActive,
+    isMicrophoneActive,
+    toggleWebcam,
+    toggleMicrophone,
+    startLocalStream,
+    stopLocalStream,
+    initializeWebRTC,
+    startWebcamWithRetry,
+    peerNames,
+    remotePeerStates,
+    availableCameras,
+    selectedCameraId,
+    refreshDeviceList,
+    selectCamera,
+    availableMicrophones,
+    selectedMicrophoneId,
+    selectMicrophone,
+    connectionStates,
+    errors,
+    clearErrors,
+    getConnectionStats
+  } = useWebRTC();
   const [isWebcamSidebarVisible, setIsWebcamSidebarVisible] = useState(false);
   const [webcamPosition, setWebcamPosition] = useState({ x: 20, y: 50 });
   const [webcamSize, setWebcamSize] = useState({ width: 450, height: 400 });
@@ -673,20 +697,13 @@ const GameMaster: React.FC = () => {
 
   const handleToggleWebcamSidebar = async () => {
     if (!isWebcamSidebarVisible) {
-      await startLocalStream();
+      await startWebcamWithRetry();
       setIsWebcamSidebarVisible(true);
     } else {
       stopLocalStream();
       setIsWebcamSidebarVisible(false);
     }
   };
-
-  useEffect(() => {
-    if (isWebcamSidebarVisible && localStream) {
-      console.log('[GameMaster] Webcam sidebar visible and local stream active, initializing WebRTC.');
-      initializeWebRTC();
-    }
-  }, [isWebcamSidebarVisible, localStream, initializeWebRTC]);
 
   const handleForceEndVoting = useCallback(() => {
     if (!roomCode || !isCommunityVotingMode || connectionStatus !== 'connected') {
