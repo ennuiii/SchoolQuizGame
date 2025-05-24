@@ -49,6 +49,27 @@ const PlayerList: React.FC<PlayerListProps> = ({
     }
   }, [players, selectedPlayer]); // Re-run when players array or selectedPlayer (local) changes
 
+  // Effect to ensure avatars are loaded for all players
+  useEffect(() => {
+    // Check if any players are missing avatars and we have a room connection
+    if (players.length > 0 && roomCode && socketService.getConnectionState() === 'connected') {
+      players.forEach(player => {
+        // If player doesn't have an avatar in room context, check localStorage
+        if (!player.avatarSvg && player.persistentPlayerId) {
+          const localAvatar = localStorage.getItem(`avatar_${player.persistentPlayerId}`);
+          if (localAvatar) {
+            console.log('[PlayerList] Found missing avatar in localStorage for', player.persistentPlayerId, 'broadcasting to room');
+            socketService.emit('update_avatar', { 
+              roomCode, 
+              persistentPlayerId: player.persistentPlayerId, 
+              avatarSvg: localAvatar 
+            });
+          }
+        }
+      });
+    }
+  }, [players, roomCode]); // Re-run when players or room changes
+
   const handlePlayerClick = (player: Player) => {
     if (isGameMasterView && !isCommunityVotingMode) {
       setSelectedPlayer(player);

@@ -191,23 +191,28 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
     if (persistentPlayerId && avatarSvg) {
       localStorage.setItem(`avatar_${persistentPlayerId}`, avatarSvg);
       
-      // REMOVED: Direct call to socketService.updateAvatar
-      // const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
-      // if (roomCode && socketService.getConnectionState() === 'connected') {
-      //   console.log('[AvatarCreator] Broadcasting avatar update to room', roomCode);
-      //   socketService.updateAvatar(roomCode, persistentPlayerId, avatarSvg);
-      // }
+      // Broadcast avatar update to room - this was removed but is needed for synchronization
+      const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
+      if (roomCode && socketService.getConnectionState() === 'connected') {
+        console.log('[AvatarCreator] Broadcasting avatar update to room', roomCode);
+        socketService.emit('update_avatar', { 
+          roomCode, 
+          persistentPlayerId, 
+          avatarSvg 
+        });
+      } else {
+        console.warn('[AvatarCreator] Cannot broadcast avatar - no room connection:', {
+          roomCode,
+          connectionState: socketService.getConnectionState()
+        });
+      }
     }
     
-    // Call the onSave callback if provided, now with persistentPlayerId
+    // Call the onSave callback if provided
     if (onSave && persistentPlayerId) {
       onSave(avatarSvg, persistentPlayerId);
     } else if (onSave) {
-      // Fallback or error if persistentPlayerId is somehow missing but onSave is expected
-      // This case should ideally not happen if GameMaster always provides persistentPlayerId
       console.warn('[AvatarCreator] onSave called but persistentPlayerId is missing. Avatar might not save correctly on server.');
-      // Optionally, you could call onSave with an empty string or a special marker for pid if the signature absolutely requires two args
-      // onSave(avatarSvg, ''); // Or handle as an error state
     }
   };
   

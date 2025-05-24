@@ -26,10 +26,13 @@ const Avatar: React.FC<AvatarProps> = ({
     }
     
     let mounted = true;
+    let retryCount = 0;
+    const maxRetries = 3;
     
     const loadAvatar = async () => {
       console.log('[Avatar] Starting avatar load:', {
         persistentPlayerId,
+        retryCount,
         timestamp: new Date().toISOString()
       });
 
@@ -63,12 +66,34 @@ const Avatar: React.FC<AvatarProps> = ({
           });
           setAvatarSvg(savedAvatar);
           setIsLoading(false);
+          
+          // If we found it in localStorage but not in room context, broadcast it
+          const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
+          if (roomCode && socketService.getConnectionState() === 'connected') {
+            console.log('[Avatar] Broadcasting locally found avatar to room for sync');
+            socketService.emit('update_avatar', { 
+              roomCode, 
+              persistentPlayerId, 
+              avatarSvg: savedAvatar 
+            });
+          }
+          return;
+        }
+        
+        // If no avatar found and we haven't retried too many times, wait and retry
+        if (retryCount < maxRetries && players.length === 0) {
+          retryCount++;
+          console.log('[Avatar] No avatar found, retrying in 500ms (attempt', retryCount, 'of', maxRetries, ')');
+          setTimeout(() => {
+            if (mounted) loadAvatar();
+          }, 500);
           return;
         }
         
         // If no avatar found, generate default
-        console.log('[Avatar] No avatar found, generating default:', {
+        console.log('[Avatar] No avatar found after retries, generating default:', {
           persistentPlayerId,
+          retryCount,
           timestamp: new Date().toISOString()
         });
         if (mounted) {
@@ -79,6 +104,7 @@ const Avatar: React.FC<AvatarProps> = ({
         console.error('[Avatar] Error loading avatar:', {
           error,
           persistentPlayerId,
+          retryCount,
           timestamp: new Date().toISOString()
         });
         if (mounted) {
@@ -100,7 +126,7 @@ const Avatar: React.FC<AvatarProps> = ({
         timestamp: new Date().toISOString()
       });
       
-      if (data.persistentPlayerId === persistentPlayerId) {
+      if (data.persistentPlayerId === persistentPlayerId && mounted) {
         setAvatarSvg(data.avatarSvg);
         // Also update localStorage to keep it in sync
         localStorage.setItem(`avatar_${persistentPlayerId}`, data.avatarSvg);
@@ -170,12 +196,40 @@ const Avatar: React.FC<AvatarProps> = ({
   const processAvatarSvg = (): string => {
     if (!avatarSvg) return '';
     
-    // Add width and height attributes if not present
-    let processedSvg = avatarSvg;
-    if (!processedSvg.includes('width=')) {
-      processedSvg = processedSvg.replace('<svg', `<svg width="${size}" height="${size}"`);
+    try {
+      let processedSvg = avatarSvg;
+      
+      // Ensure SVG has proper size attributes
+      if (!processedSvg.includes('width=') || !processedSvg.includes('height=')) {
+        // If missing width/height, add them
+        processedSvg = processedSvg.replace(
+          /<svg([^>]*)>/,
+          `<svg$1 width="${size}" height="${size}">`
+        );
+      } else {
+        // If width/height exist, update them to match our size
+        processedSvg = processedSvg.replace(
+          /width=["'][^"']*["']/g,
+          `width="${size}"`
+        ).replace(
+          /height=["'][^"']*["']/g,
+          `height="${size}"`
+        );
+      }
+      
+      // Ensure SVG has proper viewBox for scaling
+      if (!processedSvg.includes('viewBox=')) {
+        processedSvg = processedSvg.replace(
+          /<svg([^>]*)>/,
+          `<svg$1 viewBox="0 0 100 100">`
+        );
+      }
+      
+      return processedSvg;
+    } catch (error) {
+      console.error('[Avatar] Error processing SVG:', error, { avatarSvg, persistentPlayerId });
+      return generateDefaultAvatar();
     }
-    return processedSvg;
   };
 
   if (error) {
