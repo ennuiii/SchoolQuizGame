@@ -315,7 +315,7 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
                 <button 
                   className="btn btn-success"
                   onClick={() => loadRandomQuestions()}
-                  disabled={isLoadingRandom || availableQuestions.length === 0}
+                  disabled={isLoadingRandom || selectedSubjects.length === 0 || selectedGrades.length === 0}
                 >
                   {isLoadingRandom ? (
                     <>

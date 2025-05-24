@@ -476,21 +476,45 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // Load random questions
   const loadRandomQuestions = useCallback(async () => {
+    // Validate that at least one subject and one grade are selected
+    if (selectedSubjects.length === 0 || selectedGrades.length === 0) {
+      setQuestionErrorMsg('Please select at least one grade and subject before using random');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+      return;
+    }
+
     setIsLoadingRandom(true);
     try {
-      // Fetch all questions based on filters
-      const fetchedQuestions = await supabaseService.getQuestions({
-        subject: selectedSubject,
-        grade: selectedGrade === '' ? undefined : Number(selectedGrade),
-        language: selectedLanguage,
-        sortByGrade: true
-      });
+      // Fetch all questions based on the new filtering system
+      const allQuestions: any[] = [];
+      
+      for (const subject of selectedSubjects) {
+        for (const grade of selectedGrades) {
+          const questions = await supabaseService.getQuestions({
+            subject,
+            grade,
+            language: selectedLanguage
+          });
+          allQuestions.push(...questions);
+        }
+      }
 
-      // If no grade is selected and we have multiple grades, distribute evenly
-      if (selectedGrade === '' && fetchedQuestions.length > 0) {
+      // Remove duplicates
+      const uniqueQuestions = allQuestions.filter((question, index, self) => 
+        index === self.findIndex(q => q.id === question.id)
+      );
+
+      if (uniqueQuestions.length === 0) {
+        setQuestionErrorMsg('No questions found for the selected filters');
+        setTimeout(() => setQuestionErrorMsg(''), 3000);
+        return;
+      }
+
+      // If we have multiple grades, distribute evenly
+      if (selectedGrades.length > 1) {
         // Group questions by grade
         const questionsByGrade: Record<number, any[]> = {};
-        fetchedQuestions.forEach(q => {
+        uniqueQuestions.forEach(q => {
           if (!questionsByGrade[q.grade]) {
             questionsByGrade[q.grade] = [];
           }
@@ -600,7 +624,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setTimeout(() => setQuestionErrorMsg(''), 3000);
         } else {
           // Use a simpler selection logic if only one grade is available
-          const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+          const shuffled = uniqueQuestions.sort(() => 0.5 - Math.random());
           // Take exactly randomCount questions
           const selected = shuffled.slice(0, Math.min(randomCount, shuffled.length));
           const convertedQuestions = selected.map(convertSupabaseQuestion);
@@ -618,7 +642,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       } else {
         // Use a simpler selection logic if specific grade is selected
-        const shuffled = fetchedQuestions.sort(() => 0.5 - Math.random());
+        const shuffled = uniqueQuestions.sort(() => 0.5 - Math.random());
         // Take exactly randomCount questions
         const selected = shuffled.slice(0, Math.min(randomCount, shuffled.length));
         const convertedQuestions = selected.map(convertSupabaseQuestion);
@@ -640,23 +664,39 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoadingRandom(false);
     }
-  }, [selectedSubject, selectedGrade, selectedLanguage, randomCount, questions]);
+  }, [selectedSubjects, selectedGrades, selectedLanguage, randomCount, questions]);
 
   // Load subjects and languages on mount
   useEffect(() => {
     const loadMetadata = async () => {
       try {
+        console.log('[GameContext] Loading metadata...');
         const subjectsData = await supabaseService.getSubjects();
         const languagesData = await supabaseService.getLanguages();
+        console.log('[GameContext] Loaded subjects:', subjectsData);
+        console.log('[GameContext] Loaded languages:', languagesData);
         setSubjects(subjectsData);
         setLanguages(languagesData);
-      } catch (error) {
+        
+        // Set default language if none is selected and languages are available
+        if (!selectedLanguage && languagesData.length > 0) {
+          const defaultLanguage = languagesData.includes('de') ? 'de' : languagesData[0];
+          setSelectedLanguage(defaultLanguage);
+          console.log('[GameContext] Set default language:', defaultLanguage);
+        }
+      } catch (error: any) {
         console.error('Error loading metadata:', error);
+        // If Supabase is not configured, set some default values for development
+        if (error?.message && error.message.includes('Invalid API key')) {
+          console.log('[GameContext] Supabase not configured, using fallback values');
+          setLanguages(['de', 'en']);
+          setSelectedLanguage('de');
+        }
       }
     };
 
     loadMetadata();
-  }, []);
+  }, [selectedLanguage]); // Add selectedLanguage to dependencies to prevent infinite loop
 
   // Socket event handlers
   React.useEffect(() => {
@@ -1192,12 +1232,15 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   // New filtering functions
   const loadMetadataByLanguage = useCallback(async (language: string) => {
+    console.log('[GameContext] Loading metadata for language:', language);
     setIsLoadingMetadata(true);
     try {
       const [subjectsData, gradesData] = await Promise.all([
         supabaseService.getSubjectsByLanguage(language),
         supabaseService.getGradesByLanguage(language)
       ]);
+      console.log('[GameContext] Loaded subjects for', language, ':', subjectsData);
+      console.log('[GameContext] Loaded grades for', language, ':', gradesData);
       setAvailableSubjects(subjectsData);
       setAvailableGrades(gradesData);
     } catch (error) {
