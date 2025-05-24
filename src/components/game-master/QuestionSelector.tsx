@@ -16,18 +16,13 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
   onSelectedQuestionsChange
 }) => {
   const {
-    subjects,
     languages,
-    selectedSubject,
-    selectedGrade,
     selectedLanguage,
     isLoadingQuestions,
     availableQuestions,
     questionErrorMsg,
     randomCount,
     isLoadingRandom,
-    setSelectedSubject,
-    setSelectedGrade,
     setSelectedLanguage,
     setRandomCount,
     loadQuestions,
@@ -36,12 +31,33 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
     removeSelectedQuestion,
     clearAllSelectedQuestions,
     organizeSelectedQuestions,
-    addCustomQuestion
+    addCustomQuestion,
+    // New filtering state and actions
+    availableSubjects,
+    availableGrades,
+    selectedSubjects,
+    selectedGrades,
+    isLoadingMetadata,
+    loadMetadataByLanguage,
+    loadQuestionsWithFilters,
+    toggleSubjectSelection,
+    toggleGradeSelection,
+    selectAllSubjects,
+    selectAllGrades,
+    clearAllSubjects,
+    clearAllGrades
   } = useGame();
   const { language } = useLanguage();
   
   // State for distribution view toggle
   const [distributionView, setDistributionView] = useState<'grade' | 'subject'>('grade');
+
+  // Load metadata when language changes
+  useEffect(() => {
+    if (selectedLanguage) {
+      loadMetadataByLanguage(selectedLanguage);
+    }
+  }, [selectedLanguage, loadMetadataByLanguage]);
 
   // Define types for distribution items
   interface GradeDistributionItem {
@@ -56,11 +72,6 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
     percentage: number;
   }
   
-  // Load questions when filters change
-  useEffect(() => {
-    loadQuestions();
-  }, [selectedSubject, selectedGrade, selectedLanguage, loadQuestions]);
-
   // Always sort availableQuestions before rendering
   const sortedAvailableQuestions = [...availableQuestions].sort((a, b) => a.grade - b.grade);
 
@@ -131,8 +142,10 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
     <div className="question-selector">
       <div className="mb-4">
         <h5>{t('questionSelector.title', language)}</h5>
+        
+        {/* Language Selection */}
         <div className="row g-3 mb-3">
-          <div className="col-md-3">
+          <div className="col-md-4">
             <label htmlFor="languageSelect" className="form-label">{t('questionSelector.language', language)}</label>
             <select 
               id="languageSelect" 
@@ -141,65 +154,15 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
               onChange={(e) => setSelectedLanguage(e.target.value)}
             >
               {languages.length > 0 ? (
-                languages.map((language, index) => (
-                  <option key={index} value={language}>{language}</option>
+                languages.map((lang, index) => (
+                  <option key={index} value={lang}>{lang}</option>
                 ))
               ) : (
                 <option value="de">de</option>
               )}
             </select>
           </div>
-          <div className="col-md-3">
-            <label htmlFor="subjectSelect" className="form-label">{t('questionSelector.subject', language)}</label>
-            <select 
-              id="subjectSelect" 
-              className="form-select"
-              value={selectedSubject}
-              onChange={(e) => setSelectedSubject(e.target.value)}
-            >
-              <option value="">{t('questionSelector.allSubjects', language)}</option>
-              {subjects.map((subject, index) => (
-                <option key={index} value={subject}>{subject}</option>
-              ))}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <label htmlFor="gradeSelect" className="form-label">{t('questionSelector.grade', language)}</label>
-            <select 
-              id="gradeSelect" 
-              className="form-select"
-              value={selectedGrade}
-              onChange={(e) => setSelectedGrade(e.target.value ? Number(e.target.value) : '')}
-            >
-              <option value="">{t('questionSelector.allGrades', language)}</option>
-              {[1,2,3,4,5,6,7,8,9,10,11,12,13].map(grade => (
-                <option key={grade} value={grade}>{grade}</option>
-              ))}
-            </select>
-          </div>
-          <div className="col-md-3">
-            <label className="form-label">&nbsp;</label>
-            <div className="d-flex gap-2">
-              <button 
-                className="btn btn-primary flex-grow-1"
-                onClick={loadQuestions}
-                disabled={isLoadingQuestions}
-              >
-                {isLoadingQuestions ? t('questionSelector.loading', language) : t('questionSelector.searchQuestions', language)}
-              </button>
-              <button 
-                className="btn btn-success flex-grow-1"
-                onClick={() => loadRandomQuestions()}
-                disabled={isLoadingRandom}
-              >
-                {isLoadingRandom ? t('questionSelector.loading', language) : t('questionSelector.random', language)}
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="row g-3 mb-3">
-          <div className="col-md-3">
+          <div className="col-md-4">
             <label htmlFor="randomCount" className="form-label">{t('questionSelector.randomQuestions', language)}</label>
             <input
               type="number"
@@ -212,6 +175,170 @@ const QuestionSelector: React.FC<QuestionSelectorProps> = ({
             />
           </div>
         </div>
+
+        {/* Dynamic Filtering Section */}
+        {selectedLanguage && (
+          <div className="card mb-4">
+            <div className="card-header bg-light">
+              <h6 className="mb-0">{t('questionSelector.filterQuestions', language)}</h6>
+            </div>
+            <div className="card-body">
+              {isLoadingMetadata ? (
+                <div className="text-center">
+                  <div className="spinner-border spinner-border-sm me-2" role="status">
+                    <span className="visually-hidden">Loading...</span>
+                  </div>
+                  Loading subjects and grades...
+                </div>
+              ) : (
+                <div className="row">
+                  {/* Subjects Section */}
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <label className="form-label fw-bold">{t('questionSelector.subjects', language)}</label>
+                        <div className="btn-group btn-group-sm">
+                          <button 
+                            type="button" 
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={selectAllSubjects}
+                            disabled={availableSubjects.length === 0}
+                          >
+                            {t('questionSelector.selectAll', language)}
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={clearAllSubjects}
+                            disabled={selectedSubjects.length === 0}
+                          >
+                            {t('questionSelector.clearAll', language)}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="border rounded p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {availableSubjects.length === 0 ? (
+                          <p className="text-muted mb-0 text-center">No subjects available for this language</p>
+                        ) : (
+                          availableSubjects.map((subject) => (
+                            <div key={subject} className="form-check">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id={`subject-${subject}`}
+                                checked={selectedSubjects.includes(subject)}
+                                onChange={() => toggleSubjectSelection(subject)}
+                              />
+                              <label className="form-check-label" htmlFor={`subject-${subject}`}>
+                                {subject}
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <small className="text-muted">
+                        {selectedSubjects.length} of {availableSubjects.length} subjects selected
+                      </small>
+                    </div>
+                  </div>
+
+                  {/* Grades Section */}
+                  <div className="col-md-6">
+                    <div className="mb-3">
+                      <div className="d-flex justify-content-between align-items-center mb-2">
+                        <label className="form-label fw-bold">{t('questionSelector.grades', language)}</label>
+                        <div className="btn-group btn-group-sm">
+                          <button 
+                            type="button" 
+                            className="btn btn-outline-primary btn-sm"
+                            onClick={selectAllGrades}
+                            disabled={availableGrades.length === 0}
+                          >
+                            {t('questionSelector.selectAll', language)}
+                          </button>
+                          <button 
+                            type="button" 
+                            className="btn btn-outline-secondary btn-sm"
+                            onClick={clearAllGrades}
+                            disabled={selectedGrades.length === 0}
+                          >
+                            {t('questionSelector.clearAll', language)}
+                          </button>
+                        </div>
+                      </div>
+                      <div className="border rounded p-2" style={{ maxHeight: '200px', overflowY: 'auto' }}>
+                        {availableGrades.length === 0 ? (
+                          <p className="text-muted mb-0 text-center">No grades available for this language</p>
+                        ) : (
+                          availableGrades.map((grade) => (
+                            <div key={grade} className="form-check">
+                              <input
+                                className="form-check-input"
+                                type="checkbox"
+                                id={`grade-${grade}`}
+                                checked={selectedGrades.includes(grade)}
+                                onChange={() => toggleGradeSelection(grade)}
+                              />
+                              <label className="form-check-label" htmlFor={`grade-${grade}`}>
+                                Grade {grade}
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                      <small className="text-muted">
+                        {selectedGrades.length} of {availableGrades.length} grades selected
+                      </small>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div className="d-flex gap-2 mt-3">
+                <button 
+                  className="btn btn-primary"
+                  onClick={loadQuestionsWithFilters}
+                  disabled={isLoadingQuestions || selectedSubjects.length === 0 || selectedGrades.length === 0}
+                >
+                  {isLoadingQuestions ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </span>
+                      {t('questionSelector.loading', language)}
+                    </>
+                  ) : (
+                    t('questionSelector.searchQuestions', language)
+                  )}
+                </button>
+                <button 
+                  className="btn btn-success"
+                  onClick={() => loadRandomQuestions()}
+                  disabled={isLoadingRandom || availableQuestions.length === 0}
+                >
+                  {isLoadingRandom ? (
+                    <>
+                      <span className="spinner-border spinner-border-sm me-2" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                      </span>
+                      {t('questionSelector.loading', language)}
+                    </>
+                  ) : (
+                    t('questionSelector.random', language)
+                  )}
+                </button>
+              </div>
+
+              {/* Error/Info Messages */}
+              {questionErrorMsg && (
+                <div className={`alert ${questionErrorMsg.includes('Failed') || questionErrorMsg.includes('Please select') ? 'alert-warning' : 'alert-info'} mt-3 mb-0`}>
+                  {questionErrorMsg}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="row">

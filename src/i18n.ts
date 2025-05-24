@@ -147,7 +147,10 @@ const translations: { [lang: string]: TranslationMap } = {
       subjects: 'Subjects',
       noQuestionsSelectedYet: 'No questions selected yet',
       addCustomQuestion: 'Add Custom Question',
-      loading: 'Loading...'
+      loading: 'Loading...',
+      filterQuestions: 'Filter Questions',
+      selectAll: 'Select All',
+      grades: 'Grades'
     },
     gameControls: {
       title: 'Game Controls',
@@ -857,7 +860,10 @@ const translations: { [lang: string]: TranslationMap } = {
       subjects: 'Fächer',
       noQuestionsSelectedYet: 'Noch keine Fragen ausgewählt',
       addCustomQuestion: 'Benutzerdefinierte Frage hinzufügen',
-      loading: 'Laden...'
+      loading: 'Laden...',
+      filterQuestions: 'Fragen filtern',
+      selectAll: 'Alle auswählen',
+      grades: 'Klassen'
     },
     gameControls: {
       title: 'Spielsteuerung',
@@ -1273,7 +1279,10 @@ const translations: { [lang: string]: TranslationMap } = {
       subjects: 'Matières',
       noQuestionsSelectedYet: 'Aucune question sélectionnée pour le moment',
       addCustomQuestion: 'Ajouter une question personnalisée',
-      loading: 'Chargement...'
+      loading: 'Chargement...',
+      filterQuestions: 'Filtrer les questions',
+      selectAll: 'Tout sélectionner',
+      grades: 'Niveaux'
     },
     gameControls: {
       title: 'Contrôles du jeu',
@@ -1689,7 +1698,10 @@ const translations: { [lang: string]: TranslationMap } = {
       subjects: 'Vakken',
       noQuestionsSelectedYet: 'Nog geen vragen geselecteerd',
       addCustomQuestion: 'Aangepaste vraag toevoegen',
-      loading: 'Laden...'
+      loading: 'Laden...',
+      filterQuestions: 'Vragen filteren',
+      selectAll: 'Alles selecteren',
+      grades: 'Klassen'
     },
     gameControls: {
       title: 'Spelbediening',

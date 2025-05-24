@@ -130,6 +130,13 @@ interface GameContextType {
   randomCount: number;
   isLoadingRandom: boolean;
   
+  // New filtering state
+  availableSubjects: string[];
+  availableGrades: number[];
+  selectedSubjects: string[];
+  selectedGrades: number[];
+  isLoadingMetadata: boolean;
+  
   // Preview Overlay Version
   previewOverlayVersion: 'v1' | 'v2';
   isCommunityVotingMode: boolean;
@@ -168,6 +175,18 @@ interface GameContextType {
   setPreviewOverlayVersion: (version: 'v1' | 'v2') => void;
   togglePreviewOverlayVersion: () => void;
   toggleCommunityVoting?: (roomCode: string) => void;
+  
+  // New filtering actions
+  loadMetadataByLanguage: (language: string) => Promise<void>;
+  loadQuestionsWithFilters: () => Promise<void>;
+  setSelectedSubjects: (subjects: string[]) => void;
+  setSelectedGrades: (grades: number[]) => void;
+  toggleSubjectSelection: (subject: string) => void;
+  toggleGradeSelection: (grade: number) => void;
+  selectAllSubjects: () => void;
+  selectAllGrades: () => void;
+  clearAllSubjects: () => void;
+  clearAllGrades: () => void;
 }
 
 const GameContext = createContext<GameContextType | null>(null);
@@ -227,6 +246,13 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Preview Overlay Version (sync across clients)
   const [previewOverlayVersion, setPreviewOverlayVersionState] = useState<'v1' | 'v2'>('v1');
   const [isCommunityVotingMode, setIsCommunityVotingMode] = useState(false);
+
+  // New filtering state
+  const [availableSubjects, setAvailableSubjects] = useState<string[]>([]);
+  const [availableGrades, setAvailableGrades] = useState<number[]>([]);
+  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedGrades, setSelectedGrades] = useState<number[]>([]);
+  const [isLoadingMetadata, setIsLoadingMetadata] = useState(false);
 
   const boardUpdateHandler = useCallback((updatedBoard: PlayerBoard) => {
     console.log('[GameContext] board_update received', updatedBoard);
@@ -400,6 +426,53 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoadingQuestions(false);
     }
   }, [selectedSubject, selectedGrade, selectedLanguage]);
+
+  // New load questions function with multiple filters
+  const loadQuestionsWithFilters = useCallback(async () => {
+    // Validate that at least one subject and one grade are selected
+    if (selectedSubjects.length === 0 || selectedGrades.length === 0) {
+      setQuestionErrorMsg('Please select at least one grade and subject');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+      setAvailableQuestions([]);
+      return;
+    }
+
+    setIsLoadingQuestions(true);
+    setQuestionErrorMsg('');
+    try {
+      // Fetch questions for each combination of selected subjects and grades
+      const allQuestions: any[] = [];
+      
+      for (const subject of selectedSubjects) {
+        for (const grade of selectedGrades) {
+          const questions = await supabaseService.getQuestions({
+            subject,
+            grade,
+            language: selectedLanguage
+          });
+          allQuestions.push(...questions);
+        }
+      }
+
+      // Remove duplicates and convert
+      const uniqueQuestions = allQuestions.filter((question, index, self) => 
+        index === self.findIndex(q => q.id === question.id)
+      );
+
+      setAvailableQuestions(uniqueQuestions.map(convertSupabaseQuestion));
+      
+      if (uniqueQuestions.length === 0) {
+        setQuestionErrorMsg('No questions found for the selected filters');
+        setTimeout(() => setQuestionErrorMsg(''), 3000);
+      }
+    } catch (error) {
+      console.error('Error loading questions with filters:', error);
+      setQuestionErrorMsg('Failed to load questions');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+    } finally {
+      setIsLoadingQuestions(false);
+    }
+  }, [selectedSubjects, selectedGrades, selectedLanguage]);
 
   // Load random questions
   const loadRandomQuestions = useCallback(async () => {
@@ -1117,6 +1190,57 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
+  // New filtering functions
+  const loadMetadataByLanguage = useCallback(async (language: string) => {
+    setIsLoadingMetadata(true);
+    try {
+      const [subjectsData, gradesData] = await Promise.all([
+        supabaseService.getSubjectsByLanguage(language),
+        supabaseService.getGradesByLanguage(language)
+      ]);
+      setAvailableSubjects(subjectsData);
+      setAvailableGrades(gradesData);
+    } catch (error) {
+      console.error('Error loading metadata by language:', error);
+      setQuestionErrorMsg('Failed to load subjects and grades');
+      setTimeout(() => setQuestionErrorMsg(''), 3000);
+    } finally {
+      setIsLoadingMetadata(false);
+    }
+  }, []);
+
+  const toggleSubjectSelection = useCallback((subject: string) => {
+    setSelectedSubjects(prev => 
+      prev.includes(subject) 
+        ? prev.filter(s => s !== subject)
+        : [...prev, subject]
+    );
+  }, []);
+
+  const toggleGradeSelection = useCallback((grade: number) => {
+    setSelectedGrades(prev => 
+      prev.includes(grade) 
+        ? prev.filter(g => g !== grade)
+        : [...prev, grade]
+    );
+  }, []);
+
+  const selectAllSubjects = useCallback(() => {
+    setSelectedSubjects([...availableSubjects]);
+  }, [availableSubjects]);
+
+  const selectAllGrades = useCallback(() => {
+    setSelectedGrades([...availableGrades]);
+  }, [availableGrades]);
+
+  const clearAllSubjects = useCallback(() => {
+    setSelectedSubjects([]);
+  }, []);
+
+  const clearAllGrades = useCallback(() => {
+    setSelectedGrades([]);
+  }, []);
+
     const value = {
       gameStarted,
       gameOver,
@@ -1180,7 +1304,22 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       previewOverlayVersion,
       setPreviewOverlayVersion,
       togglePreviewOverlayVersion,
-      isCommunityVotingMode
+      isCommunityVotingMode,
+      availableSubjects,
+      availableGrades,
+      selectedSubjects,
+      selectedGrades,
+      isLoadingMetadata,
+      loadMetadataByLanguage,
+      setSelectedSubjects,
+      setSelectedGrades,
+      toggleSubjectSelection,
+      toggleGradeSelection,
+      selectAllSubjects,
+      selectAllGrades,
+      clearAllSubjects,
+      clearAllGrades,
+      loadQuestionsWithFilters
     };
 
   return (

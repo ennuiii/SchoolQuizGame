@@ -138,6 +138,48 @@ export const supabaseService = {
     return Array.from(new Set(data.map(q => q.language)));
   },
 
+  // Get subjects filtered by language
+  async getSubjectsByLanguage(language?: string) {
+    let query = supabase
+      .from('questions')
+      .select('subject')
+      .order('subject');
+
+    if (language) {
+      query = query.eq('language', language);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching subjects by language:', error);
+      throw error;
+    }
+
+    return Array.from(new Set(data.map(q => q.subject)));
+  },
+
+  // Get grades filtered by language
+  async getGradesByLanguage(language?: string) {
+    let query = supabase
+      .from('questions')
+      .select('grade')
+      .order('grade');
+
+    if (language) {
+      query = query.eq('language', language);
+    }
+
+    const { data, error } = await query;
+
+    if (error) {
+      console.error('Error fetching grades by language:', error);
+      throw error;
+    }
+
+    return Array.from(new Set(data.map(q => q.grade))).sort((a, b) => a - b);
+  },
+
   // Upload multiple questions from JSON
   async uploadQuestions(questions: QuestionUpload[]) {
     const { data, error } = await supabase
