@@ -35,6 +35,7 @@ export interface Player {
   }[];
   isActive: boolean;
   isSpectator: boolean;
+  isEliminated?: boolean;
 }
 
 export interface PlayerBoard {

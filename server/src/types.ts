@@ -40,6 +40,7 @@ export interface Player {
   lastAnswerTimestamp: number | null;
   isActive: boolean;
   isSpectator: boolean;
+  isEliminated: boolean; // Track if player is eliminated but chose to stay
   joinedAsSpectator: boolean;
   disconnectTimer: NodeJS.Timeout | null;
   answers: PlayerAnswer[];
@@ -82,6 +83,9 @@ export interface GameRoom {
   isCommunityVotingMode?: boolean;
   gameMasterBoardData?: string | null;
   votes?: Record<string, Record<string, 'correct' | 'incorrect'>>;
+  // Life restoration tracking
+  roundStartLives?: Record<string, number>; // Track lives at start of round for each player
+  lifeRestoreOffered?: boolean; // Track if restore has been offered this round
 }
 
 export interface GameState {
@@ -211,7 +215,7 @@ export interface ServerToClientEvents {
   avatar_updated: (data: { persistentPlayerId: string, avatarSvg: string }) => void;
   avatar_update_error: (data: { message: string }) => void;
   game_over_pending_recap: (data: { roomCode: string, winner: { id: string, persistentPlayerId: string, name: string } | null }) => void;
-  game_recap: (recap: GameRecap) => void;
+  game_recap: (data: GameRecap & { initialSelectedRoundIndex?: number, initialSelectedTabKey?: string }) => void;
   recap_round_changed: (data: { selectedRoundIndex: number }) => void;
   recap_tab_changed: (data: { selectedTabKey: string }) => void;
   start_preview_mode: () => void;
@@ -219,19 +223,27 @@ export interface ServerToClientEvents {
   focus_submission: (data: { playerId: string }) => void;
   game_over: (data: { reason: string }) => void;
   // WebRTC signaling
-  'webrtc-existing-peers': (data: { peers: any[] }) => void;
-  'webrtc-new-peer': (data: { newPeer: any }) => void;
+  'webrtc-existing-peers': (data: { peers: Array<{ socketId: string, persistentPlayerId: string, playerName: string, isGameMaster: boolean }> }) => void;
+  'webrtc-new-peer': (data: { newPeer: { socketId: string, persistentPlayerId: string, playerName: string, isGameMaster: boolean } }) => void;
+  'webrtc-user-left': (data: { socketId: string }) => void;
   'webrtc-offer': (data: { offer: any, from: string }) => void;
   'webrtc-answer': (data: { answer: any, from: string }) => void;
   'webrtc-ice-candidate': (data: { candidate: any, from: string }) => void;
-  'webrtc-user-left': (data: { socketId: string }) => void;
-  community_voting_status_changed: (data: { isCommunityVotingMode: boolean }) => void;  points_mode_status_changed: (data: { isPointsMode: boolean }) => void;
-  answer_voted: (data: { answerId: string, playerId: string, vote: 'correct' | 'incorrect', voteCounts: Record<string, {correct: number, incorrect: number}> }) => void;
-  correct_answer_revealed: (data: { questionId: string, correctAnswer: string }) => void;
+  'webrtc-refresh-states': (data: { timestamp: number }) => void;
   'webcam-state-change': (data: { fromSocketId: string, enabled: boolean }) => void;
   'microphone-state-change': (data: { fromSocketId: string, enabled: boolean }) => void;
+  community_voting_status_changed: (data: { isCommunityVotingMode: boolean }) => void;
+  points_mode_status_changed: (data: { isPointsMode: boolean }) => void;
+  answer_voted: (data: { answerId: string, voterId: string, vote: 'correct' | 'incorrect', voteCounts: { correct: number, incorrect: number } }) => void;
+  correct_answer_revealed: (data: { questionId: string, correctAnswer: string }) => void;
   all_votes_submitted: (data: { message: string }) => void;
   gm_community_answer_accepted: (data: { questionId: string }) => void;
+  player_kicked: (data: { playerId: string, persistentPlayerId: string, playerName: string, wasDisconnected: boolean }) => void;
+  life_restore_prompt: (data: { roomCode: string, affectedPlayers: Array<{ persistentPlayerId: string, name: string, livesLost: number }> }) => void;
+  lives_restored: (data: { roomCode: string, restoredPlayers: Array<{ persistentPlayerId: string, name: string, livesRestored: number }> }) => void;
+  // Elimination choice events
+  elimination_choice_prompt: (data: { roomCode: string }) => void;
+  player_eliminated_status: (data: { playerId: string, persistentPlayerId: string, isEliminated: boolean, isSpectator?: boolean, isActive?: boolean }) => void;
 }
 
 export interface ClientToServerEvents {
@@ -262,7 +274,8 @@ export interface ClientToServerEvents {
   'webrtc-offer': (data: { offer: any, to: string, from: string }) => void;
   'webrtc-answer': (data: { answer: any, to: string, from: string }) => void;
   'webrtc-ice-candidate': (data: { candidate: any, to: string, from: string }) => void;
-  toggle_community_voting: (data: { roomCode: string, isCommunityVotingMode: boolean }) => void;  toggle_points_mode: (data: { roomCode: string, isPointsMode: boolean }) => void;
+  toggle_community_voting: (data: { roomCode: string, isCommunityVotingMode: boolean }) => void;
+  toggle_points_mode: (data: { roomCode: string, isPointsMode: boolean }) => void;
   submit_vote: (data: { roomCode: string, answerId: string, vote: 'correct' | 'incorrect' }) => void;
   show_answer: (data: { roomCode: string, questionId: string }) => void;
   update_game_master_board: (data: { roomCode: string, boardData: string }) => void;
@@ -271,6 +284,11 @@ export interface ClientToServerEvents {
   'microphone-state-change': (data: { roomCode: string, enabled: boolean, fromSocketId: string }) => void;
   force_end_voting: (data: { roomCode: string }) => void;
   adjust_player_lives: (data: { roomCode: string; playerId: string; adjustment: number }) => void;
+  'webrtc-refresh-states': (data: { timestamp: number }) => void;
+  // Life restoration events
+  restore_round_lives: (data: { roomCode: string }) => void;
+  // Elimination choice events
+  elimination_choice_response: (data: { roomCode: string, becomeSpectator: boolean }) => void;
 }
 
 export interface InterServerEvents {

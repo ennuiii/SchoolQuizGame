@@ -94,6 +94,7 @@ export function getGameState(roomCode: string): GameState | null {
           answers: room.roundAnswers[room.gamemasterPersistentId] ? [room.roundAnswers[room.gamemasterPersistentId]] : [],
           isActive: true,
           isSpectator: false,
+          isEliminated: false,
           joinedAsSpectator: false,
           disconnectTimer: null,
           avatarSvg: null 

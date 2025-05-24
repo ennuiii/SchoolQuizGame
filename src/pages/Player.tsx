@@ -51,6 +51,12 @@ const Player: React.FC = () => {
   const [showRoundStartOverlay, setShowRoundStartOverlay] = useState(false);
   const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
   const [pointsBreakdownData, setPointsBreakdownData] = useState<any>(null);
+  const [showSubmissionSuccessOverlay, setShowSubmissionSuccessOverlay] = useState(false);
+  const [isSpectating, setIsSpectating] = useState(false);
+  
+  // Elimination choice state
+  const [showEliminationChoice, setShowEliminationChoice] = useState(false);
+  const [eliminationData, setEliminationData] = useState<{ roomCode: string } | null>(null);
   
   // Get context values
     const {    gameStarted,    currentQuestion,    timeLimit,    timeRemaining,    isTimerRunning,    previewMode,    previewOverlayVersion,    toggleBoardVisibility,    currentQuestionIndex,    submittedAnswer,    isGameConcluded,    isPointsMode,    gameRecapData,    recapSelectedRoundIndex,    recapSelectedTabKey,    hideRecap,    allAnswersThisRound,    evaluatedAnswers,    currentVotes,    players,    playerBoards,    isCommunityVotingMode,    questions  } = useGame();
@@ -774,6 +780,71 @@ const Player: React.FC = () => {
       }));
   }, [persistentPlayerId, players, questions]);
 
+  // Memoize the current player
+  const currentPlayer = useMemo(() => {
+    if (!persistentPlayerId || !players) return null;
+    
+    return players.find(p => p.persistentPlayerId === persistentPlayerId);
+  }, [persistentPlayerId, players]);
+
+  // Elimination choice event listeners and handlers
+  useEffect(() => {
+    const handleEliminationChoicePrompt = (data: { roomCode: string }) => {
+      console.log('[Player] Received elimination choice prompt:', data);
+      setEliminationData(data);
+      setShowEliminationChoice(true);
+    };
+
+    const handlePlayerEliminatedStatus = (data: { 
+      playerId: string, 
+      persistentPlayerId: string, 
+      isEliminated: boolean,
+      isSpectator?: boolean 
+    }) => {
+      console.log('[Player] Player elimination status update:', data);
+      // Update UI if needed
+    };
+
+    socketService.on('elimination_choice_prompt', handleEliminationChoicePrompt);
+    socketService.on('player_eliminated_status', handlePlayerEliminatedStatus);
+
+    return () => {
+      socketService.off('elimination_choice_prompt', handleEliminationChoicePrompt);
+      socketService.off('player_eliminated_status', handlePlayerEliminatedStatus);
+    };
+  }, []);
+
+  // Handle elimination choice submission
+  const handleEliminationChoice = useCallback((becomeSpectator: boolean) => {
+    if (!eliminationData || connectionStatus !== 'connected') {
+      toast.error('Cannot submit elimination choice: Connection issue or no choice data.');
+      return;
+    }
+
+    try {
+      console.log('[Player] Submitting elimination choice:', { becomeSpectator, roomCode: eliminationData.roomCode });
+      socketService.emit('elimination_choice_response', { 
+        roomCode: eliminationData.roomCode, 
+        becomeSpectator 
+      });
+      
+      setShowEliminationChoice(false);
+      setEliminationData(null);
+      
+      if (becomeSpectator) {
+        toast.info('You chose to become a spectator. You can still watch the game!');
+        setIsSpectating(true);
+        // Redirect to spectator view
+        setTimeout(() => navigate('/spectator'), 1000);
+      } else {
+        toast.info('You chose to stay eliminated. You can see questions and answers but cannot participate.');
+      }
+    } catch (error) {
+      console.error('[Player] Error submitting elimination choice:', error);
+      toast.error('Failed to submit elimination choice.');
+    }
+  }, [eliminationData, connectionStatus, navigate]);
+
   if (!roomCode) {
     console.log('[Player] No room code found, redirecting to home');
     navigate('/');
@@ -1272,24 +1343,7 @@ const Player: React.FC = () => {
             </div>
           </div>
         )}
-        <QuestionHistoryModal
-          show={showHistoryModal}
-          onHide={() => setShowHistoryModal(false)}
-          history={playerAnswerHistory}
-          language={language}
-        />
-        
-        {/* Points Breakdown Modal */}
-        <PointsBreakdown
-          isOpen={showPointsBreakdown}
-          onClose={() => setShowPointsBreakdown(false)}
-          pointsBreakdown={pointsBreakdownData}
-          questionGrade={pointsBreakdownData?.questionGrade}
-          answerTime={pointsBreakdownData?.answerTime}
-          submissionOrder={pointsBreakdownData?.submissionOrder}
-          streak={pointsBreakdownData?.streak}
-          playerName={pointsBreakdownData?.playerName}
-        />
+                <QuestionHistoryModal          show={showHistoryModal}          onHide={() => setShowHistoryModal(false)}          history={playerAnswerHistory}          language={language}        />                {/* Points Breakdown Modal */}        <PointsBreakdown          isOpen={showPointsBreakdown}          onClose={() => setShowPointsBreakdown(false)}          pointsBreakdown={pointsBreakdownData}          questionGrade={pointsBreakdownData?.questionGrade}          answerTime={pointsBreakdownData?.answerTime}          submissionOrder={pointsBreakdownData?.submissionOrder}          streak={pointsBreakdownData?.streak}          playerName={pointsBreakdownData?.playerName}        />        {/* Elimination Choice Modal */}        {showEliminationChoice && (          <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.8)'}}>            <div className="modal-dialog modal-dialog-centered">              <div className="modal-content">                <div className="modal-header">                  <h5 className="modal-title">                    <i className="bi bi-exclamation-triangle text-warning me-2"></i>                    You've Been Eliminated!                  </h5>                </div>                <div className="modal-body">                  <p className="mb-3">                    You lost your last life! What would you like to do?                  </p>                  <div className="d-grid gap-3">                    <button                      className="btn btn-primary btn-lg"                      onClick={() => handleEliminationChoice(true)}                    >                      <i className="bi bi-eye me-2"></i>                      Become a Spectator                      <small className="d-block text-light">You can watch the game and see all answers</small>                    </button>                    <button                      className="btn btn-outline-secondary btn-lg"                      onClick={() => handleEliminationChoice(false)}                    >                      <i className="bi bi-x-circle me-2"></i>                      Stay Eliminated                      <small className="d-block">You can see questions but cannot answer or draw</small>                    </button>                  </div>                </div>              </div>            </div>          </div>        )}
       </div>
     </>
   );

@@ -182,6 +182,7 @@ function loadRoomState() {
                             ...savedPlayer,
                             id: '', // Will be updated when player reconnects
                             isActive: false,
+                            isEliminated: false,
                             disconnectTimer: null,
                             score: 0,
                             streak: 0,
@@ -211,6 +212,7 @@ function loadRoomState() {
                 ...player,
                 id: '', // will be updated when player reconnects
                 isActive: false, // mark as inactive until reconnect
+                isEliminated: false,
                 disconnectTimer: null,
                 score: 0,
                 streak: 0,

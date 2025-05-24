@@ -47,6 +47,7 @@ interface Player {
   }[];
   isActive: boolean;
   isSpectator: boolean;
+  isEliminated?: boolean; // Track if player is eliminated but chose to stay
 }
 
 export interface PlayerBoard {
@@ -914,6 +915,31 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsPointsMode(data.isPointsMode);
     };
 
+    // Add handler for player elimination status changes
+    const playerEliminatedStatusHandler = (data: { 
+      playerId: string, 
+      persistentPlayerId: string, 
+      isEliminated: boolean,
+      isSpectator?: boolean,
+      isActive?: boolean
+    }) => {
+      console.log('[GameContext] Player elimination status update received:', data);
+      setPlayers(prevPlayers => {
+        return prevPlayers.map(player => {
+          if (player.persistentPlayerId === data.persistentPlayerId) {
+            console.log(`[GameContext] Updating elimination status for player ${player.name}: ${player.isEliminated} -> ${data.isEliminated}`);
+            return {
+              ...player,
+              isEliminated: data.isEliminated,
+              isSpectator: data.isSpectator !== undefined ? data.isSpectator : player.isSpectator,
+              isActive: data.isActive !== undefined ? data.isActive : player.isActive
+            };
+          }
+          return player;
+        });
+      });
+    };
+
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
@@ -935,6 +961,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('recap_tab_changed', recapTabChangedHandler);
     socketService.on('game_restarted', gameRestartedHandler);
     socketService.on('points_mode_status_changed', pointsModeStatusChangedHandler);
+    socketService.on('player_eliminated_status', playerEliminatedStatusHandler);
 
     // Cleanup
     return () => {
@@ -961,6 +988,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('recap_tab_changed');
       socketService.off('game_restarted');
       socketService.off('points_mode_status_changed');
+      socketService.off('player_eliminated_status');
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };

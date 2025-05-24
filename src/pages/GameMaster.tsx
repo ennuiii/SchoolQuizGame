@@ -27,6 +27,7 @@ import DrawingBoard from '../components/player/DrawingBoard';
 import AnswerInput from '../components/player/AnswerInput';
 import AvatarCreator from '../components/shared/AvatarCreator';
 import GameMasterQuestionHistoryModal from '../components/shared/GameMasterQuestionHistoryModal';
+import RoundStartOverlay from '../components/shared/RoundStartOverlay';
 
 const GameMaster: React.FC = () => {
   const navigate = useNavigate();
@@ -84,6 +85,14 @@ const GameMaster: React.FC = () => {
   const [gmOverlayLocallyClosed, setGmOverlayLocallyClosed] = useState(false);
   const [showAvatarCreator, setShowAvatarCreator] = useState(false);
   const [showHistoryModal, setShowHistoryModal] = useState(false);
+  const [showRoundStartOverlay, setShowRoundStartOverlay] = useState(false);
+  
+  // Life restoration state
+  const [showLifeRestorePrompt, setShowLifeRestorePrompt] = useState(false);
+  const [lifeRestoreData, setLifeRestoreData] = useState<{
+    roomCode: string;
+    affectedPlayers: Array<{ persistentPlayerId: string, name: string, livesLost: number }>;
+  } | null>(null);
   
   const {
     roomCode,
@@ -208,6 +217,39 @@ const GameMaster: React.FC = () => {
       socketService.off('kick_error');
     };
   }, []);
+
+  // Life restoration event listeners
+  useEffect(() => {
+    const handleLifeRestorePrompt = (data: { 
+      roomCode: string; 
+      affectedPlayers: Array<{ persistentPlayerId: string, name: string, livesLost: number }> 
+    }) => {
+      console.log('[GameMaster] Received life restore prompt:', data);
+      setLifeRestoreData(data);
+      setShowLifeRestorePrompt(true);
+    };
+
+    const handleLivesRestored = (data: { 
+      roomCode: string; 
+      restoredPlayers: Array<{ persistentPlayerId: string, name: string, livesRestored: number }> 
+    }) => {
+      console.log('[GameMaster] Lives restored:', data);
+      const playerNames = data.restoredPlayers.map(p => p.name).join(', ');
+      toast.success(`Lives restored for: ${playerNames}`);
+      setShowLifeRestorePrompt(false);
+      setLifeRestoreData(null);
+    };
+
+    if (connectionStatus === 'connected') {
+      socketService.on('life_restore_prompt', handleLifeRestorePrompt);
+      socketService.on('lives_restored', handleLivesRestored);
+    }
+
+    return () => {
+      socketService.off('life_restore_prompt', handleLifeRestorePrompt);
+      socketService.off('lives_restored', handleLivesRestored);
+    };
+  }, [connectionStatus]);
 
   const handleToggleCommunityVotingMode = useCallback(() => {
     setIsCommunityVotingMode(prev => {
@@ -772,6 +814,29 @@ const GameMaster: React.FC = () => {
     }
   }, [roomCode, isCommunityVotingMode, connectionStatus]);
 
+  // Life restoration handlers
+  const handleConfirmLifeRestore = useCallback(() => {
+    if (!lifeRestoreData || connectionStatus !== 'connected') {
+      toast.error('Cannot restore lives: Connection issue or no restoration data.');
+      return;
+    }
+
+    try {
+      console.log('[GameMaster] Confirming life restoration for room:', lifeRestoreData.roomCode);
+      socketService.restoreRoundLives(lifeRestoreData.roomCode);
+      toast.info('Restoring lives...');
+    } catch (error) {
+      console.error('[GameMaster] Error confirming life restoration:', error);
+      toast.error('Failed to restore lives.');
+    }
+  }, [lifeRestoreData, connectionStatus]);
+
+  const handleDeclineLifeRestore = useCallback(() => {
+    console.log('[GameMaster] Declining life restoration');
+    setShowLifeRestorePrompt(false);
+    setLifeRestoreData(null);
+  }, []);
+
   const handleAvatarUpdate = useCallback(async (avatarSvg: string, pidToUse: string) => {
     console.log('[GameMaster] handleAvatarUpdate called:', {
       hasRoomCode: !!roomCode,
@@ -878,6 +943,13 @@ const GameMaster: React.FC = () => {
       };
     });
   }, [questions, gamePlayers]);
+
+  // Show countdown overlay when a new question starts (same as Player.tsx)
+  useEffect(() => {
+    if (gameStarted && currentQuestion) {
+      setShowRoundStartOverlay(true);
+    }
+  }, [gameStarted, gameCurrentQuestionIndex, currentQuestion?.id]);
 
   // Show loading overlay if trying to connect or reconnect
   if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
@@ -987,6 +1059,14 @@ const GameMaster: React.FC = () => {
   // Main component return
   return (
     <div className="vh-100 gamemaster-page-layout position-relative">
+      <RoundStartOverlay
+        question={currentQuestion?.text || ''}
+        subject={currentQuestion?.subject || ''}
+        grade={currentQuestion?.grade || ''}
+        active={showRoundStartOverlay}
+        onFinish={() => setShowRoundStartOverlay(false)}
+        language={language}
+      />
       {/* Main Content Area - Full Width */}
       <div 
         className="main-content-area p-0" 
@@ -1045,6 +1125,68 @@ const GameMaster: React.FC = () => {
                     </button>
                     <button type="button" className="btn btn-danger" onClick={() => { roomCode && endRoundEarly(roomCode); setShowEndRoundConfirm(false); }}>
                       {t('gameControls.confirmEndRound', language)}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
+          {/* Life Restoration Modal */}
+          {showLifeRestorePrompt && lifeRestoreData && (
+            <div className="modal show d-block" tabIndex={-1} style={{backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 2000}}>
+              <div className="modal-dialog modal-dialog-centered">
+                <div className="modal-content">
+                  <div className="modal-header bg-warning">
+                    <h5 className="modal-title">
+                      <i className="bi bi-heart-pulse me-2"></i>
+                      Restore Player Lives?
+                    </h5>
+                    <button type="button" className="btn-close" onClick={handleDeclineLifeRestore}></button>
+                  </div>
+                  <div className="modal-body">
+                    <p className="mb-3">
+                      <strong>All players lost a life this round.</strong> This might indicate an unfair or poorly worded question.
+                    </p>
+                    <p className="mb-3">Would you like to restore the lives lost this round?</p>
+                    
+                    <div className="card bg-light">
+                      <div className="card-header">
+                        <small className="text-muted">Affected Players:</small>
+                      </div>
+                      <div className="card-body">
+                        {lifeRestoreData.affectedPlayers.map((player, index) => (
+                          <div key={player.persistentPlayerId} className="d-flex justify-content-between align-items-center mb-2">
+                            <span>{player.name}</span>
+                            <span className="badge bg-danger">
+                              -{player.livesLost} life{player.livesLost > 1 ? 's' : ''}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                    
+                    <small className="text-muted mt-3 d-block">
+                      Restoring lives will bring back any players who were eliminated this round.
+                    </small>
+                  </div>
+                  <div className="modal-footer">
+                    <button 
+                      type="button" 
+                      className="btn btn-secondary" 
+                      onClick={handleDeclineLifeRestore}
+                    >
+                      <i className="bi bi-x-circle me-1"></i>
+                      Keep Current Results
+                    </button>
+                    <button 
+                      type="button" 
+                      className="btn btn-warning" 
+                      onClick={handleConfirmLifeRestore}
+                      disabled={connectionStatus !== 'connected'}
+                    >
+                      <i className="bi bi-heart-pulse me-1"></i>
+                      Restore Lives
                     </button>
                   </div>
                 </div>

@@ -150,7 +150,10 @@ const PlayerList: React.FC<PlayerListProps> = ({
                           {player.isSpectator && (
                             <span className="badge bg-secondary rounded-pill ms-1">{t('spectator', language)}</span>
                           )}
-                          {!player.isActive && (
+                          {player.isEliminated && !player.isSpectator && (
+                            <span className="badge bg-danger rounded-pill ms-1">{t('eliminated', language)}</span>
+                          )}
+                          {!player.isActive && !player.isEliminated && (
                             <span className="badge bg-warning rounded-pill ms-1">{t('disconnected', language)}</span>
                           )}
                           {hasSubmittedAnswer && !player.isSpectator && player.isActive && (
@@ -166,6 +169,9 @@ const PlayerList: React.FC<PlayerListProps> = ({
                           {[...Array(player.lives)].map((_, i) => (
                             <span key={i} className="life" role="img" aria-label="heart">❤</span>
                           ))}
+                          {player.isEliminated && player.lives === 0 && (
+                            <span className="text-muted">💀</span>
+                          )}
                         </div>
                       )}
                       {shouldShowKickButton && (

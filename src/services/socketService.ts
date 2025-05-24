@@ -635,6 +635,8 @@ export class SocketService {
     await this.robustEmit('end_round_early', { roomCode });
   }
 
+    async restoreRoundLives(roomCode: string): Promise<void> {    console.log('[SocketService] Requesting life restoration for room:', roomCode);    await this.robustEmit('restore_round_lives', { roomCode });  }  async submitEliminationChoice(roomCode: string, becomeSpectator: boolean): Promise<void> {    console.log('[SocketService] Submitting elimination choice:', { roomCode, becomeSpectator });    await this.robustEmit('elimination_choice_response', { roomCode, becomeSpectator });  }
+
   public onError(callback: (error: string) => void): void {
     this.errorCallback = (error: { message: string }) => callback(error.message);
   }

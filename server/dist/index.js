@@ -628,6 +628,7 @@ io.on('connection', (socket) => {
             answers: [],
             isActive: true,
             isSpectator: !!isSpectator, // Ensure boolean
+            isEliminated: false,
             joinedAsSpectator: !!isSpectator,
             disconnectTimer: null,
             avatarSvg: avatarSvg || null
@@ -706,6 +707,16 @@ io.on('connection', (socket) => {
                 });
                 console.log(`[SERVER] Points mode initialized for room ${roomCode} - all scores reset to 0`);
             }
+            // Reset life restoration tracking for new game
+            room.roundStartLives = {};
+            room.lifeRestoreOffered = false;
+            // Initialize round start lives tracking for all active non-spectator players
+            room.players.forEach(player => {
+                if (player.isActive && !player.isSpectator) {
+                    room.roundStartLives[player.persistentPlayerId] = player.lives;
+                }
+            });
+            console.log(`[SERVER] Initialized round start lives tracking for new game:`, room.roundStartLives);
             console.log('[SERVER] Game started successfully:', {
                 roomCode,
                 timeLimit: room.timeLimit,
@@ -871,6 +882,16 @@ io.on('connection', (socket) => {
             return;
         }
         const room = roomService_1.gameRooms[roomCode];
+        // Initialize round start tracking if not already done
+        if (!room.roundStartLives) {
+            room.roundStartLives = {};
+            room.players.forEach(player => {
+                if (player.isActive && !player.isSpectator) {
+                    room.roundStartLives[player.persistentPlayerId] = player.lives;
+                }
+            });
+            console.log(`[SERVER] Initialized round start lives tracking:`, room.roundStartLives);
+        }
         const isGMSubmittingInCommunityMode = room.isCommunityVotingMode && socket.id === room.gamemaster;
         const effectivePersistentPlayerId = isGMSubmittingInCommunityMode
             ? room.gamemasterPersistentId
@@ -1059,11 +1080,89 @@ io.on('connection', (socket) => {
             if (!room.evaluatedAnswers)
                 room.evaluatedAnswers = {};
             room.evaluatedAnswers[persistentPlayerIdFromClient] = isCorrect;
-            // Handle life changes based on evaluation change (only in non-points mode)      if (playerObjInRoom && !room.isPointsMode) {        if (isCorrect && previousEvaluation === false) {          // Restore a life when correcting from incorrect to correct          playerObjInRoom.lives = Math.min(3, (playerObjInRoom.lives || 0) + 1);          console.log(`[Server] Restored life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);        } else if (!isCorrect && previousEvaluation === true) {          // Remove a life when changing from correct to incorrect          playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);          console.log(`[Server] Removed life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);        }        // Check if player should become spectator        if (playerObjInRoom.lives <= 0) {          playerObjInRoom.isActive = false;          playerObjInRoom.isSpectator = true;          const playerSocket = getIO().sockets.sockets.get(playerObjInRoom.id);          if (playerSocket) {            playerSocket.emit('become_spectator');            console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated.`);          }        }      }              // Points calculation for points mode - removed submissionTime requirement      if (playerObjInRoom) {        console.log(`[POINTS DEBUG] Evaluating answer for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);        console.log(`[POINTS DEBUG] Room.isPointsMode: ${room.isPointsMode}, Room details:`, {          roomCode,          isPointsMode: room.isPointsMode,          isStreamerMode: room.isStreamerMode,          started: room.started,          hasCurrentQuestion: !!room.currentQuestion        });                if (room.isPointsMode && room.currentQuestion) {          console.log(`[POINTS DEBUG] Starting points calculation for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);          console.log(`[POINTS DEBUG] Room isPointsMode: ${room.isPointsMode}, isCorrect: ${isCorrect}`);          console.log(`[POINTS DEBUG] Current question grade: ${room.currentQuestion.grade}`);          console.log(`[POINTS DEBUG] Player current score: ${playerObjInRoom.score}, streak: ${playerObjInRoom.streak}`);                    if (isCorrect) {            // Calculate points for correct answer            // Use submissionTime if available, otherwise default to 0            const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;            const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based            const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit                        console.log(`[POINTS DEBUG] Answer time: ${answerTimeSeconds}s, position: ${position}, total time allowed: ${totalTimeAllowed}s`);                        const pointsBreakdown = PointsCalculator.calculatePoints(              room.currentQuestion,              answerTimeSeconds,              position,              playerObjInRoom.streak || 0,              totalTimeAllowed            );                        console.log(`[POINTS DEBUG] Points breakdown calculated:`, pointsBreakdown);                        // Update player's score and streak            const oldScore = playerObjInRoom.score || 0;            const oldStreak = playerObjInRoom.streak || 0;                        playerObjInRoom.score = oldScore + pointsBreakdown.total;            playerObjInRoom.streak = oldStreak + 1;            playerObjInRoom.lastPointsEarned = pointsBreakdown.total;            playerObjInRoom.lastAnswerTimestamp = Date.now();                        console.log(`[POINTS DEBUG] Player score updated: ${oldScore} -> ${playerObjInRoom.score}`);            console.log(`[POINTS DEBUG] Player streak updated: ${oldStreak} -> ${playerObjInRoom.streak}`);                        // Add this player to answeredPlayersCorrectly for position tracking            if (!room.answeredPlayersCorrectly.includes(persistentPlayerIdFromClient)) {              room.answeredPlayersCorrectly.push(persistentPlayerIdFromClient);            }                        // Store points breakdown in answer data            submittedAnswerData.pointsAwarded = pointsBreakdown.total;            submittedAnswerData.pointsBreakdown = pointsBreakdown;                        console.log(`[POINTS DEBUG] ✅ Player ${playerObjInRoom.name} earned ${pointsBreakdown.total} points (Base: ${pointsBreakdown.base}, Time: ${pointsBreakdown.time}, Position: ${pointsBreakdown.position}, Streak: ${pointsBreakdown.streakMultiplier}x)`);          } else {            // Reset streak for incorrect answer            const oldStreak = playerObjInRoom.streak || 0;            playerObjInRoom.streak = 0;            playerObjInRoom.lastPointsEarned = 0;            playerObjInRoom.lastAnswerTimestamp = Date.now();                        // Store zero points in answer data            submittedAnswerData.pointsAwarded = 0;            submittedAnswerData.pointsBreakdown = PointsCalculator.calculateIncorrectAnswerPoints();                        console.log(`[POINTS DEBUG] ❌ Player ${playerObjInRoom.name} got incorrect answer, streak reset: ${oldStreak} -> 0`);          }        } else {          console.log(`[POINTS DEBUG] Points calculation skipped - isPointsMode: ${room.isPointsMode}, hasCurrentQuestion: ${!!room.currentQuestion}`);        }      }
+            // Handle life changes based on evaluation (only in non-points mode)
+            if (playerObjInRoom && !room.isPointsMode) {
+                if (isCorrect && previousEvaluation === false) {
+                    // Restore a life when correcting from incorrect to correct
+                    playerObjInRoom.lives = Math.min(3, (playerObjInRoom.lives || 0) + 1);
+                    console.log(`[Server] Restored life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
+                }
+                else if (!isCorrect && (previousEvaluation === true || previousEvaluation === undefined)) {
+                    // Remove a life when marking incorrect (initial evaluation or changing from correct to incorrect)
+                    playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);
+                    console.log(`[Server] Removed life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
+                }
+                // Check if player is eliminated
+                if (playerObjInRoom.lives <= 0 && !playerObjInRoom.isEliminated) {
+                    playerObjInRoom.isEliminated = true;
+                    const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerObjInRoom.id);
+                    if (playerSocket) {
+                        playerSocket.emit('elimination_choice_prompt', { roomCode });
+                        console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated. Showing choice prompt.`);
+                    }
+                    // Broadcast the elimination status to all players
+                    const currentIO = (0, socketService_1.getIO)();
+                    currentIO.to(roomCode).emit('player_eliminated_status', {
+                        playerId: playerObjInRoom.id,
+                        persistentPlayerId: persistentPlayerIdFromClient,
+                        isEliminated: true,
+                        isSpectator: playerObjInRoom.isSpectator,
+                        isActive: playerObjInRoom.isActive
+                    });
+                }
+            }
+            // Points calculation for points mode - removed submissionTime requirement
+            if (playerObjInRoom) {
+                console.log(`[POINTS DEBUG] Evaluating answer for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);
+                console.log(`[POINTS DEBUG] Room.isPointsMode: ${room.isPointsMode}, Room details:`, {
+                    roomCode,
+                    isPointsMode: room.isPointsMode,
+                    isStreamerMode: room.isStreamerMode,
+                    started: room.started,
+                    hasCurrentQuestion: !!room.currentQuestion
+                });
+                if (room.isPointsMode && room.currentQuestion) {
+                    console.log(`[POINTS DEBUG] Starting points calculation for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);
+                    console.log(`[POINTS DEBUG] Room isPointsMode: ${room.isPointsMode}, isCorrect: ${isCorrect}`);
+                    console.log(`[POINTS DEBUG] Current question grade: ${room.currentQuestion.grade}`);
+                    console.log(`[POINTS DEBUG] Player current score: ${playerObjInRoom.score}, streak: ${playerObjInRoom.streak}`);
+                    if (isCorrect) {
+                        // Calculate points for correct answer
+                        // Use submissionTime if available, otherwise default to 0
+                        const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;
+                        const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based
+                        const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit
+                        const pointsBreakdown = PointsCalculator_1.PointsCalculator.calculatePoints(room.currentQuestion, answerTimeSeconds, position, playerObjInRoom.streak || 0, totalTimeAllowed);
+                        // Update player's score and streak
+                        playerObjInRoom.score = (playerObjInRoom.score || 0) + pointsBreakdown.total;
+                        playerObjInRoom.streak = (playerObjInRoom.streak || 0) + 1;
+                        playerObjInRoom.lastPointsEarned = pointsBreakdown.total;
+                        playerObjInRoom.lastAnswerTimestamp = Date.now();
+                        console.log(`[POINTS DEBUG] Player score updated: ${playerObjInRoom.score} -> ${playerObjInRoom.score + pointsBreakdown.total}`);
+                        console.log(`[POINTS DEBUG] Player streak updated: ${playerObjInRoom.streak} -> ${playerObjInRoom.streak + 1}`);
+                        console.log(`[POINTS DEBUG] Player last points earned: ${playerObjInRoom.lastPointsEarned} -> ${playerObjInRoom.lastPointsEarned + pointsBreakdown.total}`);
+                        console.log(`[POINTS DEBUG] Player last answer timestamp: ${playerObjInRoom.lastAnswerTimestamp} -> ${playerObjInRoom.lastAnswerTimestamp}`);
+                    }
+                    else {
+                        // Reset streak for incorrect answer
+                        playerObjInRoom.streak = 0;
+                        playerObjInRoom.lastPointsEarned = 0;
+                        playerObjInRoom.lastAnswerTimestamp = Date.now();
+                        console.log(`[POINTS DEBUG] Player streak reset to 0`);
+                        console.log(`[POINTS DEBUG] Player last points earned: ${playerObjInRoom.lastPointsEarned} -> 0`);
+                        console.log(`[POINTS DEBUG] Player last answer timestamp: ${playerObjInRoom.lastAnswerTimestamp} -> ${playerObjInRoom.lastAnswerTimestamp}`);
+                    }
+                }
+                else {
+                    console.log(`[POINTS DEBUG] Points calculation skipped - isPointsMode: ${room.isPointsMode}, hasCurrentQuestion: ${!!room.currentQuestion}`);
+                }
+            }
             // Broadcast the updated game state
             (0, socketService_1.broadcastGameState)(roomCode);
             const responseTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
             gameAnalytics_1.gameAnalytics.recordAnswer(roomCode, persistentPlayerIdFromClient, submittedAnswerData.answer, isCorrect, responseTime);
+            // Check if all players lost lives this round and offer restoration
+            checkAndOfferLifeRestore(roomCode);
         }
         catch (error) {
             console.error('Error evaluating answer:', { error: error.message, stack: error.stack, roomCode, persistentPlayerIdFromClient: playerId });
@@ -1092,6 +1191,16 @@ io.on('connection', (socket) => {
                     player.lastPointsEarned = null;
                 });
             }
+            // Reset life restoration tracking for new round
+            room.roundStartLives = {};
+            room.lifeRestoreOffered = false;
+            // Initialize round start lives tracking for all active non-spectator players
+            room.players.forEach(player => {
+                if (player.isActive && !player.isSpectator) {
+                    room.roundStartLives[player.persistentPlayerId] = player.lives;
+                }
+            });
+            console.log(`[SERVER] Initialized round start lives tracking for new round:`, room.roundStartLives);
             room.players.forEach(player => {
                 if (player.answers)
                     player.answers[room.currentQuestionIndex] = undefined; // Reset for new question
@@ -1402,13 +1511,7 @@ io.on('connection', (socket) => {
                 streak: 0,
                 position: null,
                 lastPointsEarned: null,
-                lastAnswerTimestamp: null,
-                isActive: true,
-                isSpectator: false,
-                joinedAsSpectator: false,
-                answers: [],
-                disconnectTimer: null,
-                avatarSvg: avatarSvg || null
+                lastAnswerTimestamp: null, isActive: true, isSpectator: false, isEliminated: false, joinedAsSpectator: false, answers: [], disconnectTimer: null, avatarSvg: avatarSvg || null
             };
             room.players.push(newPlayer);
             socket.join(roomCode);
@@ -1566,6 +1669,7 @@ io.on('connection', (socket) => {
                     answers: gmPlayerAnswers, // Use initialized/populated answers array
                     isActive: true,
                     isSpectator: false,
+                    isEliminated: false,
                     joinedAsSpectator: false,
                     disconnectTimer: null,
                     avatarSvg: null
@@ -1750,13 +1854,22 @@ io.on('connection', (socket) => {
                     if (!isCorrectByVote && !room.isPointsMode) {
                         playerWhoseAnswerIsBeingEvaluated.lives = Math.max(0, (playerWhoseAnswerIsBeingEvaluated.lives || 0) - 1);
                         console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) lives updated to: ${playerWhoseAnswerIsBeingEvaluated.lives}`);
-                        if (playerWhoseAnswerIsBeingEvaluated.lives <= 0) {
-                            playerWhoseAnswerIsBeingEvaluated.isActive = false;
-                            playerWhoseAnswerIsBeingEvaluated.isSpectator = true;
+                        if (playerWhoseAnswerIsBeingEvaluated.lives <= 0 && !playerWhoseAnswerIsBeingEvaluated.isEliminated) {
+                            playerWhoseAnswerIsBeingEvaluated.isEliminated = true;
                             const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerWhoseAnswerIsBeingEvaluated.id);
-                            if (playerSocket)
-                                playerSocket.emit('become_spectator');
-                            console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated.`);
+                            if (playerSocket) {
+                                playerSocket.emit('elimination_choice_prompt', { roomCode });
+                                console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated. Showing choice prompt.`);
+                            }
+                            // Broadcast the elimination status to all players
+                            const currentIO = (0, socketService_1.getIO)();
+                            currentIO.to(roomCode).emit('player_eliminated_status', {
+                                playerId: playerWhoseAnswerIsBeingEvaluated.id,
+                                persistentPlayerId: answerId,
+                                isEliminated: true,
+                                isSpectator: playerWhoseAnswerIsBeingEvaluated.isSpectator,
+                                isActive: playerWhoseAnswerIsBeingEvaluated.isActive
+                            });
                         }
                     }
                     // Points calculation for community voting mode
@@ -1794,6 +1907,8 @@ io.on('connection', (socket) => {
             console.log(`[Server] Community vote evaluations complete for room ${roomCode}.`);
             room.submissionPhaseOver = true; // Ensure this is set before next question or concluding
             (0, socketService_1.broadcastGameState)(roomCode); // Broadcast updated lives and evaluations
+            // Check if all players lost lives this round and offer restoration
+            checkAndOfferLifeRestore(roomCode);
             // 6. Check for game over conditions
             const activePlayersPostVoting = room.players.filter(p => p.isActive && !p.isSpectator);
             let gameShouldEnd = false;
@@ -1922,13 +2037,22 @@ io.on('connection', (socket) => {
                     if (!isCorrectByVote && !room.isPointsMode) {
                         playerWhoseAnswerIsBeingEvaluated.lives = Math.max(0, (playerWhoseAnswerIsBeingEvaluated.lives || 0) - 1);
                         console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) lives updated to: ${playerWhoseAnswerIsBeingEvaluated.lives}`);
-                        if (playerWhoseAnswerIsBeingEvaluated.lives <= 0) {
-                            playerWhoseAnswerIsBeingEvaluated.isActive = false;
-                            playerWhoseAnswerIsBeingEvaluated.isSpectator = true;
+                        if (playerWhoseAnswerIsBeingEvaluated.lives <= 0 && !playerWhoseAnswerIsBeingEvaluated.isEliminated) {
+                            playerWhoseAnswerIsBeingEvaluated.isEliminated = true;
                             const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerWhoseAnswerIsBeingEvaluated.id);
-                            if (playerSocket)
-                                playerSocket.emit('become_spectator');
-                            console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated.`);
+                            if (playerSocket) {
+                                playerSocket.emit('elimination_choice_prompt', { roomCode });
+                                console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated. Showing choice prompt.`);
+                            }
+                            // Broadcast the elimination status to all players
+                            const currentIO = (0, socketService_1.getIO)();
+                            currentIO.to(roomCode).emit('player_eliminated_status', {
+                                playerId: playerWhoseAnswerIsBeingEvaluated.id,
+                                persistentPlayerId: answerId,
+                                isEliminated: true,
+                                isSpectator: playerWhoseAnswerIsBeingEvaluated.isSpectator,
+                                isActive: playerWhoseAnswerIsBeingEvaluated.isActive
+                            });
                         }
                     }
                     // Points calculation for forced community voting end
@@ -1966,6 +2090,8 @@ io.on('connection', (socket) => {
             room.submissionPhaseOver = true;
             // Broadcast updated game state with evaluations
             (0, socketService_1.broadcastGameState)(roomCode);
+            // Check if all players lost lives this round and offer restoration
+            checkAndOfferLifeRestore(roomCode);
             // Check for game over conditions
             const activePlayersPostVoting = room.players.filter(p => p.isActive && !p.isSpectator);
             let gameShouldEnd = false;
@@ -2040,20 +2166,119 @@ io.on('connection', (socket) => {
             console.error(`[Server] Player ${playerId} not found in room ${roomCode}`);
             return;
         }
+        // Store previous elimination status
+        const wasEliminated = player.isEliminated;
         // Update player lives
         player.lives = Math.max(0, player.lives + adjustment);
         console.log(`[Server] Player ${player.name} lives adjusted to ${player.lives}`);
-        // If player has no lives left, make them a spectator (only in non-points mode)
-        if (player.lives <= 0 && !room.isPointsMode) {
-            player.isActive = false;
-            player.isSpectator = true;
+        // If player was eliminated and now has lives, restore them
+        if (wasEliminated && player.lives > 0 && adjustment > 0) {
+            player.isEliminated = false;
+            player.isActive = true;
+            // If they became a spectator due to elimination (not originally), restore them
+            if (player.isSpectator && !player.joinedAsSpectator) {
+                player.isSpectator = false;
+            }
+            console.log(`[Server] Player ${player.name} restored from elimination with ${player.lives} lives`);
+            // Broadcast the restoration status to all players with complete status
+            const currentIO = (0, socketService_1.getIO)();
+            currentIO.to(roomCode).emit('player_eliminated_status', {
+                playerId: player.id,
+                persistentPlayerId: player.persistentPlayerId,
+                isEliminated: false,
+                isSpectator: player.isSpectator,
+                isActive: player.isActive
+            });
+        }
+        // If player has no lives left, offer elimination choice (only in non-points mode)
+        else if (player.lives <= 0 && !room.isPointsMode && !player.isEliminated) {
+            player.isEliminated = true;
             const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(player.id);
             if (playerSocket) {
-                playerSocket.emit('become_spectator');
+                playerSocket.emit('elimination_choice_prompt', { roomCode });
+                console.log(`[Server] Player ${player.name} eliminated due to no lives. Showing choice prompt.`);
             }
-            console.log(`[Server] Player ${player.name} eliminated due to no lives`);
+            // Broadcast the elimination status to all players
+            const currentIO = (0, socketService_1.getIO)();
+            currentIO.to(roomCode).emit('player_eliminated_status', {
+                playerId: player.id,
+                persistentPlayerId: player.persistentPlayerId,
+                isEliminated: true,
+                isSpectator: player.isSpectator,
+                isActive: player.isActive
+            });
         }
         // Broadcast updated game state
+        (0, socketService_1.broadcastGameState)(roomCode);
+        // Check if all players lost lives this round and offer restoration
+        checkAndOfferLifeRestore(roomCode);
+    });
+    // Handle life restoration request from GameMaster
+    socket.on('restore_round_lives', ({ roomCode }) => {
+        const room = roomService_1.gameRooms[roomCode];
+        if (!room || room.gamemaster !== socket.id) {
+            console.error(`[Server] Life restore failed - Not authorized or room not found: ${roomCode}`);
+            socket.emit('error', { message: 'Not authorized to restore lives or room not found' });
+            return;
+        }
+        console.log(`[Server] GameMaster ${socket.id} requesting life restoration for room ${roomCode}`);
+        try {
+            const restoredPlayers = restoreRoundLives(roomCode);
+            if (restoredPlayers.length > 0) {
+                console.log(`[Server] Successfully restored lives for ${restoredPlayers.length} players in room ${roomCode}`);
+                // Broadcast the restoration to all players in the room
+                const currentIO = (0, socketService_1.getIO)();
+                currentIO.to(roomCode).emit('lives_restored', {
+                    roomCode,
+                    restoredPlayers
+                });
+                // Broadcast updated game state
+                (0, socketService_1.broadcastGameState)(roomCode);
+                console.log(`[Server] Life restoration complete for room ${roomCode}`);
+            }
+            else {
+                console.log(`[Server] No lives to restore in room ${roomCode}`);
+                socket.emit('error', { message: 'No lives to restore' });
+            }
+        }
+        catch (error) {
+            console.error('[Server] Error restoring lives:', error);
+            socket.emit('error', { message: 'Failed to restore lives' });
+        }
+    });
+    // Handle elimination choice response from player
+    socket.on('elimination_choice_response', ({ roomCode, becomeSpectator }) => {
+        const room = roomService_1.gameRooms[roomCode];
+        const player = room?.players.find(p => p.id === socket.id);
+        if (!room || !player || !player.isEliminated) {
+            console.error(`[Server] Elimination choice failed - Invalid context: ${roomCode}, ${socket.id}`);
+            socket.emit('error', { message: 'Invalid elimination choice context' });
+            return;
+        }
+        console.log(`[Server] Player ${player.name} (${player.persistentPlayerId}) chose ${becomeSpectator ? 'spectator' : 'eliminated'} mode`);
+        if (becomeSpectator) {
+            // Player chooses to become spectator
+            player.isActive = false;
+            player.isSpectator = true;
+            player.joinedAsSpectator = false; // They were eliminated, not originally spectator
+            socket.emit('become_spectator');
+            console.log(`[Server] Player ${player.name} became spectator after elimination choice`);
+        }
+        else {
+            // Player chooses to stay as eliminated but watching
+            player.isActive = false; // Still inactive for gameplay
+            player.isSpectator = false; // Not spectator, just eliminated
+            console.log(`[Server] Player ${player.name} chose to stay eliminated but watching`);
+        }
+        // Broadcast the updated player status to all clients
+        const currentIO = (0, socketService_1.getIO)();
+        currentIO.to(roomCode).emit('player_eliminated_status', {
+            playerId: player.id,
+            persistentPlayerId: player.persistentPlayerId,
+            isEliminated: true,
+            isSpectator: player.isSpectator,
+            isActive: player.isActive
+        });
         (0, socketService_1.broadcastGameState)(roomCode);
     });
 });
@@ -2080,3 +2305,116 @@ app.get('/api/request_players', (req, res) => {
         }))
     });
 });
+// Helper functions for life restoration
+function checkAllPlayersLostLives(roomCode) {
+    const room = roomService_1.gameRooms[roomCode];
+    if (!room || !room.roundStartLives || room.lifeRestoreOffered) {
+        return false;
+    }
+    // Get players who were active at the start of the round
+    const startingActivePlayers = Object.keys(room.roundStartLives);
+    if (startingActivePlayers.length === 0) {
+        return false;
+    }
+    // Check if ALL starting active players lost lives this round
+    let allLostLives = true;
+    for (const persistentPlayerId of startingActivePlayers) {
+        const player = room.players.find(p => p.persistentPlayerId === persistentPlayerId);
+        if (!player)
+            continue;
+        const startingLives = room.roundStartLives[persistentPlayerId];
+        const currentLives = player.lives;
+        // If this player didn't lose a life, not all players lost lives
+        if (currentLives >= startingLives) {
+            allLostLives = false;
+            break;
+        }
+    }
+    return allLostLives;
+}
+function getAffectedPlayersForRestore(roomCode) {
+    const room = roomService_1.gameRooms[roomCode];
+    if (!room || !room.roundStartLives) {
+        return [];
+    }
+    const affectedPlayers = [];
+    for (const [persistentPlayerId, startingLives] of Object.entries(room.roundStartLives)) {
+        const player = room.players.find(p => p.persistentPlayerId === persistentPlayerId);
+        if (!player)
+            continue;
+        const livesLost = startingLives - player.lives;
+        if (livesLost > 0) {
+            affectedPlayers.push({
+                persistentPlayerId,
+                name: player.name,
+                livesLost
+            });
+        }
+    }
+    return affectedPlayers;
+}
+function restoreRoundLives(roomCode) {
+    const room = roomService_1.gameRooms[roomCode];
+    if (!room || !room.roundStartLives) {
+        return [];
+    }
+    const restoredPlayers = [];
+    for (const [persistentPlayerId, startingLives] of Object.entries(room.roundStartLives)) {
+        const player = room.players.find(p => p.persistentPlayerId === persistentPlayerId);
+        if (!player)
+            continue;
+        const livesLost = startingLives - player.lives;
+        if (livesLost > 0) {
+            // Restore lives
+            player.lives = startingLives;
+            // If player was eliminated this round, bring them back
+            if (player.isSpectator && !player.joinedAsSpectator) {
+                player.isActive = true;
+                player.isSpectator = false;
+                console.log(`[Server] Player ${player.name} (${persistentPlayerId}) brought back from elimination`);
+            }
+            restoredPlayers.push({
+                persistentPlayerId,
+                name: player.name,
+                livesRestored: livesLost
+            });
+            console.log(`[Server] Restored ${livesLost} lives for player ${player.name} (${persistentPlayerId})`);
+        }
+    }
+    // Clear round tracking to prevent duplicate offers
+    room.roundStartLives = {};
+    room.lifeRestoreOffered = false;
+    return restoredPlayers;
+}
+// Check if all players lost lives and offer restoration to GM
+function checkAndOfferLifeRestore(roomCode) {
+    const room = roomService_1.gameRooms[roomCode];
+    if (!room || !room.started || room.isPointsMode) {
+        return; // Don't offer life restore in points mode
+    }
+    // Only check after all answers for the round are evaluated
+    const activePlayersCount = room.players.filter(p => p.isActive && !p.isSpectator).length;
+    const evaluatedAnswersCount = Object.keys(room.evaluatedAnswers || {}).length;
+    // In community voting mode, we check after all votes are processed
+    // In regular mode, we check when all active players' answers are evaluated
+    const allEvaluated = room.isCommunityVotingMode ?
+        room.submissionPhaseOver && evaluatedAnswersCount > 0 :
+        evaluatedAnswersCount >= activePlayersCount;
+    if (!allEvaluated) {
+        return;
+    }
+    if (checkAllPlayersLostLives(roomCode)) {
+        const affectedPlayers = getAffectedPlayersForRestore(roomCode);
+        if (affectedPlayers.length > 0) {
+            // Mark that we've offered restoration for this round
+            room.lifeRestoreOffered = true;
+            console.log(`[Server] All players lost lives in room ${roomCode}. Offering restoration to GM.`);
+            // Send restoration prompt to the GameMaster
+            const currentIO = (0, socketService_1.getIO)();
+            currentIO.to(room.gamemaster).emit('life_restore_prompt', {
+                roomCode,
+                affectedPlayers
+            });
+        }
+    }
+}
