@@ -823,6 +823,9 @@ io.on('connection', (socket: ExtendedSocket) => {
       room.questionStartTime = Date.now();
       room.submissionPhaseOver = false; // Reset submission phase flag
       
+      // Reset submission counter for new game
+      room.currentSubmissionCounter = 0;
+      
       // Initialize points system if enabled - reset all scores for new game
       if (room.isPointsMode) {
         room.answeredPlayersCorrectly = [];
@@ -913,6 +916,10 @@ io.on('connection', (socket: ExtendedSocket) => {
     room.roundAnswers = {};
     room.evaluatedAnswers = {};
     room.submissionPhaseOver = false;
+    
+    // Reset submission counter for restarted game
+    room.currentSubmissionCounter = 0;
+    
     room.players.forEach(player => {
       if (player.joinedAsSpectator) {
         player.lives = 0;
@@ -1127,10 +1134,30 @@ io.on('connection', (socket: ExtendedSocket) => {
         timestamp: Date.now(),
         isCorrect: null, // Evaluation pending
         answerAttemptId: answerAttemptId || null
-            };      // Add submissionOrder and submissionTime      const currentSubmissions = Object.keys(room.roundAnswers).length;      answerData.submissionOrder = currentSubmissions + 1;      // Always calculate submissionTime, even when there's no timer      answerData.submissionTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
-      // Store answer in room.roundAnswers, keyed by persistentPlayerId (for both players and GM in community mode)
+      };
+
+      // Store answer in room.roundAnswers, keyed by persistentPlayerId
       if (!room.roundAnswers) room.roundAnswers = {};
+      
+      // Use atomic counter for submission order to prevent race conditions
+      if (!room.currentSubmissionCounter) room.currentSubmissionCounter = 0;
+      room.currentSubmissionCounter += 1;
+      answerData.submissionOrder = room.currentSubmissionCounter; // 1-based ordering (1st, 2nd, 3rd, etc.)
+      
+      // Now store the answer
       room.roundAnswers[effectivePersistentPlayerId!] = answerData;
+
+      // Always calculate submissionTime, even when there's no timer
+      // Ensure questionStartTime exists and is valid
+      if (room.questionStartTime && room.questionStartTime > 0) {
+        answerData.submissionTime = Date.now() - room.questionStartTime;
+        console.log(`[SUBMIT ORDER DEBUG] Player ${playerEntryForAnswer.name}: submissionTime=${answerData.submissionTime}ms, questionStartTime=${room.questionStartTime}, currentTime=${Date.now()}`);
+      } else {
+        answerData.submissionTime = 0;
+        console.log(`[SUBMIT ORDER DEBUG] Player ${playerEntryForAnswer.name}: No valid questionStartTime, defaulting submissionTime to 0`);
+      }
+
+      console.log(`[SUBMIT ORDER DEBUG] Player ${playerEntryForAnswer.name}: submissionOrder=${answerData.submissionOrder}, totalSubmissions=${room.currentSubmissionCounter}`);
 
       // If it's a regular player, also update their individual answers array
       if (!isGMSubmittingInCommunityMode && playerEntryForAnswer.answers) {
@@ -1315,6 +1342,16 @@ io.on('connection', (socket: ExtendedSocket) => {
             const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based
             const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit
             
+            console.log(`[POINTS CALC INPUT DEBUG] Player ${playerObjInRoom.name}:`, {
+              submissionOrder: submittedAnswerData.submissionOrder,
+              position,
+              submissionTimeMs: submittedAnswerData.submissionTime,
+              answerTimeSeconds,
+              totalTimeAllowed,
+              streak: playerObjInRoom.streak || 0,
+              questionGrade: room.currentQuestion.grade
+            });
+            
             const pointsBreakdown = PointsCalculator.calculatePoints(
               room.currentQuestion,
               answerTimeSeconds,
@@ -1329,10 +1366,7 @@ io.on('connection', (socket: ExtendedSocket) => {
             playerObjInRoom.lastPointsEarned = pointsBreakdown.total;
             playerObjInRoom.lastAnswerTimestamp = Date.now();
             
-            console.log(`[POINTS DEBUG] Player score updated: ${playerObjInRoom.score} -> ${playerObjInRoom.score + pointsBreakdown.total}`);
-            console.log(`[POINTS DEBUG] Player streak updated: ${playerObjInRoom.streak} -> ${playerObjInRoom.streak + 1}`);
-            console.log(`[POINTS DEBUG] Player last points earned: ${playerObjInRoom.lastPointsEarned} -> ${playerObjInRoom.lastPointsEarned + pointsBreakdown.total}`);
-            console.log(`[POINTS DEBUG] Player last answer timestamp: ${playerObjInRoom.lastAnswerTimestamp} -> ${playerObjInRoom.lastAnswerTimestamp}`);
+            console.log(`[POINTS DEBUG] Player ${playerObjInRoom.name} earned ${pointsBreakdown.total} points. New score: ${playerObjInRoom.score}, New streak: ${playerObjInRoom.streak}`);
           } else {
             // Reset streak for incorrect answer
             playerObjInRoom.streak = 0;
@@ -2434,6 +2468,9 @@ io.on('connection', (socket: ExtendedSocket) => {
         room.submissionPhaseOver = false;
         room.roundAnswers = {};
         room.evaluatedAnswers = {};
+        
+        // Reset submission counter for new question
+        room.currentSubmissionCounter = 0;
         
         // Reset player answers for new question
         room.players.forEach(p => { 

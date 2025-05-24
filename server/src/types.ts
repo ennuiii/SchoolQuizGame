@@ -86,6 +86,8 @@ export interface GameRoom {
   // Life restoration tracking
   roundStartLives?: Record<string, number>; // Track lives at start of round for each player
   lifeRestoreOffered?: boolean; // Track if restore has been offered this round
+  // Submission order tracking
+  currentSubmissionCounter?: number; // Atomic counter for submission order
 }
 
 export interface GameState {
