@@ -59,6 +59,8 @@ function createGameRoom(roomCode, gamemasterId, gamemasterPersistentId) {
         submissionPhaseOver: false,
         isConcluded: false,
         isStreamerMode: false,
+        isPointsMode: false,
+        answeredPlayersCorrectly: [],
         createdAt: new Date().toISOString(),
         lastActivity: new Date().toISOString(),
         isCommunityVotingMode: false,
@@ -180,7 +182,12 @@ function loadRoomState() {
                             ...savedPlayer,
                             id: '', // Will be updated when player reconnects
                             isActive: false,
-                            disconnectTimer: null
+                            disconnectTimer: null,
+                            score: 0,
+                            streak: 0,
+                            position: null,
+                            lastPointsEarned: null,
+                            lastAnswerTimestamp: null
                         });
                     }
                 });
@@ -204,7 +211,12 @@ function loadRoomState() {
                 ...player,
                 id: '', // will be updated when player reconnects
                 isActive: false, // mark as inactive until reconnect
-                disconnectTimer: null
+                disconnectTimer: null,
+                score: 0,
+                streak: 0,
+                position: null,
+                lastPointsEarned: null,
+                lastAnswerTimestamp: null
             }));
             // Add room to gameRooms
             exports.gameRooms[roomCode] = room;

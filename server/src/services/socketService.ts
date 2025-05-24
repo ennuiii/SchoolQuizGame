@@ -60,18 +60,24 @@ export function getGameState(roomCode: string): GameState | null {
     });
   }
 
-  // Ensure all players have persistentPlayerId to prevent client crashes
+  // Ensure all players have persistentPlayerId and points system properties to prevent client crashes
   const safePlayersArray = room.players.map(player => ({
     ...player,
     // Always ensure persistentPlayerId exists (for older clients compatibility)
-    persistentPlayerId: player.persistentPlayerId || `F-${player.id.substring(0, 8)}`
+    persistentPlayerId: player.persistentPlayerId || `F-${player.id.substring(0, 8)}`,
+    // Ensure points system properties exist
+    score: player.score || 0,
+    streak: player.streak || 0,
+    position: player.position || null,
+    lastPointsEarned: player.lastPointsEarned || null,
+    lastAnswerTimestamp: player.lastAnswerTimestamp || null
   }));
 
   let finalPlayersArray = safePlayersArray;
   let finalPlayerBoards = { ...playerBoardsForState }; // Start with a copy
 
   if (room.isCommunityVotingMode && room.gamemasterPersistentId) {
-    const gmAsPlayerExistsInPlayerArray = safePlayersArray.some(p => p.persistentPlayerId === room.gamemasterPersistentId);
+    const gmAsPlayerExistsInPlayerArray = safePlayersArray.some((p: Player) => p.persistentPlayerId === room.gamemasterPersistentId);
     if (!gmAsPlayerExistsInPlayerArray) {
       finalPlayersArray = [
         ...safePlayersArray,
@@ -79,7 +85,12 @@ export function getGameState(roomCode: string): GameState | null {
           id: room.gamemasterSocketId || 'gamemaster-socket',
           persistentPlayerId: room.gamemasterPersistentId,
           name: 'GameMaster (Playing)',
-          lives: 3, 
+          lives: 3,
+          score: 0,
+          streak: 0,
+          position: null,
+          lastPointsEarned: null,
+          lastAnswerTimestamp: null,
           answers: room.roundAnswers[room.gamemasterPersistentId] ? [room.roundAnswers[room.gamemasterPersistentId]] : [],
           isActive: true,
           isSpectator: false,
@@ -114,6 +125,7 @@ export function getGameState(roomCode: string): GameState | null {
     isConcluded: room.isConcluded || false,
     playerBoards: finalPlayerBoards, // Use the potentially augmented player boards
     isCommunityVotingMode: room.isCommunityVotingMode || false,
+    isPointsMode: room.isPointsMode || false,
     gameMasterBoardData: room.gameMasterBoardData || null, 
     currentVotes: room.votes || {}
   };
@@ -126,6 +138,17 @@ export function broadcastGameState(roomCode: string): void {
   if (!io) return;
   const state = getGameState(roomCode);
   if (state) {
+    // Log points-related information if it's a points mode game
+    if (state.players.some(p => p.score !== undefined && p.score > 0)) {
+      console.log(`[SOCKET DEBUG] Broadcasting game state for points mode room ${roomCode}`);
+      console.log(`[SOCKET DEBUG] Player scores:`, state.players.map(p => ({
+        name: p.name,
+        persistentId: p.persistentPlayerId,
+        score: p.score,
+        streak: p.streak,
+        lastPointsEarned: p.lastPointsEarned
+      })));
+    }
     io.to(roomCode).emit('game_state_update', state);
   }
 }
@@ -215,7 +238,9 @@ export function generateGameRecap(roomCode: string): GameRecap | null {
           answer: answer ? answer.answer : null,
           hasDrawing,
           drawingData,
-          isCorrect: answer ? answer.isCorrect : null
+          isCorrect: answer ? answer.isCorrect : null,
+          pointsAwarded: answer ? answer.pointsAwarded : undefined,
+          pointsBreakdown: answer ? answer.pointsBreakdown : undefined
         };
       })
     };
@@ -247,11 +272,14 @@ export function generateGameRecap(roomCode: string): GameRecap | null {
     roomCode,
     startTime: room.createdAt,
     endTime: new Date().toISOString(),
+    isPointsMode: room.isPointsMode || false, // Include points mode flag
     players: sortedPlayers.map(player => ({
       id: player.id,
       persistentPlayerId: player.persistentPlayerId,
       name: player.name,
       finalLives: player.lives,
+      finalScore: player.score || 0, // Include final score
+      finalStreak: player.streak || 0, // Include final streak
       isSpectator: player.isSpectator,
       isActive: player.isActive,
       isWinner: player.isActive && player.lives > 0 && hasWinner && player.persistentPlayerId === winnerPersistentId

@@ -41,6 +41,9 @@ import {
   QUESTION_COUNTDOWN_DURATION_MS
 } from './services/socketService';
 
+// Import PointsCalculator for points system
+import { PointsCalculator } from './utils/PointsCalculator';
+
 // These will be defined locally in this file
 import { 
   finalizeRoundAndAutoSubmit, 
@@ -591,42 +594,48 @@ io.on('connection', (socket: ExtendedSocket) => {
     console.log(`[Server] New connection or CSR failed: ${socket.id}. Client will need to send create_room or join_room.`);
   }
 
-  // Create a new game room (Gamemaster)
-  socket.on('create_room', ({ roomCode, isStreamerMode } = {}) => {
-    const finalRoomCode = roomCode || generateRoomCode();
-    console.log(`[Server] Creating room:`, {
-      roomCode: finalRoomCode,
-      gamemaster: socket.id,
-      persistentGamemasterId: socket.data.persistentPlayerId,
-      isStreamerMode,
-      timestamp: new Date().toISOString()
-    });
-    
-    if (!socket.data.isGameMaster) {
-      console.error(`[Server] Create room failed - Socket ${socket.id} not identified as GM`);
-      socket.emit('error', { message: 'Only game masters can create rooms' });
-      return;
-    }
-    
-    const room = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId || '');
-    room.isStreamerMode = isStreamerMode || false;
-    room.lastActivity = new Date().toISOString();
-    gameRooms[finalRoomCode] = room;
+    // Create a new game room (Gamemaster)
+    socket.on('create_room', ({ roomCode, isStreamerMode, isPointsMode } = {}) => {
+      const finalRoomCode = roomCode || generateRoomCode();
+      console.log(`[POINTS DEBUG] Creating room with points mode:`, {
+        roomCode: finalRoomCode,
+        gamemaster: socket.id,
+        persistentGamemasterId: socket.data.persistentPlayerId,
+        isStreamerMode,
+        isPointsMode,
+        rawData: { roomCode, isStreamerMode, isPointsMode },
+        timestamp: new Date().toISOString()
+      });
+      
+      if (!socket.data.isGameMaster) {
+        console.error(`[Server] Create room failed - Socket ${socket.id} not identified as GM`);
+        socket.emit('error', { message: 'Only game masters can create rooms' });
+        return;
+      }
+      
+      const room = createGameRoom(finalRoomCode, socket.id, socket.data.persistentPlayerId || '');
+      room.isStreamerMode = isStreamerMode || false;
+      room.isPointsMode = isPointsMode || false;
+      room.lastActivity = new Date().toISOString();
+      gameRooms[finalRoomCode] = room;
 
-    socket.join(finalRoomCode);
-    socket.roomCode = finalRoomCode;
-    socket.emit('room_created', { roomCode: finalRoomCode, isStreamerMode: room.isStreamerMode });
-    
-    console.log(`[Server] Room created successfully:`, {
-      roomCode: finalRoomCode,
-      gamemaster: socket.id,
-      persistentGamemasterId: socket.data.persistentPlayerId,
-      isStreamerMode: room.isStreamerMode,
-      timestamp: new Date().toISOString()
+      console.log(`[POINTS DEBUG] Room created with isPointsMode set to:`, room.isPointsMode);
+
+      socket.join(finalRoomCode);
+      socket.roomCode = finalRoomCode;
+      socket.emit('room_created', { roomCode: finalRoomCode, isStreamerMode: room.isStreamerMode });
+      
+      console.log(`[Server] Room created successfully:`, {
+        roomCode: finalRoomCode,
+        gamemaster: socket.id,
+        persistentGamemasterId: socket.data.persistentPlayerId,
+        isStreamerMode: room.isStreamerMode,
+        isPointsMode: room.isPointsMode,
+        timestamp: new Date().toISOString()
+      });
+      
+      saveRoomState();
     });
-    
-    saveRoomState();
-  });
 
   // Handle player joining
   socket.on('join_room', ({ roomCode, playerName, isSpectator, avatarSvg }) => {
@@ -733,6 +742,11 @@ io.on('connection', (socket: ExtendedSocket) => {
       persistentPlayerId: persistentPlayerId,
       name: currentPlayerName,
       lives: 3,
+      score: 0,
+      streak: 0,
+      position: null,
+      lastPointsEarned: null,
+      lastAnswerTimestamp: null,
       answers: [],
       isActive: true,
       isSpectator: !!isSpectator, // Ensure boolean
@@ -807,6 +821,19 @@ io.on('connection', (socket: ExtendedSocket) => {
       room.evaluatedAnswers = {};
       room.questionStartTime = Date.now();
       room.submissionPhaseOver = false; // Reset submission phase flag
+      
+      // Initialize points system if enabled - reset all scores for new game
+      if (room.isPointsMode) {
+        room.answeredPlayersCorrectly = [];
+        room.players.forEach(player => {
+          player.score = 0;  // Always reset to 0 for new game
+          player.streak = 0; // Always reset to 0 for new game
+          player.position = null;
+          player.lastPointsEarned = null;
+          player.lastAnswerTimestamp = null;
+        });
+        console.log(`[SERVER] Points mode initialized for room ${roomCode} - all scores reset to 0`);
+      }
 
       console.log('[SERVER] Game started successfully:', {
         roomCode,
@@ -977,19 +1004,7 @@ io.on('connection', (socket: ExtendedSocket) => {
         }
       }
     }
-    // Emitting players_update to the requesting client
-    socket.emit('players_update', room.players.map((p: Player) => ({
-      id: p.id,
-      name: p.name,
-      persistentPlayerId: p.persistentPlayerId,
-      lives: p.lives,
-      isActive: p.isActive,
-      isSpectator: p.isSpectator,
-      joinedAsSpectator: p.joinedAsSpectator,
-      disconnectTimer: null,
-      answers: p.answers,
-      avatarSvg: p.avatarSvg
-    })));
+    // Emitting players_update to the requesting client    socket.emit('players_update', room.players.map((p: Player) => ({      id: p.id,      name: p.name,      persistentPlayerId: p.persistentPlayerId,      lives: p.lives,      score: p.score,      streak: p.streak,      position: p.position,      lastPointsEarned: p.lastPointsEarned,      lastAnswerTimestamp: p.lastAnswerTimestamp,      isActive: p.isActive,      isSpectator: p.isSpectator,      joinedAsSpectator: p.joinedAsSpectator,      disconnectTimer: null,      answers: p.answers,      avatarSvg: p.avatarSvg    })));
   });
 
   // Handle answer submission
@@ -1085,11 +1100,7 @@ io.on('connection', (socket: ExtendedSocket) => {
         timestamp: Date.now(),
         isCorrect: null, // Evaluation pending
         answerAttemptId: answerAttemptId || null
-      };
-      // Add submissionOrder and submissionTime
-      const currentSubmissions = Object.keys(room.roundAnswers).length;
-      answerData.submissionOrder = currentSubmissions + 1;
-      answerData.submissionTime = room.questionStartTime ? Date.now() - room.questionStartTime : undefined;
+            };      // Add submissionOrder and submissionTime      const currentSubmissions = Object.keys(room.roundAnswers).length;      answerData.submissionOrder = currentSubmissions + 1;      // Always calculate submissionTime, even when there's no timer      answerData.submissionTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
       // Store answer in room.roundAnswers, keyed by persistentPlayerId (for both players and GM in community mode)
       if (!room.roundAnswers) room.roundAnswers = {};
       room.roundAnswers[effectivePersistentPlayerId!] = answerData;
@@ -1239,8 +1250,82 @@ io.on('connection', (socket: ExtendedSocket) => {
             console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated.`);
           }
         }
+        
+        // Points calculation for points mode - removed submissionTime requirement
+        console.log(`[POINTS DEBUG] Evaluating answer for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);
+        console.log(`[POINTS DEBUG] Room.isPointsMode: ${room.isPointsMode}, Room details:`, {
+          roomCode,
+          isPointsMode: room.isPointsMode,
+          isStreamerMode: room.isStreamerMode,
+          started: room.started,
+          hasCurrentQuestion: !!room.currentQuestion
+        });
+        
+        if (room.isPointsMode && room.currentQuestion) {
+          console.log(`[POINTS DEBUG] Starting points calculation for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);
+          console.log(`[POINTS DEBUG] Room isPointsMode: ${room.isPointsMode}, isCorrect: ${isCorrect}`);
+          console.log(`[POINTS DEBUG] Current question grade: ${room.currentQuestion.grade}`);
+          console.log(`[POINTS DEBUG] Player current score: ${playerObjInRoom.score}, streak: ${playerObjInRoom.streak}`);
+          
+          if (isCorrect) {
+            // Calculate points for correct answer
+            // Use submissionTime if available, otherwise default to 0
+            const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;
+            const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based
+            const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit
+            
+            console.log(`[POINTS DEBUG] Answer time: ${answerTimeSeconds}s, position: ${position}, total time allowed: ${totalTimeAllowed}s`);
+            
+            const pointsBreakdown = PointsCalculator.calculatePoints(
+              room.currentQuestion,
+              answerTimeSeconds,
+              position,
+              playerObjInRoom.streak || 0,
+              totalTimeAllowed
+            );
+            
+            console.log(`[POINTS DEBUG] Points breakdown calculated:`, pointsBreakdown);
+            
+            // Update player's score and streak
+            const oldScore = playerObjInRoom.score || 0;
+            const oldStreak = playerObjInRoom.streak || 0;
+            
+            playerObjInRoom.score = oldScore + pointsBreakdown.total;
+            playerObjInRoom.streak = oldStreak + 1;
+            playerObjInRoom.lastPointsEarned = pointsBreakdown.total;
+            playerObjInRoom.lastAnswerTimestamp = Date.now();
+            
+            console.log(`[POINTS DEBUG] Player score updated: ${oldScore} -> ${playerObjInRoom.score}`);
+            console.log(`[POINTS DEBUG] Player streak updated: ${oldStreak} -> ${playerObjInRoom.streak}`);
+            
+            // Add this player to answeredPlayersCorrectly for position tracking
+            if (!room.answeredPlayersCorrectly.includes(persistentPlayerIdFromClient)) {
+              room.answeredPlayersCorrectly.push(persistentPlayerIdFromClient);
+            }
+            
+            // Store points breakdown in answer data
+            submittedAnswerData.pointsAwarded = pointsBreakdown.total;
+            submittedAnswerData.pointsBreakdown = pointsBreakdown;
+            
+            console.log(`[POINTS DEBUG] ✅ Player ${playerObjInRoom.name} earned ${pointsBreakdown.total} points (Base: ${pointsBreakdown.base}, Time: ${pointsBreakdown.time}, Position: ${pointsBreakdown.position}, Streak: ${pointsBreakdown.streakMultiplier}x)`);
+          } else {
+            // Reset streak for incorrect answer
+            const oldStreak = playerObjInRoom.streak || 0;
+            playerObjInRoom.streak = 0;
+            playerObjInRoom.lastPointsEarned = 0;
+            playerObjInRoom.lastAnswerTimestamp = Date.now();
+            
+            // Store zero points in answer data
+            submittedAnswerData.pointsAwarded = 0;
+            submittedAnswerData.pointsBreakdown = PointsCalculator.calculateIncorrectAnswerPoints();
+            
+            console.log(`[POINTS DEBUG] ❌ Player ${playerObjInRoom.name} got incorrect answer, streak reset: ${oldStreak} -> 0`);
+          }
+        } else {
+          console.log(`[POINTS DEBUG] Points calculation skipped - isPointsMode: ${room.isPointsMode}, hasCurrentQuestion: ${!!room.currentQuestion}`);
+        }
       }
-
+      
       // Broadcast the updated game state
       broadcastGameState(roomCode);
 
@@ -1267,6 +1352,16 @@ io.on('connection', (socket: ExtendedSocket) => {
       room.submissionPhaseOver = false;
       room.roundAnswers = {};
       room.evaluatedAnswers = {};
+      
+      // Reset points tracking for new question
+      if (room.isPointsMode) {
+        room.answeredPlayersCorrectly = [];
+        room.players.forEach(player => {
+          player.position = null;
+          player.lastPointsEarned = null;
+        });
+      }
+      
       room.players.forEach(player => {
         if(player.answers) player.answers[room.currentQuestionIndex] = undefined as any; // Reset for new question
       });
@@ -1568,7 +1663,23 @@ io.on('connection', (socket: ExtendedSocket) => {
     }
     if (actualPersistentId && isGameMaster === false) {
       const playerName = socket.data.playerName || `Player_${actualPersistentId.substring(0, 5)}`;
-      const newPlayer: Player = { id: socket.id, persistentPlayerId: actualPersistentId, name: playerName, lives: 3, isActive: true, isSpectator: false, joinedAsSpectator: false, answers: [], disconnectTimer: null, avatarSvg: avatarSvg || null };
+      const newPlayer: Player = { 
+        id: socket.id, 
+        persistentPlayerId: actualPersistentId, 
+        name: playerName, 
+        lives: 3, 
+        score: 0,
+        streak: 0,
+        position: null,
+        lastPointsEarned: null,
+        lastAnswerTimestamp: null,
+        isActive: true, 
+        isSpectator: false, 
+        joinedAsSpectator: false, 
+        answers: [], 
+        disconnectTimer: null, 
+        avatarSvg: avatarSvg || null 
+      };
       room.players.push(newPlayer);
       socket.join(roomCode);
       socket.roomCode = roomCode;
@@ -1716,6 +1827,7 @@ io.on('connection', (socket: ExtendedSocket) => {
       return;
     }
 
+    console.log(`[POINTS DEBUG] Toggling community voting mode: ${room.isCommunityVotingMode} -> ${isCommunityVotingMode}`);
     room.isCommunityVotingMode = isCommunityVotingMode;
 
     if (isCommunityVotingMode) {
@@ -1737,7 +1849,12 @@ io.on('connection', (socket: ExtendedSocket) => {
           id: room.gamemasterSocketId || `gm-${room.roomCode}`,
           persistentPlayerId: room.gamemasterPersistentId,
           name: 'GameMaster (Playing)',
-          lives: 3, 
+          lives: 3,
+          score: 0,
+          streak: 0,
+          position: null,
+          lastPointsEarned: null,
+          lastAnswerTimestamp: null,
           answers: gmPlayerAnswers, // Use initialized/populated answers array
           isActive: true,
           isSpectator: false,
@@ -1761,6 +1878,38 @@ io.on('connection', (socket: ExtendedSocket) => {
 
     const currentIO = getIO();
     currentIO.to(roomCode).emit('community_voting_status_changed', { isCommunityVotingMode: room.isCommunityVotingMode });
+    broadcastGameState(roomCode); // Also broadcast full game state
+  });
+
+  // Handle points mode status change
+  socket.on('toggle_points_mode', ({ roomCode, isPointsMode }) => {
+    if (!gameRooms[roomCode] || socket.id !== gameRooms[roomCode].gamemaster) {
+      socket.emit('error', 'Not authorized to toggle points mode');
+      return;
+    }
+    const room = gameRooms[roomCode];
+    if (room.started && room.isPointsMode !== isPointsMode) {
+      socket.emit('error', 'Cannot change points mode after game has started.');
+      return;
+    }
+
+    console.log(`[POINTS DEBUG] Toggling points mode: ${room.isPointsMode} -> ${isPointsMode}`);
+    room.isPointsMode = isPointsMode;
+
+    // Initialize points-related properties for existing players if enabling points mode
+    if (isPointsMode) {
+      room.players.forEach(player => {
+        if (player.score === undefined) player.score = 0;
+        if (player.streak === undefined) player.streak = 0;
+        if (player.position === undefined) player.position = null;
+        if (player.lastPointsEarned === undefined) player.lastPointsEarned = null;
+        if (player.lastAnswerTimestamp === undefined) player.lastAnswerTimestamp = null;
+      });
+      console.log(`[Server] Points mode enabled for room ${roomCode}. Initialized player points properties.`);
+    }
+
+    const currentIO = getIO();
+    currentIO.to(roomCode).emit('points_mode_status_changed', { isPointsMode: room.isPointsMode });
     broadcastGameState(roomCode); // Also broadcast full game state
   });
 
@@ -1903,9 +2052,10 @@ io.on('connection', (socket: ExtendedSocket) => {
         room.evaluatedAnswers[answerId] = isCorrectByVote;
         console.log(`[Server] Answer ${answerId} evaluated by community vote: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
 
-        // Update player lives if their answer was incorrect.
+        // Update player lives and calculate points if their answer was evaluated.
         // In community mode, this applies to the GM as well if it's their answer.
         const playerWhoseAnswerIsBeingEvaluated = room.players.find(p => p.persistentPlayerId === answerId);
+        const submittedAnswerData = room.roundAnswers[answerId];
         
         if (playerWhoseAnswerIsBeingEvaluated) { // This player could be a regular player or the GM (if GM is in room.players)
           if (!isCorrectByVote) {
@@ -1917,6 +2067,47 @@ io.on('connection', (socket: ExtendedSocket) => {
               const playerSocket = getIO().sockets.sockets.get(playerWhoseAnswerIsBeingEvaluated.id);
               if (playerSocket) playerSocket.emit('become_spectator');
               console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated.`);
+            }
+          }
+          
+          // Points calculation for community voting mode
+          if (room.isPointsMode && room.currentQuestion && submittedAnswerData) {
+            if (isCorrectByVote) {
+              // Calculate points for correct answer
+              const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;
+              const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based
+              const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit
+              
+              const pointsBreakdown = PointsCalculator.calculatePoints(
+                room.currentQuestion,
+                answerTimeSeconds,
+                position,
+                playerWhoseAnswerIsBeingEvaluated.streak || 0,
+                totalTimeAllowed
+              );
+              
+              // Update player's score and streak
+              playerWhoseAnswerIsBeingEvaluated.score = (playerWhoseAnswerIsBeingEvaluated.score || 0) + pointsBreakdown.total;
+              playerWhoseAnswerIsBeingEvaluated.streak = (playerWhoseAnswerIsBeingEvaluated.streak || 0) + 1;
+              playerWhoseAnswerIsBeingEvaluated.lastPointsEarned = pointsBreakdown.total;
+              playerWhoseAnswerIsBeingEvaluated.lastAnswerTimestamp = Date.now();
+              
+              // Store points breakdown in answer data
+              submittedAnswerData.pointsAwarded = pointsBreakdown.total;
+              submittedAnswerData.pointsBreakdown = pointsBreakdown;
+              
+              console.log(`[Server Community Points] Player ${playerWhoseAnswerIsBeingEvaluated.name} earned ${pointsBreakdown.total} points via community vote`);
+            } else {
+              // Reset streak for incorrect answer
+              playerWhoseAnswerIsBeingEvaluated.streak = 0;
+              playerWhoseAnswerIsBeingEvaluated.lastPointsEarned = 0;
+              playerWhoseAnswerIsBeingEvaluated.lastAnswerTimestamp = Date.now();
+              
+              // Store zero points in answer data
+              submittedAnswerData.pointsAwarded = 0;
+              submittedAnswerData.pointsBreakdown = PointsCalculator.calculateIncorrectAnswerPoints();
+              
+              console.log(`[Server Community Points] Player ${playerWhoseAnswerIsBeingEvaluated.name} got incorrect answer via community vote, streak reset to 0`);
             }
           }
         }
@@ -2060,8 +2251,9 @@ io.on('connection', (socket: ExtendedSocket) => {
         
         console.log(`[Server] Force evaluating answer ${answerId}: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
 
-        // Update player lives if their answer was incorrect
+        // Update player lives and calculate points if their answer was evaluated
         const playerWhoseAnswerIsBeingEvaluated = room.players.find(p => p.persistentPlayerId === answerId);
+        const submittedAnswerData = room.roundAnswers[answerId];
         
         if (playerWhoseAnswerIsBeingEvaluated) {
           if (!isCorrectByVote) {
@@ -2074,6 +2266,47 @@ io.on('connection', (socket: ExtendedSocket) => {
               const playerSocket = getIO().sockets.sockets.get(playerWhoseAnswerIsBeingEvaluated.id);
               if (playerSocket) playerSocket.emit('become_spectator');
               console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) eliminated.`);
+            }
+          }
+          
+          // Points calculation for forced community voting end
+          if (room.isPointsMode && room.currentQuestion && submittedAnswerData) {
+            if (isCorrectByVote) {
+              // Calculate points for correct answer
+              const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;
+              const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based
+              const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit
+              
+              const pointsBreakdown = PointsCalculator.calculatePoints(
+                room.currentQuestion,
+                answerTimeSeconds,
+                position,
+                playerWhoseAnswerIsBeingEvaluated.streak || 0,
+                totalTimeAllowed
+              );
+              
+              // Update player's score and streak
+              playerWhoseAnswerIsBeingEvaluated.score = (playerWhoseAnswerIsBeingEvaluated.score || 0) + pointsBreakdown.total;
+              playerWhoseAnswerIsBeingEvaluated.streak = (playerWhoseAnswerIsBeingEvaluated.streak || 0) + 1;
+              playerWhoseAnswerIsBeingEvaluated.lastPointsEarned = pointsBreakdown.total;
+              playerWhoseAnswerIsBeingEvaluated.lastAnswerTimestamp = Date.now();
+              
+              // Store points breakdown in answer data
+              submittedAnswerData.pointsAwarded = pointsBreakdown.total;
+              submittedAnswerData.pointsBreakdown = pointsBreakdown;
+              
+              console.log(`[Server Force End Points] Player ${playerWhoseAnswerIsBeingEvaluated.name} earned ${pointsBreakdown.total} points via forced voting end`);
+            } else {
+              // Reset streak for incorrect answer
+              playerWhoseAnswerIsBeingEvaluated.streak = 0;
+              playerWhoseAnswerIsBeingEvaluated.lastPointsEarned = 0;
+              playerWhoseAnswerIsBeingEvaluated.lastAnswerTimestamp = Date.now();
+              
+              // Store zero points in answer data
+              submittedAnswerData.pointsAwarded = 0;
+              submittedAnswerData.pointsBreakdown = PointsCalculator.calculateIncorrectAnswerPoints();
+              
+              console.log(`[Server Force End Points] Player ${playerWhoseAnswerIsBeingEvaluated.name} got incorrect answer via forced voting end, streak reset to 0`);
             }
           }
         }

@@ -24,6 +24,8 @@ export interface PlayerAnswer {
   answerAttemptId?: string | null;
   submissionOrder?: number;
   submissionTime?: number;
+  pointsAwarded?: number | null;
+  pointsBreakdown?: any | null;
 }
 
 export interface Player {
@@ -31,6 +33,11 @@ export interface Player {
   persistentPlayerId: string;
   name: string;
   lives: number;
+  score: number;
+  streak: number;
+  position: number | null;
+  lastPointsEarned: number | null;
+  lastAnswerTimestamp: number | null;
   isActive: boolean;
   isSpectator: boolean;
   joinedAsSpectator: boolean;
@@ -68,6 +75,8 @@ export interface GameRoom {
   submissionPhaseOver: boolean;
   isConcluded: boolean;
   isStreamerMode: boolean;
+  isPointsMode: boolean;
+  answeredPlayersCorrectly: string[];
   createdAt: string;
   lastActivity: string;
   isCommunityVotingMode?: boolean;
@@ -88,6 +97,7 @@ export interface GameState {
   isConcluded: boolean;
   playerBoards: Record<string, any>;
   isCommunityVotingMode?: boolean;
+  isPointsMode?: boolean;
   gameMasterBoardData?: string | null;
   currentVotes?: Record<string, Record<string, 'correct' | 'incorrect'>>;
 }
@@ -96,6 +106,7 @@ export interface GameRecap {
   roomCode: string;
   startTime: Date | string;
   endTime: Date | string;
+  isPointsMode?: boolean; // Include points mode flag
   players: RecapPlayer[];
   rounds: RecapRound[];
   initialSelectedRoundIndex?: number;
@@ -107,6 +118,8 @@ export interface RecapPlayer {
   persistentPlayerId: string;
   name: string;
   finalLives: number;
+  finalScore?: number; // Include final score for points mode
+  finalStreak?: number; // Include final streak for points mode
   isSpectator: boolean;
   isActive: boolean;
   isWinner: boolean;
@@ -126,6 +139,8 @@ export interface RecapSubmission {
   hasDrawing: boolean;
   drawingData: string | null;
   isCorrect: boolean | null;
+  pointsAwarded?: number; // Include points awarded for this submission
+  pointsBreakdown?: any; // Include points breakdown data
 }
 
 // Game Analytics
@@ -210,7 +225,7 @@ export interface ServerToClientEvents {
   'webrtc-answer': (data: { answer: any, from: string }) => void;
   'webrtc-ice-candidate': (data: { candidate: any, from: string }) => void;
   'webrtc-user-left': (data: { socketId: string }) => void;
-  community_voting_status_changed: (data: { isCommunityVotingMode: boolean }) => void;
+  community_voting_status_changed: (data: { isCommunityVotingMode: boolean }) => void;  points_mode_status_changed: (data: { isPointsMode: boolean }) => void;
   answer_voted: (data: { answerId: string, playerId: string, vote: 'correct' | 'incorrect', voteCounts: Record<string, {correct: number, incorrect: number}> }) => void;
   correct_answer_revealed: (data: { questionId: string, correctAnswer: string }) => void;
   'webcam-state-change': (data: { fromSocketId: string, enabled: boolean }) => void;
@@ -220,7 +235,7 @@ export interface ServerToClientEvents {
 }
 
 export interface ClientToServerEvents {
-  create_room: (data: { roomCode?: string, isStreamerMode?: boolean }) => void;
+  create_room: (data: { roomCode?: string, isStreamerMode?: boolean, isPointsMode?: boolean }) => void;
   join_room: (data: { roomCode: string, playerName: string, isSpectator?: boolean, avatarSvg?: string }) => void;
   start_game: (data: { roomCode: string, questions: Question[], timeLimit: number }) => void;
   submit_answer: (data: { roomCode: string, answer: string, hasDrawing?: boolean, drawingData?: string, answerAttemptId?: string }) => void;
@@ -247,7 +262,7 @@ export interface ClientToServerEvents {
   'webrtc-offer': (data: { offer: any, to: string, from: string }) => void;
   'webrtc-answer': (data: { answer: any, to: string, from: string }) => void;
   'webrtc-ice-candidate': (data: { candidate: any, to: string, from: string }) => void;
-  toggle_community_voting: (data: { roomCode: string, isCommunityVotingMode: boolean }) => void;
+  toggle_community_voting: (data: { roomCode: string, isCommunityVotingMode: boolean }) => void;  toggle_points_mode: (data: { roomCode: string, isPointsMode: boolean }) => void;
   submit_vote: (data: { roomCode: string, answerId: string, vote: 'correct' | 'incorrect' }) => void;
   show_answer: (data: { roomCode: string, questionId: string }) => void;
   update_game_master_board: (data: { roomCode: string, boardData: string }) => void;

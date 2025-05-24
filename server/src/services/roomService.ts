@@ -63,6 +63,8 @@ export function createGameRoom(
     submissionPhaseOver: false,
     isConcluded: false,
     isStreamerMode: false,
+    isPointsMode: false,
+    answeredPlayersCorrectly: [],
     createdAt: new Date().toISOString(),
     lastActivity: new Date().toISOString(),
     isCommunityVotingMode: false,
@@ -182,6 +184,7 @@ export function loadRoomState(): void {
           if (existingPlayerIndex >= 0) {
             // Update existing player data while preserving connection
             const existingPlayer = existingRoom.players[existingPlayerIndex];
+            
             // Preserve connection-related fields
             const id = existingPlayer.id;
             const isActive = existingPlayer.isActive;
@@ -199,7 +202,12 @@ export function loadRoomState(): void {
               ...savedPlayer,
               id: '', // Will be updated when player reconnects
               isActive: false,
-              disconnectTimer: null
+              disconnectTimer: null,
+              score: 0,
+              streak: 0,
+              position: null,
+              lastPointsEarned: null,
+              lastAnswerTimestamp: null
             });
           }
         });
@@ -230,7 +238,12 @@ export function loadRoomState(): void {
         ...player,
         id: '', // will be updated when player reconnects
         isActive: false, // mark as inactive until reconnect
-        disconnectTimer: null
+        disconnectTimer: null,
+        score: 0,
+        streak: 0,
+        position: null,
+        lastPointsEarned: null,
+        lastAnswerTimestamp: null
       }));
       
       // Add room to gameRooms
