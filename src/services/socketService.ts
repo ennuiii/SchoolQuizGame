@@ -433,10 +433,10 @@ export class SocketService {
   }
 
   // Game-specific methods - now using robustEmit
-  async createRoom(roomCode: string, isStreamerMode: boolean = false) {
-    console.log('[SocketService] Creating room:', { roomCode, isStreamerMode, timestamp: new Date().toISOString() });
+  async createRoom(roomCode: string, isStreamerMode: boolean = false, isPointsMode: boolean = false) {
+    console.log('[SocketService] Creating room:', { roomCode, isStreamerMode, isPointsMode, timestamp: new Date().toISOString() });
     try {
-      await this.robustEmit('create_room', { roomCode, isStreamerMode, timestamp: new Date().toISOString() });
+      await this.robustEmit('create_room', { roomCode, isStreamerMode, isPointsMode, timestamp: new Date().toISOString() });
     } catch (error) {
       console.error('[SocketService] Failed to create room:', error);
       throw error;

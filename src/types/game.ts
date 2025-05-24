@@ -12,6 +12,11 @@ export interface Player {
   persistentPlayerId: string;
   name: string;
   lives: number;
+  score: number;
+  streak: number;
+  position: number | null;
+  lastPointsEarned: number | null;
+  lastAnswerTimestamp: number | null;
   answers: {
     playerId: string;
     persistentPlayerId: string;
@@ -24,6 +29,9 @@ export interface Player {
     answerAttemptId?: string | null;
     submissionOrder?: number;
     submissionTime?: number;
+    submissionTimestamp?: number;
+    pointsAwarded?: number | null;
+    pointsBreakdown?: any | null;
   }[];
   isActive: boolean;
   isSpectator: boolean;
@@ -46,6 +54,9 @@ export interface AnswerSubmission {
   drawingData?: string | null;
   submissionOrder?: number;
   submissionTime?: number;
+  submissionTimestamp?: number;
+  pointsAwarded?: number | null;
+  pointsBreakdown?: any | null;
 }
 
 export interface PreviewModeState {

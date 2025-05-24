@@ -1,9 +1,7 @@
 import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import socketService from '../services/socketService';
-import PlayerList from '../components/shared/PlayerList';
-import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';
-import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';
+import PlayerList from '../components/shared/PlayerList';import PlayerBoardDisplay from '../components/shared/PlayerBoardDisplay';import PreviewOverlayV2 from '../components/shared/PreviewOverlayV2';import Leaderboard from '../components/shared/Leaderboard';
 import QuestionSelector from '../components/game-master/QuestionSelector';
 import QuestionDisplay from '../components/game-master/QuestionDisplay';
 import GameControls from '../components/game-master/GameControls';
@@ -80,6 +78,7 @@ const GameMaster: React.FC = () => {
   const offsetRef = useRef({ x: 0, y: 0 });
   const isResizingRef = useRef(false);
   const [isCommunityVotingMode, setIsCommunityVotingMode] = useState(false);
+  const [isPointsMode, setIsPointsMode] = useState(false);
   const [gmTextAnswer, setGmTextAnswer] = useState('');
   const [gmSubmittedCommunityAnswerForRound, setGmSubmittedCommunityAnswerForRound] = useState(false);
   const [gmOverlayLocallyClosed, setGmOverlayLocallyClosed] = useState(false);
@@ -218,6 +217,24 @@ const GameMaster: React.FC = () => {
       }
       setGmTextAnswer('');
       return newMode;
+    });
+  }, [roomCode, connectionStatus]);
+
+  const handleTogglePointsMode = useCallback(() => {
+    setIsPointsMode(prev => {
+      const newValue = !prev;
+      console.log(`[GAMEMASTER DEBUG] Points mode toggled: ${prev} -> ${newValue}`);
+      
+      // Send to server if room exists and connected (similar to community voting)
+      if (roomCode && connectionStatus === 'connected') {
+        console.log(`[GAMEMASTER DEBUG] Sending toggle_points_mode to server:`, {
+          roomCode,
+          isPointsMode: newValue
+        });
+        socketService.emit('toggle_points_mode', { roomCode, isPointsMode: newValue });
+      }
+      
+      return newValue;
     });
   }, [roomCode, connectionStatus]);
 
@@ -427,11 +444,16 @@ const GameMaster: React.FC = () => {
     }
 
     const newRoomCode = inputRoomCode.trim() || Math.random().toString(36).substring(2, 8).toUpperCase();
-    console.log('[GameMaster] Attempting to create room:', newRoomCode);
+    console.log('[GAMEMASTER DEBUG] Attempting to create room with flags:', {
+      roomCode: newRoomCode,
+      isStreamerMode,
+      isPointsMode,
+      timestamp: new Date().toISOString()
+    });
     
     setIsRoomLoading(true);
-    createRoom(newRoomCode, isStreamerMode);
-  }, [createRoom, inputRoomCode, setIsRoomLoading, connectionStatus, isStreamerMode]);
+    createRoom(newRoomCode, isStreamerMode, isPointsMode);
+  }, [createRoom, inputRoomCode, setIsRoomLoading, connectionStatus, isStreamerMode, isPointsMode]);
 
   useEffect(() => {
     console.log('[GameMaster] Game state changed:', {
@@ -842,7 +864,10 @@ const GameMaster: React.FC = () => {
           isCorrect: answerObj?.isCorrect ?? null,
           submissionOrder: answerObj?.submissionOrder,
           submissionTime: answerObj?.submissionTime,
-          submissionTimestamp: answerObj?.timestamp
+          submissionTimestamp: answerObj?.timestamp,
+          pointsAwarded: answerObj?.pointsAwarded,
+          pointsBreakdown: answerObj?.pointsBreakdown,
+          streak: player?.streak
         };
       });
       return {
@@ -1059,13 +1084,18 @@ const GameMaster: React.FC = () => {
           
           <div className="row g-3">
             <div className="col-12 col-md-4">
-              <RoomSettings 
-                timeLimit={customTimeLimit} 
-                onTimeLimitChange={setCustomTimeLimit} 
-                isCommunityVotingMode={isCommunityVotingMode}
-                onToggleCommunityVotingMode={handleToggleCommunityVotingMode}
-                gameStarted={gameStarted}
-              />
+              {/* Only show room settings when game hasn't started */}
+              {!gameStarted && (
+                <RoomSettings 
+                  timeLimit={customTimeLimit} 
+                  onTimeLimitChange={setCustomTimeLimit} 
+                  isCommunityVotingMode={isCommunityVotingMode}
+                  onToggleCommunityVotingMode={handleToggleCommunityVotingMode}
+                  isPointsMode={isPointsMode}
+                  onTogglePointsMode={handleTogglePointsMode}
+                  gameStarted={gameStarted}
+                />
+              )}
               <RoomCode />
               
               {/* Preview button, shown if game started, not in preview, and NOT community voting mode */}
@@ -1090,6 +1120,31 @@ const GameMaster: React.FC = () => {
                 onKickPlayer={handleKickPlayer}
                 persistentPlayerId={persistentPlayerId || undefined}
               />
+              
+              {/* Show Enhanced Leaderboard when points mode is enabled and game has started */}
+              {isPointsMode && gameStarted && (
+                <div className="mt-3">
+                  <Leaderboard
+                    players={gamePlayers.map(p => ({
+                      id: p.id,
+                      persistentPlayerId: p.persistentPlayerId,
+                      name: p.name,
+                      score: p.score || 0,
+                      streak: p.streak || 0,
+                      lives: p.lives,
+                      lastPointsEarned: p.lastPointsEarned || null,
+                      isActive: p.isActive,
+                      isSpectator: p.isSpectator
+                    }))}
+                    currentPlayerPersistentId={persistentPlayerId || undefined}
+                    showLives={true}
+                    compact={false}
+                    maxPlayers={10}
+                    showAnimation={true}
+                    isPointsMode={true}
+                  />
+                </div>
+              )}
               
               <div className="d-grid gap-2 mt-3">
                 <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
@@ -1122,6 +1177,7 @@ const GameMaster: React.FC = () => {
                       onNextQuestion={handleNextQuestion}
                       onRestartGame={handleRestartGame}
                       onEndRoundEarly={handleEndRoundEarlyAction}
+                      onEndGame={handleEndGameRequest}
                       isRestarting={isRestarting}
                       showEndRoundConfirm={showEndRoundConfirm}
                       onConfirmEndRound={confirmEndRoundEarly}

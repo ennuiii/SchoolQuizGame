@@ -119,7 +119,9 @@ const translations: { [lang: string]: TranslationMap } = {
       streamerModeHelp: 'When enabled, the room code will be hidden but still copyable.',
       creating: 'Creating...',
       createRoom: 'Create Room',
-      communityVotingHelp: 'If enabled, the Game Master plays along and answers are evaluated by player votes.'
+      communityVotingHelp: 'If enabled, the Game Master plays along and answers are evaluated by player votes.',
+      pointsMode: 'Enable Points Mode',
+      pointsModeHelp: 'When enabled, players earn points based on answer speed, accuracy streaks, and grade difficulty. Leaderboard and scoring features will be active.'
     },
     questionSelector: {
       title: 'Load Questions from Database',
@@ -235,10 +237,10 @@ const translations: { [lang: string]: TranslationMap } = {
       tryAgain: 'Try Again'
     },
     notificationTypes: {
-      success: 'success',
-      error: 'error',
-      warning: 'warning',
-      info: 'info',
+      success: 'Success',
+      error: 'Error',
+      warning: 'Warning',
+      info: 'Information',
       close: 'Close'
     },
     playerBoardDisplay: {
@@ -414,12 +416,27 @@ const translations: { [lang: string]: TranslationMap } = {
       pending: 'Pending',
       noQuestions: 'No questions asked yet.',
       noAnswers: 'No answers for this question.',
-      close: 'Close',
-      submissionOrder: 'Submission Order',
-      timeTaken: 'Time Taken',
-      submissionOrderTooltip: 'The order in which this answer was submitted',
-      timeTakenTooltip: 'Time taken to submit this answer'
-    }
+            close: 'Close',      submissionOrder: 'Submission Order',      timeTaken: 'Time Taken',      submissionOrderTooltip: 'The order in which this answer was submitted',      timeTakenTooltip: 'Time taken to submit this answer'    },    points: {      streak: 'Streak',      multiplier: 'Multiplier',      points: 'points',      breakdown: {        title: 'Points Breakdown',        calculation: 'How Points Were Calculated',        base: 'Base Points',        gradeMultiplier: 'Grade × 100',        timeBonus: 'Time Bonus',        answeredIn: 'Answered in',        positionBonus: 'Position Bonus',        toSubmit: 'to submit',        subtotal: 'Subtotal',        streakMultiplier: 'Streak Multiplier',        streakCount: 'Streak count',        total: 'Total Points',        positionBonuses: 'Position Bonuses',        streakMultipliers: 'Streak Multipliers'      }    },    leaderboard: {      title: 'Leaderboard',      players: 'players',      you: 'you',      lives: 'Lives',      offline: 'Offline',      topScore: 'Top Score',      avgScore: 'Avg Score',      activePlayers: 'Active Players',      noPlayers: 'No players to display'    },
+    recapModal: {
+      title: 'Game Recap',
+      overallResults: 'Overall Results',
+      roundDetails: 'Round Details',
+      winners: 'Winners',
+      participants: 'Participants',
+      drawing: 'Drawing',
+      answer: 'Answer',
+      eliminated: 'Eliminated',
+      drawingBy: 'Drawing by',
+      noRoundData: 'No round data available or selected round is invalid.',
+      round: 'Round',
+      questionDetails: 'Question Details',
+      submissions: 'Submissions',
+      currentQuestion: 'Current Question',
+      type: 'Type',
+      pleaseWait: 'Please wait...',
+      error: 'Error',
+      invalidSvg: 'Error: Invalid SVG'
+    },
   },
   de: {
     settings: 'Einstellungen',
@@ -804,11 +821,7 @@ const translations: { [lang: string]: TranslationMap } = {
       pending: 'Pending',
       noQuestions: 'No questions answered yet.',
       close: 'Close',
-      view: 'View Question History',
-      submissionOrder: 'Submission Order',
-      timeTaken: 'Time Taken',
-      submissionOrderTooltip: 'The order in which this answer was submitted',
-      timeTakenTooltip: 'Time taken to submit this answer'
+      view: 'View Question History'
     },
     gameMasterQuestionHistory: {
       title: 'Alle Fragen & Antworten',
@@ -828,7 +841,27 @@ const translations: { [lang: string]: TranslationMap } = {
       timeTaken: 'Benötigte Zeit',
       submissionOrderTooltip: 'Die Reihenfolge, in der diese Antwort eingereicht wurde',
       timeTakenTooltip: 'Zeit, die für die Einreichung dieser Antwort benötigt wurde'
-    }
+    },
+    recapModal: {
+      title: 'Spielzusammenfassung',
+      overallResults: 'Gesamtergebnisse',
+      roundDetails: 'Rundendetails',
+      winners: 'Gewinner',
+      participants: 'Teilnehmer',
+      drawing: 'Zeichnung',
+      answer: 'Antwort',
+      eliminated: 'Eliminiert',
+      drawingBy: 'Zeichnung von',
+      noRoundData: 'Keine Rundendaten verfügbar oder ausgewählte Runde ist ungültig.',
+      round: 'Runde',
+      questionDetails: 'Fragendetails',
+      submissions: 'Einreichungen',
+      currentQuestion: 'Aktuelle Frage',
+      type: 'Typ',
+      pleaseWait: 'Bitte warten...',
+      error: 'Fehler',
+      invalidSvg: 'Fehler: Ungültiges SVG'
+    },
   },
   fr: {
     settings: 'Paramètres',
@@ -1159,7 +1192,7 @@ const translations: { [lang: string]: TranslationMap } = {
       connectionCheckInternet: 'Veuillez vérifier votre connexion Internet et réessayer.',
       connectionRetry: 'Réessayer la connexion',
       tryReconnecting: 'Versuchen Sie erneut zu verbinden',
-      redirectingToSpectator: 'Weiterleitung zur Zuschaueransicht...'
+      redirectingToSpectator: 'Przekierowywanie do widoku widza...'
     },
     spectatorPage: {
       gameOver: 'Spiel vorbei!',
@@ -1223,7 +1256,27 @@ const translations: { [lang: string]: TranslationMap } = {
       timeTaken: 'Temps pris',
       submissionOrderTooltip: 'L\'ordre dans lequel cette réponse a été soumise',
       timeTakenTooltip: 'Temps pris pour soumettre cette réponse'
-    }
+    },
+    recapModal: {
+      title: 'Récapitulatif du jeu',
+      overallResults: 'Résultats globaux',
+      roundDetails: 'Détails du tour',
+      winners: 'Gagnants',
+      participants: 'Participants',
+      drawing: 'Dessin',
+      answer: 'Réponse',
+      eliminated: 'Éliminés',
+      drawingBy: 'Dessin de',
+      noRoundData: 'Aucune donnée de tour disponible ou le tour sélectionné est invalide.',
+      round: 'Runde',
+      questionDetails: 'Détails de la question',
+      submissions: 'Soumissions',
+      currentQuestion: 'Question actuelle',
+      type: 'Type',
+      pleaseWait: 'Veuillez patienter...',
+      error: 'Erreur',
+      invalidSvg: 'Erreur : SVG invalide'
+    },
   },
   nl: {
     settings: 'Instellingen',
@@ -1592,24 +1645,44 @@ const translations: { [lang: string]: TranslationMap } = {
       view: 'View Question History'
     },
     gameMasterQuestionHistory: {
-      title: 'Wszystkie Pytania & Odpowiedzi',
-      question: 'Pytanie',
-      subject: 'Przedmiot',
-      grade: 'Klasa',
-      player: 'Gracz',
-      answer: 'Odpowiedź',
-      result: 'Wynik',
-      correct: 'Poprawne',
-      incorrect: 'Niepoprawne',
-      pending: 'Oczekujące',
-      noQuestions: 'Jeszcze nie zadano pytań.',
-      noAnswers: 'Brak odpowiedzi na to pytanie.',
-      close: 'Zamknij',
-      submissionOrder: 'Kolejność zgłoszenia',
-      timeTaken: 'Czas wykonania',
-      submissionOrderTooltip: 'Kolejność, w której ta odpowiedź została zgłoszona',
-      timeTakenTooltip: 'Czas potrzebny na zgłoszenie tej odpowiedzi'
-    }
+      title: 'All Questions & Answers',
+      question: 'Question',
+      subject: 'Subject',
+      grade: 'Grade',
+      player: 'Player',
+      answer: 'Answer',
+      result: 'Result',
+      correct: 'Correct',
+      incorrect: 'Incorrect',
+      pending: 'Pending',
+      noQuestions: 'No questions asked yet.',
+      noAnswers: 'No answers for this question.',
+      close: 'Close',
+      submissionOrder: 'Submission Order',
+      timeTaken: 'Time Taken',
+      submissionOrderTooltip: 'The order in which this answer was submitted',
+      timeTakenTooltip: 'Time taken to submit this answer'
+    },
+    recapModal: {
+      title: 'Speloverzicht',
+      overallResults: 'Algemene resultaten',
+      roundDetails: 'Ronde details',
+      winners: 'Winnaars',
+      participants: 'Deelnemers',
+      drawing: 'Tekening',
+      answer: 'Antwoord',
+      eliminated: 'Uitgeschakeld',
+      drawingBy: 'Tekening door',
+      noRoundData: 'Geen rondegegevens beschikbaar of geselecteerde ronde is ongeldig.',
+      round: 'Runde',
+      questionDetails: 'Vraagdetails',
+      submissions: 'Inzendingen',
+      currentQuestion: 'Huidige vraag',
+      type: 'Type',
+      pleaseWait: 'Even geduld aub...',
+      error: 'Fout',
+      invalidSvg: 'Fout: Ongeldige SVG'
+    },
   },
   zh: {
     settings: '设置',
@@ -1997,7 +2070,27 @@ const translations: { [lang: string]: TranslationMap } = {
       timeTaken: '用时',
       submissionOrderTooltip: '此答案的提交顺序',
       timeTakenTooltip: '提交此答案所需的时间'
-    }
+    },
+    recapModal: {
+      title: '游戏回顾',
+      overallResults: '总体结果',
+      roundDetails: '回合详情',
+      winners: '获胜者',
+      participants: '参与者',
+      drawing: '绘画',
+      answer: '答案',
+      eliminated: '被淘汰',
+      drawingBy: '绘画者：',
+      noRoundData: '没有可用的回合数据或所选回合无效。',
+      round: '回合',
+      questionDetails: '问题详情',
+      submissions: '提交内容',
+      currentQuestion: '当前问题',
+      type: '类型',
+      pleaseWait: '请稍候...',
+      error: '错误',
+      invalidSvg: '错误：无效的SVG'
+    },
   },
   pl: {
     settings: 'Ustawienia',
@@ -2261,7 +2354,7 @@ const translations: { [lang: string]: TranslationMap } = {
       title: 'Dołącz do gry',
       subtitle: 'Wprowadź kod pokoju i swoje imię, aby dołączyć do gry.',
       joinAsSpectator: 'Dołącz jako widz',
-      roomCodeLabel: 'Kod pokoju:',
+      roomCodeLabel: 'Kamercode:',
       roomCodePlaceholder: 'Wprowadź kod pokoju',
       playerNameLabel: 'Twoje imię:',
       playerNamePlaceholder: 'Wprowadź swoje imię',
@@ -2383,7 +2476,27 @@ const translations: { [lang: string]: TranslationMap } = {
       timeTaken: 'Time Taken',
       submissionOrderTooltip: 'The order in which this answer was submitted',
       timeTakenTooltip: 'Time taken to submit this answer'
-    }
+    },
+    recapModal: {
+      title: 'Podsumowanie gry',
+      overallResults: 'Wyniki ogólne',
+      roundDetails: 'Szczegóły rundy',
+      winners: 'Zwycięzcy',
+      participants: 'Uczestnicy',
+      drawing: 'Rysunek',
+      answer: 'Odpowiedź',
+      eliminated: 'Wyeliminowani',
+      drawingBy: 'Rysowanie przez',
+      noRoundData: 'Nie dostępnych danych rundy lub wybrana runda jest nieprawidłowa.',
+      round: 'Runda',
+      questionDetails: 'Szczegóły pytania',
+      submissions: 'Wysyłane odpowiedzi',
+      currentQuestion: 'Aktualne pytanie',
+      type: 'Typ',
+      pleaseWait: 'Proszę czekać...',
+      error: 'Błąd',
+      invalidSvg: 'Błąd: Nieprawidłowy SVG'
+    },
   },
 };
 

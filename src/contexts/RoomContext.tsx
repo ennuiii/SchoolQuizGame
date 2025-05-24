@@ -31,7 +31,7 @@ interface RoomContextType {
   isKickedModalOpen: boolean;
   kickReason: string;
   isStreamerMode: boolean;
-  createRoom: (roomCode: string, isStreamerMode?: boolean) => void;
+  createRoom: (roomCode: string, isStreamerMode?: boolean, isPointsMode?: boolean) => void;
   kickPlayer: (playerSocketId: string) => void;
   
   // Actions
@@ -137,15 +137,19 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const createRoom = useCallback(async (roomCode: string, isStreamerMode: boolean = false) => {
-    console.log('[RoomContext] createRoom: Setting player details');
+  const createRoom = useCallback(async (roomCode: string, isStreamerMode: boolean = false, isPointsMode: boolean = false) => {
+    console.log('[ROOMCONTEXT DEBUG] createRoom called with parameters:', {
+      roomCode,
+      isStreamerMode,
+      isPointsMode,
+      timestamp: new Date().toISOString()
+    });
+    
     setIsLoading(true);
     setErrorMsg('');
     socketService.setPlayerDetails('GameMaster');
-    console.log('[RoomContext] createRoom: Setting GM connection details');
     socketService.setGMConnectionDetails(true);
     
-    console.log('[RoomContext] createRoom: Attempting to connect socket...');
     let socket: Socket | null;
     try {
       socket = await socketService.connect();
@@ -158,13 +162,19 @@ export const RoomProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setRoomCode(roomCode);
       setIsStreamerMode(isStreamerMode);
       
-      console.log('[RoomContext] createRoom: Creating room:', roomCode);
-      socketService.createRoom(roomCode, isStreamerMode);
+      console.log('[ROOMCONTEXT DEBUG] About to call socketService.createRoom with:', {
+        roomCode,
+        isStreamerMode,
+        isPointsMode
+      });
+      
+      socketService.createRoom(roomCode, isStreamerMode, isPointsMode);
       console.log('[RoomContext] createRoom: Room creation request sent, waiting for confirmation...');
       
       sessionStorage.setItem('roomCode', roomCode);
       sessionStorage.setItem('isGameMaster', 'true');
       sessionStorage.setItem('isStreamerMode', isStreamerMode.toString());
+      sessionStorage.setItem('isPointsMode', isPointsMode.toString());
       setIsGameMaster(true);
       
     } catch (error) {

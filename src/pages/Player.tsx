@@ -6,6 +6,9 @@ import QuestionCard from '../components/shared/QuestionCard';
 import Timer from '../components/shared/Timer';
 import PlayerList from '../components/shared/PlayerList';
 import RoomCode from '../components/shared/RoomCode';
+
+import Leaderboard from '../components/shared/Leaderboard';
+import PointsBreakdown from '../components/shared/PointsBreakdown';
 import { useGame } from '../contexts/GameContext';
 import { useAudio } from '../contexts/AudioContext';
 import { useRoom } from '../contexts/RoomContext';
@@ -46,32 +49,11 @@ const Player: React.FC = () => {
   const [hideLobbyCode, setHideLobbyCode] = useState(() => sessionStorage.getItem('hideLobbyCode') === 'true');
   const [showHistoryModal, setShowHistoryModal] = useState(false);
   const [showRoundStartOverlay, setShowRoundStartOverlay] = useState(false);
+  const [showPointsBreakdown, setShowPointsBreakdown] = useState(false);
+  const [pointsBreakdownData, setPointsBreakdownData] = useState<any>(null);
   
   // Get context values
-  const {
-    gameStarted,
-    currentQuestion,
-    timeLimit,
-    timeRemaining,
-    isTimerRunning,
-    previewMode,
-    previewOverlayVersion,
-    toggleBoardVisibility,
-    currentQuestionIndex,
-    submittedAnswer,
-    isGameConcluded,
-    gameRecapData,
-    recapSelectedRoundIndex,
-    recapSelectedTabKey,
-    hideRecap,
-    allAnswersThisRound,
-    evaluatedAnswers,
-    currentVotes,
-    players,
-    playerBoards,
-    isCommunityVotingMode,
-    questions
-  } = useGame();
+    const {    gameStarted,    currentQuestion,    timeLimit,    timeRemaining,    isTimerRunning,    previewMode,    previewOverlayVersion,    toggleBoardVisibility,    currentQuestionIndex,    submittedAnswer,    isGameConcluded,    isPointsMode,    gameRecapData,    recapSelectedRoundIndex,    recapSelectedTabKey,    hideRecap,    allAnswersThisRound,    evaluatedAnswers,    currentVotes,    players,    playerBoards,    isCommunityVotingMode,    questions  } = useGame();
 
   const {
     playBackgroundMusic,
@@ -551,36 +533,45 @@ const Player: React.FC = () => {
   // Listen for game state updates to know when we've successfully reconnected
   useEffect(() => {
     const handleGameStateUpdate = () => {
-      console.log('[Player] Received game state update, marking as reconnected');
+      console.log('[Player] Received game state update via useEffect');
       setReceivedGameState(true);
-      
-      // Force exit loading screen when we get game state
       setIsLoading(false);
     };
-    
+
     socketService.on('game_state_update', handleGameStateUpdate);
-    
     return () => {
       socketService.off('game_state_update', handleGameStateUpdate);
     };
   }, []);
 
-  // Monitor for player data to exit loading screen - reduce logging
-  useEffect(() => {
-    // If we have connection, players data, and room code, we should exit loading state directly
-    if (connectionStatus === 'connected' && players.length > 0 && roomCode) {
-      // Don't log this repeatedly
-      setIsLoading(false);
-    }
-  }, [connectionStatus, players, roomCode]);
+    // Removed automatic points breakdown opening - now manual via click
 
-  // Override isRoomLoading in some cases - reduce logging
-  useEffect(() => {
-    if (isRoomLoading && receivedGameState && connectionStatus === 'connected' && players.length > 0) {
-      // Don't log this repeatedly
-      setIsLoading(false);
+  // Function to handle clicking on score to show breakdown
+  const handleShowPointsBreakdown = useCallback(() => {
+    if (!isPointsMode || !persistentPlayerId) return;
+
+    const currentPlayer = players.find(p => p.persistentPlayerId === persistentPlayerId);
+    if (!currentPlayer) return;
+
+    // Find the most recent answer with points breakdown
+    const recentAnswerWithPoints = currentPlayer.answers?.slice().reverse().find(answer => 
+      answer?.pointsBreakdown && answer.pointsAwarded && answer.pointsAwarded > 0
+    );
+
+    if (recentAnswerWithPoints?.pointsBreakdown) {
+      setPointsBreakdownData({
+        ...recentAnswerWithPoints.pointsBreakdown,
+        questionGrade: questions[currentPlayer.answers?.indexOf(recentAnswerWithPoints) || 0]?.grade,
+        answerTime: recentAnswerWithPoints.submissionTime ? recentAnswerWithPoints.submissionTime / 1000 : undefined,
+        submissionOrder: recentAnswerWithPoints.submissionOrder,
+        streak: currentPlayer.streak,
+        playerName: currentPlayer.name
+      });
+      setShowPointsBreakdown(true);
+    } else {
+      toast.info('No points breakdown available yet. Answer a question correctly to see how points are calculated!');
     }
-  }, [isRoomLoading, receivedGameState, connectionStatus, players.length]);
+  }, [isPointsMode, persistentPlayerId, players, questions]);
 
   // Add drag functionality
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -776,7 +767,10 @@ const Player: React.FC = () => {
         isCorrect: answer?.isCorrect ?? false,
         submissionOrder: answer?.submissionOrder,
         submissionTime: answer?.submissionTime,
-        submissionTimestamp: answer?.timestamp
+        submissionTimestamp: answer?.timestamp,
+        pointsAwarded: answer?.pointsAwarded,
+        pointsBreakdown: answer?.pointsBreakdown,
+        streak: currentPlayer?.streak
       }));
   }, [persistentPlayerId, players, questions]);
 
@@ -1145,6 +1139,52 @@ const Player: React.FC = () => {
               </div>
               <div className="col-12 col-md-4">
                 <RoomCode hideLobbyCode={hideLobbyCode} />
+                
+                {/* Show Enhanced Leaderboard when points mode is enabled and game has started */}
+                {(() => {
+                  const shouldShowLeaderboard = isPointsMode && gameStarted && players.length > 0;
+                  console.log(`[PLAYER DEBUG] Leaderboard render check:`, {
+                    isPointsMode,
+                    gameStarted, 
+                    playersCount: players.length,
+                    shouldShow: shouldShowLeaderboard
+                  });
+                  
+                  if (shouldShowLeaderboard) {
+                    const filteredPlayers = players.filter(p => p.persistentPlayerId);
+                    const leaderboardData = filteredPlayers.map(p => ({
+                      id: p.id,
+                      persistentPlayerId: p.persistentPlayerId!,
+                      name: p.name,
+                      score: p.score || 0,
+                      streak: p.streak || 0,
+                      lives: p.lives,
+                      lastPointsEarned: (typeof p.lastPointsEarned === 'number') ? p.lastPointsEarned : null,
+                      isActive: p.isActive,
+                      isSpectator: p.isSpectator
+                    }));
+                    
+                    console.log(`[PLAYER DEBUG] Rendering Enhanced Leaderboard with data:`, leaderboardData);
+                    
+                    return (
+                      <div className="mb-3">
+                        <Leaderboard
+                          players={leaderboardData}
+                          currentPlayerPersistentId={persistentPlayerId || undefined}
+                          showLives={true}
+                          compact={false}
+                          maxPlayers={10}
+                          onScoreClick={handleShowPointsBreakdown}
+                          showAnimation={true}
+                          isPointsMode={true}
+                        />
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
+                
                 <PlayerList title={t('playerPage.otherPlayers', language)} />
               </div>
             </div>
@@ -1237,6 +1277,18 @@ const Player: React.FC = () => {
           onHide={() => setShowHistoryModal(false)}
           history={playerAnswerHistory}
           language={language}
+        />
+        
+        {/* Points Breakdown Modal */}
+        <PointsBreakdown
+          isOpen={showPointsBreakdown}
+          onClose={() => setShowPointsBreakdown(false)}
+          pointsBreakdown={pointsBreakdownData}
+          questionGrade={pointsBreakdownData?.questionGrade}
+          answerTime={pointsBreakdownData?.answerTime}
+          submissionOrder={pointsBreakdownData?.submissionOrder}
+          streak={pointsBreakdownData?.streak}
+          playerName={pointsBreakdownData?.playerName}
         />
       </div>
     </>

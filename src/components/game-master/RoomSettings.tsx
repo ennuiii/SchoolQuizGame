@@ -8,10 +8,12 @@ interface RoomSettingsProps {
   onTimeLimitChange: (timeLimit: number | null) => void;
   isCommunityVotingMode: boolean;
   onToggleCommunityVotingMode: () => void;
+  isPointsMode: boolean;
+  onTogglePointsMode: () => void;
   gameStarted: boolean;
 }
 
-const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange, isCommunityVotingMode, onToggleCommunityVotingMode, gameStarted }) => {
+const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChange, isCommunityVotingMode, onToggleCommunityVotingMode, isPointsMode, onTogglePointsMode, gameStarted }) => {
   const { roomCode } = useRoom();
   const { language } = useLanguage();
 
@@ -68,6 +70,27 @@ const RoomSettings: React.FC<RoomSettingsProps> = ({ timeLimit, onTimeLimitChang
           </div>
           <div className="form-text">
             {t('roomSettings.communityVotingHelp', language)}
+          </div>
+        </div>
+
+        {/* Points Mode Toggle */}
+        <div className="mb-3">
+          <div className="form-check form-switch">
+            <input
+              className="form-check-input"
+              type="checkbox"
+              role="switch"
+              id="pointsModeToggleRoomSettings"
+              checked={isPointsMode}
+              onChange={onTogglePointsMode}
+              disabled={gameStarted}
+            />
+            <label className="form-check-label" htmlFor="pointsModeToggleRoomSettings">
+              {t('roomSettings.pointsMode', language)}
+            </label>
+          </div>
+          <div className="form-text">
+            {t('roomSettings.pointsModeHelp', language)}
           </div>
         </div>
 

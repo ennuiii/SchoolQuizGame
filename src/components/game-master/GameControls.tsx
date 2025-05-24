@@ -8,6 +8,7 @@ interface GameControlsProps {
   onNextQuestion: () => void;
   onRestartGame: () => void;
   onEndRoundEarly: () => void;
+  onEndGame: () => void;
   isRestarting: boolean;
   showEndRoundConfirm: boolean;
   onConfirmEndRound: () => void;
@@ -19,6 +20,7 @@ const GameControls: React.FC<GameControlsProps> = ({
   onNextQuestion,
   onRestartGame,
   onEndRoundEarly,
+  onEndGame,
   isRestarting,
   showEndRoundConfirm,
   onConfirmEndRound,
@@ -42,27 +44,38 @@ const GameControls: React.FC<GameControlsProps> = ({
             {isRestarting ? t('gameControls.restarting', language) : t('gameControls.startGame', language)}
           </button>
         ) : (
-          <div className="d-flex gap-2">
-            <button
-              className="btn btn-primary flex-grow-1"
-              onClick={onNextQuestion}
-              disabled={currentQuestionIndex >= questions.length - 1}
-            >
-              {t('gameControls.nextQuestion', language)}
-            </button>
-            <button
-              className="btn btn-warning flex-grow-1"
-              onClick={onEndRoundEarly}
-            >
-              {t('gameControls.endRoundEarly', language)}
-            </button>
-            <button
-              className="btn btn-danger flex-grow-1"
-              onClick={onRestartGame}
-              disabled={isRestarting}
-            >
-              {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
-            </button>
+          <div className="d-flex flex-column gap-2">
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-primary flex-grow-1"
+                onClick={onNextQuestion}
+                disabled={currentQuestionIndex >= questions.length - 1}
+              >
+                {t('gameControls.nextQuestion', language)}
+              </button>
+              <button
+                className="btn btn-warning flex-grow-1"
+                onClick={onEndRoundEarly}
+              >
+                {t('gameControls.endRoundEarly', language)}
+              </button>
+            </div>
+            <div className="d-flex gap-2">
+              <button
+                className="btn btn-danger flex-grow-1"
+                onClick={onRestartGame}
+                disabled={isRestarting}
+              >
+                {isRestarting ? t('gameControls.restarting', language) : t('gameControls.restartGame', language)}
+              </button>
+              <button
+                className="btn btn-outline-danger flex-grow-1"
+                onClick={onEndGame}
+                disabled={isRestarting}
+              >
+                {t('gameControls.endGame', language)}
+              </button>
+            </div>
           </div>
         )}
 

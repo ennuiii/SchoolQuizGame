@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { Modal, Button, Nav, Tab, ListGroup } from 'react-bootstrap';
+import { Modal, Button, Nav, Tab, ListGroup, Tabs } from 'react-bootstrap';
 import type { GameRecapData, RoundInRecap, PlayerInRecap, SubmissionInRecap, QuestionInRecap } from '../../types/recap'; // Adjusted import path
 import QuestionDisplayCard from './QuestionDisplayCard'; // Import the new component
 import FabricJsonToSvg from '../shared/FabricJsonToSvg'; // Import the FabricJsonToSvg component
@@ -21,138 +21,6 @@ interface RecapModalProps {
   onTabChange?: (tabKey: string) => void; // Callback to notify parent (GM) of tab change
 }
 
-const RecapModal: React.FC<RecapModalProps> = ({ 
-  show, 
-  onHide, 
-  recap, 
-  selectedRoundIndex = 0, // Default to 0 if not provided
-  onRoundChange, 
-  isControllable = false, 
-  activeTabKey = 'overallResults', // Default to 'overallResults' if not provided
-  onTabChange
-}) => {
-  const { language } = useLanguage();
-
-  if (!show || !recap) return null;
-
-  const handleSelectTab = (k: string | null) => {
-    if (k) {
-      if (isControllable && onTabChange) {
-        onTabChange(k);
-      }
-    }
-  };
-  
-  // Determine the winner for display
-  const winner = recap.players.find(p => p.isWinner);
-
-  // Filter out players who were only ever spectators and didn't actively participate or get eliminated
-  const participatingPlayers = recap.players.filter(player => 
-    player.isWinner || // Always show the winner
-    (player.isActive && player.finalLives > 0) || // Show active players with lives
-    (!player.isActive && player.finalLives === 0 && !player.joinedAsSpectator) // Show eliminated players who didn't join as spectators initially
-  );
-
-  return (
-    <div className="modal show" style={{ display: 'block', backgroundColor: 'rgba(0,0,0,0.5)' }} tabIndex={-1}> {/* Added tabIndex and background */}
-      <div className="modal-dialog modal-xl"> {/* Changed to modal-xl for more space */}
-        <div className="modal-content">
-          <Modal.Header closeButton onHide={onHide}> {/* Used Modal.Header for consistency */}
-            <Modal.Title>{t('gameRecap', language)} - {t('room', language)} {recap.roomCode}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body>
-            <Tab.Container id="recap-tabs" activeKey={activeTabKey} onSelect={isControllable ? handleSelectTab : undefined}>
-              <Nav variant="tabs" className="mb-3">
-                <Nav.Item>
-                  <Nav.Link eventKey="overallResults" disabled={!isControllable && activeTabKey !== 'overallResults'}>
-                    {t('overallResults', language)}
-                  </Nav.Link>
-                </Nav.Item>
-                {recap.rounds && recap.rounds.length > 0 && (
-                  <Nav.Item>
-                    <Nav.Link eventKey="roundDetails" disabled={!isControllable && activeTabKey !== 'roundDetails'}>
-                      {t('roundDetails', language)}
-                    </Nav.Link>
-                  </Nav.Item>
-                )}
-              </Nav>
-              <Tab.Content>
-                <Tab.Pane eventKey="overallResults">
-                  <h4>{t('gameSummary', language)}</h4>
-                  {winner && (
-                    <div className="alert alert-success">
-                      <h5><span role="img" aria-label="trophy">🏆</span> {t('winner', language)}: {winner.name} <span role="img" aria-label="trophy">🏆</span></h5>
-                      <p>{t('congratulations', language).replace('{name}', winner.name)}</p>
-                    </div>
-                  )}
-                  {!winner && recap.players.filter(p => p.isActive && p.finalLives > 0).length > 1 && (
-                     <div className="alert alert-info">
-                       <h5>{t('gameConcluded', language)}</h5>
-                       <p>{t('multiplePlayersActive', language)}</p>
-                     </div>
-                  )}
-                   {!winner && recap.players.filter(p => p.isActive && p.finalLives > 0).length === 0 && (
-                     <div className="alert alert-warning">
-                       <h5>{t('gameOver', language)}</h5>
-                       <p>{t('allPlayersEliminated', language)}</p>
-                     </div>
-                   )}
-                  <h5>{t('playerStandings', language)}:</h5>
-                  <ListGroup>
-                    {participatingPlayers.map((player, index) => (
-                      <ListGroup.Item key={player.id} variant={player.isWinner ? 'success' : player.isActive && player.finalLives > 0 ? 'light' : player.finalLives === 0 ? 'danger' : 'secondary'}>
-                        <div className="d-flex justify-content-between align-items-center">
-                          <div>
-                            <strong>{index + 1}. {player.name}</strong>
-                            {player.isWinner && <span className="badge bg-warning ms-2">{t('winner', language)}</span>}
-                          </div>
-                          <div>
-                            <span>{t('lives', language)}: {player.finalLives}</span>
-                            <span className="ms-3">
-                              {t('status', language)}: 
-                              {player.isWinner ? ` ${t('won', language)}` : 
-                               player.isActive && player.finalLives > 0 ? ` ${t('active', language)}` :
-                               !player.isActive && player.isSpectator && player.finalLives === 0 ? ` ${t('eliminated', language)}` :
-                               player.isSpectator ? ` ${t('spectator', language)}` : ` ${t('unknown', language)}`}
-                            </span>
-                          </div>
-                        </div>
-                      </ListGroup.Item>
-                    ))}
-                  </ListGroup>
-                </Tab.Pane>
-                {recap.rounds && recap.rounds.length > 0 && (
-                  <Tab.Pane eventKey="roundDetails">
-                    <RoundDetailsContent 
-                      recap={recap} 
-                      currentSelectedRoundIndex={selectedRoundIndex} // Pass the synchronized index
-                      onSelectRound={onRoundChange} // Pass the callback
-                      isControllable={isControllable} // Pass controllability
-                    />
-                  </Tab.Pane>
-                )}
-              </Tab.Content>
-            </Tab.Container>
-          </Modal.Body>
-          <Modal.Footer>
-            <Button variant="secondary" onClick={onHide}>
-              {t('close', language)}
-            </Button>
-          </Modal.Footer>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-interface RoundDetailsContentProps {
-  recap: GameRecapData;
-  currentSelectedRoundIndex: number;
-  onSelectRound?: (index: number) => void;
-  isControllable: boolean;
-}
-
-// Define EnlargedDrawingModal here as it's closely tied to RecapModal's functionality
 const EnlargedDrawingModal: React.FC<{
   show: boolean;
   onHide: () => void;
@@ -164,38 +32,152 @@ const EnlargedDrawingModal: React.FC<{
   if (!show || !svgData) return null;
 
   return (
-    <div className="modal show enlarged-drawing-modal-backdrop" tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="enlargedDrawingModalTitle">
-      <div className="modal-dialog modal-xl enlarged-drawing-modal-dialog">
-        <div className="modal-content enlarged-drawing-modal-content">
-          <Modal.Header closeButton onHide={onHide} className="enlarged-drawing-modal-header">
-            <Modal.Title id="enlargedDrawingModalTitle">{t('drawingBy', language)}: {playerName}</Modal.Title>
-          </Modal.Header>
-          <Modal.Body className="enlarged-drawing-modal-body">
-            <div className="drawing-board-container" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-              <div className="classroom-whiteboard-svg" style={{ aspectRatio: '2/1', maxHeight: '400px' }}>
-                <FabricJsonToSvg 
-                  jsonData={svgData}
-                  className="scaled-svg-preview" 
-                />
-              </div>
-            </div>
-          </Modal.Body>
-          <Modal.Footer className="enlarged-drawing-modal-footer">
-            <Button variant="secondary" onClick={onHide} className="btn-schoolquiz-default">
-              {t('close', language)}
-            </Button>
-          </Modal.Footer>
+    <Modal show={show} onHide={onHide} size="lg" centered>
+      <Modal.Header closeButton>
+        <Modal.Title>{playerName}'s Drawing</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <div className="d-flex justify-content-center">
+          <FabricJsonToSvg jsonData={svgData} className="enlarged-svg" />
         </div>
-      </div>
-    </div>
+      </Modal.Body>
+    </Modal>
   );
 };
+
+const RecapModal: React.FC<RecapModalProps> = ({ 
+  show, 
+  onHide, 
+  recap, 
+  selectedRoundIndex = 0, // Default to 0 if not provided
+  onRoundChange, 
+  isControllable = false, 
+  activeTabKey = 'overallResults', // Default to 'overallResults' if not provided
+  onTabChange
+}) => {
+  const { language } = useLanguage();
+  const [enlargedDrawing, setEnlargedDrawing] = useState<{ svgData: string; playerName: string } | null>(null);
+
+  if (!show || !recap) return null;
+
+  const handleSelectTab = (k: string | null) => {
+    if (k && onTabChange) {
+      onTabChange(k);
+    }
+  };
+  
+  // Determine the winner for display
+  const winner = recap.players.find(p => p.isWinner);
+
+  // Check if this is a points mode game
+  const isPointsMode = recap.isPointsMode || false;
+
+  // Filter out players who were only ever spectators and didn't actively participate or get eliminated
+  const participatingPlayers = recap.players.filter(player => 
+    player.isWinner || // Always show the winner
+    (player.isActive && (isPointsMode ? true : player.finalLives > 0)) || // Show active players (all in points mode, or with lives in standard mode)
+    (!player.isActive && (isPointsMode ? true : player.finalLives === 0) && !player.joinedAsSpectator) // Show eliminated players who didn't join as spectators initially
+  );
+
+  const handleEnlargeDrawing = (svgData: string, playerName: string) => {
+    setEnlargedDrawing({ svgData, playerName });
+  };
+
+  return (
+    <Modal show={show} onHide={onHide} size="xl" centered>
+      <Modal.Header closeButton>
+        <Modal.Title>{t('recapModal.title', language)}</Modal.Title>
+      </Modal.Header>
+      <Modal.Body>
+        <Tabs
+          activeKey={activeTabKey}
+          onSelect={handleSelectTab}
+          className="mb-3"
+        >
+          <Tab eventKey="overallResults" title={t('recapModal.overallResults', language)}>
+            <div className="p-3">
+              <h4>{t('recapModal.winners', language)}</h4>
+              <div className="list-group mb-4">
+                {recap.players
+                  .filter(player => player.isWinner)
+                  .map((player, index) => (
+                    <div key={player.persistentPlayerId} className="list-group-item">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span>{player.name}</span>
+                        {isPointsMode ? (
+                          <span className="badge bg-success">
+                            {player.finalScore?.toLocaleString()} {t('points', language)}
+                          </span>
+                        ) : (
+                          <span className="badge bg-success">
+                            {player.finalLives} {t('lives', language)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+
+              <h4>{t('recapModal.participants', language)}</h4>
+              <div className="list-group">
+                {recap.players
+                  .filter(player => !player.isWinner)
+                  .map((player, index) => (
+                    <div key={player.persistentPlayerId} className="list-group-item">
+                      <div className="d-flex justify-content-between align-items-center">
+                        <span>{player.name}</span>
+                        {isPointsMode ? (
+                          <span className="badge bg-secondary">
+                            {player.finalScore?.toLocaleString()} {t('points', language)}
+                          </span>
+                        ) : (
+                          <span className="badge bg-secondary">
+                            {player.finalLives} {t('lives', language)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            </div>
+          </Tab>
+          <Tab eventKey="roundDetails" title={t('recapModal.roundDetails', language)}>
+            <RoundDetailsContent
+              recap={recap}
+              currentSelectedRoundIndex={selectedRoundIndex}
+              onSelectRound={onRoundChange}
+              isControllable={isControllable}
+              isPointsMode={recap.isPointsMode}
+            />
+          </Tab>
+        </Tabs>
+      </Modal.Body>
+      {enlargedDrawing && (
+        <EnlargedDrawingModal
+          show={!!enlargedDrawing}
+          onHide={() => setEnlargedDrawing(null)}
+          svgData={enlargedDrawing.svgData}
+          playerName={enlargedDrawing.playerName}
+        />
+      )}
+    </Modal>
+  );
+};
+
+interface RoundDetailsContentProps {
+  recap: GameRecapData;
+  currentSelectedRoundIndex: number;
+  onSelectRound?: (index: number) => void;
+  isControllable: boolean;
+  isPointsMode?: boolean; // Add points mode prop
+}
 
 const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({ 
   recap, 
   currentSelectedRoundIndex, 
   onSelectRound, 
-  isControllable 
+  isControllable,
+  isPointsMode = false // Add points mode parameter with default
 }) => {
   const { language } = useLanguage();
   const [enlargedDrawing, setEnlargedDrawing] = useState<{ svg: string; playerName: string } | null>(null);
@@ -268,22 +250,48 @@ const RoundDetailsContent: React.FC<RoundDetailsContentProps> = ({
               }
 
               return (
-                <div 
+                <div
                   key={submission.persistentPlayerId || idx}
                   className="classroom-whiteboard-card list-group-item mb-3"
                   style={{ borderColor: '#ccc', minWidth: 300, maxWidth: 420, minHeight: 260 }}
                 >
                   <div className="classroom-whiteboard-content p-2">
                     <div style={{
-                      marginBottom: 8, 
+                      marginBottom: 8,
                       textAlign: 'left',
                       width: '100%',
                       paddingLeft: '5px'
                     }}>
-                      {[...Array(playerLives)].map((_, i) => (
-                        <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
-                      ))}
-                      {playerDetails && playerDetails.finalLives === 0 && !playerDetails.isWinner && <span style={{color: '#888', fontSize: '0.9rem' }}>{t('recapModal.eliminated', language)}</span>}
+                      {isPointsMode ? (
+                        // Show points info in points mode
+                        <div className="d-flex gap-3 align-items-center">
+                          {submission.pointsAwarded !== undefined && submission.pointsAwarded > 0 && (
+                            <span style={{ color: '#28a745', fontSize: '1.2rem', fontWeight: 'bold' }}>
+                              +{submission.pointsAwarded.toLocaleString()} pts
+                            </span>
+                          )}
+                          {playerDetails?.finalScore !== undefined && (
+                            <span style={{ color: '#6c757d', fontSize: '0.9rem' }}>
+                              {t('total', language)}: {playerDetails.finalScore.toLocaleString()}
+                            </span>
+                          )}
+                          {playerDetails?.finalStreak !== undefined && playerDetails.finalStreak > 0 && (
+                            <span style={{ color: '#ffc107', fontSize: '0.9rem' }}>
+                              🔥 {playerDetails.finalStreak}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        // Show lives in standard mode
+                        <>
+                          {[...Array(playerLives)].map((_, i) => (
+                            <span key={i} className="animated-heart" style={{ color: '#ff6b6b', fontSize: '1.3rem', marginRight: 3 }}>❤</span>
+                          ))}
+                          {playerDetails && playerDetails.finalLives === 0 && !playerDetails.isWinner && (
+                            <span style={{color: '#888', fontSize: '0.9rem' }}>{t('recapModal.eliminated', language)}</span>
+                          )}
+                        </>
+                      )}
                     </div>
                     
                     {submission.hasDrawing && submission.drawingData && (

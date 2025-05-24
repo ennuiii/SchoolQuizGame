@@ -19,6 +19,11 @@ interface Player {
   persistentPlayerId: string;
   name: string;
   lives: number;
+  score: number;
+  streak: number;
+  position: number | null;
+  lastPointsEarned: number | null;
+  lastAnswerTimestamp: number | null;
   answers: {
     playerId: string;
     persistentPlayerId: string;
@@ -31,6 +36,14 @@ interface Player {
     answerAttemptId?: string | null;
     submissionOrder?: number;  // Order in which the answer was submitted
     submissionTime?: number;   // Time taken to submit in milliseconds
+    pointsAwarded?: number;
+    pointsBreakdown?: {
+      base: number;
+      time: number;
+      position: number;
+      streakMultiplier: number;
+      total: number;
+    };
   }[];
   isActive: boolean;
   isSpectator: boolean;
@@ -54,6 +67,14 @@ interface AnswerSubmission {
   submissionOrder?: number;  // Order in which the answer was submitted
   submissionTime?: number;   // Time taken to submit in milliseconds
   submissionTimestamp?: number; // When the answer was submitted
+  pointsAwarded?: number; // Points awarded for this submission
+  pointsBreakdown?: {
+    base: number;
+    time: number;
+    position: number;
+    streakMultiplier: number;
+    total: number;
+  }; // Points breakdown for this submission
 }
 
 interface PreviewModeState {
@@ -73,6 +94,7 @@ interface GameContextType {
   isTimerRunning: boolean;
   submittedAnswer: boolean;
   isGameConcluded: boolean;
+  isPointsMode: boolean;
   
   // Recap State
   gameRecapData: GameRecapData | null;
@@ -160,8 +182,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [timeLimit, setTimeLimit] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [isTimerRunning, setIsTimerRunning] = useState<boolean>(false);
-  const [submittedAnswer, setSubmittedAnswer] = useState<boolean>(false);
-  const [isGameConcluded, setIsGameConcluded] = useState<boolean>(false);
+    const [submittedAnswer, setSubmittedAnswer] = useState<boolean>(false);  const [isGameConcluded, setIsGameConcluded] = useState<boolean>(false);  const [isPointsMode, setIsPointsMode] = useState<boolean>(false);
   
   // Recap State
   const [gameRecapData, setGameRecapData] = useState<GameRecapData | null>(null);
@@ -783,9 +804,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (state.isConcluded !== undefined && state.isConcluded !== isGameConcluded) {
           setIsGameConcluded(state.isConcluded);
         }
-        if (state.isCommunityVotingMode !== undefined && state.isCommunityVotingMode !== isCommunityVotingMode) {
-          setIsCommunityVotingMode(state.isCommunityVotingMode);
-        }
+        if (state.isCommunityVotingMode !== undefined && state.isCommunityVotingMode !== isCommunityVotingMode) {          setIsCommunityVotingMode(state.isCommunityVotingMode);        }        if (state.isPointsMode !== undefined && state.isPointsMode !== isPointsMode) {          setIsPointsMode(state.isPointsMode);        }
         if (state.started === false && gameStarted === true && state.isConcluded === false) { 
           setIsGameConcluded(false);
           setGameOver(false);
@@ -889,6 +908,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsCommunityVotingMode(false);
     };
 
+    // Add handler for points mode status change
+    const pointsModeStatusChangedHandler = (data: { isPointsMode: boolean }) => {
+      console.log('[GameContext] Points mode status changed event received:', data);
+      setIsPointsMode(data.isPointsMode);
+    };
+
     // Attach listeners
     socketService.on('game_started', gameStartedHandler);
     socketService.on('game_state_update', gameStateUpdateHandler);
@@ -909,6 +934,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     socketService.on('recap_round_changed', recapRoundChangedHandler);
     socketService.on('recap_tab_changed', recapTabChangedHandler);
     socketService.on('game_restarted', gameRestartedHandler);
+    socketService.on('points_mode_status_changed', pointsModeStatusChangedHandler);
 
     // Cleanup
     return () => {
@@ -934,6 +960,7 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
       socketService.off('recap_round_changed');
       socketService.off('recap_tab_changed');
       socketService.off('game_restarted');
+      socketService.off('points_mode_status_changed');
       // socketService.off('answer_submitted');
       // socketService.off('answer_evaluation');
     };
@@ -1055,70 +1082,71 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  const value = {
-    gameStarted,
-    gameOver,
-    isWinner,
-    currentQuestion,
-    currentQuestionIndex,
-    timeLimit,
-    timeRemaining,
-    isTimerRunning,
-    submittedAnswer,
-    isGameConcluded,
-    players,
-    playerBoards,
-    visibleBoards,
-    boardVisibility,
-    allAnswersThisRound,
-    evaluatedAnswers,
-    currentVotes,
-    previewMode,
-    questions,
-    subjects,
-    languages,
-    selectedSubject,
-    selectedGrade,
-    selectedLanguage,
-    isLoadingQuestions,
-    availableQuestions,
-    questionErrorMsg,
-    randomCount,
-    isLoadingRandom,
-    gameRecapData,
-    recapSelectedRoundIndex,
-    recapSelectedTabKey,
-    gmNavigateRecapRound,
-    hideRecap,
-    gmNavigateRecapTab,
-    setQuestions,
-    setSelectedSubject,
-    setSelectedGrade,
-    setSelectedLanguage,
-    setRandomCount,
-    loadQuestions,
-    loadRandomQuestions,
-    startGame,
-    nextQuestion,
-    evaluateAnswer,
-    restartGame,
-    endRoundEarly,
-    toggleBoardVisibility,
-    startPreviewMode,
-    stopPreviewMode,
-    focusSubmission,
-    addQuestionToSelected,
-    removeSelectedQuestion,
-    clearAllSelectedQuestions,
-    organizeSelectedQuestions,
-    addCustomQuestion,
-    gmShowRecapToAll,
-    gmEndGameRequest,
-    previewOverlayVersion,
-    setPreviewOverlayVersion,
-    togglePreviewOverlayVersion,
-    isCommunityVotingMode
-  };
+    const value = {
+      gameStarted,
+      gameOver,
+      isWinner,
+      currentQuestion,
+      currentQuestionIndex,
+      timeLimit,
+      timeRemaining,
+      isTimerRunning,
+      submittedAnswer,
+      isGameConcluded,
+      isPointsMode,
+      players,
+      playerBoards,
+      visibleBoards,
+      boardVisibility,
+      allAnswersThisRound,
+      evaluatedAnswers,
+      currentVotes,
+      previewMode,
+      questions,
+      subjects,
+      languages,
+      selectedSubject,
+      selectedGrade,
+      selectedLanguage,
+      isLoadingQuestions,
+      availableQuestions,
+      questionErrorMsg,
+      randomCount,
+      isLoadingRandom,
+      gameRecapData,
+      recapSelectedRoundIndex,
+      recapSelectedTabKey,
+      gmNavigateRecapRound,
+      hideRecap,
+      gmNavigateRecapTab,
+      setQuestions,
+      setSelectedSubject,
+      setSelectedGrade,
+      setSelectedLanguage,
+      setRandomCount,
+      loadQuestions,
+      loadRandomQuestions,
+      startGame,
+      nextQuestion,
+      evaluateAnswer,
+      restartGame,
+      endRoundEarly,
+      toggleBoardVisibility,
+      startPreviewMode,
+      stopPreviewMode,
+      focusSubmission,
+      addQuestionToSelected,
+      removeSelectedQuestion,
+      clearAllSelectedQuestions,
+      organizeSelectedQuestions,
+      addCustomQuestion,
+      gmShowRecapToAll,
+      gmEndGameRequest,
+      previewOverlayVersion,
+      setPreviewOverlayVersion,
+      togglePreviewOverlayVersion,
+      isCommunityVotingMode
+    };
 
   return (
     <GameContext.Provider value={value}>

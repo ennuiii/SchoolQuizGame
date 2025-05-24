@@ -20,6 +20,8 @@ export interface SubmissionInRecap {
   hasDrawing: boolean;
   drawingData: string | null; // This is typically a string (e.g., SVG or data URL)
   isCorrect: boolean | null;
+  pointsAwarded?: number; // Include points awarded for this submission
+  pointsBreakdown?: any; // Include points breakdown data
 }
 
 export interface RoundInRecap {
@@ -39,26 +41,19 @@ export interface PlayerInRecap {
   persistentPlayerId: string;
   name: string;
   finalLives: number;
+  finalScore?: number; // Include final score for points mode
+  finalStreak?: number; // Include final streak for points mode
   isSpectator: boolean;
   isWinner: boolean;
   isActive: boolean;
   joinedAsSpectator?: boolean;
-  // TODO: Server's generateGameRecap in server/index.js needs to be updated
-  // to include a score for each player if desired in the recap.
-  // RecapModal.tsx might have displayed this.
-  // score?: number;
 }
 
 export interface GameRecapData {
   roomCode: string;
   startTime: string; // Dates from server are typically strings, convert on client with new Date()
   endTime: string;   // Dates from server are typically strings, convert on client with new Date()
+  isPointsMode?: boolean; // Include points mode flag
   players: PlayerInRecap[];
   rounds: RoundInRecap[];
-  // TODO: Server's generateGameRecap in server/index.js needs to be updated
-  // to include overall game statistics like total correct answers, total questions,
-  // if these are desired directly on the recap object.
-  // correctAnswers?: number;
-  // totalQuestions?: number;
-  // score?: number; // Overall game score or similar metric
 } 

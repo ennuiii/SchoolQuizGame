@@ -132,33 +132,57 @@ const PreviewOverlayV2: React.FC<PreviewOverlayProps> = ({
       console.error('[DEBUG] Player not found for evaluation badge:', playerId);
       return null;
     }
+
+    // Get the answer data for points information
+    const answerData = context.allAnswersThisRound[playerId];
+    const isPointsMode = context.isPointsMode || false;
     
     return (
-      <div className="d-flex align-items-center justify-content-center gap-2">
-        <span 
-          className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}
-          style={{ animation: 'fadeInScale 0.3s ease-out' }}
-        >
-          {evaluation ? 
-            <><i className="bi bi-patch-check-fill me-1"></i>{t('correct', language)}</> : 
-            <><i className="bi bi-patch-exclamation-fill me-1"></i>{t('incorrect', language)}</>
-          }
-        </span>
-        {isGameMaster && !isCommunityVotingMode && (
-          <button
-            className="btn btn-sm btn-outline-secondary"
-            onClick={() => {
-              console.log('[DEBUG] Correction button clicked for player:', player.name, 'with ID:', player.persistentPlayerId, 'current evaluation:', evaluation);
-              handleCorrection(player.persistentPlayerId, evaluation);
-            }}
-            title={t('previewOverlay.correctAnswer', language)}
+      <div className="d-flex flex-column align-items-center justify-content-center gap-2">
+        <div className="d-flex align-items-center justify-content-center gap-2">
+          <span 
+            className={`classroom-whiteboard-badge ${evaluation ? 'correct' : 'incorrect'}`}
+            style={{ animation: 'fadeInScale 0.3s ease-out' }}
           >
-            <i className="bi bi-pencil-fill"></i>
-          </button>
+            {evaluation ? 
+              <><i className="bi bi-patch-check-fill me-1"></i>{t('correct', language)}</> : 
+              <><i className="bi bi-patch-exclamation-fill me-1"></i>{t('incorrect', language)}</>
+            }
+          </span>
+          {isGameMaster && !isCommunityVotingMode && (
+            <button
+              className="btn btn-sm btn-outline-secondary"
+              onClick={() => {
+                console.log('[DEBUG] Correction button clicked for player:', player.name, 'with ID:', player.persistentPlayerId, 'current evaluation:', evaluation);
+                handleCorrection(player.persistentPlayerId, evaluation);
+              }}
+              title={t('previewOverlay.correctAnswer', language)}
+            >
+              <i className="bi bi-pencil-fill"></i>
+            </button>
+          )}
+        </div>
+        
+        {/* Show points information in points mode */}
+        {isPointsMode && answerData && answerData.pointsAwarded !== undefined && (
+          <div className="d-flex flex-column align-items-center gap-1 mt-2">
+            <div className="badge bg-info text-white">
+              <i className="bi bi-star-fill me-1"></i>
+              {answerData.pointsAwarded > 0 ? `+${answerData.pointsAwarded.toLocaleString()}` : '0'} {t('points', language)}
+            </div>
+            {answerData.pointsBreakdown && answerData.pointsAwarded > 0 && (
+              <div className="text-center" style={{ fontSize: '0.75rem', color: '#6c757d' }}>
+                {answerData.pointsBreakdown.base > 0 && <span className="me-2">Base: {answerData.pointsBreakdown.base}</span>}
+                {answerData.pointsBreakdown.time > 0 && <span className="me-2">Time: {answerData.pointsBreakdown.time}</span>}
+                {answerData.pointsBreakdown.position > 0 && <span className="me-2">Position: {answerData.pointsBreakdown.position}</span>}
+                {answerData.pointsBreakdown.streakMultiplier > 1 && <span>×{answerData.pointsBreakdown.streakMultiplier}</span>}
+              </div>
+            )}
+          </div>
         )}
       </div>
     );
-  }, [isGameMaster, isCommunityVotingMode, handleCorrection, language, context.players]);
+  }, [isGameMaster, isCommunityVotingMode, handleCorrection, language, context.players, context.allAnswersThisRound, context.isPointsMode]);
 
   const generateSvg = useCallback(async (jsonData: string, answerPersistentPlayerId: string) => {
     if (!fabricCanvasRef.current) {
