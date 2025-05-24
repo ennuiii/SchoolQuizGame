@@ -1059,85 +1059,7 @@ io.on('connection', (socket) => {
             if (!room.evaluatedAnswers)
                 room.evaluatedAnswers = {};
             room.evaluatedAnswers[persistentPlayerIdFromClient] = isCorrect;
-            // Handle life changes based on evaluation change
-            if (playerObjInRoom) {
-                if (isCorrect && previousEvaluation === false) {
-                    // Restore a life when correcting from incorrect to correct
-                    playerObjInRoom.lives = Math.min(3, (playerObjInRoom.lives || 0) + 1);
-                    console.log(`[Server] Restored life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
-                }
-                else if (!isCorrect && previousEvaluation === true) {
-                    // Remove a life when changing from correct to incorrect
-                    playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);
-                    console.log(`[Server] Removed life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);
-                }
-                // Check if player should become spectator
-                if (playerObjInRoom.lives <= 0) {
-                    playerObjInRoom.isActive = false;
-                    playerObjInRoom.isSpectator = true;
-                    const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(playerObjInRoom.id);
-                    if (playerSocket) {
-                        playerSocket.emit('become_spectator');
-                        console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated.`);
-                    }
-                }
-                // Points calculation for points mode - removed submissionTime requirement
-                console.log(`[POINTS DEBUG] Evaluating answer for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);
-                console.log(`[POINTS DEBUG] Room.isPointsMode: ${room.isPointsMode}, Room details:`, {
-                    roomCode,
-                    isPointsMode: room.isPointsMode,
-                    isStreamerMode: room.isStreamerMode,
-                    started: room.started,
-                    hasCurrentQuestion: !!room.currentQuestion
-                });
-                if (room.isPointsMode && room.currentQuestion) {
-                    console.log(`[POINTS DEBUG] Starting points calculation for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);
-                    console.log(`[POINTS DEBUG] Room isPointsMode: ${room.isPointsMode}, isCorrect: ${isCorrect}`);
-                    console.log(`[POINTS DEBUG] Current question grade: ${room.currentQuestion.grade}`);
-                    console.log(`[POINTS DEBUG] Player current score: ${playerObjInRoom.score}, streak: ${playerObjInRoom.streak}`);
-                    if (isCorrect) {
-                        // Calculate points for correct answer
-                        // Use submissionTime if available, otherwise default to 0
-                        const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;
-                        const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based
-                        const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit
-                        console.log(`[POINTS DEBUG] Answer time: ${answerTimeSeconds}s, position: ${position}, total time allowed: ${totalTimeAllowed}s`);
-                        const pointsBreakdown = PointsCalculator_1.PointsCalculator.calculatePoints(room.currentQuestion, answerTimeSeconds, position, playerObjInRoom.streak || 0, totalTimeAllowed);
-                        console.log(`[POINTS DEBUG] Points breakdown calculated:`, pointsBreakdown);
-                        // Update player's score and streak
-                        const oldScore = playerObjInRoom.score || 0;
-                        const oldStreak = playerObjInRoom.streak || 0;
-                        playerObjInRoom.score = oldScore + pointsBreakdown.total;
-                        playerObjInRoom.streak = oldStreak + 1;
-                        playerObjInRoom.lastPointsEarned = pointsBreakdown.total;
-                        playerObjInRoom.lastAnswerTimestamp = Date.now();
-                        console.log(`[POINTS DEBUG] Player score updated: ${oldScore} -> ${playerObjInRoom.score}`);
-                        console.log(`[POINTS DEBUG] Player streak updated: ${oldStreak} -> ${playerObjInRoom.streak}`);
-                        // Add this player to answeredPlayersCorrectly for position tracking
-                        if (!room.answeredPlayersCorrectly.includes(persistentPlayerIdFromClient)) {
-                            room.answeredPlayersCorrectly.push(persistentPlayerIdFromClient);
-                        }
-                        // Store points breakdown in answer data
-                        submittedAnswerData.pointsAwarded = pointsBreakdown.total;
-                        submittedAnswerData.pointsBreakdown = pointsBreakdown;
-                        console.log(`[POINTS DEBUG] ✅ Player ${playerObjInRoom.name} earned ${pointsBreakdown.total} points (Base: ${pointsBreakdown.base}, Time: ${pointsBreakdown.time}, Position: ${pointsBreakdown.position}, Streak: ${pointsBreakdown.streakMultiplier}x)`);
-                    }
-                    else {
-                        // Reset streak for incorrect answer
-                        const oldStreak = playerObjInRoom.streak || 0;
-                        playerObjInRoom.streak = 0;
-                        playerObjInRoom.lastPointsEarned = 0;
-                        playerObjInRoom.lastAnswerTimestamp = Date.now();
-                        // Store zero points in answer data
-                        submittedAnswerData.pointsAwarded = 0;
-                        submittedAnswerData.pointsBreakdown = PointsCalculator_1.PointsCalculator.calculateIncorrectAnswerPoints();
-                        console.log(`[POINTS DEBUG] ❌ Player ${playerObjInRoom.name} got incorrect answer, streak reset: ${oldStreak} -> 0`);
-                    }
-                }
-                else {
-                    console.log(`[POINTS DEBUG] Points calculation skipped - isPointsMode: ${room.isPointsMode}, hasCurrentQuestion: ${!!room.currentQuestion}`);
-                }
-            }
+            // Handle life changes based on evaluation change (only in non-points mode)      if (playerObjInRoom && !room.isPointsMode) {        if (isCorrect && previousEvaluation === false) {          // Restore a life when correcting from incorrect to correct          playerObjInRoom.lives = Math.min(3, (playerObjInRoom.lives || 0) + 1);          console.log(`[Server] Restored life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);        } else if (!isCorrect && previousEvaluation === true) {          // Remove a life when changing from correct to incorrect          playerObjInRoom.lives = Math.max(0, (playerObjInRoom.lives || 0) - 1);          console.log(`[Server] Removed life for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}). New lives: ${playerObjInRoom.lives}`);        }        // Check if player should become spectator        if (playerObjInRoom.lives <= 0) {          playerObjInRoom.isActive = false;          playerObjInRoom.isSpectator = true;          const playerSocket = getIO().sockets.sockets.get(playerObjInRoom.id);          if (playerSocket) {            playerSocket.emit('become_spectator');            console.log(`[Server] Player ${playerObjInRoom.name} (${persistentPlayerIdFromClient}) eliminated.`);          }        }      }              // Points calculation for points mode - removed submissionTime requirement      if (playerObjInRoom) {        console.log(`[POINTS DEBUG] Evaluating answer for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);        console.log(`[POINTS DEBUG] Room.isPointsMode: ${room.isPointsMode}, Room details:`, {          roomCode,          isPointsMode: room.isPointsMode,          isStreamerMode: room.isStreamerMode,          started: room.started,          hasCurrentQuestion: !!room.currentQuestion        });                if (room.isPointsMode && room.currentQuestion) {          console.log(`[POINTS DEBUG] Starting points calculation for player ${playerObjInRoom.name} (${persistentPlayerIdFromClient})`);          console.log(`[POINTS DEBUG] Room isPointsMode: ${room.isPointsMode}, isCorrect: ${isCorrect}`);          console.log(`[POINTS DEBUG] Current question grade: ${room.currentQuestion.grade}`);          console.log(`[POINTS DEBUG] Player current score: ${playerObjInRoom.score}, streak: ${playerObjInRoom.streak}`);                    if (isCorrect) {            // Calculate points for correct answer            // Use submissionTime if available, otherwise default to 0            const answerTimeSeconds = (submittedAnswerData.submissionTime || 0) / 1000;            const position = (submittedAnswerData.submissionOrder || 1) - 1; // Convert to 0-based            const totalTimeAllowed = room.timeLimit || 60; // Default to 60 seconds if no limit                        console.log(`[POINTS DEBUG] Answer time: ${answerTimeSeconds}s, position: ${position}, total time allowed: ${totalTimeAllowed}s`);                        const pointsBreakdown = PointsCalculator.calculatePoints(              room.currentQuestion,              answerTimeSeconds,              position,              playerObjInRoom.streak || 0,              totalTimeAllowed            );                        console.log(`[POINTS DEBUG] Points breakdown calculated:`, pointsBreakdown);                        // Update player's score and streak            const oldScore = playerObjInRoom.score || 0;            const oldStreak = playerObjInRoom.streak || 0;                        playerObjInRoom.score = oldScore + pointsBreakdown.total;            playerObjInRoom.streak = oldStreak + 1;            playerObjInRoom.lastPointsEarned = pointsBreakdown.total;            playerObjInRoom.lastAnswerTimestamp = Date.now();                        console.log(`[POINTS DEBUG] Player score updated: ${oldScore} -> ${playerObjInRoom.score}`);            console.log(`[POINTS DEBUG] Player streak updated: ${oldStreak} -> ${playerObjInRoom.streak}`);                        // Add this player to answeredPlayersCorrectly for position tracking            if (!room.answeredPlayersCorrectly.includes(persistentPlayerIdFromClient)) {              room.answeredPlayersCorrectly.push(persistentPlayerIdFromClient);            }                        // Store points breakdown in answer data            submittedAnswerData.pointsAwarded = pointsBreakdown.total;            submittedAnswerData.pointsBreakdown = pointsBreakdown;                        console.log(`[POINTS DEBUG] ✅ Player ${playerObjInRoom.name} earned ${pointsBreakdown.total} points (Base: ${pointsBreakdown.base}, Time: ${pointsBreakdown.time}, Position: ${pointsBreakdown.position}, Streak: ${pointsBreakdown.streakMultiplier}x)`);          } else {            // Reset streak for incorrect answer            const oldStreak = playerObjInRoom.streak || 0;            playerObjInRoom.streak = 0;            playerObjInRoom.lastPointsEarned = 0;            playerObjInRoom.lastAnswerTimestamp = Date.now();                        // Store zero points in answer data            submittedAnswerData.pointsAwarded = 0;            submittedAnswerData.pointsBreakdown = PointsCalculator.calculateIncorrectAnswerPoints();                        console.log(`[POINTS DEBUG] ❌ Player ${playerObjInRoom.name} got incorrect answer, streak reset: ${oldStreak} -> 0`);          }        } else {          console.log(`[POINTS DEBUG] Points calculation skipped - isPointsMode: ${room.isPointsMode}, hasCurrentQuestion: ${!!room.currentQuestion}`);        }      }
             // Broadcast the updated game state
             (0, socketService_1.broadcastGameState)(roomCode);
             const responseTime = room.questionStartTime ? Date.now() - room.questionStartTime : 0;
@@ -1815,8 +1737,8 @@ io.on('connection', (socket) => {
                     room.evaluatedAnswers[answerId] = true;
                     continue;
                 }
-                // 2. Determine final evaluation: majority wins. Tie or more incorrect = incorrect.
-                const isCorrectByVote = currentVoteCounts.correct > currentVoteCounts.incorrect;
+                // 2. Determine final evaluation: majority wins. Tie defaults to correct.
+                const isCorrectByVote = currentVoteCounts.correct >= currentVoteCounts.incorrect;
                 // 3. Update room.evaluatedAnswers[answerId] with true/false.
                 room.evaluatedAnswers[answerId] = isCorrectByVote;
                 console.log(`[Server] Answer ${answerId} evaluated by community vote: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
@@ -1825,7 +1747,7 @@ io.on('connection', (socket) => {
                 const playerWhoseAnswerIsBeingEvaluated = room.players.find(p => p.persistentPlayerId === answerId);
                 const submittedAnswerData = room.roundAnswers[answerId];
                 if (playerWhoseAnswerIsBeingEvaluated) { // This player could be a regular player or the GM (if GM is in room.players)
-                    if (!isCorrectByVote) {
+                    if (!isCorrectByVote && !room.isPointsMode) {
                         playerWhoseAnswerIsBeingEvaluated.lives = Math.max(0, (playerWhoseAnswerIsBeingEvaluated.lives || 0) - 1);
                         console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) lives updated to: ${playerWhoseAnswerIsBeingEvaluated.lives}`);
                         if (playerWhoseAnswerIsBeingEvaluated.lives <= 0) {
@@ -1989,15 +1911,15 @@ io.on('connection', (socket) => {
                     continue;
                 }
                 // Determine if answer is correct based on majority vote
-                // If votes are tied or more incorrect votes, mark as incorrect
-                const isCorrectByVote = currentVoteCounts.correct > currentVoteCounts.incorrect;
+                // Tie defaults to correct
+                const isCorrectByVote = currentVoteCounts.correct >= currentVoteCounts.incorrect;
                 room.evaluatedAnswers[answerId] = isCorrectByVote;
                 console.log(`[Server] Force evaluating answer ${answerId}: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
                 // Update player lives and calculate points if their answer was evaluated
                 const playerWhoseAnswerIsBeingEvaluated = room.players.find(p => p.persistentPlayerId === answerId);
                 const submittedAnswerData = room.roundAnswers[answerId];
                 if (playerWhoseAnswerIsBeingEvaluated) {
-                    if (!isCorrectByVote) {
+                    if (!isCorrectByVote && !room.isPointsMode) {
                         playerWhoseAnswerIsBeingEvaluated.lives = Math.max(0, (playerWhoseAnswerIsBeingEvaluated.lives || 0) - 1);
                         console.log(`[Server] Player ${playerWhoseAnswerIsBeingEvaluated.name} (${answerId}) lives updated to: ${playerWhoseAnswerIsBeingEvaluated.lives}`);
                         if (playerWhoseAnswerIsBeingEvaluated.lives <= 0) {
@@ -2121,8 +2043,8 @@ io.on('connection', (socket) => {
         // Update player lives
         player.lives = Math.max(0, player.lives + adjustment);
         console.log(`[Server] Player ${player.name} lives adjusted to ${player.lives}`);
-        // If player has no lives left, make them a spectator
-        if (player.lives <= 0) {
+        // If player has no lives left, make them a spectator (only in non-points mode)
+        if (player.lives <= 0 && !room.isPointsMode) {
             player.isActive = false;
             player.isSpectator = true;
             const playerSocket = (0, socketService_1.getIO)().sockets.sockets.get(player.id);
@@ -2137,7 +2059,7 @@ io.on('connection', (socket) => {
 });
 // Add handler for request_players event
 app.get('/api/request_players', (req, res) => {
-    const roomCode = req.query.roomCode; // Cast to string
+    const roomCode = req.query.roomCode;
     if (!roomCode) {
         return res.status(400).json({ error: 'Missing roomCode' });
     }
@@ -2145,9 +2067,6 @@ app.get('/api/request_players', (req, res) => {
     if (!room) {
         return res.status(404).json({ error: 'Room not found' });
     }
-    // Assuming socket information would be passed differently here, e.g., via headers or auth token
-    // For now, this endpoint will just return player data without GM re-authentication logic from the original JS
-    // If GM re-auth is needed here, the mechanism to get socket.data needs to be defined for this HTTP request context.
     console.log(`[Server /api/request_players] Fetching players for room:`, {
         roomCode,
         timestamp: new Date().toISOString()

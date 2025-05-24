@@ -2148,7 +2148,9 @@ io.on('connection', (socket: ExtendedSocket) => {
           continue;
         }
 
-        // Determine if answer is correct based on majority vote        // Tie defaults to correct        const isCorrectByVote = currentVoteCounts.correct >= currentVoteCounts.incorrect;
+        // Determine if answer is correct based on majority vote
+        // Tie defaults to correct
+        const isCorrectByVote = currentVoteCounts.correct >= currentVoteCounts.incorrect;
         room.evaluatedAnswers[answerId] = isCorrectByVote;
         
         console.log(`[Server] Force evaluating answer ${answerId}: ${isCorrectByVote ? 'CORRECT' : 'INCORRECT'} (Votes: C:${currentVoteCounts.correct}, I:${currentVoteCounts.incorrect})`);
