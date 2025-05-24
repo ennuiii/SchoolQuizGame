@@ -27,6 +27,10 @@ const FORCE_LOCAL_SERVER = true;
 // Timeout for connection attempts (in milliseconds)
 const CONNECTION_TIMEOUT = 10000; // 10 seconds
 
+// Rate limiting for avatar updates
+const avatarUpdateRateLimit = new Map<string, number>();
+const AVATAR_UPDATE_COOLDOWN = 2000; // 2 seconds between avatar updates per player
+
 export class SocketService {
   private socket: Socket | null = null;
   private connectionState: ConnectionStatusType = 'disconnected';
@@ -734,13 +738,56 @@ export class SocketService {
   }
 
   async updateAvatar(roomCode: string, persistentPlayerId: string, avatarSvg: string): Promise<void> {
-    console.log('[SocketService] Updating avatar:', {
-      roomCode,
-      persistentPlayerId,
-      hasAvatar: !!avatarSvg,
-      timestamp: new Date().toISOString()
+    // Rate limiting check
+    const now = Date.now();
+    const lastUpdate = avatarUpdateRateLimit.get(persistentPlayerId) || 0;
+    
+    if (now - lastUpdate < AVATAR_UPDATE_COOLDOWN) {
+      console.log(`[SocketService] Avatar update rate limited for ${persistentPlayerId}. Cooldown: ${AVATAR_UPDATE_COOLDOWN - (now - lastUpdate)}ms`);
+      throw new Error('Avatar update rate limited. Please wait before updating again.');
+    }
+    
+    return new Promise((resolve, reject) => {
+      if (!this.socket || !this.socket.connected) {
+        reject(new Error('Socket not connected'));
+        return;
+      }
+
+      console.log('[SocketService] Updating avatar:', {
+        roomCode,
+        persistentPlayerId,
+        avatarLength: avatarSvg?.length,
+        timestamp: new Date().toISOString()
+      });
+
+      // Set rate limit timestamp
+      avatarUpdateRateLimit.set(persistentPlayerId, now);
+
+      const timeout = setTimeout(() => {
+        reject(new Error('Avatar update timeout'));
+      }, 10000);
+
+      const handleSuccess = () => {
+        clearTimeout(timeout);
+        this.socket?.off('avatar_update_error', handleError);
+        resolve();
+      };
+
+      const handleError = (error: any) => {
+        clearTimeout(timeout);
+        this.socket?.off('avatar_updated', handleSuccess);
+        reject(new Error(error.message || 'Avatar update failed'));
+      };
+
+      this.socket.once('avatar_updated', handleSuccess);
+      this.socket.once('avatar_update_error', handleError);
+
+      this.socket.emit('update_avatar', {
+        roomCode,
+        persistentPlayerId,
+        avatarSvg
+      });
     });
-    await this.robustEmit('update_avatar', { roomCode, persistentPlayerId, avatarSvg });
   }
 
   // WebRTC Signaling Methods

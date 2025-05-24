@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
 import { useLanguage } from '../../contexts/LanguageContext';
 import { t } from '../../i18n';
@@ -63,20 +63,26 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
   const [config, setConfig] = useState<AvatarConfig>({ ...DEFAULT_CONFIG });
   const [avatarSvg, setAvatarSvg] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isInitialized, setIsInitialized] = useState<boolean>(false);
+  
+  // Debounce timer ref
+  const debounceTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastFetchedConfigRef = useRef<string>('');
   
   // Initialize avatar config with player ID as seed
   useEffect(() => {
-    if (persistentPlayerId) {
+    if (persistentPlayerId && !isInitialized) {
       setConfig(prev => ({
         ...prev,
         seed: persistentPlayerId
       }));
+      setIsInitialized(true);
     }
-  }, [persistentPlayerId]);
+  }, [persistentPlayerId, isInitialized]);
   
   // Parse initial avatar if provided
   useEffect(() => {
-    if (initialAvatarSvg) {
+    if (initialAvatarSvg && !isInitialized) {
       try {
         // Check if the SVG contains DiceBear data attributes
         if (initialAvatarSvg.includes('data-dicebear-')) {
@@ -102,6 +108,7 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
             });
             
             setAvatarSvg(initialAvatarSvg);
+            setIsInitialized(true);
           }
         } else {
           // If it's not a DiceBear SVG, we'll use a random style
@@ -111,14 +118,14 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
         console.error('Error parsing initial avatar SVG:', error);
         randomizeAvatar();
       }
-    } else {
+    } else if (!initialAvatarSvg && !isInitialized && persistentPlayerId) {
       // No initial avatar, let's create a random one
       randomizeAvatar();
     }
-  }, [initialAvatarSvg]);
+  }, [initialAvatarSvg, isInitialized, persistentPlayerId]);
   
   // Generate random avatar
-  const randomizeAvatar = () => {
+  const randomizeAvatar = useCallback(() => {
     // Create a random seed if none exists
     const seed = config.seed || persistentPlayerId || Math.random().toString(36).substring(2, 10);
     
@@ -132,19 +139,28 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
     };
     
     setConfig(newConfig);
+    setIsInitialized(true);
     fetchAvatar(newConfig);
-  };
+  }, [config.seed, persistentPlayerId]);
   
   // Update a specific property in the config
-  const updateConfig = (key: keyof AvatarConfig, value: any) => {
+  const updateConfig = useCallback((key: keyof AvatarConfig, value: any) => {
     setConfig(prev => ({
       ...prev,
       [key]: value
     }));
-  };
+  }, []);
   
-  // Fetch avatar from DiceBear API
-  const fetchAvatar = async (avatarConfig = config) => {
+  // Fetch avatar from DiceBear API with debouncing
+  const fetchAvatar = useCallback(async (avatarConfig = config) => {
+    const configString = JSON.stringify(avatarConfig);
+    
+    // Prevent duplicate API calls
+    if (configString === lastFetchedConfigRef.current) {
+      console.log('[AvatarCreator] Skipping duplicate API call for same config');
+      return;
+    }
+    
     setIsLoading(true);
     try {
       const { style, seed, backgroundColor, flip, rotate, scale } = avatarConfig;
@@ -160,6 +176,8 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
       // Create URL for the DiceBear API
       const url = `https://api.dicebear.com/7.x/${style}/svg?${params.toString()}`;
       
+      console.log('[AvatarCreator] Fetching avatar from DiceBear:', url);
+      
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch avatar: ${response.statusText}`);
@@ -171,20 +189,36 @@ const AvatarCreator: React.FC<AvatarCreatorProps> = ({ onSave, initialAvatarSvg,
       svgText = svgText.replace('<svg ', `<svg data-dicebear-style="${style}" data-dicebear-seed="${seed}" data-dicebear-bgcolor="${backgroundColor}" data-dicebear-flip="${flip}" data-dicebear-rotate="${rotate}" data-dicebear-scale="${scale}" `);
       
       setAvatarSvg(svgText);
+      lastFetchedConfigRef.current = configString;
       setIsLoading(false);
     } catch (error) {
       console.error('Error fetching avatar:', error);
       setIsLoading(false);
     }
-  };
-  
-  // Update avatar when config changes
-  useEffect(() => {
-    // Only fetch if we have a style and seed
-    if (config.style && config.seed) {
-      fetchAvatar();
-    }
   }, [config]);
+  
+  // Debounced fetch avatar when config changes
+  useEffect(() => {
+    // Only fetch if we have a style and seed and component is initialized
+    if (config.style && config.seed && isInitialized) {
+      // Clear existing timer
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+      
+      // Set new timer with 500ms debounce
+      debounceTimerRef.current = setTimeout(() => {
+        fetchAvatar();
+      }, 500);
+    }
+    
+    // Cleanup timer on unmount
+    return () => {
+      if (debounceTimerRef.current) {
+        clearTimeout(debounceTimerRef.current);
+      }
+    };
+  }, [config, isInitialized, fetchAvatar]);
   
   const handleSave = () => {
     // Store in localStorage for this player

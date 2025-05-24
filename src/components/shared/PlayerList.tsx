@@ -51,11 +51,19 @@ const PlayerList: React.FC<PlayerListProps> = ({
 
   // Effect to ensure avatars are loaded for all players
   useEffect(() => {
-    // Check if any players are missing avatars and we have a room connection
-    if (players.length > 0 && roomCode && socketService.getConnectionState() === 'connected') {
+    // Only run this effect if we have a stable room connection and players
+    if (players.length === 0 || !roomCode || socketService.getConnectionState() !== 'connected') {
+      return;
+    }
+
+    // Use a timeout to debounce this effect and prevent excessive calls
+    const timeoutId = setTimeout(() => {
+      let broadcastCount = 0;
+      const maxBroadcasts = 3; // Limit broadcasts per effect run
+      
       players.forEach(player => {
-        // If player doesn't have an avatar in room context, check localStorage
-        if (!player.avatarSvg && player.persistentPlayerId) {
+        // Only broadcast if player doesn't have an avatar in room context AND we haven't exceeded broadcast limit
+        if (!player.avatarSvg && player.persistentPlayerId && broadcastCount < maxBroadcasts) {
           const localAvatar = localStorage.getItem(`avatar_${player.persistentPlayerId}`);
           if (localAvatar) {
             console.log('[PlayerList] Found missing avatar in localStorage for', player.persistentPlayerId, 'broadcasting to room');
@@ -64,11 +72,18 @@ const PlayerList: React.FC<PlayerListProps> = ({
               persistentPlayerId: player.persistentPlayerId, 
               avatarSvg: localAvatar 
             });
+            broadcastCount++;
           }
         }
       });
-    }
-  }, [players, roomCode]); // Re-run when players or room changes
+      
+      if (broadcastCount > 0) {
+        console.log(`[PlayerList] Broadcasted ${broadcastCount} missing avatars to room`);
+      }
+    }, 1000); // 1 second debounce
+
+    return () => clearTimeout(timeoutId);
+  }, [players.length, roomCode]); // Only depend on players.length and roomCode, not the entire players array
 
   const handlePlayerClick = (player: Player) => {
     if (isGameMasterView && !isCommunityVotingMode) {

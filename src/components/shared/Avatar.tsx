@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import { useRoom } from '../../contexts/RoomContext';
 import socketService from '../../services/socketService';
 
@@ -18,6 +18,12 @@ const Avatar: React.FC<AvatarProps> = ({
   const [error, setError] = useState<string | null>(null);
   const { players } = useRoom();
   
+  // Memoize the player to avoid unnecessary re-renders
+  const currentPlayer = useMemo(() => 
+    players.find(p => p.persistentPlayerId === persistentPlayerId),
+    [players, persistentPlayerId]
+  );
+  
   useEffect(() => {
     if (!persistentPlayerId) {
       console.log('[Avatar] No persistentPlayerId provided, skipping avatar load');
@@ -26,13 +32,11 @@ const Avatar: React.FC<AvatarProps> = ({
     }
     
     let mounted = true;
-    let retryCount = 0;
-    const maxRetries = 3;
+    let hasFoundAvatar = false;
     
     const loadAvatar = async () => {
       console.log('[Avatar] Starting avatar load:', {
         persistentPlayerId,
-        retryCount,
         timestamp: new Date().toISOString()
       });
 
@@ -40,25 +44,25 @@ const Avatar: React.FC<AvatarProps> = ({
         setError(null);
         
         // First try to get the avatar from the room context (server synced)
-        const playerInRoom = players.find(p => p.persistentPlayerId === persistentPlayerId);
-        if (playerInRoom?.avatarSvg) {
+        if (currentPlayer?.avatarSvg && !hasFoundAvatar) {
           console.log('[Avatar] Found avatar in room context:', {
             persistentPlayerId,
-            avatarLength: playerInRoom.avatarSvg.length,
+            avatarLength: currentPlayer.avatarSvg.length,
             timestamp: new Date().toISOString()
           });
           if (mounted) {
-            setAvatarSvg(playerInRoom.avatarSvg);
+            setAvatarSvg(currentPlayer.avatarSvg);
             // Also update localStorage to keep it in sync
-            localStorage.setItem(`avatar_${persistentPlayerId}`, playerInRoom.avatarSvg);
+            localStorage.setItem(`avatar_${persistentPlayerId}`, currentPlayer.avatarSvg);
             setIsLoading(false);
+            hasFoundAvatar = true;
           }
           return;
         }
         
         // If not found in room context, try localStorage (client-side storage)
         const savedAvatar = localStorage.getItem(`avatar_${persistentPlayerId}`);
-        if (savedAvatar && mounted) {
+        if (savedAvatar && mounted && !hasFoundAvatar) {
           console.log('[Avatar] Found avatar in localStorage:', {
             persistentPlayerId,
             avatarLength: savedAvatar.length,
@@ -66,10 +70,11 @@ const Avatar: React.FC<AvatarProps> = ({
           });
           setAvatarSvg(savedAvatar);
           setIsLoading(false);
+          hasFoundAvatar = true;
           
-          // If we found it in localStorage but not in room context, broadcast it
+          // If we found it in localStorage but not in room context, broadcast it ONCE
           const roomCode = sessionStorage.getItem('roomCode') || localStorage.getItem('roomCode');
-          if (roomCode && socketService.getConnectionState() === 'connected') {
+          if (roomCode && socketService.getConnectionState() === 'connected' && !currentPlayer?.avatarSvg) {
             console.log('[Avatar] Broadcasting locally found avatar to room for sync');
             socketService.emit('update_avatar', { 
               roomCode, 
@@ -80,37 +85,27 @@ const Avatar: React.FC<AvatarProps> = ({
           return;
         }
         
-        // If no avatar found and we haven't retried too many times, wait and retry
-        if (retryCount < maxRetries && players.length === 0) {
-          retryCount++;
-          console.log('[Avatar] No avatar found, retrying in 500ms (attempt', retryCount, 'of', maxRetries, ')');
-          setTimeout(() => {
-            if (mounted) loadAvatar();
-          }, 500);
-          return;
-        }
-        
         // If no avatar found, generate default
-        console.log('[Avatar] No avatar found after retries, generating default:', {
-          persistentPlayerId,
-          retryCount,
-          timestamp: new Date().toISOString()
-        });
-        if (mounted) {
+        if (mounted && !hasFoundAvatar) {
+          console.log('[Avatar] No avatar found, generating default:', {
+            persistentPlayerId,
+            timestamp: new Date().toISOString()
+          });
           setAvatarSvg(null);
           setIsLoading(false);
+          hasFoundAvatar = true;
         }
       } catch (error) {
         console.error('[Avatar] Error loading avatar:', {
           error,
           persistentPlayerId,
-          retryCount,
           timestamp: new Date().toISOString()
         });
-        if (mounted) {
+        if (mounted && !hasFoundAvatar) {
           setError('Failed to load avatar');
           setAvatarSvg(null);
           setIsLoading(false);
+          hasFoundAvatar = true;
         }
       }
     };
@@ -132,6 +127,7 @@ const Avatar: React.FC<AvatarProps> = ({
         localStorage.setItem(`avatar_${persistentPlayerId}`, data.avatarSvg);
         setIsLoading(false);
         setError(null);
+        hasFoundAvatar = true;
       }
     };
 
@@ -155,7 +151,7 @@ const Avatar: React.FC<AvatarProps> = ({
       socketService.off('avatar_updated', handleAvatarUpdate);
       socketService.off('avatar_update_error', handleAvatarError);
     };
-  }, [persistentPlayerId, players]);
+  }, [persistentPlayerId, currentPlayer?.avatarSvg]); // Only depend on persistentPlayerId and the specific player's avatar
   
   // Generate a default avatar based on the player's ID if none exists
   const generateDefaultAvatar = (): string => {
