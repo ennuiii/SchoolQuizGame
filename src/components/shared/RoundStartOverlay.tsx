@@ -21,7 +21,7 @@ const RoundStartOverlay: React.FC<RoundStartOverlayProps> = ({ question, subject
   const titleBlinkIntervalRef = useRef<NodeJS.Timeout>();
   const [isTitleBlinking, setIsTitleBlinking] = useState(true);
 
-  // Effect for countdown sequence
+  // Effect for countdown sequence - FIXED: More reliable countdown logic
   useEffect(() => {
     if (!active) {
       // Restore original title when overlay is closed
@@ -32,36 +32,46 @@ const RoundStartOverlay: React.FC<RoundStartOverlayProps> = ({ question, subject
       return;
     }
 
+    console.log('[RoundStartOverlay] Starting countdown sequence');
+    
     // Store original title when overlay becomes active
     originalTitleRef.current = document.title;
 
-    // Start countdown sequence
-    let countdownTimeout: NodeJS.Timeout;
+    // Reset countdown to start
     setCountdownIdx(0);
 
-    const startCountdown = (idx: number) => {
-      if (idx < COUNTDOWN_NUMBERS.length - 1) {
-        countdownTimeout = setTimeout(() => {
-          setCountdownIdx(idx + 1);
-          startCountdown(idx + 1);
-        }, COUNTDOWN_INTERVAL);
-      } else {
-        // After last number, finish overlay
-        countdownTimeout = setTimeout(() => {
-          onFinish();
-        }, COUNTDOWN_INTERVAL);
-      }
-    };
-    startCountdown(0);
+    // Set up interval for countdown progression
+    const countdownInterval = setInterval(() => {
+      setCountdownIdx(prevIdx => {
+        const nextIdx = prevIdx + 1;
+        console.log('[RoundStartOverlay] Countdown progress:', {
+          currentIdx: prevIdx,
+          nextIdx: nextIdx,
+          currentNumber: COUNTDOWN_NUMBERS[prevIdx],
+          nextNumber: COUNTDOWN_NUMBERS[nextIdx] || 'FINISH'
+        });
+        
+        // If we've shown all numbers, finish the overlay
+        if (nextIdx >= COUNTDOWN_NUMBERS.length) {
+          console.log('[RoundStartOverlay] Countdown finished, calling onFinish');
+          setTimeout(() => onFinish(), 100); // Small delay to ensure last number is visible
+          return prevIdx; // Don't update index beyond array bounds
+        }
+        
+        return nextIdx;
+      });
+    }, COUNTDOWN_INTERVAL);
 
+    // Cleanup function
     return () => {
-      clearTimeout(countdownTimeout);
+      console.log('[RoundStartOverlay] Cleaning up countdown interval');
+      clearInterval(countdownInterval);
       if (titleBlinkIntervalRef.current) {
         clearInterval(titleBlinkIntervalRef.current);
       }
       document.title = originalTitleRef.current;
     };
-  }, [active, onFinish]);
+  }, [active]);
 
   // Effect for title blinking
   useEffect(() => {
@@ -83,12 +93,20 @@ const RoundStartOverlay: React.FC<RoundStartOverlayProps> = ({ question, subject
     if (!active) return;
 
     const countdownNumber = COUNTDOWN_NUMBERS[countdownIdx];
-    document.title = isTitleBlinking
-      ? `⚠️ ${countdownNumber} - ${t('roundStart.newQuestion', language) || 'New Question!'} ⚠️`
-      : `${countdownNumber} - ${originalTitleRef.current}`;
+    if (countdownNumber !== undefined) {
+      document.title = isTitleBlinking
+        ? `⚠️ ${countdownNumber} - ${t('roundStart.newQuestion', language) || 'New Question!'} ⚠️`
+        : `${countdownNumber} - ${originalTitleRef.current}`;
+    }
   }, [active, countdownIdx, isTitleBlinking, language]);
 
   if (!active) return null;
+
+  // Make sure we don't render if countdownIdx is out of bounds
+  const currentNumber = COUNTDOWN_NUMBERS[countdownIdx];
+  if (currentNumber === undefined) {
+    return null;
+  }
 
   return (
     <div style={{
@@ -112,7 +130,7 @@ const RoundStartOverlay: React.FC<RoundStartOverlayProps> = ({ question, subject
         marginBottom: '1.5rem',
         marginTop: '-5rem', // Move countdown higher
       }}>
-        {COUNTDOWN_NUMBERS[countdownIdx]}
+        {currentNumber}
       </div>
       <div style={{
         background: 'rgba(255,255,255,0.92)',

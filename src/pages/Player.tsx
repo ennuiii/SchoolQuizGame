@@ -1026,6 +1026,9 @@ const Player: React.FC = () => {
     );
   }
 
+  // Show reopen button if in community voting mode and overlay is locally closed
+  const showReopenButton = isCommunityVotingMode && previewMode.isActive && playerOverlayLocallyClosed;
+
   // If recap data is available, show recap modal. This takes precedence over game view.
   if (gameRecapData && roomCode && hideRecap) {
     return (
@@ -1116,6 +1119,15 @@ const Player: React.FC = () => {
             >
               <i className="bi bi-clock-history"></i>
             </button>
+            {showReopenButton && (
+              <button
+                className="btn btn-sm btn-warning"
+                onClick={() => setPlayerOverlayLocallyClosed(false)}
+                title={t('gameControls.reopenPreview', language)}
+              >
+                <i className="bi bi-eye"></i>
+              </button>
+            )}
           </div>
 
           <div className="container py-4">

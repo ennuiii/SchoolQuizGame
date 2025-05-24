@@ -821,6 +821,13 @@ function finalizeRoundAndAutoSubmit(roomCode) {
 
   broadcastGameState(roomCode);
   console.log(`[FinalizeRound] Game state broadcasted for room ${roomCode} after finalization.`);
+  
+  // Trigger preview mode for community voting after auto-submissions
+  // This is crucial for community voting mode to work properly with automatic submissions
+  if (room.isCommunityVotingMode || room.submissionPhaseOver) {
+    console.log(`[FinalizeRound] Starting preview mode for room ${roomCode} after automatic submissions`);
+    io.to(roomCode).emit('start_preview_mode');
+  }
 }
 
 // Helper function to conclude game and send recap to all

@@ -14,6 +14,7 @@ import { useAudio } from '../contexts/AudioContext';
 import { useLanguage } from '../contexts/LanguageContext';
 import { t } from '../i18n';
 import RoomSettings from '../components/game-master/RoomSettings';
+import GameSettings from '../components/game-master/GameSettings';
 import RecapModal from '../components/shared/RecapModal';
 import { toast } from 'react-toastify';
 import { LoadingOverlay } from '../components/shared/LoadingOverlay';
@@ -93,7 +94,28 @@ const GameMaster: React.FC = () => {
     roomCode: string;
     affectedPlayers: Array<{ persistentPlayerId: string, name: string, livesLost: number }>;
   } | null>(null);
-  
+
+  // Game Settings state - consolidating various settings into unified structure
+  const [gameSettings, setGameSettings] = useState({
+    isPointsMode: false,
+    isCommunityVotingMode: false,
+    isStreamerMode: false,
+    timeLimit: null as number | null,
+    questionTimeLimit: null as number | null,
+    initialLives: 3,
+    pointsPerCorrectAnswer: 100,
+    bonusPointsForSpeed: true,
+    votingTimeLimit: 30,
+    allowMultipleVotes: false,
+    allowDrawingAnswers: true,
+    allowTextAnswers: true,
+    maxAnswerLength: 100,
+    enableJokers: false,
+    jokersPerPlayer: 2,
+    enablePreviewMode: false,
+    autoSwitchPlayers: true,
+  });
+
   const {
     roomCode,
     isLoading: isRoomLoading,
@@ -478,6 +500,60 @@ const GameMaster: React.FC = () => {
     };
   }, [connectionStatus]);
 
+  /**
+   * Handle GameSettings changes and sync with existing state variables
+   */
+  const handleGameSettingsChange = useCallback((newSettings: typeof gameSettings) => {
+    console.log('[GameMaster] GameSettings changed:', newSettings);
+    
+    // Update the unified gameSettings state
+    setGameSettings(newSettings);
+    
+    // Sync individual state variables that are used throughout the component
+    if (newSettings.isPointsMode !== isPointsMode) {
+      setIsPointsMode(newSettings.isPointsMode);
+      
+      // Send to server if room exists and connected
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('toggle_points_mode', { 
+          roomCode, 
+          isPointsMode: newSettings.isPointsMode 
+        });
+      }
+    }
+    
+    if (newSettings.isCommunityVotingMode !== isCommunityVotingMode) {
+      setIsCommunityVotingMode(newSettings.isCommunityVotingMode);
+      
+      // Send to server if room exists and connected
+      if (roomCode && connectionStatus === 'connected') {
+        socketService.emit('toggle_community_voting', { 
+          roomCode, 
+          isCommunityVotingMode: newSettings.isCommunityVotingMode 
+        });
+      }
+    }
+    
+    if (newSettings.isStreamerMode !== isStreamerMode) {
+      setIsStreamerMode(newSettings.isStreamerMode);
+    }
+    
+    // Update custom time limit if timeLimit changed - FIXED: ensure proper sync
+    if (newSettings.timeLimit !== customTimeLimit) {
+      console.log('[GameMaster] Updating timeLimit:', { 
+        from: customTimeLimit, 
+        to: newSettings.timeLimit 
+      });
+      setCustomTimeLimit(newSettings.timeLimit);
+      // Also update the timeLimit state for immediate use
+      if (newSettings.timeLimit === null || newSettings.timeLimit === 0) {
+        setTimeLimit(99999); // Set to effectively infinite
+      } else {
+        setTimeLimit(newSettings.timeLimit);
+      }
+    }
+  }, [roomCode, connectionStatus, isPointsMode, isCommunityVotingMode, isStreamerMode, customTimeLimit]);
+
   const handleCreateRoom = useCallback(() => {
     // Check connection state before trying to create a room
     if (connectionStatus !== 'connected') {
@@ -510,6 +586,37 @@ const GameMaster: React.FC = () => {
   }, [gameStarted, currentQuestion, timeRemaining, players, gameRecapData]);
 
   const handleStartGame = async () => {
+    if (!roomCode) {
+      console.error('[GameMaster] Cannot start game - No room code found');
+      toast.error('Room not found. Please create a room first.');
+      return;
+    }
+    if (!questions || questions.length === 0) {
+      console.error('[GameMaster] Cannot start game - No questions selected');
+      toast.error('Please select questions before starting the game');
+      return;
+    }
+    if (connectionStatus !== 'connected') {
+      toast.error('Cannot start game: You are disconnected from the server. Please wait for reconnection.');
+      return;
+    }
+    try {
+      const effectiveTimeLimit = customTimeLimit === null || customTimeLimit === 0 ? 99999 : customTimeLimit;
+      console.log('[GameMaster] Starting game:', {
+        roomCode,
+        questionCount: questions.length,
+        timeLimit: effectiveTimeLimit,
+        socketId: socketService.getSocketId()
+      });
+      await startGame(roomCode, questions, effectiveTimeLimit);
+      console.log('[GameMaster] Game start request sent successfully');
+    } catch (error) {
+      console.error('[GameMaster] Failed to start game:', error);
+      toast.error('Failed to start game. Please try again.');
+    }
+  };
+
+  const handleStartGameFromSettings = async () => {
     if (!roomCode) {
       console.error('[GameMaster] Cannot start game - No room code found');
       toast.error('Room not found. Please create a room first.');
@@ -951,6 +1058,19 @@ const GameMaster: React.FC = () => {
     }
   }, [gameStarted, gameCurrentQuestionIndex, currentQuestion?.id]);
 
+  // Initialize customTimeLimit from gameSettings on component mount
+  useEffect(() => {
+    if (gameSettings.timeLimit !== customTimeLimit) {
+      console.log('[GameMaster] Initializing customTimeLimit from gameSettings:', gameSettings.timeLimit);
+      setCustomTimeLimit(gameSettings.timeLimit);
+      if (gameSettings.timeLimit === null || gameSettings.timeLimit === 0) {
+        setTimeLimit(99999);
+      } else {
+        setTimeLimit(gameSettings.timeLimit);
+      }
+    }
+  }, []); // Run only once on mount
+
   // Show loading overlay if trying to connect or reconnect
   if (connectionStatus === 'connecting' || connectionStatus === 'reconnecting') {
     return (
@@ -1225,95 +1345,153 @@ const GameMaster: React.FC = () => {
           )}
           
           <div className="row g-3">
-            <div className="col-12 col-md-4">
-              {/* Only show room settings when game hasn't started */}
-              {!gameStarted && (
-                <RoomSettings 
-                  timeLimit={customTimeLimit} 
-                  onTimeLimitChange={setCustomTimeLimit} 
-                  isCommunityVotingMode={isCommunityVotingMode}
-                  onToggleCommunityVotingMode={handleToggleCommunityVotingMode}
-                  isPointsMode={isPointsMode}
-                  onTogglePointsMode={handleTogglePointsMode}
-                  gameStarted={gameStarted}
-                />
-              )}
-              <RoomCode />
-              
-              {/* Preview button, shown if game started, not in preview, and NOT community voting mode */}
-              {gameStarted && !previewMode.isActive && !isCommunityVotingMode && (
-                <div className="mb-3">
-                  <button 
-                    className="btn btn-primary w-100" 
-                    onClick={handleStartPreview}
-                    disabled={connectionStatus !== 'connected'}
-                  >
-                    {t('gameControls.startPreview', language)}
-                  </button>
-                </div>
-              )}
-              
-              {/* PlayerList is always shown for the GM */}
-              <PlayerList 
-                title={t('players', language)}
-                onPlayerSelect={handlePlayerSelect}
-                selectedPlayerId={selectedPlayerId}
-                isGameMasterView={true}
-                onKickPlayer={handleKickPlayer}
-                persistentPlayerId={persistentPlayerId || undefined}
-              />
-              
-              {/* Show Enhanced Leaderboard when points mode is enabled and game has started */}
-              {isPointsMode && gameStarted && (
-                <div className="mt-3">
-                  <Leaderboard
-                    players={gamePlayers.map(p => ({
-                      id: p.id,
-                      persistentPlayerId: p.persistentPlayerId,
-                      name: p.name,
-                      score: p.score || 0,
-                      streak: p.streak || 0,
-                      lives: p.lives,
-                      lastPointsEarned: p.lastPointsEarned || null,
-                      isActive: p.isActive,
-                      isSpectator: p.isSpectator
-                    }))}
-                    currentPlayerPersistentId={persistentPlayerId || undefined}
-                    showLives={true}
-                    compact={false}
-                    maxPlayers={10}
-                    showAnimation={true}
-                    isPointsMode={true}
+            {!gameStarted ? (
+              // Pre-game layout: GameSettings takes full width
+              <>
+                <div className="col-12">
+                  <GameSettings 
+                    onSettingsChange={handleGameSettingsChange}
+                    onStartGame={handleStartGameFromSettings}
+                    initialSettings={{
+                      isPointsMode: gameSettings.isPointsMode,
+                      isCommunityVotingMode: gameSettings.isCommunityVotingMode,
+                      isStreamerMode: gameSettings.isStreamerMode,
+                      timeLimit: gameSettings.timeLimit,
+                      questionTimeLimit: gameSettings.questionTimeLimit,
+                      initialLives: gameSettings.initialLives,
+                      pointsPerCorrectAnswer: gameSettings.pointsPerCorrectAnswer,
+                      bonusPointsForSpeed: gameSettings.bonusPointsForSpeed,
+                      votingTimeLimit: gameSettings.votingTimeLimit,
+                      allowMultipleVotes: gameSettings.allowMultipleVotes,
+                      allowDrawingAnswers: gameSettings.allowDrawingAnswers,
+                      allowTextAnswers: gameSettings.allowTextAnswers,
+                      maxAnswerLength: gameSettings.maxAnswerLength,
+                      enableJokers: gameSettings.enableJokers,
+                      jokersPerPlayer: gameSettings.jokersPerPlayer,
+                      enablePreviewMode: gameSettings.enablePreviewMode,
+                      autoSwitchPlayers: gameSettings.autoSwitchPlayers,
+                    }}
                   />
                 </div>
-              )}
-              
-              <div className="d-grid gap-2 mt-3">
-                <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
-                  {t('navigation.leaveGame', language)}
-                </button>
                 
-                {!gameStarted ? (
-                  <button 
-                    className="btn btn-success" 
-                    onClick={handleStartGame}
-                    disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1 || connectionStatus !== 'connected'}
-                    title={
-                      isConnecting ? t('connection.connecting', language) :
-                      connectionStatus !== 'connected' ? t('connection.disconnected', language) :
-                      gamePlayers.filter(p => !p.isSpectator).length < 1 ? t('gameControls.needPlayers', language) :
-                      questions.length === 0 ? t('gameControls.needQuestions', language) : ""
-                    }
-                  >
-                    {isConnecting ? t('connection.connecting', language) : 
-                     connectionStatus !== 'connected' ? t('connection.connecting', language) :
-                     t('gameControls.startGame', language, {
-                       players: gamePlayers.filter(p => !p.isSpectator).length,
-                       questions: questions.length
-                     })}
-                  </button>
-                ) : (
-                  <>
+                {/* Side panels for pre-game */}
+                <div className="col-12 col-lg-6">
+                  <div className="card h-100">
+                    <div className="card-header bg-primary text-white">
+                      <h5 className="mb-0">
+                        <i className="bi bi-house-door me-2"></i>
+                        Room Information
+                      </h5>
+                    </div>
+                    <div className="card-body">
+                      <RoomCode />
+                      <div className="d-grid gap-2 mt-3">
+                        <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
+                          {t('navigation.leaveGame', language)}
+                        </button>
+                        <button 
+                          className="btn btn-success btn-lg" 
+                          onClick={handleStartGameFromSettings}
+                          disabled={isConnecting || questions.length === 0 || gamePlayers.filter(p => !p.isSpectator).length < 1 || connectionStatus !== 'connected'}
+                          title={
+                            isConnecting ? t('connection.connecting', language) :
+                            connectionStatus !== 'connected' ? t('connection.disconnected', language) :
+                            gamePlayers.filter(p => !p.isSpectator).length < 1 ? t('gameControls.needPlayers', language) :
+                            questions.length === 0 ? t('gameControls.needQuestions', language) : ""
+                          }
+                        >
+                          <i className="bi bi-play-circle me-2"></i>
+                          {isConnecting ? t('connection.connecting', language) : 
+                           connectionStatus !== 'connected' ? t('connection.connecting', language) :
+                           t('gameControls.startGame', language, {
+                             players: gamePlayers.filter(p => !p.isSpectator).length,
+                             questions: questions.length
+                           })}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                <div className="col-12 col-lg-6">
+                  <div className="card h-100">
+                    <div className="card-header bg-info text-white">
+                      <h5 className="mb-0">
+                        <i className="bi bi-people me-2"></i>
+                        Players ({gamePlayers.filter(p => !p.isSpectator).length})
+                      </h5>
+                    </div>
+                    <div className="card-body">
+                      <PlayerList 
+                        title=""
+                        onPlayerSelect={handlePlayerSelect}
+                        selectedPlayerId={selectedPlayerId}
+                        isGameMasterView={true}
+                        onKickPlayer={handleKickPlayer}
+                        persistentPlayerId={persistentPlayerId || undefined}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // In-game layout: Original column structure
+              <>
+                <div className="col-12 col-md-4">
+                  <RoomCode />
+                  
+                  {/* Preview button, shown if game started, not in preview, and NOT community voting mode */}
+                  {previewMode.isActive === false && !isCommunityVotingMode && (
+                    <div className="mb-3">
+                      <button 
+                        className="btn btn-primary w-100" 
+                        onClick={handleStartPreview}
+                        disabled={connectionStatus !== 'connected'}
+                      >
+                        {t('gameControls.startPreview', language)}
+                      </button>
+                    </div>
+                  )}
+                  
+                  {/* PlayerList is always shown for the GM */}
+                  <PlayerList 
+                    title={t('players', language)}
+                    onPlayerSelect={handlePlayerSelect}
+                    selectedPlayerId={selectedPlayerId}
+                    isGameMasterView={true}
+                    onKickPlayer={handleKickPlayer}
+                    persistentPlayerId={persistentPlayerId || undefined}
+                  />
+                  
+                  {/* Show Enhanced Leaderboard when points mode is enabled and game has started */}
+                  {isPointsMode && (
+                    <div className="mt-3">
+                      <Leaderboard
+                        players={gamePlayers.map(p => ({
+                          id: p.id,
+                          persistentPlayerId: p.persistentPlayerId,
+                          name: p.name,
+                          score: p.score || 0,
+                          streak: p.streak || 0,
+                          lives: p.lives,
+                          lastPointsEarned: p.lastPointsEarned || null,
+                          isActive: p.isActive,
+                          isSpectator: p.isSpectator
+                        }))}
+                        currentPlayerPersistentId={persistentPlayerId || undefined}
+                        showLives={true}
+                        compact={false}
+                        maxPlayers={10}
+                        showAnimation={true}
+                        isPointsMode={true}
+                      />
+                    </div>
+                  )}
+                  
+                  <div className="d-grid gap-2 mt-3">
+                    <button className="btn btn-outline-secondary" onClick={() => navigate('/')}>
+                      {t('navigation.leaveGame', language)}
+                    </button>
                     <GameControls
                       onStartGame={handleStartGame}
                       onNextQuestion={handleNextQuestion}
@@ -1325,138 +1503,137 @@ const GameMaster: React.FC = () => {
                       onConfirmEndRound={confirmEndRoundEarly}
                       onCancelEndRound={() => setShowEndRoundConfirm(false)}
                     />
-                  </>
-                )}
-              </div>
-            </div>
-            
-            <div className="col-12 col-md-8">
-              {!gameStarted ? (
-                <QuestionSelector
-                  onQuestionsSelected={setQuestions}
-                  selectedQuestions={questions}
-                  onSelectedQuestionsChange={setQuestions}
-                />
-              ) : (
-                <>
-                  <div className="card mb-3">
-                    <div className="card-body">
-                      <QuestionDisplay question={currentQuestion} isCommunityVotingMode={isCommunityVotingMode} />
-                      {gameTimeLimit !== null && gameTimeLimit < 99999 && (
-                        <div className="mt-3">
-                          <Timer isActive={isTimerRunning} showSeconds={true} />
-                        </div>
-                      )}
-                    </div>
                   </div>
-
-                  {isCommunityVotingMode ? (
-                    <div className="card mb-3">
-                      <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                        <h5 className="mb-0">{t('gameControls.yourBoard', language)}</h5>
-                        <button
-                          className="btn btn-outline-primary btn-sm"
-                          onClick={() => setShowAvatarCreator(true)}
-                          title={t('avatar.change', language)}
-                        >
-                          <i className="bi bi-person-circle me-1"></i>
-                          {t('avatar.change', language)}
-                        </button>
-                      </div>
-                      <div className="card-body">
-                        <DrawingBoard
-                          key={`gm-board-${gameCurrentQuestionIndex}`}
-                          onUpdate={(data) => {
-                            if (roomCode && connectionStatus === 'connected') {
-                              socketService.emit('update_game_master_board', { roomCode, boardData: data.data });
-                            }
-                          }}
-                          disabled={gmSubmittedCommunityAnswerForRound}
-                        />
-                        {!gmSubmittedCommunityAnswerForRound ? (
-                          <div className="mt-3">
-                            <AnswerInput 
-                              answer={gmTextAnswer} 
-                              onAnswerChange={handleGmAnswerChange} 
-                              onSubmitAnswer={handleGmSubmitAnswer}
-                              controlledDisable={gmSubmittedCommunityAnswerForRound || !gameStarted || !currentQuestion || connectionStatus !== 'connected'}
-                            />
-                          </div>
-                        ) : (
-                          <div className="alert alert-info mt-3">
-                            {t('playerPage.answerSubmitted', language)}
-                          </div>
-                        )}
-                      </div>
+                </div>
+                
+                <div className="col-12 col-md-8">
+                  {!gameStarted ? (
+                    <div className="alert alert-info">
+                      <h5><i className="bi bi-gear me-2"></i>Game Configuration</h5>
+                      <p className="mb-0">Configure your game settings using the tabs above, then click "Start Game" when ready.</p>
                     </div>
                   ) : (
                     <>
-                      {gameStarted && !isCommunityVotingMode && (
-                        <>
-                          <AnswerList onEvaluate={handleEvaluateAnswer} />
-                          <div className="card mb-3">
-                            <div className="card-header bg-light d-flex justify-content-between align-items-center">
-                              <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
-                              <div className="d-flex gap-2">
-                                <button
-                                  className="btn btn-sm btn-outline-primary"
-                                  onClick={showAllBoards}
-                                  disabled={connectionStatus !== 'connected'}
-                                >
-                                  {t('gameControls.showAll', language)}
-                                </button>
-                                <button
-                                  className="btn btn-sm btn-outline-secondary"
-                                  onClick={hideAllBoards}
-                                  disabled={connectionStatus !== 'connected'}
-                                >
-                                  {t('gameControls.hideAll', language)}
-                                </button>
-                              </div>
+                      <div className="card mb-3">
+                        <div className="card-body">
+                          <QuestionDisplay question={currentQuestion} isCommunityVotingMode={isCommunityVotingMode} />
+                          {gameTimeLimit !== null && gameTimeLimit < 99999 && (
+                            <div className="mt-3">
+                              <Timer isActive={isTimerRunning} showSeconds={true} />
                             </div>
-                            <div className="card-body">
-                              <div
-                                className="board-row"
-                                style={{
-                                  display: 'grid',
-                                  gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
-                                  gap: '20px',
-                                  width: '100%',
-                                  overflowX: 'auto',
-                                  alignItems: 'stretch',
-                                }}
-                              >
-                                {gamePlayers.filter(player => !player.isSpectator).map(player => {
-                                  const boardEntry = playerBoards.find(b => b.playerId === player.id);
-                                  const boardForDisplay = {
-                                    playerId: player.id,
-                                    persistentPlayerId: player.persistentPlayerId,
-                                    playerName: player.name,
-                                    boardData: boardEntry ? boardEntry.boardData : ''
-                                  };
-                                  return (
-                                    <PlayerBoardDisplay
-                                      key={player.id}
-                                      board={boardForDisplay}
-                                      isVisible={visibleBoards.has(player.id)}
-                                      onToggleVisibility={toggleBoardVisibility}
-                                      transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
-                                      onScale={handleBoardScale}
-                                      onPan={handleBoardPan}
-                                      onReset={handleBoardReset}
-                                    />
-                                  );
-                                })}
-                              </div>
-                            </div>
+                          )}
+                        </div>
+                      </div>
+
+                      {isCommunityVotingMode ? (
+                        <div className="card mb-3">
+                          <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                            <h5 className="mb-0">{t('gameControls.yourBoard', language)}</h5>
+                            <button
+                              className="btn btn-outline-primary btn-sm"
+                              onClick={() => setShowAvatarCreator(true)}
+                              title={t('avatar.change', language)}
+                            >
+                              <i className="bi bi-person-circle me-1"></i>
+                              {t('avatar.change', language)}
+                            </button>
                           </div>
+                          <div className="card-body">
+                            <DrawingBoard
+                              key={`gm-board-${gameCurrentQuestionIndex}`}
+                              onUpdate={(data) => {
+                                if (roomCode && connectionStatus === 'connected') {
+                                  socketService.emit('update_game_master_board', { roomCode, boardData: data.data });
+                                }
+                              }}
+                              disabled={gmSubmittedCommunityAnswerForRound}
+                            />
+                            {!gmSubmittedCommunityAnswerForRound ? (
+                              <div className="mt-3">
+                                <AnswerInput 
+                                  answer={gmTextAnswer} 
+                                  onAnswerChange={handleGmAnswerChange} 
+                                  onSubmitAnswer={handleGmSubmitAnswer}
+                                  controlledDisable={gmSubmittedCommunityAnswerForRound || !gameStarted || !currentQuestion || connectionStatus !== 'connected'}
+                                />
+                              </div>
+                            ) : (
+                              <div className="alert alert-info mt-3">
+                                {t('playerPage.answerSubmitted', language)}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          {gameStarted && !isCommunityVotingMode && (
+                            <>
+                              <AnswerList onEvaluate={handleEvaluateAnswer} />
+                              <div className="card mb-3">
+                                <div className="card-header bg-light d-flex justify-content-between align-items-center">
+                                  <h5 className="mb-0">{t('gameControls.playerBoards', language)}</h5>
+                                  <div className="d-flex gap-2">
+                                    <button
+                                      className="btn btn-sm btn-outline-primary"
+                                      onClick={showAllBoards}
+                                      disabled={connectionStatus !== 'connected'}
+                                    >
+                                      {t('gameControls.showAll', language)}
+                                    </button>
+                                    <button
+                                      className="btn btn-sm btn-outline-secondary"
+                                      onClick={hideAllBoards}
+                                      disabled={connectionStatus !== 'connected'}
+                                    >
+                                      {t('gameControls.hideAll', language)}
+                                    </button>
+                                  </div>
+                                </div>
+                                <div className="card-body">
+                                  <div
+                                    className="board-row"
+                                    style={{
+                                      display: 'grid',
+                                      gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))',
+                                      gap: '20px',
+                                      width: '100%',
+                                      overflowX: 'auto',
+                                      alignItems: 'stretch',
+                                    }}
+                                  >
+                                    {gamePlayers.filter(player => !player.isSpectator).map(player => {
+                                      const boardEntry = playerBoards.find(b => b.playerId === player.id);
+                                      const boardForDisplay = {
+                                        playerId: player.id,
+                                        persistentPlayerId: player.persistentPlayerId,
+                                        playerName: player.name,
+                                        boardData: boardEntry ? boardEntry.boardData : ''
+                                      };
+                                      return (
+                                        <PlayerBoardDisplay
+                                          key={player.id}
+                                          board={boardForDisplay}
+                                          isVisible={visibleBoards.has(player.id)}
+                                          onToggleVisibility={toggleBoardVisibility}
+                                          transform={boardTransforms[player.id] || { scale: 1, x: 0, y: 0 }}
+                                          onScale={handleBoardScale}
+                                          onPan={handleBoardPan}
+                                          onReset={handleBoardReset}
+                                        />
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
                     </>
                   )}
-                </>
-              )}
-            </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Button to re-open preview if locally closed by GM during community voting */}
@@ -1466,7 +1643,7 @@ const GameMaster: React.FC = () => {
                 className="btn btn-info w-100"
                 onClick={() => setGmOverlayLocallyClosed(false)}
               >
-                {t('gameControls.reopenVoting', language) || 'Re-open Voting Screen'}
+                {t('gameControls.reopenPreview', language)}
               </button>
             </div>
           )}

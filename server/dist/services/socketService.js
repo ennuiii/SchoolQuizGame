@@ -284,7 +284,7 @@ function finalizeRoundAndAutoSubmit(roomCode) {
         console.log(`[FinalizeRound] Room ${roomCode} not found.`);
         return;
     }
-    console.log(`[FinalizeRound] Finalizing round for room ${roomCode}. Current question index: ${room.currentQuestionIndex}`);
+    console.log(`[FinalizeRound] Finalizing round for room ${roomCode}. Current question index: ${room.currentQuestionIndex}, isCommunityVotingMode: ${room.isCommunityVotingMode}`);
     room.submissionPhaseOver = true;
     // Clear voting data for the current round
     if (room.isCommunityVotingMode) {
@@ -334,8 +334,46 @@ function finalizeRoundAndAutoSubmit(roomCode) {
     else {
         console.warn(`[FinalizeRound] Could not perform auto-submissions for room ${roomCode}. Conditions not met: players array exists: ${!!room.players}, currentQuestionIndex defined: ${room.currentQuestionIndex !== undefined && room.currentQuestionIndex !== null}`);
     }
+    // Handle GM auto-submit in community voting mode if they haven't submitted
+    if (room.isCommunityVotingMode && room.gamemasterPersistentId) {
+        if (!room.roundAnswers || !room.roundAnswers[room.gamemasterPersistentId]) {
+            console.log(`[FinalizeRound] Auto-submitting for GM in community voting mode for room ${roomCode}`);
+            const gmAutoAnswer = {
+                playerId: room.gamemasterSocketId || 'gamemaster',
+                persistentPlayerId: room.gamemasterPersistentId,
+                playerName: 'GameMaster (Playing)',
+                answer: '-', // Auto-submitted
+                hasDrawing: !!room.gameMasterBoardData,
+                drawingData: room.gameMasterBoardData || null,
+                timestamp: Date.now(),
+                isCorrect: null
+            };
+            if (!room.roundAnswers)
+                room.roundAnswers = {};
+            room.roundAnswers[room.gamemasterPersistentId] = gmAutoAnswer;
+            // Also update GM's player record if they exist in players array
+            const gmPlayerRecord = room.players.find(p => p.persistentPlayerId === room.gamemasterPersistentId);
+            if (gmPlayerRecord) {
+                if (!gmPlayerRecord.answers)
+                    gmPlayerRecord.answers = [];
+                while (gmPlayerRecord.answers.length <= room.currentQuestionIndex) {
+                    gmPlayerRecord.answers.push(undefined);
+                }
+                gmPlayerRecord.answers[room.currentQuestionIndex] = gmAutoAnswer;
+                console.log(`[FinalizeRound] Updated GM's player record with auto-submitted answer`);
+            }
+        }
+    }
     broadcastGameState(roomCode);
     console.log(`[FinalizeRound] Game state broadcasted for room ${roomCode} after finalization.`);
+    // Add a small delay to ensure game state is fully processed before starting preview mode
+    setTimeout(() => {
+        // ALWAYS trigger preview mode after auto-submissions - this is crucial for proper flow
+        console.log(`[FinalizeRound] Starting preview mode for room ${roomCode} after automatic submissions (submissionPhaseOver: ${room.submissionPhaseOver}, isCommunityVotingMode: ${room.isCommunityVotingMode})`);
+        const currentIO = getIO();
+        currentIO.to(roomCode).emit('start_preview_mode');
+        console.log(`[FinalizeRound] Preview mode event emitted for room ${roomCode}`);
+    }, 150); // 150ms delay to ensure game state is processed
 }
 /**
  * Helper function to conclude game and send recap to all

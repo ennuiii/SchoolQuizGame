@@ -868,7 +868,9 @@ io.on('connection', (socket: ExtendedSocket) => {
       // Start timer for the first question if a specific time limit is set
       if (room.timeLimit && room.timeLimit < 99999) {
         console.log(`[SERVER] Starting timer for first question in room ${roomCode} with limit ${room.timeLimit}`);
-        startQuestionTimer(roomCode);
+        setTimeout(() => {
+          startQuestionTimer(roomCode);
+        }, QUESTION_COUNTDOWN_DURATION_MS);
       }
 
     } catch (error: any) {
@@ -1197,7 +1199,7 @@ io.on('connection', (socket: ExtendedSocket) => {
       console.log(`[Server Socket SubmitAnswer Check] Room: ${roomCode}, Submitter: ${effectivePersistentPlayerId}, IsGMPlaying: ${isGMSubmittingInCommunityMode}`);
       console.log(`[Server Socket SubmitAnswer Check] Expected PIDs (${expectedParticipantPIds.length}): ${JSON.stringify(expectedParticipantPIds)}`);
       console.log(`[Server Socket SubmitAnswer Check] roundAnswers Keys (${Object.keys(room.roundAnswers).length}): ${JSON.stringify(Object.keys(room.roundAnswers))}`);
-      console.log(`[Server Socket SubmitAnswer Check] allHaveSubmitted: ${allHaveSubmitted}`);
+      console.log(`[Server Socket SubmitAnswer Check] allHaveSubmitted: ${allHaveSubmitted}, submissionPhaseOver: ${room.submissionPhaseOver}`);
 
       if (allHaveSubmitted) {
         console.log(`[Server Socket SubmitAnswer] All ${expectedParticipantPIds.length} expected participants have submitted for room ${roomCode}.`);
@@ -1207,8 +1209,14 @@ io.on('connection', (socket: ExtendedSocket) => {
             clearRoomTimer(roomCode); 
             broadcastGameState(roomCode); // Broadcast updated submissionPhaseOver
             
-            const currentIO = getIO();
-            currentIO.to(roomCode).emit('start_preview_mode');
+            // Add a small delay to ensure game state is processed before starting preview
+            setTimeout(() => {
+              const currentIO = getIO();
+              currentIO.to(roomCode).emit('start_preview_mode');
+              console.log(`[Server Socket SubmitAnswer] Preview mode started for room ${roomCode}`);
+            }, 100); // 100ms delay
+        } else {
+          console.log(`[Server Socket SubmitAnswer] All answers submitted but submission phase already over for room ${roomCode}`);
         }
       } else {
         console.log(`[Server Socket SubmitAnswer] Still waiting for ${expectedParticipantPIds.length - Object.keys(room.roundAnswers).length} answers.`);
@@ -1363,12 +1371,24 @@ io.on('connection', (socket: ExtendedSocket) => {
     }
     const room = gameRooms[roomCode];
     if (room.currentQuestionIndex < room.questions.length - 1) {
+      // Stop preview mode before moving to next question - this ensures overlay closes
+      console.log(`[Server] Stopping preview mode before next question in room ${roomCode}`);
+      const currentIO = getIO();
+      currentIO.to(roomCode).emit('stop_preview_mode');
+      
       room.currentQuestionIndex += 1;
       room.currentQuestion = room.questions[room.currentQuestionIndex];
       room.questionStartTime = Date.now();
       room.submissionPhaseOver = false;
       room.roundAnswers = {};
       room.evaluatedAnswers = {};
+      
+      // Clear community voting data if applicable
+      if (room.isCommunityVotingMode) {
+        room.votes = {};
+        room.gameMasterBoardData = null;
+        console.log(`[Server] Cleared community voting data for next question in room ${roomCode}`);
+      }
       
       // Reset points tracking for new question
       if (room.isPointsMode) {
@@ -1397,7 +1417,6 @@ io.on('connection', (socket: ExtendedSocket) => {
       clearRoomTimer(roomCode);
       // DELAY TIMER START
       broadcastGameState(roomCode); // Broadcasts full state including new question
-      const currentIO = getIO();
       currentIO.to(roomCode).emit('new_question', { question: room.currentQuestion, timeLimit: room.timeLimit || 0 });
       if (room.timeLimit && room.timeLimit < 99999) {
         setTimeout(() => {
@@ -2213,7 +2232,11 @@ io.on('connection', (socket: ExtendedSocket) => {
           }
         });
         clearRoomTimer(roomCode);
-        if (room.timeLimit && room.timeLimit < 99999) startQuestionTimer(roomCode);
+        if (room.timeLimit && room.timeLimit < 99999) {
+          setTimeout(() => {
+            startQuestionTimer(roomCode);
+          }, QUESTION_COUNTDOWN_DURATION_MS);
+        }
         broadcastGameState(roomCode); 
         getIO().to(roomCode).emit('new_question', { question: room.currentQuestion, timeLimit: room.timeLimit || 0 });
       } 
@@ -2421,7 +2444,11 @@ io.on('connection', (socket: ExtendedSocket) => {
         
         // Handle timer if needed
         clearRoomTimer(roomCode);
-        if (room.timeLimit && room.timeLimit < 99999) startQuestionTimer(roomCode);
+        if (room.timeLimit && room.timeLimit < 99999) {
+          setTimeout(() => {
+            startQuestionTimer(roomCode);
+          }, QUESTION_COUNTDOWN_DURATION_MS);
+        }
         
         // Broadcast updates
         broadcastGameState(roomCode);

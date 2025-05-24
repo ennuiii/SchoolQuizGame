@@ -831,6 +831,12 @@ export const GameProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Explicitly reset answers for new question to ensure drawing isn't disabled
         console.log('[GameContext] Explicitly clearing allAnswersThisRound in newQuestionHandler');
         setAllAnswersThisRound({});
+        
+        // Ensure preview overlay is closed when new question starts (client-side safety net)
+        if (previewMode.isActive) {
+            console.log('[GameContext] Auto-closing preview overlay for new question');
+            setPreviewMode({ isActive: false, focusedPlayerId: null });
+        }
     };
     const errorHandler = (error: string) => { setQuestionErrorMsg(error); setTimeout(() => setQuestionErrorMsg(''), 3000); };
     const gameOverHandler = () => { setGameOver(true); setIsTimerRunning(false); };
