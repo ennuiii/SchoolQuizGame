@@ -48,6 +48,7 @@ interface Player {
   isActive: boolean;
   isSpectator: boolean;
   isEliminated?: boolean; // Track if player is eliminated but chose to stay
+  avatarSvg?: string; // Avatar SVG data
 }
 
 export interface PlayerBoard {

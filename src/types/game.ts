@@ -36,7 +36,7 @@ export interface Player {
   isActive: boolean;
   isSpectator: boolean;
   isEliminated?: boolean;
-  avatarSvg?: string | null;
+  avatarSvg?: string;
 }
 
 export interface PlayerBoard {
